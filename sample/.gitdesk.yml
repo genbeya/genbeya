@@ -1,0 +1,9 @@
+name: Atlas
+wikiRoot: docs
+wikiHome: Home.md
+taskRoot: tasks
+statuses:
+  - backlog
+  - in-progress
+  - review
+  - done
