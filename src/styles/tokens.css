@@ -1,0 +1,96 @@
+/* Design tokens. Dark is the default; light follows prefers-color-scheme,
+   which the main process drives from the theme preference. */
+:root {
+  color-scheme: dark;
+
+  --font-ui: "Inter Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "Cascadia Code", Consolas, monospace;
+
+  --bg-app: #0f1012;
+  --bg-panel: #16171a;
+  --bg-raised: #1c1d21;
+  --bg-overlay: #202126;
+  --bg-input: #121316;
+  --bg-hover: rgb(255 255 255 / 0.045);
+  --bg-active: rgb(255 255 255 / 0.075);
+  --bg-selected: rgb(124 127 242 / 0.16);
+  --bg-code: #111215;
+
+  --line: rgb(255 255 255 / 0.065);
+  --line-strong: rgb(255 255 255 / 0.11);
+
+  --text: #e8e8ea;
+  --text-2: #a2a3ab;
+  --text-3: #6f707a;
+
+  --accent: #7c7ff2;
+  --accent-hover: #8e91f6;
+  --accent-soft: rgb(124 127 242 / 0.14);
+  --accent-text: #a9abff;
+  --on-accent: #ffffff;
+
+  --red: #ec6a6a;
+  --red-soft: rgb(236 106 106 / 0.13);
+  --orange: #e8955a;
+  --yellow: #ddb345;
+  --yellow-soft: rgb(221 179 69 / 0.13);
+  --green: #4cb782;
+  --green-soft: rgb(76 183 130 / 0.13);
+  --blue: #5e9eef;
+  --blue-soft: rgb(94 158 239 / 0.13);
+  --purple: #a77ee6;
+  --gray: #8b8c96;
+
+  --shadow-pop: 0 0 0 1px var(--line-strong), 0 12px 32px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25);
+
+  --radius-s: 5px;
+  --radius: 7px;
+  --radius-l: 10px;
+
+  --sidebar-width: 236px;
+  --header-height: 46px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg-app: #f3f3f5;
+    --bg-panel: #ffffff;
+    --bg-raised: #ffffff;
+    --bg-overlay: #ffffff;
+    --bg-input: #ffffff;
+    --bg-hover: rgb(20 20 40 / 0.045);
+    --bg-active: rgb(20 20 40 / 0.075);
+    --bg-selected: rgb(91 95 224 / 0.11);
+    --bg-code: #f6f6f8;
+
+    --line: rgb(20 20 40 / 0.085);
+    --line-strong: rgb(20 20 40 / 0.14);
+
+    --text: #1c1d21;
+    --text-2: #5f6069;
+    --text-3: #8d8e97;
+
+    --accent: #5b5fe0;
+    --accent-hover: #4b4fd4;
+    --accent-soft: rgb(91 95 224 / 0.1);
+    --accent-text: #4b4fd4;
+
+    --red: #d64545;
+    --red-soft: rgb(214 69 69 / 0.09);
+    --orange: #d97a34;
+    --yellow: #b8891a;
+    --yellow-soft: rgb(184 137 26 / 0.1);
+    --green: #2a9a63;
+    --green-soft: rgb(42 154 99 / 0.1);
+    --blue: #3b7fd9;
+    --blue-soft: rgb(59 127 217 / 0.1);
+    --purple: #8a5cd6;
+    --gray: #8b8c96;
+
+    --shadow-pop: 0 0 0 1px var(--line-strong), 0 12px 32px rgb(20 20 40 / 0.14), 0 2px 6px rgb(20 20 40 / 0.06);
+    --shadow-card: 0 1px 2px rgb(20 20 40 / 0.06);
+  }
+}

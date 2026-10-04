@@ -1,0 +1,17 @@
+.editor {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.editor > section {
+  position: absolute !important;
+  inset: 0;
+}
+
+.editor-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+}

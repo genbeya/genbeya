@@ -1,0 +1,11 @@
+name: GitDesk
+wikiRoot: docs
+wikiHome: Home.md
+taskRoot: tasks
+taskPrefix: GENBEYA
+statuses:
+  - backlog
+  - todo
+  - in-progress
+  - review
+  - done
