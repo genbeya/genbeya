@@ -64,6 +64,9 @@ const initials = (s: string) =>
     .slice(0, 2)
     .join("")
     .toUpperCase();
+// Generated UUIDs are abbreviated; human-chosen IDs such as PROJ-1234 are shown whole.
+const shortId = (id: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id) ? id.slice(0, 8) : id;
 const taskInput = (t: Task): TaskInput => ({
   title: t.title,
   status: t.status,
@@ -269,6 +272,7 @@ export default function App() {
   const [task, setTask] = useState<Task | null>(null);
   const [taskForm, setTaskForm] = useState<TaskInput | null>(null);
   const [labels, setLabels] = useState("");
+  const [taskBase, setTaskBase] = useState("");
   const [diff, setDiff] = useState<Diff | null>(null);
   const [diffStaged, setDiffStaged] = useState(false);
   const [gitTab, setGitTab] = useState<"changes" | "history">("changes");
@@ -310,15 +314,26 @@ export default function App() {
   };
   const leave = () =>
     !dirty || window.confirm("Discard unsaved editor changes?");
-  const openFile = async (path: string, edit = false) => {
-    if (!leave()) return;
-    await run(async () => {
+  const load = (path: string, edit: boolean) =>
+    run(async () => {
       const f = await api.read(path);
       setFile(f);
       setDraft(f.content);
       setGroup(null);
       setEditing(edit);
     });
+  const openFile = async (path: string, edit = false) => {
+    if (leave()) await load(path, edit);
+  };
+  const openLink = (target: string) => {
+    // Wiki links often omit `.md` or point at a page's directory.
+    if (!target.split("/").pop()!.includes(".")) target += ".md";
+    if (target.endsWith(".md")) return void openFile(target);
+    if (!leave()) return;
+    setView("code");
+    setQuery("");
+    setDiff(null);
+    void load(target, true);
   };
   const changeView = (next: View) => {
     if (next === view) return;
@@ -370,10 +385,16 @@ export default function App() {
   };
   useEffect(() => {
     if (!snapshot) return;
-    const timer = setInterval(() => {
-      void refresh().catch(() => {});
-    }, 8000);
-    return () => clearInterval(timer);
+    const tick = () => {
+      if (!document.hidden) void refresh().catch(() => {});
+    };
+    const timer = setInterval(tick, 8000);
+    // Pick up edits made in other tools as soon as the user comes back.
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", tick);
+    };
   }, [Boolean(snapshot), refresh]);
   useEffect(() => {
     const before = (e: BeforeUnloadEvent) => {
@@ -398,6 +419,31 @@ export default function App() {
       await refresh();
       setNotice("Saved to the working tree");
     });
+  const save = () => {
+    if (dirty && !busy) void saveFile();
+  };
+  useEffect(() => {
+    const keydown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        save();
+      } else if (
+        e.key === "/" &&
+        !(e.target as HTMLElement | null)?.closest?.(
+          "input, textarea, select, [contenteditable], .monaco-editor",
+        )
+      ) {
+        const search =
+          document.querySelector<HTMLInputElement>(".search input");
+        if (search) {
+          e.preventDefault();
+          search.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", keydown);
+    return () => document.removeEventListener("keydown", keydown);
+  });
   const openWiki = (node: WikiNode) => {
     if (node.path) void openFile(node.path);
     else if (leave()) {
@@ -406,21 +452,31 @@ export default function App() {
       setDraft("");
     }
   };
-  const openTask = (value?: Task) => {
+  const openTask = (value?: Task, status?: string) => {
+    const form = value
+      ? taskInput(value)
+      : {
+          title: "",
+          status: status ?? snapshot!.settings.statuses[0],
+          priority: "medium",
+          assignee: "",
+          labels: [],
+          body: "",
+        };
+    const labelText = value?.labels.join(", ") ?? "";
     setTask(value ?? null);
-    setTaskForm(
-      value
-        ? taskInput(value)
-        : {
-            title: "",
-            status: snapshot!.settings.statuses[0],
-            priority: "medium",
-            assignee: "",
-            labels: [],
-            body: "",
-          },
-    );
-    setLabels(value?.labels.join(", ") ?? "");
+    setTaskForm(form);
+    setLabels(labelText);
+    setTaskBase(JSON.stringify([form, labelText]));
+  };
+  const closeTask = () => {
+    if (busy) return;
+    if (
+      JSON.stringify([taskForm, labels]) !== taskBase &&
+      !window.confirm("Discard changes to this task?")
+    )
+      return;
+    setTaskForm(null);
   };
   const saveTask = () =>
     run(async () => {
@@ -464,11 +520,13 @@ export default function App() {
       void switchRepo("cloneRepository", text);
     } else if (modal === "page") {
       void run(async () => {
-        const path =
-          snapshot!.settings.wikiRoot + "/" + text.replace(/\.md$/, "") + ".md";
+        const name = text
+          .trim()
+          .replace(/^\/+|\/+$/g, "")
+          .replace(/\.md$/, "");
         const f = await api.createPage(
-          path,
-          text.split("/").pop()!.replace(/\.md$/, ""),
+          snapshot!.settings.wikiRoot + "/" + name + ".md",
+          name.split("/").pop()!,
         );
         setFile(f);
         setDraft(f.content);
@@ -527,7 +585,7 @@ export default function App() {
                 return;
               }
               try {
-                void openFile(resolveLink(current, href));
+                openLink(resolveLink(current, href));
               } catch {
                 setError("Invalid page link.");
               }
@@ -947,6 +1005,7 @@ export default function App() {
                             path={file.path}
                             value={draft}
                             onChange={setDraft}
+                            onSave={save}
                           />
                         </div>
                       ) : (
@@ -1065,12 +1124,7 @@ export default function App() {
                               !snapshot.settings.statuses.includes(status)
                             }
                             className="icon-button"
-                            onClick={() => {
-                              openTask();
-                              setTaskForm((old) =>
-                                old ? { ...old, status } : old,
-                              );
-                            }}
+                            onClick={() => openTask(undefined, status)}
                           >
                             <Plus size={15} />
                           </button>
@@ -1087,9 +1141,7 @@ export default function App() {
                               onClick={() => openTask(t)}
                             >
                               <div className="task-id">
-                                {t.id.includes("-") && t.id.startsWith("ATL")
-                                  ? t.id
-                                  : t.id.slice(0, 8)}
+                                {shortId(t.id)}
                                 <MoreHorizontal size={14} />
                               </div>
                               <h3>{t.title}</h3>
@@ -1163,6 +1215,7 @@ export default function App() {
                           path={file.path}
                           value={draft}
                           onChange={setDraft}
+                          onSave={save}
                         />
                       </div>
                     </>
@@ -1695,7 +1748,7 @@ export default function App() {
         <Modal
           title={task ? "Edit task" : "Create a task"}
           wide
-          onClose={() => !busy && setTaskForm(null)}
+          onClose={closeTask}
         >
           <form
             onSubmit={(e) => {

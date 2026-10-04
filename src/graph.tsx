@@ -19,12 +19,13 @@ export function CommitGraph({
   const active: string[] = [];
   const rows = commits.map((commit, index) => {
     let lane = active.indexOf(commit.hash);
+    // A branch tip has no child above it, so no line enters its lane from the top.
+    const before = [...active];
     if (lane < 0) {
       lane = active.indexOf("");
       if (lane < 0) lane = active.length;
       active[lane] = commit.hash;
     }
-    const before = [...active];
     active[lane] = "";
     const edges: { from: number; to: number; color: string }[] = [];
     commit.parents.forEach((parent, p) => {

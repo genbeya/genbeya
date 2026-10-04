@@ -1,7 +1,17 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync } from "node:fs";
-const run = (cmd, args) =>
-  spawn(cmd, args, { stdio: "inherit", shell: process.platform === "win32" });
+const windows = process.platform === "win32";
+const run = (cmd, args) => spawn(cmd, args, { stdio: "inherit", shell: windows });
+// On Windows `shell` wraps the process in cmd.exe; kill the whole tree so Vite
+// does not keep port 5173 (strictPort) busy for the next `npm run dev`.
+const stop = (child) => {
+  if (child.exitCode !== null) return;
+  if (windows)
+    spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+      stdio: "ignore",
+    });
+  else child.kill();
+};
 const compile = run("npx", ["tsc", "-p", "tsconfig.electron.json"]);
 await new Promise((resolve, reject) =>
   compile.on("exit", (code) =>
@@ -18,7 +28,7 @@ while (true) {
     break;
   } catch {
     if (Date.now() > deadline) {
-      vite.kill();
+      stop(vite);
       throw new Error("Vite did not start");
     }
     await new Promise((r) => setTimeout(r, 200));
@@ -27,12 +37,12 @@ while (true) {
 process.env.GITDESK_DEV = "1";
 const electron = run("npx", ["electron", "."]);
 electron.on("exit", () => {
-  vite.kill();
+  stop(vite);
   process.exit();
 });
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
-    electron.kill();
-    vite.kill();
+    stop(electron);
+    stop(vite);
     process.exit();
   });

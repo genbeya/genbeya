@@ -5,6 +5,7 @@ import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import CssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import HtmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import TsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
+import { useEffect, useRef } from "react";
 import type { Diff } from "../shared/types";
 (self as any).MonacoEnvironment = {
   getWorker(_: string, label: string) {
@@ -51,17 +52,29 @@ export function SourceEditor({
   path,
   value,
   onChange,
+  onSave,
 }: {
   path: string;
   value: string;
   onChange: (v: string) => void;
+  onSave?: () => void;
 }) {
+  // Monaco swallows handled keys, so Ctrl/Cmd+S is bound inside the editor too.
+  const save = useRef(onSave);
+  useEffect(() => {
+    save.current = onSave;
+  });
   return (
     <Editor
       path={path}
       language={language(path)}
       value={value}
       onChange={(v) => onChange(v ?? "")}
+      onMount={(editor) =>
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
+          save.current?.(),
+        )
+      }
       theme="vs"
       options={options}
       loading={<div className="empty">Loading editor…</div>}

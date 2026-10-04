@@ -34,6 +34,8 @@ Choose **Explore a demo** to create a sample repository in a folder you select. 
 - Generic remote configuration, fetch, fast-forward-only pull, and push with upstream setup.
 - Versioned project settings in `.gitdesk.yml`.
 - Stale-save detection for files, tasks, and settings, plus serialized repository operations.
+- Keyboard shortcuts: `Ctrl/Cmd+S` saves the open file; `/` focuses the search box.
+- Wiki links may omit `.md` or point at a page directory; links to non-Markdown files open in the code editor.
 
 ## Repository conventions
 
@@ -100,7 +102,7 @@ Saving changes writes to the working tree. It does not stage, commit, or push au
 
 Production assets load from a restricted, standard `gitdesk://app` origin so bundled editor workers can use the same origin. The renderer runs with sandboxing and context isolation, without Node integration. Navigation, popups, and permission requests are blocked. Repository-relative paths are validated; `.git` and symlinks cannot be edited. Markdown raw HTML is not rendered, remote images are disabled, and external links are not opened by this POC.
 
-The POC derives its wiki/task index in memory and refreshes repository metadata every eight seconds. It intentionally does not yet introduce SQLite. Open editor buffers are retained; reload a file to pick up an external edit. Stale saves are rejected with the draft retained. The check detects intervening writes but is not a cross-process filesystem transaction or lock against an external editor writing at the exact same time.
+The POC derives its wiki/task index in memory and refreshes repository metadata every eight seconds while the window is visible, and immediately when it regains focus. It intentionally does not yet introduce SQLite. Open editor buffers are retained; reload a file to pick up an external edit. Stale saves are rejected with the draft retained. The check detects intervening writes but is not a cross-process filesystem transaction or lock against an external editor writing at the exact same time.
 
 ## Checks and installers
 
@@ -113,7 +115,7 @@ npm run package
 
 Repository tests use disposable repositories and cover wiki mapping, task persistence and metadata preservation, stale writes, path validation, malformed metadata, settings, rename staging, unborn repositories, branches, history, and local-remote fetch/pull/push.
 
-The UI interaction test uses jsdom and the real repository engine; Monaco is replaced by a text-control test double. It covers wiki creation, task creation and status changes (including drag/drop), source saves, staging and commits, history, and settings. Type checks, 12 engine/asset integration tests, the UI interaction test, and the production build were verified in the build environment. Electron/Chromium could not launch in that environment; native dialogs, packaged app launch, visual layout, and Monaco runtime behavior require a workstation smoke test.
+The UI interaction test uses jsdom and the real repository engine; Monaco is replaced by a text-control test double. It covers wiki creation, task creation and status changes (including drag/drop), source saves, staging and commits, history, and settings. Type checks, 18 engine/asset integration tests, the UI interaction test, and the production build were verified in the build environment. Electron/Chromium could not launch in that environment; native dialogs, packaged app launch, visual layout, and Monaco runtime behavior require a workstation smoke test.
 
 `npm run package` invokes electron-builder for your host OS (macOS DMG, Windows NSIS, Linux AppImage). Build on the target operating system. Signing, notarization, auto-update, and release distribution are not configured. The delivered source archive is not a signed installer.
 
@@ -122,7 +124,7 @@ The UI interaction test uses jsdom and the real repository engine; Monaco is rep
 - Single-user local workspace; Git synchronization provides collaboration. No simultaneous multiplayer editing, notifications, permissions per page/task, or Jira-style workflow automation.
 - Wiki/tasks follow the checked-out branch. Separate documentation or management branches are not implemented.
 - Latest 200 commits; graph parents beyond that boundary are not loaded.
-- File tree limited to 10,000 entries and depth 30. Common generated/dependency directories are omitted; arbitrary `.gitignore` patterns are not used to hide explorer entries.
+- File tree limited to 10,000 entries and depth 30. Entries ignored by Git (`.gitignore`, `.git/info/exclude`, global excludes) and `node_modules` are hidden from the explorer, wiki, and task board.
 - No file/page deletion, rename UI, attachment viewer, integrated terminal, LSP servers, remote branch checkout, stash/rebase UI, or dedicated merge-conflict editor. Edit conflict markers in the code editor and use Git in a terminal for advanced recovery.
 - Board search filters metadata; wiki and code search filter tree names. Full-content search is a follow-up.
 - SSH/HTTPS host authentication and provider-specific behavior still need testing on a developer workstation.

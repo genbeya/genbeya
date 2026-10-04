@@ -256,3 +256,76 @@ test("renderer asset routes stay within the bundled UI", async () => {
   ])
     assert.throws(() => resolveAsset(root, url));
 });
+
+test("paths are literal: staging a glob-like name stages only that file", async (t) => {
+  const { engine, root } = await fixture(t);
+  await fs.writeFile(path.join(root, "[ab].txt"), "literal");
+  await fs.writeFile(path.join(root, "a.txt"), "other");
+  await engine.stage("[ab].txt");
+  const changes = (await engine.snapshot()).changes;
+  assert.equal(changes.find((c) => c.path === "[ab].txt")!.index, "A");
+  assert.equal(changes.find((c) => c.path === "a.txt")!.index, "?");
+});
+test("Windows aliases of .git are rejected", async (t) => {
+  const { engine } = await fixture(t);
+  for (const p of [".git./config", ".GIT /config", "docs/.git../x"])
+    await assert.rejects(engine.save(p, "bad", null), /\.git is protected/);
+  if (process.platform === "win32")
+    for (const p of ["GIT~1/config", "code.ts:stream", "docs/Home.md."])
+      await assert.rejects(engine.save(p, "bad", null), /\.git is protected/);
+});
+test("merge commits list and diff files against their first parent", async (t) => {
+  const { engine, root, git } = await fixture(t);
+  await git("switch", "-c", "feature");
+  await fs.writeFile(path.join(root, "feature.md"), "feature");
+  await git("add", ".");
+  await git("commit", "-m", "Feature");
+  await git("switch", "main");
+  await fs.writeFile(path.join(root, "main.md"), "main");
+  await git("add", ".");
+  await git("commit", "-m", "Main");
+  await git("merge", "--no-ff", "feature", "-m", "Merge");
+  const merge = (await engine.snapshot()).commits[0];
+  assert.equal(merge.parents.length, 2);
+  assert.deepEqual(await engine.commitFiles(merge.hash), ["feature.md"]);
+  const diff = await engine.diff("feature.md", false, merge.hash);
+  assert.equal(diff.original, "");
+  assert.equal(diff.modified, "feature");
+});
+test("a malformed settings file falls back to defaults and can be overwritten", async (t) => {
+  const { engine, root } = await fixture(t);
+  await fs.writeFile(path.join(root, ".gitdesk.yml"), "name: [broken\n");
+  const s = await engine.snapshot();
+  assert.equal(s.settings.wikiRoot, "docs");
+  assert.match(s.warnings[0], /\.gitdesk\.yml/);
+  assert.equal(s.wiki.length > 0, true);
+  await engine.saveSettings({ ...s.settings, name: "Fixed" }, s.settingsHash);
+  const fixed = await engine.snapshot();
+  assert.equal(fixed.settings.name, "Fixed");
+  assert.deepEqual(fixed.warnings, []);
+});
+test("git-ignored entries are hidden and duplicate task IDs are reported", async (t) => {
+  const { engine, root } = await fixture(t);
+  await fs.writeFile(path.join(root, ".gitignore"), "build/\n*.log\n");
+  await fs.mkdir(path.join(root, "build"));
+  await fs.writeFile(path.join(root, "build/out.js"), "");
+  await fs.writeFile(path.join(root, "debug.log"), "");
+  const task = "---\nid: X-1\ntitle: T\nstatus: backlog\n---\n";
+  await fs.writeFile(path.join(root, "tasks/a.md"), task);
+  await fs.writeFile(path.join(root, "tasks/b.md"), task);
+  const s = await engine.snapshot();
+  const names = s.files.map((f) => f.name);
+  assert.equal(names.includes("build"), false);
+  assert.equal(names.includes("debug.log"), false);
+  assert.equal(names.includes(".gitignore"), true);
+  assert.equal(s.tasks.length, 2);
+  assert.match(s.warnings.join("\n"), /X-1 is also used by tasks\/a\.md/);
+});
+test("creating an existing page reports a clear conflict", async (t) => {
+  const { engine } = await fixture(t);
+  await assert.rejects(
+    engine.createPage("docs/Home.md", "Home"),
+    /docs\/Home\.md already exists/,
+  );
+  await assert.rejects(engine.read("docs/Missing.md"), /does not exist/);
+});

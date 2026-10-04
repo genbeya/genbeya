@@ -34,6 +34,12 @@ const bounded = (v: unknown, label: string, max = 200) => {
     throw new Error(`Invalid ${label}.`);
   return v;
 };
+// Windows ignores trailing dots/spaces and resolves 8.3 short names, so `.git.`,
+// `.git ` and `GIT~1` can all address the .git directory; `:` selects NTFS streams.
+const windows = process.platform === "win32";
+const protectedSegment = (p: string) =>
+  p.replace(/[. ]+$/, "").toLowerCase() === ".git" ||
+  (windows && (/^git~\d+$/i.test(p) || /[. ]$/.test(p) || p.includes(":")));
 export function relativePath(v: unknown): string {
   const s = bounded(v, "repository path", 4096);
   if (
@@ -43,7 +49,7 @@ export function relativePath(v: unknown): string {
     s.includes("\\") ||
     s
       .split("/")
-      .some((p) => !p || p === ".." || p === "." || p.toLowerCase() === ".git")
+      .some((p) => !p || p === ".." || p === "." || protectedSegment(p))
   )
     throw new Error(
       "Use a relative path within the repository; .git is protected.",
@@ -146,11 +152,22 @@ export class RepositoryEngine {
   }
   static async open(folder: string) {
     const location = await fs.realpath(folder);
-    const result = await exec(
-      "git",
-      ["-C", location, "rev-parse", "--show-toplevel"],
-      { timeout: 10000 },
-    );
+    let result;
+    try {
+      result = await exec(
+        "git",
+        ["-C", location, "rev-parse", "--show-toplevel"],
+        { timeout: 10000 },
+      );
+    } catch (error: any) {
+      if (error.code === "ENOENT")
+        throw new Error("Git was not found. Install Git and add it to PATH.");
+      throw new Error(
+        /not a git repository/i.test(String(error.stderr))
+          ? "The selected folder is not inside a Git repository."
+          : String(error.stderr || error.message).trim(),
+      );
+    }
     return new RepositoryEngine(await fs.realpath(result.stdout.trim()));
   }
   async exclusive<T>(operation: () => Promise<T>): Promise<T> {
@@ -175,7 +192,12 @@ export class RepositoryEngine {
           encoding: "utf8",
           timeout: 90000,
           maxBuffer: 16 * 1024 * 1024,
-          env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+          // Paths are file names, never globs or `:(magic)` pathspecs.
+          env: {
+            ...process.env,
+            GIT_TERMINAL_PROMPT: "0",
+            GIT_LITERAL_PATHSPECS: "1",
+          },
         },
       );
       return stdout;
@@ -197,8 +219,11 @@ export class RepositoryEngine {
             "Symbolic links cannot be read or edited in this proof of concept.",
           );
       } catch (error: any) {
-        if (error.code === "ENOENT" && creating) continue;
-        throw error;
+        if (error.code !== "ENOENT") throw error;
+        if (creating) continue;
+        throw Object.assign(new Error(`${rel} does not exist.`), {
+          code: "ENOENT",
+        });
       }
     }
     return absolute;
@@ -236,6 +261,8 @@ export class RepositoryEngine {
     } catch (error: any) {
       if (error.code !== "ENOENT") throw error;
     }
+    if (actual !== null && expectedHash === null)
+      throw new Error(`${v} already exists.`);
     if (actual !== expectedHash)
       throw new Error(
         "This file changed on disk. Reload it before saving; your unsaved text is still in the editor.",
@@ -253,43 +280,71 @@ export class RepositoryEngine {
   private async settings(): Promise<{
     settings: Settings;
     settingsHash: string | null;
+    error?: string;
   }> {
+    const fallback = { ...DEFAULTS, name: path.basename(this.root) };
+    let file: FileContent;
     try {
-      const file = await this.read(".gitdesk.yml");
-      const data = YAML.parse(file.content);
+      file = await this.read(".gitdesk.yml");
+    } catch (error: any) {
+      if (error.code !== "ENOENT") throw error;
+      return { settings: fallback, settingsHash: null };
+    }
+    // A broken settings file must not lock the user out of the settings screen.
+    try {
+      const document = YAML.parseDocument(file.content);
+      if (document.errors.length) throw document.errors[0];
+      const data = document.toJS() ?? {};
+      if (typeof data !== "object" || Array.isArray(data))
+        throw new Error("Settings must be a YAML mapping.");
       return {
         settings: validateSettings({ ...DEFAULTS, ...data }),
         settingsHash: file.hash,
       };
     } catch (error: any) {
-      if (error.code !== "ENOENT") throw error;
       return {
-        settings: { ...DEFAULTS, name: path.basename(this.root) },
-        settingsHash: null,
+        settings: fallback,
+        settingsHash: file.hash,
+        error: `.gitdesk.yml: ${error.message} Using defaults until it is fixed.`,
       };
     }
   }
   async saveSettings(settings: Settings, expectedHash: string | null) {
     const valid = validateSettings(settings);
     let doc = YAML.parseDocument("");
-    if (expectedHash !== null)
-      doc = YAML.parseDocument((await this.read(".gitdesk.yml")).content);
+    if (expectedHash !== null) {
+      const existing = YAML.parseDocument(
+        (await this.read(".gitdesk.yml")).content,
+      );
+      if (!existing.errors.length && YAML.isMap(existing.contents))
+        doc = existing;
+    }
     for (const [key, value] of Object.entries(valid)) doc.set(key, value);
     await this.save(".gitdesk.yml", doc.toString(), expectedHash);
   }
   async snapshot(): Promise<Snapshot> {
-    const { settings, settingsHash } = await this.settings();
-    const warnings: string[] = [];
-    const excluded = new Set([
-      ".git",
-      "node_modules",
-      "dist",
-      "dist-electron",
-      "release",
-      ".next",
-      ".cache",
-      "vendor",
-    ]);
+    const { settings, settingsHash, error } = await this.settings();
+    const warnings: string[] = error ? [error] : [];
+    const excluded = new Set([".git", "node_modules"]);
+    // Ignored directories are reported once (`dir/`) rather than file by file.
+    const ignored = new Set(
+      (
+        await this.git(
+          [
+            "ls-files",
+            "-z",
+            "--others",
+            "--ignored",
+            "--exclude-standard",
+            "--directory",
+          ],
+          true,
+        )
+      )
+        .split("\0")
+        .filter(Boolean)
+        .map((p) => p.replace(/\/$/, "")),
+    );
     let count = 0;
     const tree = async (dir: string, depth = 0): Promise<FileNode[]> => {
       if (depth > 30) return [];
@@ -307,13 +362,14 @@ export class RepositoryEngine {
           a.name.localeCompare(b.name),
       )) {
         if (excluded.has(entry.name) || entry.isSymbolicLink()) continue;
+        const full = path.join(dir, entry.name),
+          rel = slash(path.relative(this.root, full));
+        if (ignored.has(rel)) continue;
         if (++count > 10000) {
           if (!warnings.includes("File tree limited to 10,000 entries."))
             warnings.push("File tree limited to 10,000 entries.");
           break;
         }
-        const full = path.join(dir, entry.name),
-          rel = slash(path.relative(this.root, full));
         nodes.push({
           name: entry.name,
           path: rel,
@@ -335,7 +391,8 @@ export class RepositoryEngine {
       }
       return found;
     };
-    const wikiNodes = (nodes: FileNode[]): WikiNode[] => {
+    const home = settings.wikiHome.split("/").pop()!.slice(0, -3);
+    const wikiNodes = (nodes: FileNode[], top = false): WikiNode[] => {
       const directories = nodes.filter((n) => n.directory);
       const pages = nodes.filter((n) => !n.directory && n.name.endsWith(".md"));
       const result: WikiNode[] = directories.map((dir) => {
@@ -354,12 +411,10 @@ export class RepositoryEngine {
             path: page.path,
             children: [],
           });
-      return result.sort((a, b) =>
-        a.title === "Home"
-          ? -1
-          : b.title === "Home"
-            ? 1
-            : a.title.localeCompare(b.title),
+      return result.sort(
+        (a, b) =>
+          Number(top && b.title === home) - Number(top && a.title === home) ||
+          a.title.localeCompare(b.title),
       );
     };
     const taskFiles: FileNode[] = [];
@@ -371,9 +426,17 @@ export class RepositoryEngine {
     };
     gather(locate(settings.taskRoot)?.children ?? []);
     const tasks: Task[] = [];
+    const ids = new Map<string, string>();
     for (const f of taskFiles) {
       try {
-        tasks.push(taskFrom(await this.read(f.path)));
+        const task = taskFrom(await this.read(f.path));
+        const other = ids.get(task.id);
+        if (other)
+          warnings.push(
+            `${f.path}: task ID ${task.id} is also used by ${other}.`,
+          );
+        else ids.set(task.id, f.path);
+        tasks.push(task);
       } catch (error: any) {
         warnings.push(`${f.path}: ${error.message}`);
       }
@@ -409,12 +472,16 @@ export class RepositoryEngine {
           refs: parts[i + 5],
         });
     }
-    const remotes: Remote[] = [];
-    for (const name of remoteNames.trim().split("\n").filter(Boolean))
-      remotes.push({
-        name,
-        url: (await this.git(["remote", "get-url", name])).trim(),
-      });
+    const remotes: Remote[] = await Promise.all(
+      remoteNames
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map(async (name) => ({
+          name,
+          url: (await this.git(["remote", "get-url", name])).trim(),
+        })),
+    );
     return {
       repo: this.root,
       settings,
@@ -428,7 +495,7 @@ export class RepositoryEngine {
       commits,
       remotes,
       files,
-      wiki: wikiNodes(locate(settings.wikiRoot)?.children ?? []),
+      wiki: wikiNodes(locate(settings.wikiRoot)?.children ?? [], true),
       tasks,
       warnings,
     };
@@ -496,8 +563,11 @@ export class RepositoryEngine {
       original = await this.git(["show", `${commit}^:${v}`], true);
       modified = await this.git(["show", `${commit}:${v}`], true);
       patch = await this.git([
-        "show",
-        "--format=",
+        "diff-tree",
+        "-p",
+        "--root",
+        "--no-commit-id",
+        "--diff-merges=first-parent",
         "--no-ext-diff",
         "--no-textconv",
         commit,
@@ -617,8 +687,9 @@ export class RepositoryEngine {
     } else if (action === "fetch") await this.git(["fetch", remote]);
     else {
       const branch = (
-        await this.git(["symbolic-ref", "--short", "HEAD"])
+        await this.git(["symbolic-ref", "--short", "HEAD"], true)
       ).trim();
+      if (!branch) throw new Error("Switch to a branch before pushing.");
       await this.git([
         "push",
         "--set-upstream",
@@ -657,13 +728,13 @@ export class RepositoryEngine {
         "--no-commit-id",
         "--name-only",
         "-r",
-        "-m",
+        // Match diff(), which compares a merge with its first parent.
+        "--diff-merges=first-parent",
         "-z",
         commit,
       ])
     )
       .split("\0")
-      .filter(Boolean)
-      .filter((v, i, a) => a.indexOf(v) === i);
+      .filter(Boolean);
   }
 }

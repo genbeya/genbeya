@@ -40,6 +40,16 @@ function trusted(event: Electron.IpcMainInvokeEvent) {
       url.pathname === "/index.html";
   if (!valid) throw new Error("Untrusted renderer URL.");
 }
+/** Plain recursive copy; unlike fs.cp it can read from a packaged app.asar. */
+async function copyTree(from: string, to: string) {
+  await fs.mkdir(to, { recursive: true });
+  for (const entry of await fs.readdir(from, { withFileTypes: true })) {
+    const source = path.join(from, entry.name),
+      target = path.join(to, entry.name);
+    if (entry.isDirectory()) await copyTree(source, target);
+    else await fs.writeFile(target, await fs.readFile(source));
+  }
+}
 async function select(folder: string) {
   engine = await RepositoryEngine.open(folder);
   token = randomUUID();
@@ -134,8 +144,20 @@ desktop("createDemo", async () => {
   });
   if (selected.canceled) return null;
   const target = path.join(selected.filePaths[0], "gitdesk-demo-" + Date.now());
-  await fs.cp(path.resolve(here, "../../sample"), target, { recursive: true });
-  const git = (args: string[]) => exec("git", args, { cwd: target });
+  await copyTree(path.resolve(here, "../../sample"), target);
+  // Global signing or hook setups must not block the throwaway demo history.
+  const git = (args: string[]) =>
+    exec(
+      "git",
+      [
+        "-c",
+        "commit.gpgsign=false",
+        "-c",
+        "core.hooksPath=" + (process.platform === "win32" ? "NUL" : "/dev/null"),
+        ...args,
+      ],
+      { cwd: target, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } },
+    );
   await git(["init", "-b", "main"]);
   await git(["config", "user.name", "GitDesk Demo"]);
   await git(["config", "user.email", "demo@gitdesk.local"]);
@@ -186,7 +208,7 @@ app.whenReady().then(() => {
     minWidth: 1000,
     minHeight: 700,
     title: "GitDesk",
-    backgroundColor: "#101318",
+    backgroundColor: "#f7f8fa",
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(here, "preload.cjs"),
@@ -198,6 +220,19 @@ app.whenReady().then(() => {
   });
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
+  // Electron silently cancels close/reload when the renderer vetoes beforeunload; ask instead.
+  window.webContents.on("will-prevent-unload", (event) => {
+    const choice = dialog.showMessageBoxSync(window, {
+      type: "question",
+      buttons: ["Discard changes", "Keep editing"],
+      defaultId: 1,
+      cancelId: 1,
+      title: "Unsaved changes",
+      message: "You have unsaved editor changes.",
+      detail: "Discard them and continue?",
+    });
+    if (choice === 0) event.preventDefault();
+  });
   window.webContents.session.setPermissionRequestHandler(
     (_webContents, _permission, callback) => callback(false),
   );
