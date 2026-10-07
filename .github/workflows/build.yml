@@ -1,0 +1,94 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            target: --win --x64
+            files: release/*.exe
+          - name: macOS
+            os: macos-latest
+            target: --mac --x64 --arm64
+            files: release/*.dmg
+          - name: Linux
+            os: ubuntu-latest
+            target: --linux --x64
+            files: release/*.AppImage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Configure Git for tests
+        run: |
+          git config --global user.name "GitDesk CI"
+          git config --global user.email "ci@gitdesk.invalid"
+          git config --global init.defaultBranch main
+
+      - run: npm ci
+
+      - run: npm test
+
+      - run: npm run build
+
+      - name: Package
+        run: npx electron-builder ${{ matrix.target }} --publish never
+        env:
+          # No signing certificates are configured; build unsigned installers.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GitDesk-${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="v$version-build.$GITHUB_RUN_NUMBER"
+          gh release create "$tag" release/* \
+            --target "$GITHUB_SHA" \
+            --title "GitDesk $version (build $GITHUB_RUN_NUMBER)" \
+            --generate-notes \
+            --latest

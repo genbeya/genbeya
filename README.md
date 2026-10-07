@@ -20,6 +20,12 @@ npm run dev
 
 Open this folder in GitDesk: its wiki documents the app and its task board is the real backlog.
 
+## Download
+
+Every push to `main` publishes a [release](https://github.com/h3ll5ur7er/gitdesk/releases) with installers for Windows (`.exe`), macOS (`.dmg`, Intel and Apple silicon) and Linux (`.AppImage`). Pull requests build the same installers as workflow artifacts.
+
+The builds are unsigned. On Windows, choose *More info → Run anyway*; on macOS, run `xattr -dr com.apple.quarantine /Applications/GitDesk.app` after installing.
+
 ## Documentation
 
 The documentation lives in [`docs/`](docs/Home.md) and is best read in GitDesk itself:

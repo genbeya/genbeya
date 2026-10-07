@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "A desktop workspace for Git repositories: wiki, tasks, code and version control",
+  "author": "Emanuel Knecht",
+  "repository": "github:h3ll5ur7er/gitdesk",
   "main": "dist-electron/electron/main.js",
   "type": "module",
   "scripts": {
@@ -59,6 +61,7 @@
   "build": {
     "appId": "dev.gitdesk.app",
     "productName": "GitDesk",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release"
     },
@@ -67,14 +70,21 @@
       "dist-electron/**/*",
       "package.json"
     ],
+    "publish": null,
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "category": "public.app-category.developer-tools"
     },
     "win": {
       "target": "nsis"
     },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "category": "Development"
     }
   }
 }
