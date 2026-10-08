@@ -1,0 +1,8 @@
+{
+  "nodeModulesDir": "none",
+  "unstable": ["sloppy-imports"],
+  "imports": { "yaml": "npm:yaml@^2.8.1" },
+  "desktop": {
+    "app": { "name": "GitDesk", "identifier": "dev.gitdesk.deno" }
+  }
+}

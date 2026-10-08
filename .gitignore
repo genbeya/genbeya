@@ -4,3 +4,9 @@ dist-electron/
 release/
 *.log
 .test-work/
+dist-deno/
+dist-tauri/
+release-deno/
+desktop/tauri/src-tauri/target/
+desktop/tauri/src-tauri/gen/
+out/
