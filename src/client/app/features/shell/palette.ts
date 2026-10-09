@@ -55,7 +55,9 @@ import { ShellUi, type PaletteMode } from "./shell-ui";
             }
             <span class="grow"></span>
             @if (item.hint) {
-              <span class="palette-hint"><kbd class="kbd">{{ item.hint }}</kbd></span>
+              <span class="palette-hint"
+                ><kbd class="kbd">{{ item.hint }}</kbd></span
+              >
             }
           </button>
         } @empty {
@@ -109,7 +111,9 @@ export class Palette {
   protected readonly results = computed(() => rank(this.items(), this.query(), this.mode === "branches"));
 
   constructor() {
-    void inject(MANAGERS).workspace.recent().then((recent) => this.recent.set(recent));
+    void inject(MANAGERS)
+      .workspace.recent()
+      .then((recent) => this.recent.set(recent));
     afterRenderEffect(() => {
       this.active();
       this.list().nativeElement.querySelector(".palette-item.is-active")?.scrollIntoView({ block: "nearest" });

@@ -2,7 +2,16 @@
 import { execFile, spawn } from "node:child_process";
 import { existsSync, promises as fs, type Stats } from "node:fs";
 import { platform } from "node:os";
-import type { ChildProcess, FileStat, FileSystem, FileSystemErrorCode, Machine, ProcessRunner, RunOptions, RunResult } from "../../access/ports";
+import type {
+  ChildProcess,
+  FileStat,
+  FileSystem,
+  FileSystemErrorCode,
+  Machine,
+  ProcessRunner,
+  RunOptions,
+  RunResult,
+} from "../../access/ports";
 import { FileSystemError } from "../../access/ports";
 import { posixPaths, windowsPaths } from "../../utilities/native-path";
 

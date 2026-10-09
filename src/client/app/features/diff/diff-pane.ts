@@ -31,7 +31,13 @@ function storedInline(): boolean {
       }
       <span class="grow"></span>
       <ng-content />
-      <button type="button" class="icon-btn" [attr.aria-label]="inline() ? 'Side by side' : 'Inline'" [title]="inline() ? 'Side by side' : 'Inline'" (click)="toggleInline()">
+      <button
+        type="button"
+        class="icon-btn"
+        [attr.aria-label]="inline() ? 'Side by side' : 'Inline'"
+        [title]="inline() ? 'Side by side' : 'Inline'"
+        (click)="toggleInline()"
+      >
         @if (inline()) {
           <svg lucideColumns2 [size]="15" aria-hidden="true"></svg>
         } @else {
@@ -40,7 +46,9 @@ function storedInline(): boolean {
       </button>
     </header>
     @if (error(); as message) {
-      <gd-empty-state title="Can't show this diff"><p class="selectable">{{ message }}</p></gd-empty-state>
+      <gd-empty-state title="Can't show this diff"
+        ><p class="selectable">{{ message }}</p></gd-empty-state
+      >
     } @else if (!diff()) {
       <div class="editor-loading"><span class="spinner" aria-label="Loading"></span></div>
     } @else if (diff()!.binary) {
@@ -78,7 +86,8 @@ export class DiffPane {
       if (ticket !== this.request) return;
       // An unchanged diff keeps its view, so scrolling is not reset on every poll.
       const current = this.diff();
-      if (!current || current.original !== diff.original || current.modified !== diff.modified || current.binary !== diff.binary) this.diff.set(diff);
+      if (!current || current.original !== diff.original || current.modified !== diff.modified || current.binary !== diff.binary)
+        this.diff.set(diff);
       this.error.set(null);
     } catch (failure) {
       if (ticket === this.request) this.error.set(messageOf(failure));

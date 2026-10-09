@@ -21,7 +21,9 @@ export class RepositoryActions {
 
   switchBranch(name: string): Promise<unknown> {
     // Remote-only branches become local tracking branches.
-    const label = this.session.snapshot()?.remoteBranches.includes(name) ? `Checked out ${name.slice(name.indexOf("/") + 1)}` : `Switched to ${name}`;
+    const label = this.session.snapshot()?.remoteBranches.includes(name)
+      ? `Checked out ${name.slice(name.indexOf("/") + 1)}`
+      : `Switched to ${name}`;
     return this.session.run(() => this.api.versionControl.switchBranch(name), label);
   }
 

@@ -8,11 +8,57 @@ import { toText } from "hast-util-to-text";
 import { MISSING_PAGE, resolveHref, type LinkTarget } from "./link-target";
 
 const ALLOWED = new Set([
-  "p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote", "pre", "code", "em", "strong", "del", "a", "img",
-  "table", "thead", "tbody", "tr", "th", "td", "hr", "br", "span", "div", "sup", "sub", "section",
+  "p",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "ul",
+  "ol",
+  "li",
+  "blockquote",
+  "pre",
+  "code",
+  "em",
+  "strong",
+  "del",
+  "a",
+  "img",
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
+  "hr",
+  "br",
+  "span",
+  "div",
+  "sup",
+  "sub",
+  "section",
 ]);
 /** Dropped together with their content. */
-const BLOCKED = new Set(["script", "style", "iframe", "object", "embed", "form", "textarea", "button", "select", "link", "meta", "base", "svg", "math", "template", "noscript"]);
+const BLOCKED = new Set([
+  "script",
+  "style",
+  "iframe",
+  "object",
+  "embed",
+  "form",
+  "textarea",
+  "button",
+  "select",
+  "link",
+  "meta",
+  "base",
+  "svg",
+  "math",
+  "template",
+  "noscript",
+]);
 const ATTRIBUTES: Readonly<Record<string, string>> = {
   id: "id",
   title: "title",
@@ -65,13 +111,33 @@ const SVG = "http://www.w3.org/2000/svg";
 /** Lucide icon shapes used inside rendered Markdown. */
 const ICONS: Readonly<Record<string, readonly string[]>> = {
   check: ["M20 6 9 17l-5-5"],
-  copy: ["M8 10a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2z", "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"],
-  imageOff: ["m2 2 20 20", "M10.41 10.41a2 2 0 1 1-2.83-2.83", "m13.5 13.5-7.5 7.5", "m18 12 3 3", "M3.59 3.59A1.99 1.99 0 0 0 3 5v14a2 2 0 0 0 2 2h14c.55 0 1.052-.22 1.41-.59", "M21 15V5a2 2 0 0 0-2-2H9"],
+  copy: [
+    "M8 10a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2z",
+    "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2",
+  ],
+  imageOff: [
+    "m2 2 20 20",
+    "M10.41 10.41a2 2 0 1 1-2.83-2.83",
+    "m13.5 13.5-7.5 7.5",
+    "m18 12 3 3",
+    "M3.59 3.59A1.99 1.99 0 0 0 3 5v14a2 2 0 0 0 2 2h14c.55 0 1.052-.22 1.41-.59",
+    "M21 15V5a2 2 0 0 0-2-2H9",
+  ],
 };
 
 export function icon(document: Document, name: keyof typeof ICONS, size: number, strokeWidth = 2): SVGSVGElement {
   const svg = document.createElementNS(SVG, "svg");
-  for (const [key, value] of Object.entries({ width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": strokeWidth, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" }))
+  for (const [key, value] of Object.entries({
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": strokeWidth,
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "aria-hidden": "true",
+  }))
     svg.setAttribute(key, String(value));
   for (const d of ICONS[name]!) {
     const path = document.createElementNS(SVG, "path");
@@ -107,7 +173,8 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
   const copyAttributes = (from: Element, to: HTMLElement) => {
     for (const [property, value] of Object.entries(from.properties)) {
       const attribute = attributeName(property);
-      if (attribute && value !== null && value !== undefined && value !== false) to.setAttribute(attribute, value === true ? "" : String(value));
+      if (attribute && value !== null && value !== undefined && value !== false)
+        to.setAttribute(attribute, value === true ? "" : String(value));
     }
     const classes = classesOf(from);
     if (classes.length) to.className = classes.join(" ");

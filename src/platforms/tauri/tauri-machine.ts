@@ -3,7 +3,15 @@
  * src/shells/tauri/src-tauri/src (files.rs, processes.rs).
  */
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { FileSystemError, type ChildProcess, type FileStat, type FileSystem, type FileSystemErrorCode, type Machine, type ProcessRunner } from "../../access/ports";
+import {
+  FileSystemError,
+  type ChildProcess,
+  type FileStat,
+  type FileSystem,
+  type FileSystemErrorCode,
+  type Machine,
+  type ProcessRunner,
+} from "../../access/ports";
 import { encodeText } from "../../utilities/bytes";
 import { posixPaths, windowsPaths } from "../../utilities/native-path";
 
@@ -16,7 +24,12 @@ const EXIT = 2;
 type Invoke = typeof invoke;
 
 /** Calls a command, turning its `{ code, message }` failures into FileSystemErrors. */
-async function call<T>(run: Invoke, command: string, args?: Record<string, unknown> | Uint8Array, headers?: Record<string, string>): Promise<T> {
+async function call<T>(
+  run: Invoke,
+  command: string,
+  args?: Record<string, unknown> | Uint8Array,
+  headers?: Record<string, string>,
+): Promise<T> {
   try {
     return await run<T>(command, args, headers ? { headers } : undefined);
   } catch (failure) {
@@ -39,7 +52,10 @@ export function tauriFileSystem(run: Invoke = invoke): FileSystem {
   };
 }
 
-export function tauriProcesses(run: Invoke = invoke, createChannel: () => Channel<ArrayBuffer> = () => new Channel<ArrayBuffer>()): ProcessRunner {
+export function tauriProcesses(
+  run: Invoke = invoke,
+  createChannel: () => Channel<ArrayBuffer> = () => new Channel<ArrayBuffer>(),
+): ProcessRunner {
   return {
     async run(command, args, { cwd, timeout = DEFAULT_TIMEOUT, env = {} }) {
       // Reply: [code: i32][stderr length: u32][stderr][stdout], little-endian.
@@ -54,7 +70,11 @@ export function tauriProcesses(run: Invoke = invoke, createChannel: () => Channe
     },
 
     spawn(command, args): ChildProcess {
-      const listeners = { stdout: [] as ((chunk: Uint8Array) => void)[], stderr: [] as ((chunk: Uint8Array) => void)[], exit: [] as ((code: number, error?: string) => void)[] };
+      const listeners = {
+        stdout: [] as ((chunk: Uint8Array) => void)[],
+        stderr: [] as ((chunk: Uint8Array) => void)[],
+        exit: [] as ((code: number, error?: string) => void)[],
+      };
       let exited = false;
       const exit = (code: number, error?: string) => {
         if (exited) return;
@@ -77,13 +97,15 @@ export function tauriProcesses(run: Invoke = invoke, createChannel: () => Channe
       const send = (data: Uint8Array, close: boolean) => {
         writes = writes.then(async () => {
           const process = await id;
-          if (process !== null) await call(run, "proc_write", data, { id: String(process), close: close ? "1" : "0" }).catch(() => undefined);
+          if (process !== null)
+            await call(run, "proc_write", data, { id: String(process), close: close ? "1" : "0" }).catch(() => undefined);
         });
       };
       return {
         write: (data) => send(data, false),
         end: () => send(encodeText(""), true),
-        kill: () => void id.then((process) => process !== null && !exited && call(run, "proc_kill", { id: process }).catch(() => undefined)),
+        kill: () =>
+          void id.then((process) => process !== null && !exited && call(run, "proc_kill", { id: process }).catch(() => undefined)),
         onStdout: (listener) => void listeners.stdout.push(listener),
         onStderr: (listener) => void listeners.stderr.push(listener),
         onExit: (listener) => void listeners.exit.push(listener),

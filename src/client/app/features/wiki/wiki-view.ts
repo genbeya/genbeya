@@ -40,7 +40,9 @@ import { WikiPage } from "./wiki-page";
           <gd-empty-state title="No pages yet">
             <svg icon lucideBookOpen [size]="20" aria-hidden="true"></svg>
             <p>Pages are Markdown files in {{ root() }}/. Start with a home page.</p>
-            <button type="button" class="btn btn-primary btn-m" (click)="createHome()"><svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create home page</span></button>
+            <button type="button" class="btn btn-primary btn-m" (click)="createHome()">
+              <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create home page</span>
+            </button>
           </gd-empty-state>
         }
       </section>

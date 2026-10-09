@@ -11,7 +11,9 @@
   color: var(--text);
   font-weight: 500;
   white-space: nowrap;
-  transition: background 80ms, border-color 80ms;
+  transition:
+    background 80ms,
+    border-color 80ms;
 }
 
 .btn:hover:not(:disabled) {
@@ -201,7 +203,9 @@
   font-size: 13px;
   font-weight: 400;
   outline: none;
-  transition: border-color 80ms, box-shadow 80ms;
+  transition:
+    border-color 80ms,
+    box-shadow 80ms;
 }
 
 .textarea {
@@ -215,9 +219,10 @@
 .select {
   appearance: none;
   padding-right: 28px;
-  background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%),
-    linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
-  background-position: calc(100% - 15px) 14px, calc(100% - 10px) 14px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) 14px,
+    calc(100% - 10px) 14px;
   background-size: 5px 5px;
   background-repeat: no-repeat;
 }
@@ -272,5 +277,7 @@
 .segmented button.is-active {
   background: var(--bg-raised);
   color: var(--text);
-  box-shadow: var(--shadow-card), 0 0 0 1px var(--line);
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 1px var(--line);
 }

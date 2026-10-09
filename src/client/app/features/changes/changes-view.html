@@ -15,7 +15,9 @@
           Amend last commit
         </label>
         <span class="grow"></span>
-        <button type="button" class="btn btn-primary btn-m" [disabled]="!canCommit()" (click)="commit()"><span>{{ commitLabel() }}</span></button>
+        <button type="button" class="btn btn-primary btn-m" [disabled]="!canCommit()" (click)="commit()">
+          <span>{{ commitLabel() }}</span>
+        </button>
       </div>
     </div>
     <gd-sync-bar />
@@ -25,7 +27,9 @@
           <div class="panel-heading">
             Staged <span class="count">{{ stagedChanges().length }}</span>
             <span class="grow"></span>
-            <button type="button" class="icon-btn" aria-label="Unstage all" title="Unstage all" (click)="unstage(pathsOf(stagedChanges()))"><svg lucideMinus [size]="13" aria-hidden="true"></svg></button>
+            <button type="button" class="icon-btn" aria-label="Unstage all" title="Unstage all" (click)="unstage(pathsOf(stagedChanges()))">
+              <svg lucideMinus [size]="13" aria-hidden="true"></svg>
+            </button>
           </div>
           @for (change of stagedChanges(); track change.path) {
             <gd-change-row
@@ -44,8 +48,18 @@
           Changes <span class="count">{{ unstagedChanges().length }}</span>
           <span class="grow"></span>
           @if (unstagedChanges().length) {
-            <button type="button" class="icon-btn" aria-label="Discard all" title="Discard all" (click)="discard(pathsOf(unstagedChanges()))"><svg lucideUndo2 [size]="13" aria-hidden="true"></svg></button>
-            <button type="button" class="icon-btn" aria-label="Stage all" title="Stage all" (click)="stage(pathsOf(unstagedChanges()))"><svg lucidePlus [size]="13" aria-hidden="true"></svg></button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Discard all"
+              title="Discard all"
+              (click)="discard(pathsOf(unstagedChanges()))"
+            >
+              <svg lucideUndo2 [size]="13" aria-hidden="true"></svg>
+            </button>
+            <button type="button" class="icon-btn" aria-label="Stage all" title="Stage all" (click)="stage(pathsOf(unstagedChanges()))">
+              <svg lucidePlus [size]="13" aria-hidden="true"></svg>
+            </button>
           }
         </div>
         @for (change of unstagedChanges(); track change.path) {

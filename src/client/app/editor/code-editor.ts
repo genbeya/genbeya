@@ -1,7 +1,18 @@
 /** An editable file: CodeMirror with the language of its path. */
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
-import { afterNextRender, ChangeDetectionStrategy, Component, DestroyRef, effect, ElementRef, inject, input, output, untracked } from "@angular/core";
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  effect,
+  ElementRef,
+  inject,
+  input,
+  output,
+  untracked,
+} from "@angular/core";
 import { editingSetup, isProse, languageFor } from "./editor-setup";
 
 const CRLF = String.fromCharCode(13, 10);
@@ -49,7 +60,8 @@ export class CodeEditor {
       const view = this.view;
       // Outside changes (reloads) replace the text; the user's own edits already match.
       if (!view || view.state.sliceDoc() === value) return;
-      if ((view.state.lineBreak === CRLF) !== value.includes(CRLF)) view.dispatch({ effects: this.separator.reconfigure(separatorFor(value)) });
+      if ((view.state.lineBreak === CRLF) !== value.includes(CRLF))
+        view.dispatch({ effects: this.separator.reconfigure(separatorFor(value)) });
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
     });
     // Focus needs the editor in the document.

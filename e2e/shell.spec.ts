@@ -3,7 +3,9 @@ import { expect, MOD, test } from "./app";
 test.describe("shell", () => {
   test("names the window after the project", async ({ app, window }) => {
     await expect(window.getByText("Demo Project").first()).toBeVisible();
-    await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getTitle())).toBe("Demo Project — GitDesk");
+    await expect
+      .poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getTitle()))
+      .toBe("Demo Project — GitDesk");
   });
 
   test("searches pages, tasks and files from the palette", async ({ window }) => {

@@ -70,7 +70,13 @@ export class Sidebar {
   protected readonly mod = MOD_KEY;
   protected readonly snapshot = computed(() => this.session.snapshot()!);
   protected readonly mark = computed(() => initials(this.snapshot().settings.name));
-  protected readonly folderName = computed(() => describeLocation(this.snapshot().location).split(/[\\/:]/).filter(Boolean).pop() ?? "");
+  protected readonly folderName = computed(
+    () =>
+      describeLocation(this.snapshot().location)
+        .split(/[\\/:]/)
+        .filter(Boolean)
+        .pop() ?? "",
+  );
   protected readonly hostBadge = computed(() => {
     const location = this.snapshot().location;
     return location.kind === "wsl" ? location.distro : location.kind === "ssh" ? "SSH" : null;
@@ -81,7 +87,11 @@ export class Sidebar {
     return tasks.filter((task) => task.status !== settings.statuses.at(-1)).length;
   });
   private readonly recent = signal<readonly RecentEntry[]>([]);
-  protected readonly others = computed(() => this.recent().filter((entry) => !sameLocation(entry.location, this.snapshot().location)).slice(0, 8));
+  protected readonly others = computed(() =>
+    this.recent()
+      .filter((entry) => !sameLocation(entry.location, this.snapshot().location))
+      .slice(0, 8),
+  );
 
   constructor() {
     effect(() => {

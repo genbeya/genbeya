@@ -20,7 +20,9 @@ const items: TreeItem<string>[] = [
   imports: [Tree],
   template: `
     <gd-tree label="Files" [items]="items" [selected]="selected()" (selectItem)="chosen.set($event.data)">
-      <ng-template let-item><span class="tree-label">{{ item.label }}</span></ng-template>
+      <ng-template let-item
+        ><span class="tree-label">{{ item.label }}</span></ng-template
+      >
     </gd-tree>
   `,
 })
@@ -34,7 +36,8 @@ async function render() {
   const fixture = TestBed.createComponent(Host);
   await fixture.whenStable();
   const labels = () => [...fixture.nativeElement.querySelectorAll(".tree-row")].map((row: Element) => row.textContent!.trim());
-  const row = (label: string) => [...fixture.nativeElement.querySelectorAll(".tree-row")].find((r: Element) => r.textContent!.trim() === label) as HTMLElement;
+  const row = (label: string) =>
+    [...fixture.nativeElement.querySelectorAll(".tree-row")].find((r: Element) => r.textContent!.trim() === label) as HTMLElement;
   return { fixture, labels, row };
 }
 

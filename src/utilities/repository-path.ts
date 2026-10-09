@@ -38,8 +38,7 @@ export function validateRepositoryPath(value: unknown, windows: boolean): string
 }
 
 /** True when `path` lies below `root` (a folder path; "" is the repository root). */
-export const within = (path: string, root: string): boolean =>
-  root === "" || root === "." || path.startsWith(root + "/");
+export const within = (path: string, root: string): boolean => root === "" || root === "." || path.startsWith(root + "/");
 
 export const parentOf = (path: string): string => path.slice(0, Math.max(0, path.lastIndexOf("/")));
 

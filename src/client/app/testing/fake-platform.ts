@@ -16,7 +16,18 @@ export const SETTINGS: Settings = {
 };
 
 export function task(id: string, change: Partial<Task> = {}): Task {
-  return { id, path: `tasks/${id}.md`, title: `Task ${id}`, status: "todo", priority: "none", assignee: "", labels: [], body: "", hash: `hash-${id}`, ...change };
+  return {
+    id,
+    path: `tasks/${id}.md`,
+    title: `Task ${id}`,
+    status: "todo",
+    priority: "none",
+    assignee: "",
+    labels: [],
+    body: "",
+    hash: `hash-${id}`,
+    ...change,
+  };
 }
 
 export function snapshot(change: Partial<Snapshot> = {}): Snapshot {
@@ -44,7 +55,10 @@ type MockedManagers = { [K in keyof Managers]: { [M in keyof Managers[K]]: Mock 
 /** Every manager method as a mock; workspace calls resolve to sensible defaults. */
 export function fakeManagers(): MockedManagers {
   const managers = Object.fromEntries(
-    Object.entries(MANAGER_METHODS).map(([name, methods]) => [name, Object.fromEntries(methods.map((method) => [method, vi.fn(async () => undefined)]))]),
+    Object.entries(MANAGER_METHODS).map(([name, methods]) => [
+      name,
+      Object.fromEntries(methods.map((method) => [method, vi.fn(async () => undefined)])),
+    ]),
   ) as unknown as MockedManagers;
   managers.workspace.preferences.mockResolvedValue({ theme: "system", reopenLast: true, autoSyncContent: false });
   managers.workspace.restore.mockResolvedValue(null);

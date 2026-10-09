@@ -15,7 +15,13 @@ export interface ShellOperations {
   launchArgs(): Promise<readonly string[]>;
 }
 
-export const SHELL_OPERATIONS = ["pickFolder", "openExternal", "setTitle", "setTheme", "launchArgs"] as const satisfies readonly (keyof ShellOperations)[];
+export const SHELL_OPERATIONS = [
+  "pickFolder",
+  "openExternal",
+  "setTitle",
+  "setTheme",
+  "launchArgs",
+] as const satisfies readonly (keyof ShellOperations)[];
 
 export type ShellOperation = (typeof SHELL_OPERATIONS)[number];
 

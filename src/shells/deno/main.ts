@@ -19,13 +19,15 @@ Deno.serve(async (request) => {
   if (!file) return new Response("Not found", { status: 404 });
   try {
     return new Response(await Deno.readFile(file), {
-      headers: { "content-type": CONTENT_TYPES[file.pathname.split(".").pop()!] ?? "application/octet-stream", "content-security-policy": CONTENT_SECURITY_POLICY },
+      headers: {
+        "content-type": CONTENT_TYPES[file.pathname.split(".").pop()!] ?? "application/octet-stream",
+        "content-security-policy": CONTENT_SECURITY_POLICY,
+      },
     });
   } catch {
     return new Response("Not found", { status: 404 });
   }
 });
-
 
 function output(command: string, args: string[]): Promise<string> {
   return new Promise((resolve) => {
@@ -54,7 +56,11 @@ function pickFolder(): Promise<string> {
 function openExternal(url: unknown): void {
   if (typeof url !== "string" || !/^(https?:|mailto:)/i.test(url)) throw new Error("Only web and mail links open externally.");
   const [command, args] =
-    Deno.build.os === "windows" ? ["rundll32.exe", ["url.dll,FileProtocolHandler", url]] : Deno.build.os === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
+    Deno.build.os === "windows"
+      ? ["rundll32.exe", ["url.dll,FileProtocolHandler", url]]
+      : Deno.build.os === "darwin"
+        ? ["open", [url]]
+        : ["xdg-open", [url]];
   spawn(command, args, { windowsHide: true, detached: true, stdio: "ignore" }).unref();
 }
 

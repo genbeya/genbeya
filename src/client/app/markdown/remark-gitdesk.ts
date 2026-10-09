@@ -31,7 +31,11 @@ const WIKILINK = /\[\[([^\]|\n]+)(?:\|([^\]\n]+))?\]\]/g;
 const TASK_ID = /\b[A-Z][A-Z0-9]*-\d+\b/g;
 
 /** Titles match regardless of case, dashes and underscores. */
-export const normalizeTitle = (title: string) => title.toLowerCase().replace(/[-_\s]+/g, " ").trim();
+export const normalizeTitle = (title: string) =>
+  title
+    .toLowerCase()
+    .replace(/[-_\s]+/g, " ")
+    .trim();
 const CALLOUT = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*\n?/i;
 
 function list(entries: Entry[], className?: string): List {
@@ -40,19 +44,17 @@ function list(entries: Entry[], className?: string): List {
     ordered: false,
     spread: false,
     data: className ? { hProperties: { className: [className] } } : undefined,
-    children: entries.map(
-      (entry): ListItem => ({
-        type: "listItem",
-        spread: false,
-        children: [
-          {
-            type: "paragraph",
-            children: [{ type: "link", url: entry.url, children: [{ type: "text", value: entry.label }] }],
-          },
-          ...(entry.children.length ? [list(entry.children)] : []),
-        ],
-      }),
-    ),
+    children: entries.map((entry): ListItem => ({
+      type: "listItem",
+      spread: false,
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "link", url: entry.url, children: [{ type: "text", value: entry.label }] }],
+        },
+        ...(entry.children.length ? [list(entry.children)] : []),
+      ],
+    })),
   };
 }
 

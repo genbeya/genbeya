@@ -19,7 +19,9 @@ describe("wiki extensions", () => {
 
   it("lists the pages below the current one for [SUBPAGES]", () => {
     const { html } = render("[SUBPAGES]", {
-      subpages: [{ title: "Backend", path: "docs/A/Backend.md", children: [{ title: "Auth", path: "docs/A/Backend/Auth.md", children: [] }] }],
+      subpages: [
+        { title: "Backend", path: "docs/A/Backend.md", children: [{ title: "Auth", path: "docs/A/Backend/Auth.md", children: [] }] },
+      ],
     });
     expect(html).toMatch(/md-subpages[\s\S]*href="\/docs\/A\/Backend.md"[\s\S]*href="\/docs\/A\/Backend\/Auth.md"/);
   });
@@ -35,7 +37,11 @@ describe("wiki extensions", () => {
     expect(html).toContain('<a href="/docs/Getting-started.md">getting started</a>');
     expect(html).toContain('<a href="/docs/Content-branch.md">the branch</a>');
     const missing = container.querySelector(".md-missing")!;
-    expect([missing.getAttribute("href"), missing.getAttribute("title"), missing.textContent]).toEqual(["gitdesk-missing:Nope", "Create this page", "Nope"]);
+    expect([missing.getAttribute("href"), missing.getAttribute("title"), missing.textContent]).toEqual([
+      "gitdesk-missing:Nope",
+      "Create this page",
+      "Nope",
+    ]);
     expect(html).toContain('<a class="md-task-ref" href="/tasks/GENBEYA-3.md">GENBEYA-3</a>');
     expect(html).toContain("not GENBEYA-99.");
     expect(render("`[[Page]]` and `GENBEYA-3`", { tasks: [{ id: "GENBEYA-3", path: "t.md" }] }).html).not.toContain("<a");
@@ -93,12 +99,15 @@ describe("safety", () => {
     expect(html).toContain("Text");
   });
 
-  it.each(["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,x", "vbscript:x"])("keeps the text but not the link of %s", (url) => {
-    const { container } = render(`[click](${url})`);
-    const anchor = container.querySelector("a");
-    expect(anchor?.textContent).toBe("click");
-    expect(anchor?.hasAttribute("href")).toBe(false);
-  });
+  it.each(["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,x", "vbscript:x"])(
+    "keeps the text but not the link of %s",
+    (url) => {
+      const { container } = render(`[click](${url})`);
+      const anchor = container.querySelector("a");
+      expect(anchor?.textContent).toBe("click");
+      expect(anchor?.hasAttribute("href")).toBe(false);
+    },
+  );
 
   it("keeps safe links", () => {
     for (const href of ["https://example.com", "mailto:a@b.c", "#part", "Other.md", "../x/y.md", "/src/main.ts"])

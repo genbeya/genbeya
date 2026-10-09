@@ -24,7 +24,7 @@ Open this folder in GitDesk: its wiki documents the app and its task board is th
 
 Every push to `main` publishes a [release](https://github.com/h3ll5ur7er/gitdesk/releases) with installers for Windows (`.exe`), macOS (`.dmg`, Intel and Apple silicon) and Linux (`.AppImage`). Pull requests build the same installers as workflow artifacts.
 
-The builds are unsigned. On Windows, choose *More info → Run anyway*; on macOS, run `xattr -dr com.apple.quarantine /Applications/GitDesk.app` after installing.
+The builds are unsigned. On Windows, choose _More info → Run anyway_; on macOS, run `xattr -dr com.apple.quarantine /Applications/GitDesk.app` after installing.
 
 ## Documentation
 

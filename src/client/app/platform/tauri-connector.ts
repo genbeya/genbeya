@@ -41,7 +41,12 @@ export async function connectTauri(): Promise<Platform> {
         const stop = window.onCloseRequested(async (event) => {
           const discard =
             !hasUnsavedChanges() ||
-            (await ask("Close anyway and discard them?", { title: "You have unsaved changes.", kind: "warning", okLabel: "Discard changes", cancelLabel: "Keep editing" }));
+            (await ask("Close anyway and discard them?", {
+              title: "You have unsaved changes.",
+              kind: "warning",
+              okLabel: "Discard changes",
+              cancelLabel: "Keep editing",
+            }));
           if (discard) await backend.dispose();
           else event.preventDefault();
         });

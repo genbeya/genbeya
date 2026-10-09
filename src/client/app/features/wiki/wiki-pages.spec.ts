@@ -9,7 +9,12 @@ const wiki: WikiNode[] = [
     folder: "docs/Architecture",
     children: [{ title: "Backend", path: "docs/Architecture/Backend.md", folder: null, children: [] }],
   },
-  { title: "Notes", path: null, folder: "docs/Notes", children: [{ title: "Week 1", path: "docs/Notes/Week-1.md", folder: null, children: [] }] },
+  {
+    title: "Notes",
+    path: null,
+    folder: "docs/Notes",
+    children: [{ title: "Week 1", path: "docs/Notes/Week-1.md", folder: null, children: [] }],
+  },
 ];
 
 describe("wiki pages", () => {

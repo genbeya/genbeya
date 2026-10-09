@@ -4,9 +4,7 @@
   height: 100%;
   overflow: auto;
   padding: 14vh 24px 40px;
-  background:
-    radial-gradient(800px 400px at 50% -10%, var(--accent-soft), transparent 70%),
-    var(--bg-app);
+  background: radial-gradient(800px 400px at 50% -10%, var(--accent-soft), transparent 70%), var(--bg-app);
 }
 
 .welcome-panel {

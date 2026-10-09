@@ -56,9 +56,29 @@ export default tseslint.config(
     files: ["src/client/**/*.html"],
     extends: [...angular.configs.templateRecommended, ...angular.configs.templateAccessibility],
   },
-  { files: ["src/contracts/**/*.ts"], ignores: ["**/*.spec.ts"], rules: layer(["client", "managers", "engines", "access", "utilities", "platforms", "shells"], "Contracts depend on nothing.") },
-  { files: ["src/utilities/**/*.ts"], ignores: ["**/*.spec.ts"], rules: layer(["client", "managers", "engines", "access", "platforms", "shells"], "Utilities depend only on contracts.") },
-  { files: ["src/engines/**/*.ts"], ignores: ["**/*.spec.ts"], rules: layer(["client", "managers", "access", "platforms", "shells"], "Engines are pure: no resource access, no managers.") },
-  { files: ["src/access/**/*.ts"], ignores: ["**/*.spec.ts"], rules: layer(["client", "managers", "engines", "platforms", "shells"], "Resource access never calls upwards.") },
-  { files: ["src/managers/**/*.ts"], ignores: ["**/*.spec.ts"], rules: layer(["client", "platforms", "shells"], "Managers get runtime adapters injected by the shells.") },
+  {
+    files: ["src/contracts/**/*.ts"],
+    ignores: ["**/*.spec.ts"],
+    rules: layer(["client", "managers", "engines", "access", "utilities", "platforms", "shells"], "Contracts depend on nothing."),
+  },
+  {
+    files: ["src/utilities/**/*.ts"],
+    ignores: ["**/*.spec.ts"],
+    rules: layer(["client", "managers", "engines", "access", "platforms", "shells"], "Utilities depend only on contracts."),
+  },
+  {
+    files: ["src/engines/**/*.ts"],
+    ignores: ["**/*.spec.ts"],
+    rules: layer(["client", "managers", "access", "platforms", "shells"], "Engines are pure: no resource access, no managers."),
+  },
+  {
+    files: ["src/access/**/*.ts"],
+    ignores: ["**/*.spec.ts"],
+    rules: layer(["client", "managers", "engines", "platforms", "shells"], "Resource access never calls upwards."),
+  },
+  {
+    files: ["src/managers/**/*.ts"],
+    ignores: ["**/*.spec.ts"],
+    rules: layer(["client", "platforms", "shells"], "Managers get runtime adapters injected by the shells."),
+  },
 );

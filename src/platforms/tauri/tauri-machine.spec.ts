@@ -4,7 +4,11 @@ import { FileSystemError } from "../../access/ports";
 import { decodeLenient, encodeText } from "../../utilities/bytes";
 import { tauriFileSystem, tauriProcesses } from "./tauri-machine";
 
-interface Call { command: string; args: unknown; headers?: Record<string, string> }
+interface Call {
+  command: string;
+  args: unknown;
+  headers?: Record<string, string>;
+}
 
 /** An invoke that records calls and answers like the Rust commands. */
 function fakeInvoke(answer: (call: Call) => unknown) {
@@ -39,7 +43,9 @@ describe("tauriFileSystem", () => {
 
   it("maps command failures to FileSystemErrors", async () => {
     const { run } = fakeInvoke(() => Promise.reject({ code: "ENOENT", message: "missing" }));
-    const failure = await tauriFileSystem(run).stat("x").catch((error: unknown) => error);
+    const failure = await tauriFileSystem(run)
+      .stat("x")
+      .catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(FileSystemError);
     expect(failure).toMatchObject({ code: "ENOENT", message: "missing" });
     const { run: odd } = fakeInvoke(() => Promise.reject("boom"));
@@ -56,7 +62,11 @@ describe("tauriProcesses", () => {
   it("decodes the framed reply of a run", async () => {
     const { run, calls } = fakeInvoke(() => frame(3, "out", "err"));
     const result = await tauriProcesses(run).run("git", ["status"], { cwd: "/r", timeout: 5, env: { A: "1" } });
-    expect({ code: result.code, stdout: decodeLenient(result.stdout), stderr: result.stderr }).toEqual({ code: 3, stdout: "out", stderr: "err" });
+    expect({ code: result.code, stdout: decodeLenient(result.stdout), stderr: result.stderr }).toEqual({
+      code: 3,
+      stdout: "out",
+      stderr: "err",
+    });
     expect(calls[0]!.args).toEqual({ command: "git", args: ["status"], cwd: "/r", env: { A: "1" }, timeoutMs: 5 });
   });
 

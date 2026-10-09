@@ -12,18 +12,43 @@ import { RepositoryActions } from "../shell/repository-actions";
   template: `
     <span class="grow ellipsis faint">{{ head().upstream ?? (remote() ? "no upstream on " + remote() : "no remote") }}</span>
     @if (head().ahead) {
-      <span class="sync-count" [attr.aria-label]="head().ahead + ' ahead'"><svg lucideArrowUp [size]="11" aria-hidden="true"></svg>{{ head().ahead }}</span>
+      <span class="sync-count" [attr.aria-label]="head().ahead + ' ahead'"
+        ><svg lucideArrowUp [size]="11" aria-hidden="true"></svg>{{ head().ahead }}</span
+      >
     }
     @if (head().behind) {
-      <span class="sync-count" [attr.aria-label]="head().behind + ' behind'"><svg lucideArrowDown [size]="11" aria-hidden="true"></svg>{{ head().behind }}</span>
+      <span class="sync-count" [attr.aria-label]="head().behind + ' behind'"
+        ><svg lucideArrowDown [size]="11" aria-hidden="true"></svg>{{ head().behind }}</span
+      >
     }
-    <button type="button" class="icon-btn" [attr.aria-label]="'Fetch from ' + remote()" [title]="'Fetch from ' + remote()" [disabled]="!remote() || session.busy()" (click)="sync('fetch')">
+    <button
+      type="button"
+      class="icon-btn"
+      [attr.aria-label]="'Fetch from ' + remote()"
+      [title]="'Fetch from ' + remote()"
+      [disabled]="!remote() || session.busy()"
+      (click)="sync('fetch')"
+    >
       <svg lucideRefreshCw [size]="14" aria-hidden="true"></svg>
     </button>
-    <button type="button" class="icon-btn" [attr.aria-label]="'Pull from ' + remote()" [title]="'Pull from ' + remote()" [disabled]="!remote() || session.busy() || !head().branch" (click)="sync('pull')">
+    <button
+      type="button"
+      class="icon-btn"
+      [attr.aria-label]="'Pull from ' + remote()"
+      [title]="'Pull from ' + remote()"
+      [disabled]="!remote() || session.busy() || !head().branch"
+      (click)="sync('pull')"
+    >
       <svg lucideArrowDownToLine [size]="14" aria-hidden="true"></svg>
     </button>
-    <button type="button" class="icon-btn" [attr.aria-label]="'Push to ' + remote()" [title]="'Push to ' + remote()" [disabled]="!remote() || session.busy() || !head().branch" (click)="sync('push')">
+    <button
+      type="button"
+      class="icon-btn"
+      [attr.aria-label]="'Push to ' + remote()"
+      [title]="'Push to ' + remote()"
+      [disabled]="!remote() || session.busy() || !head().branch"
+      (click)="sync('push')"
+    >
       <svg lucideArrowUpFromLine [size]="14" aria-hidden="true"></svg>
     </button>
   `,

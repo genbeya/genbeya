@@ -20,7 +20,12 @@ import { LucideCheck } from "@lucide/angular";
         <ng-content select="[icon]" />
       }
     </span>
-    <span class="grow ellipsis"><ng-content />@if (checked()) {<span class="sr-only"> (selected)</span>}</span>
+    <span class="grow ellipsis"
+      ><ng-content />
+      @if (checked()) {
+        <span class="sr-only"> (selected)</span>
+      }
+    </span>
     @if (hint()) {
       <span class="menu-hint">{{ hint() }}</span>
     }

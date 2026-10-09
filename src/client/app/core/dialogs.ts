@@ -17,7 +17,11 @@ export class Dialogs {
       data,
       backdropClass: ["dialog-backdrop", ...(placement.backdrop ? [placement.backdrop] : [])],
       panelClass: "dialog-pane",
-      positionStrategy: this.overlay.position().global().centerHorizontally().top(placement.top ?? "12vh"),
+      positionStrategy: this.overlay
+        .position()
+        .global()
+        .centerHorizontally()
+        .top(placement.top ?? "12vh"),
       autoFocus: "first-tabbable",
       restoreFocus: true,
     });
@@ -34,6 +38,11 @@ export class Dialogs {
 
   /** Asks before throwing away unsaved edits of one thing, e.g. "this page". */
   discardEdits(subject: string): Promise<boolean> {
-    return this.confirm({ title: "Discard changes?", message: `Your changes to ${subject} have not been saved.`, confirm: "Discard changes", danger: true });
+    return this.confirm({
+      title: "Discard changes?",
+      message: `Your changes to ${subject} have not been saved.`,
+      confirm: "Discard changes",
+      danger: true,
+    });
   }
 }

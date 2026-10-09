@@ -75,7 +75,12 @@ describe("TaskEngine serialisation", () => {
 
   it("round-trips through parse", () => {
     const task = engine.parse("tasks/TP-1.md", engine.serializeNew("TP-1", input), "h");
-    expect({ ...task, hash: undefined, id: undefined, path: undefined }).toEqual({ ...input, hash: undefined, id: undefined, path: undefined });
+    expect({ ...task, hash: undefined, id: undefined, path: undefined }).toEqual({
+      ...input,
+      hash: undefined,
+      id: undefined,
+      path: undefined,
+    });
   });
 
   it("updates known fields in place and keeps comments and unknown fields", () => {

@@ -14,7 +14,9 @@ if (typeof globalThis.matchMedia !== "function")
     }) as MediaQueryList;
 
 if (typeof CSS === "undefined" || typeof CSS.escape !== "function")
-  Object.assign(globalThis, { CSS: { ...(globalThis as { CSS?: object }).CSS, escape: (value: string) => value.replace(/[^\w-]/g, (c) => `\\${c}`) } });
+  Object.assign(globalThis, {
+    CSS: { ...(globalThis as { CSS?: object }).CSS, escape: (value: string) => value.replace(/[^\w-]/g, (c) => `\\${c}`) },
+  });
 
 // CodeMirror measures text through ranges.
 const emptyRects = () => Object.assign([], { item: () => null }) as unknown as DOMRectList;

@@ -97,7 +97,13 @@ export class SettingsView {
   protected async editRemote(name?: string, url?: string) {
     const remote =
       name ??
-      (await this.dialogs.prompt({ title: "Add remote", label: "Name", initial: this.snapshot().remotes.length ? "" : "origin", placeholder: "origin", confirm: "Next" }));
+      (await this.dialogs.prompt({
+        title: "Add remote",
+        label: "Name",
+        initial: this.snapshot().remotes.length ? "" : "origin",
+        placeholder: "origin",
+        confirm: "Next",
+      }));
     if (!remote) return;
     const address = await this.dialogs.prompt({
       title: name ? `Edit ${name}` : `Add ${remote}`,
@@ -111,7 +117,12 @@ export class SettingsView {
   }
 
   protected async removeRemote(name: string, url: string) {
-    const confirmed = await this.dialogs.confirm({ title: "Remove remote", message: `Remove ${name} (${url})?`, confirm: "Remove", danger: true });
+    const confirmed = await this.dialogs.confirm({
+      title: "Remove remote",
+      message: `Remove ${name} (${url})?`,
+      confirm: "Remove",
+      danger: true,
+    });
     if (confirmed) await this.session.run(() => this.api.versionControl.removeRemote(name), "Remote removed");
   }
 }

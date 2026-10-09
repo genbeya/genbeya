@@ -11,12 +11,16 @@ describe("resolveAsset", () => {
     expect(resolveAsset(root, "gitdesk://app/chunk-A1.js")).toBe(path.join(root, "chunk-A1.js"));
   });
 
-  it.each(["gitdesk://other/index.html", "https://app/index.html", "gitdesk://app/%2e%2e%2fsecret", "gitdesk://app/..%2f..%2fsecret", "gitdesk://app/%5csecret", "gitdesk://app/%00"])(
-    "refuses %s",
-    (url) => {
-      expect(() => resolveAsset(root, url)).toThrow();
-    },
-  );
+  it.each([
+    "gitdesk://other/index.html",
+    "https://app/index.html",
+    "gitdesk://app/%2e%2e%2fsecret",
+    "gitdesk://app/..%2f..%2fsecret",
+    "gitdesk://app/%5csecret",
+    "gitdesk://app/%00",
+  ])("refuses %s", (url) => {
+    expect(() => resolveAsset(root, url)).toThrow();
+  });
 });
 
 describe("isRendererPage", () => {

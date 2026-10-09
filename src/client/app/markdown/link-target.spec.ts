@@ -4,7 +4,11 @@ import { toggleCheckboxAt } from "./task-checkbox";
 describe("resolveHref", () => {
   it("resolves files relative to the document, never above the repository", () => {
     expect(resolveHref("docs/Guide/Wiki.md", "Tasks.md")).toEqual({ kind: "file", path: "docs/Guide/Tasks.md", anchor: undefined });
-    expect(resolveHref("docs/Guide/Wiki.md", "../Home.md#start-here")).toEqual({ kind: "file", path: "docs/Home.md", anchor: "start-here" });
+    expect(resolveHref("docs/Guide/Wiki.md", "../Home.md#start-here")).toEqual({
+      kind: "file",
+      path: "docs/Home.md",
+      anchor: "start-here",
+    });
     expect(resolveHref("docs/Home.md", "/src/main.ts")).toEqual({ kind: "file", path: "src/main.ts", anchor: undefined });
     expect(resolveHref("docs/Home.md", "../../../etc/passwd")).toEqual({ kind: "file", path: "etc/passwd", anchor: undefined });
     expect(resolveHref("docs/Home.md", "My%20Page.md")).toEqual({ kind: "file", path: "docs/My Page.md", anchor: undefined });

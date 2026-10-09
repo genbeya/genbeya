@@ -5,9 +5,34 @@ import { flattenPages } from "../wiki/wiki-pages";
 import { fuzzyScore } from "./fuzzy";
 
 export type PaletteIcon =
-  | "page" | "task" | "file" | "branch" | "current-branch" | "remote-branch" | "add" | "add-branch" | "fetch" | "pull" | "push" | "sync"
-  | "folder" | "server" | "clone" | "close" | "local" | "wsl" | "ssh" | "dark" | "light" | "system" | "keyboard"
-  | "wiki" | "tasks" | "code" | "changes" | "history";
+  | "page"
+  | "task"
+  | "file"
+  | "branch"
+  | "current-branch"
+  | "remote-branch"
+  | "add"
+  | "add-branch"
+  | "fetch"
+  | "pull"
+  | "push"
+  | "sync"
+  | "folder"
+  | "server"
+  | "clone"
+  | "close"
+  | "local"
+  | "wsl"
+  | "ssh"
+  | "dark"
+  | "light"
+  | "system"
+  | "keyboard"
+  | "wiki"
+  | "tasks"
+  | "code"
+  | "changes"
+  | "history";
 
 export interface PaletteItem {
   readonly id: string;
@@ -47,7 +72,8 @@ const GROUP_WEIGHT: Readonly<Record<string, number>> = { Pages: 40, Tasks: 30, "
 const PER_GROUP = 8;
 const WITHOUT_QUERY = 60;
 
-const flatFiles = (nodes: readonly FileNode[]): string[] => nodes.flatMap((node) => (node.children ? flatFiles(node.children) : [node.path]));
+const flatFiles = (nodes: readonly FileNode[]): string[] =>
+  nodes.flatMap((node) => (node.children ? flatFiles(node.children) : [node.path]));
 
 export function branchItems(snapshot: Snapshot, query: string, commands: PaletteCommands): PaletteItem[] {
   const { head, branches, remoteBranches } = snapshot;
@@ -60,12 +86,24 @@ export function branchItems(snapshot: Snapshot, query: string, commands: Palette
       ...(branch === head.branch ? { hint: "current" } : {}),
       run: () => branch !== head.branch && commands.switchBranch(branch),
     })),
-    ...remoteBranches.map((branch): PaletteItem => ({ id: `remote:${branch}`, group: "Remote branches", label: branch, icon: "remote-branch", run: () => commands.switchBranch(branch) })),
+    ...remoteBranches.map((branch): PaletteItem => ({
+      id: `remote:${branch}`,
+      group: "Remote branches",
+      label: branch,
+      icon: "remote-branch",
+      run: () => commands.switchBranch(branch),
+    })),
     { id: "create-branch", group: "Actions", label: "Create branch…", icon: "add-branch", run: () => commands.createBranch(query) },
   ];
 }
 
-export function allItems(snapshot: Snapshot, recent: readonly RecentEntry[], theme: Theme, mod: string, commands: PaletteCommands): PaletteItem[] {
+export function allItems(
+  snapshot: Snapshot,
+  recent: readonly RecentEntry[],
+  theme: Theme,
+  mod: string,
+  commands: PaletteCommands,
+): PaletteItem[] {
   const { head, remotes, storage, wiki, tasks, files, settings } = snapshot;
   const remote = head.upstream?.split("/")[0] ?? remotes[0]?.name;
   const views = [
@@ -75,7 +113,14 @@ export function allItems(snapshot: Snapshot, recent: readonly RecentEntry[], the
     ["changes", "Changes"],
     ["history", "History"],
   ] as const;
-  const go = views.map(([view, label], i): PaletteItem => ({ id: `go:${view}`, group: "Go to", label, icon: view, hint: `${mod} ${i + 1}`, run: () => commands.go(view) }));
+  const go = views.map(([view, label], i): PaletteItem => ({
+    id: `go:${view}`,
+    group: "Go to",
+    label,
+    icon: view,
+    hint: `${mod} ${i + 1}`,
+    run: () => commands.go(view),
+  }));
   const actions: PaletteItem[] = [
     { id: "new-page", group: "Actions", label: "New page…", icon: "add", hint: "N", run: () => commands.newPage() },
     { id: "new-task", group: "Actions", label: "New task", icon: "add", hint: "C", run: () => commands.newTask() },
@@ -88,7 +133,17 @@ export function allItems(snapshot: Snapshot, recent: readonly RecentEntry[], the
           { id: "push", group: "Actions", label: `Push to ${remote}`, icon: "push", run: () => commands.sync("push", remote) },
         ] satisfies PaletteItem[])
       : []),
-    ...(storage.mode === "branch" ? [{ id: "sync-content", group: "Actions", label: "Sync wiki and tasks", icon: "sync", run: () => commands.syncContent() } satisfies PaletteItem] : []),
+    ...(storage.mode === "branch"
+      ? [
+          {
+            id: "sync-content",
+            group: "Actions",
+            label: "Sync wiki and tasks",
+            icon: "sync",
+            run: () => commands.syncContent(),
+          } satisfies PaletteItem,
+        ]
+      : []),
   ];
   const repository: PaletteItem[] = [
     { id: "open", group: "Repository", label: "Open folder…", icon: "folder", hint: `${mod} O`, run: () => commands.pickFolder() },
@@ -97,7 +152,13 @@ export function allItems(snapshot: Snapshot, recent: readonly RecentEntry[], the
     { id: "close", group: "Repository", label: "Close repository", icon: "close", run: () => commands.closeRepository() },
     ...recent
       .filter((entry) => !sameLocation(entry.location, snapshot.location))
-      .map((entry): PaletteItem => ({ id: `recent:${JSON.stringify(entry.location)}`, group: "Repository", label: `Open ${entry.name}`, icon: entry.location.kind, run: () => commands.openRecent(entry) })),
+      .map((entry): PaletteItem => ({
+        id: `recent:${JSON.stringify(entry.location)}`,
+        group: "Repository",
+        label: `Open ${entry.name}`,
+        icon: entry.location.kind,
+        run: () => commands.openRecent(entry),
+      })),
   ];
   const preferences: PaletteItem[] = [
     ...(["dark", "light", "system"] as const).map((option): PaletteItem => ({
@@ -129,7 +190,8 @@ export function allItems(snapshot: Snapshot, recent: readonly RecentEntry[], the
     run: () => commands.openTask(task.id),
   }));
   // Pages and tasks have their own entries when they live in the checkout.
-  const own = (path: string) => storage.mode === "worktree" && (path.startsWith(`${settings.wikiRoot}/`) || path.startsWith(`${settings.taskRoot}/`));
+  const own = (path: string) =>
+    storage.mode === "worktree" && (path.startsWith(`${settings.wikiRoot}/`) || path.startsWith(`${settings.taskRoot}/`));
   const fileItems = flatFiles(files)
     .filter((path) => !own(path))
     .map((path): PaletteItem => ({
@@ -151,7 +213,12 @@ export function rank(items: readonly PaletteItem[], query: string, keepOrder: bo
   const scored = items
     .map((item) => ({
       item,
-      score: Math.max(fuzzyScore(item.label, needle), fuzzyScore(item.keywords ?? "", needle) - 100, fuzzyScore(item.detail ?? "", needle) - 200) + (GROUP_WEIGHT[item.group] ?? 0),
+      score:
+        Math.max(
+          fuzzyScore(item.label, needle),
+          fuzzyScore(item.keywords ?? "", needle) - 100,
+          fuzzyScore(item.detail ?? "", needle) - 200,
+        ) + (GROUP_WEIGHT[item.group] ?? 0),
     }))
     .filter(({ score }) => score >= 0)
     .sort((a, b) => b.score - a.score);

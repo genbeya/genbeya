@@ -29,7 +29,9 @@ const MAX_LANES = 12;
   host: { class: "view" },
   template: `
     @if (error(); as message) {
-      <gd-empty-state title="Can't read history"><p class="selectable">{{ message }}</p></gd-empty-state>
+      <gd-empty-state title="Can't read history"
+        ><p class="selectable">{{ message }}</p></gd-empty-state
+      >
     } @else if (!commits()) {
       <div class="editor-loading"><span class="spinner" aria-label="Loading"></span></div>
     } @else if (!commits()!.length) {
@@ -42,7 +44,14 @@ const MAX_LANES = 12;
         <aside class="side-panel history-list" gdResizable="history" [initial]="520" [min]="340" [max]="900" #panel="gdResizable">
           <div class="side-panel-scroll" role="list" aria-label="Commits">
             @for (row of graph().rows; track row.commit.hash) {
-              <button type="button" role="listitem" class="history-row" [class.is-selected]="row.commit.hash === commit()" [attr.aria-current]="row.commit.hash === commit() || null" (click)="select(row.commit.hash)">
+              <button
+                type="button"
+                role="listitem"
+                class="history-row"
+                [class.is-selected]="row.commit.hash === commit()"
+                [attr.aria-current]="row.commit.hash === commit() || null"
+                (click)="select(row.commit.hash)"
+              >
                 <gd-graph-lines [row]="row" [width]="graphWidth()" />
                 <span class="history-text">
                   <span class="history-subject ellipsis"><gd-ref-chips [refs]="row.commit.refs" />{{ row.commit.subject }}</span>

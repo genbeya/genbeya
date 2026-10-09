@@ -42,10 +42,14 @@ export class SettingsEngine {
     if (wikiRoot === taskRoot || within(wikiRoot, taskRoot) || within(taskRoot, wikiRoot))
       throw new Error("Wiki and task folders must not contain each other.");
     const taskPrefix = text(value.taskPrefix, "Task prefix", 12).toUpperCase();
-    if (!/^[A-Z][A-Z0-9]*$/.test(taskPrefix))
-      throw new Error("The task prefix uses letters and digits, starting with a letter.");
+    if (!/^[A-Z][A-Z0-9]*$/.test(taskPrefix)) throw new Error("The task prefix uses letters and digits, starting with a letter.");
     const statuses = Array.isArray(value.statuses) ? value.statuses.map((s: unknown) => (typeof s === "string" ? s.trim() : "")) : [];
-    if (statuses.length < 1 || statuses.length > 12 || new Set(statuses).size !== statuses.length || statuses.some((s) => !s || s.length > 40))
+    if (
+      statuses.length < 1 ||
+      statuses.length > 12 ||
+      new Set(statuses).size !== statuses.length ||
+      statuses.some((s) => !s || s.length > 40)
+    )
       throw new Error("Use 1–12 unique workflow states.");
     return { name, wikiRoot, wikiHome, taskRoot, taskPrefix, statuses };
   }

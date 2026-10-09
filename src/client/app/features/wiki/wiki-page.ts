@@ -18,7 +18,18 @@ import { findPage, subpagesOf } from "./wiki-pages";
 /** One wiki page: rendered for reading, or Markdown beside a live preview while editing (E). */
 @Component({
   selector: "gd-wiki-page",
-  imports: [Breadcrumbs, CodeEditor, EmptyState, MarkdownView, PageMenu, PageOutline, LucideColumns2, LucideFileText, LucidePencil, LucidePlus],
+  imports: [
+    Breadcrumbs,
+    CodeEditor,
+    EmptyState,
+    MarkdownView,
+    PageMenu,
+    PageOutline,
+    LucideColumns2,
+    LucideFileText,
+    LucidePencil,
+    LucidePlus,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -26,7 +37,9 @@ import { findPage, subpagesOf } from "./wiki-pages";
       <gd-empty-state title="This page does not exist">
         <svg icon lucideFileText [size]="20" aria-hidden="true"></svg>
         <p class="selectable">{{ path() }}</p>
-        <button type="button" class="btn btn-primary btn-m" (click)="create()"><svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create it</span></button>
+        <button type="button" class="btn btn-primary btn-m" (click)="create()">
+          <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create it</span>
+        </button>
       </gd-empty-state>
     } @else {
       <header class="view-header">
@@ -36,11 +49,21 @@ import { findPage, subpagesOf } from "./wiki-pages";
         }
         <span class="grow"></span>
         @if (editing()) {
-          <button type="button" class="icon-btn" aria-label="Toggle preview" title="Toggle preview" [class.is-active]="preview()" [attr.aria-pressed]="preview()" (click)="preview.set(!preview())">
+          <button
+            type="button"
+            class="icon-btn"
+            aria-label="Toggle preview"
+            title="Toggle preview"
+            [class.is-active]="preview()"
+            [attr.aria-pressed]="preview()"
+            (click)="preview.set(!preview())"
+          >
             <svg lucideColumns2 [size]="15" aria-hidden="true"></svg>
           </button>
           <button type="button" class="btn btn-ghost btn-m" (click)="cancel()"><span>Cancel</span></button>
-          <button type="button" class="btn btn-primary btn-m" (click)="save(true)"><span>Save</span><kbd class="kbd">{{ mod }} S</kbd></button>
+          <button type="button" class="btn btn-primary btn-m" (click)="save(true)">
+            <span>Save</span><kbd class="kbd">{{ mod }} S</kbd>
+          </button>
         } @else {
           <button type="button" class="btn btn-default btn-m" [disabled]="!resource.file()" (click)="edit()">
             <svg lucidePencil [size]="13" aria-hidden="true"></svg><span>Edit</span><kbd class="kbd">E</kbd>
@@ -56,7 +79,15 @@ import { findPage, subpagesOf } from "./wiki-pages";
       }
       @if (editing() && resource.file()) {
         <div class="wiki-editor" [class.with-preview]="preview()">
-          <gd-code-editor label="Page source" [path]="path()" [value]="draft()" [lineNumbers]="false" [autofocus]="true" (valueChange)="draft.set($event)" (save)="save(false)" />
+          <gd-code-editor
+            label="Page source"
+            [path]="path()"
+            [value]="draft()"
+            [lineNumbers]="false"
+            [autofocus]="true"
+            (valueChange)="draft.set($event)"
+            (save)="save(false)"
+          />
           @if (preview()) {
             <div class="wiki-preview content-scroll">
               <gd-markdown [source]="stripFrontmatter(draft())" [path]="path()" [links]="links()" (linkClicked)="wiki.followLink($event)" />
@@ -110,7 +141,11 @@ export class WikiPage {
 
   constructor() {
     trackUnsaved(this.dirty);
-    hotkey("e", () => this.edit(), computed(() => !this.editing() && !!this.resource.file()));
+    hotkey(
+      "e",
+      () => this.edit(),
+      computed(() => !this.editing() && !!this.resource.file()),
+    );
     hotkey("mod+s", () => void this.save(false), this.editing);
     hotkey("escape", () => void this.cancel(), this.editing);
   }

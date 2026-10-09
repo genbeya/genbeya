@@ -29,7 +29,10 @@ const toList = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.map(String)
     : typeof value === "string"
-      ? value.split(",").map((s) => s.trim()).filter(Boolean)
+      ? value
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
       : [];
 
 /** Frontmatter fields in their written order; empty optional fields are left out. */
@@ -41,8 +44,7 @@ const fieldsOf = (input: TaskInput) => ({
   labels: input.labels.length ? [...input.labels] : undefined,
 });
 
-const compose = (frontmatter: string, body: string) =>
-  `---\n${frontmatter}---\n\n${body.replace(/^\s*\n/, "").replace(/\s*$/, "\n")}`;
+const compose = (frontmatter: string, body: string) => `---\n${frontmatter}---\n\n${body.replace(/^\s*\n/, "").replace(/\s*$/, "\n")}`;
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -70,7 +72,9 @@ export class TaskEngine {
       if (typeof value !== "string" || value.length > max) throw new Error(`Invalid ${label}.`);
       return value;
     };
-    const title = text(input.title, "title", LIMITS.title).replace(/[\r\n]+/g, " ").trim();
+    const title = text(input.title, "title", LIMITS.title)
+      .replace(/[\r\n]+/g, " ")
+      .trim();
     if (!title) throw new Error("A task needs a title.");
     if (!statuses.includes(input.status)) throw new Error("Choose one of the configured workflow states.");
     if (!Array.isArray(input.labels) || input.labels.length > LIMITS.labels) throw new Error("Use at most 30 labels.");

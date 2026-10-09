@@ -9,7 +9,8 @@ const px = Buffer.alloc(N * N * 4);
 const clamp = (v) => Math.max(0, Math.min(1, v));
 // Signed distances in pixels; negative inside.
 const roundedBox = (x, y, half, r) => {
-  const qx = Math.abs(x) - half + r, qy = Math.abs(y) - half + r;
+  const qx = Math.abs(x) - half + r,
+    qy = Math.abs(y) - half + r;
   return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
 };
 const segment = (x, y, ax, ay, bx, by) => {
@@ -17,16 +18,23 @@ const segment = (x, y, ax, ay, bx, by) => {
   return Math.hypot(x - ax - t * (bx - ax), y - ay - t * (by - ay));
 };
 
-const nodes = [[380, 300], [380, 724], [644, 400]];
+const nodes = [
+  [380, 300],
+  [380, 724],
+  [644, 400],
+];
 const stroke = 46;
 
 for (let j = 0; j < N; j++)
   for (let i = 0; i < N; i++) {
-    const x = i + 0.5, y = j + 0.5;
+    const x = i + 0.5,
+      y = j + 0.5;
     const tile = clamp(0.5 - roundedBox(x - N / 2, y - N / 2, 448, 200));
     // Accent gradient, top-left to bottom-right.
     const g = (x + y) / (2 * N);
-    let r = 136 - 40 * g, gr = 140 - 44 * g, b = 250 - 18 * g;
+    let r = 136 - 40 * g,
+      gr = 140 - 44 * g,
+      b = 250 - 18 * g;
     // Branch mark: trunk, a curve-free merge line, and three commits.
     let mark = Math.min(
       segment(x, y, 380, 300, 380, 724) - stroke / 2,
@@ -36,9 +44,14 @@ for (let j = 0; j < N; j++)
     for (const [cx, cy] of nodes) mark = Math.min(mark, Math.hypot(x - cx, y - cy) - 70);
     const ring = Math.max(...nodes.map(([cx, cy]) => -(Math.hypot(x - cx, y - cy) - 30)));
     const white = clamp(0.5 - mark) * (1 - clamp(0.5 + ring));
-    r += (255 - r) * white; gr += (255 - gr) * white; b += (255 - b) * white;
+    r += (255 - r) * white;
+    gr += (255 - gr) * white;
+    b += (255 - b) * white;
     const o = (j * N + i) * 4;
-    px[o] = r; px[o + 1] = gr; px[o + 2] = b; px[o + 3] = 255 * tile;
+    px[o] = r;
+    px[o + 1] = gr;
+    px[o + 2] = b;
+    px[o + 3] = 255 * tile;
   }
 
 const crcTable = Array.from({ length: 256 }, (_, n) => {

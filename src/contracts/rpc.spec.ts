@@ -4,7 +4,8 @@ import { connectManagers, dispatch, type Request } from "./rpc";
 
 // Fails to compile when a contract method is missing from MANAGER_METHODS.
 type Unlisted<K extends keyof Managers> = Exclude<keyof Managers[K], (typeof MANAGER_METHODS)[K][number]>;
-const exhaustive: [Unlisted<"workspace">, Unlisted<"content">, Unlisted<"versionControl">] extends [never, never, never] ? true : false = true;
+const exhaustive: [Unlisted<"workspace">, Unlisted<"content">, Unlisted<"versionControl">] extends [never, never, never] ? true : false =
+  true;
 
 const fakeManagers = () =>
   ({

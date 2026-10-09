@@ -7,13 +7,25 @@ describe("validateRepositoryPath", () => {
     expect(validateRepositoryPath(path, true)).toBe(path);
   });
 
-  it.each(["", "../x", "docs/../../x", "./x", "/etc/passwd", "C:/x", "c:x", "docs\\Home.md", ".git", ".git/config", ".git./config", ".GIT/config", "a//b", "a/"])(
-    "rejects %s on every platform",
-    (path) => {
-      expect(() => validateRepositoryPath(path, false)).toThrow();
-      expect(() => validateRepositoryPath(path, true)).toThrow();
-    },
-  );
+  it.each([
+    "",
+    "../x",
+    "docs/../../x",
+    "./x",
+    "/etc/passwd",
+    "C:/x",
+    "c:x",
+    "docs\\Home.md",
+    ".git",
+    ".git/config",
+    ".git./config",
+    ".GIT/config",
+    "a//b",
+    "a/",
+  ])("rejects %s on every platform", (path) => {
+    expect(() => validateRepositoryPath(path, false)).toThrow();
+    expect(() => validateRepositoryPath(path, true)).toThrow();
+  });
 
   it.each(["GIT~1/config", "code.ts:stream", "docs/Home.md.", "docs/Home.md ", "con", "NUL.txt", "a/lpt1", "q?.md", "x\u0001"])(
     "rejects the Windows alias or reserved name %s on Windows only",

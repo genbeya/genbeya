@@ -97,7 +97,10 @@ describe("Session", () => {
   it("syncs content edits shortly after when the content branch syncs automatically", async () => {
     vi.useFakeTimers();
     const { session, managers } = setup();
-    managers.workspace.open.mockResolvedValue({ id: "w1", snapshot: snapshot({ storage: { mode: "branch", branch: "gitdesk", remote: "origin", ahead: 1, behind: 0 } }) });
+    managers.workspace.open.mockResolvedValue({
+      id: "w1",
+      snapshot: snapshot({ storage: { mode: "branch", branch: "gitdesk", remote: "origin", ahead: 1, behind: 0 } }),
+    });
     managers.workspace.setPreferences.mockResolvedValue({ theme: "system", reopenLast: true, autoSyncContent: true });
     await session.open({ kind: "local", path: "/repo" });
     await session.setPreferences({ autoSyncContent: true });

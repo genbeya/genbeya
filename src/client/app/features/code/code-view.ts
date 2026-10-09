@@ -23,9 +23,18 @@ import { FileEditor } from "./file-editor";
         <div class="row panel-toolbar">
           <label class="filter grow">
             <svg lucideSearch [size]="13" aria-hidden="true"></svg>
-            <input #filter placeholder="Filter files" aria-label="Filter files" [value]="query()" (input)="query.set(filter.value)" (keydown.escape)="clear(filter)" />
+            <input
+              #filter
+              placeholder="Filter files"
+              aria-label="Filter files"
+              [value]="query()"
+              (input)="query.set(filter.value)"
+              (keydown.escape)="clear(filter)"
+            />
           </label>
-          <button type="button" class="icon-btn" aria-label="New file" title="New file" (click)="createFile()"><svg lucideFilePlus2 [size]="15" aria-hidden="true"></svg></button>
+          <button type="button" class="icon-btn" aria-label="New file" title="New file" (click)="createFile()">
+            <svg lucideFilePlus2 [size]="15" aria-hidden="true"></svg>
+          </button>
         </div>
         <div class="side-panel-scroll code-tree">
           <gd-tree label="Files" [items]="shown()" [selected]="file() ?? null" [expandAll]="!!query()" (selectItem)="open($event.key)">
@@ -39,7 +48,9 @@ import { FileEditor } from "./file-editor";
               </span>
               <span class="tree-label">{{ item.label }}</span>
               @if (item.data; as letter) {
-                <span class="tree-actions"><span class="status-letter {{ letter }}" [attr.aria-label]="'Status ' + letter">{{ letter }}</span></span>
+                <span class="tree-actions"
+                  ><span class="status-letter {{ letter }}" [attr.aria-label]="'Status ' + letter">{{ letter }}</span></span
+                >
               }
             </ng-template>
           </gd-tree>

@@ -119,7 +119,14 @@ export class RepositoryAccess {
   }
 
   async log(skip: number, limit: number): Promise<Commit[]> {
-    const output = await this.git.attempt(["log", "--all", "--topo-order", `--skip=${skip}`, `--max-count=${limit}`, `--format=${LOG_FORMAT}`]);
+    const output = await this.git.attempt([
+      "log",
+      "--all",
+      "--topo-order",
+      `--skip=${skip}`,
+      `--max-count=${limit}`,
+      `--format=${LOG_FORMAT}`,
+    ]);
     return parseLog(output ?? "");
   }
 
@@ -141,7 +148,8 @@ export class RepositoryAccess {
 
   /** Switches branches; a remote-only branch such as `origin/x` becomes a new tracking branch. */
   async switchBranch(name: string): Promise<void> {
-    const remoteOnly = /^[^/]+\/.+$/.test(name) && !(await this.git.hasRef(`refs/heads/${name}`)) && (await this.git.hasRef(`refs/remotes/${name}`));
+    const remoteOnly =
+      /^[^/]+\/.+$/.test(name) && !(await this.git.hasRef(`refs/heads/${name}`)) && (await this.git.hasRef(`refs/remotes/${name}`));
     await this.git.text(remoteOnly ? ["switch", "--track", name] : ["switch", name]);
   }
 
@@ -156,7 +164,10 @@ export class RepositoryAccess {
   async sync(action: SyncAction, remote: string, branch: string | null): Promise<void> {
     if (action === "fetch") return void (await this.git.text(["fetch", "--prune", remote], NETWORK_TIMEOUT));
     if (!branch) throw new Error("Switch to a branch first.");
-    await this.git.text(action === "pull" ? ["pull", "--ff-only", remote, branch] : ["push", "--set-upstream", remote, branch], NETWORK_TIMEOUT);
+    await this.git.text(
+      action === "pull" ? ["pull", "--ff-only", remote, branch] : ["push", "--set-upstream", remote, branch],
+      NETWORK_TIMEOUT,
+    );
   }
 
   async setRemote(name: string, url: string): Promise<void> {

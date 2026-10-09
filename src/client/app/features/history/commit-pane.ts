@@ -18,7 +18,9 @@ import { RefChips } from "./ref-chips";
   host: { class: "view" },
   template: `
     @if (error(); as message) {
-      <gd-empty-state title="Can't read this commit"><p class="selectable">{{ message }}</p></gd-empty-state>
+      <gd-empty-state title="Can't read this commit"
+        ><p class="selectable">{{ message }}</p></gd-empty-state
+      >
     } @else if (detail(); as detail) {
       <div class="commit-head">
         <div class="commit-title selectable">
@@ -42,8 +44,16 @@ import { RefChips } from "./ref-chips";
         </div>
         <div class="commit-files" role="list" aria-label="Changed files">
           @for (changed of detail.files; track changed.path) {
-            <button type="button" role="listitem" class="commit-file" [class.is-selected]="changed.path === file()" [title]="changed.oldPath ? changed.oldPath + ' → ' + changed.path : changed.path" (click)="selectFile(changed.path)">
-              <span class="status-letter {{ changed.status }}">{{ changed.status }}</span><span class="ellipsis">{{ changed.path }}</span>
+            <button
+              type="button"
+              role="listitem"
+              class="commit-file"
+              [class.is-selected]="changed.path === file()"
+              [title]="changed.oldPath ? changed.oldPath + ' → ' + changed.path : changed.path"
+              (click)="selectFile(changed.path)"
+            >
+              <span class="status-letter {{ changed.status }}">{{ changed.status }}</span
+              ><span class="ellipsis">{{ changed.path }}</span>
             </button>
           } @empty {
             <p class="faint">No file changes.</p>
@@ -53,8 +63,14 @@ import { RefChips } from "./ref-chips";
       @if (selected(); as changed) {
         <div class="commit-diff">
           @for (key of [changed.path]; track key) {
-            <gd-diff-pane [path]="changed.path" [badge]="detail.commit.parents.length > 1 ? 'vs. first parent' : undefined" [load]="loadDiff()">
-              <button type="button" class="icon-btn" aria-label="Open in code" title="Open in code" (click)="openFile(changed.path)"><svg lucideCodeXml [size]="15" aria-hidden="true"></svg></button>
+            <gd-diff-pane
+              [path]="changed.path"
+              [badge]="detail.commit.parents.length > 1 ? 'vs. first parent' : undefined"
+              [load]="loadDiff()"
+            >
+              <button type="button" class="icon-btn" aria-label="Open in code" title="Open in code" (click)="openFile(changed.path)">
+                <svg lucideCodeXml [size]="15" aria-hidden="true"></svg>
+              </button>
             </gd-diff-pane>
           }
         </div>

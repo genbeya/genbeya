@@ -19,13 +19,19 @@ describe("palette items", () => {
   const items = allItems(repository, [], "dark", "Ctrl", commands);
 
   it("offers views, actions, pages, tasks and files, but not wiki files twice", () => {
-    expect(items.map((item) => item.id)).toEqual(expect.arrayContaining(["go:wiki", "fetch", "push", "page:docs/Home.md", "task:tasks/TP-1.md", "file:src/login.ts"]));
+    expect(items.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["go:wiki", "fetch", "push", "page:docs/Home.md", "task:tasks/TP-1.md", "file:src/login.ts"]),
+    );
     expect(items.some((item) => item.id === "file:docs/Home.md")).toBe(false);
     expect(items.find((item) => item.id === "theme:dark")?.hint).toBe("current");
   });
 
   it("ranks matches with pages and tasks first, and leaves files out without a query", () => {
-    expect(rank(items, "login", false).slice(0, 2).map((item) => item.label)).toEqual(["Fix login", "login.ts"]);
+    expect(
+      rank(items, "login", false)
+        .slice(0, 2)
+        .map((item) => item.label),
+    ).toEqual(["Fix login", "login.ts"]);
     expect(rank(items, "", false).some((item) => item.group === "Files")).toBe(false);
   });
 

@@ -11,7 +11,14 @@ import { createBackend } from "./backend";
 
 const machine = nodeMachine();
 const windows = machine.os === "windows";
-const input: TaskInput = { title: "Build it", status: "backlog", priority: "high", assignee: "alice", labels: ["backend"], body: "Useful work.\n\n- [ ] Done\n" };
+const input: TaskInput = {
+  title: "Build it",
+  status: "backlog",
+  priority: "high",
+  assignee: "alice",
+  labels: ["backend"],
+  body: "Useful work.\n\n- [ ] Done\n",
+};
 
 /** Managers behind the same serialising transport the shells use. */
 async function backend(dataFolder?: string): Promise<Managers> {
@@ -47,8 +54,12 @@ describe("WorkspaceManager", () => {
 
   it("explains folders it cannot open", async () => {
     const managers = await backend();
-    await expect(managers.workspace.open({ kind: "local", path: await temporaryFolder("plain-", true) })).rejects.toThrow("not inside a Git repository");
-    await expect(managers.workspace.open({ kind: "ssh", host: "-oProxyCommand=x", path: "/x" })).rejects.toThrow("Invalid repository location.");
+    await expect(managers.workspace.open({ kind: "local", path: await temporaryFolder("plain-", true) })).rejects.toThrow(
+      "not inside a Git repository",
+    );
+    await expect(managers.workspace.open({ kind: "ssh", host: "-oProxyCommand=x", path: "/x" })).rejects.toThrow(
+      "Invalid repository location.",
+    );
   });
 
   it("closes the previous repository when another opens", async () => {
@@ -93,7 +104,11 @@ describe("WorkspaceManager", () => {
 
   it("validates preferences", async () => {
     const managers = await backend();
-    expect(await managers.workspace.setPreferences({ theme: "dark", autoSyncContent: true })).toEqual({ theme: "dark", reopenLast: true, autoSyncContent: true });
+    expect(await managers.workspace.setPreferences({ theme: "dark", autoSyncContent: true })).toEqual({
+      theme: "dark",
+      reopenLast: true,
+      autoSyncContent: true,
+    });
     await expect(managers.workspace.setPreferences({ theme: "neon" } as never)).rejects.toThrow("theme");
     await expect(managers.workspace.setPreferences({ reopenLast: "yes" } as never)).rejects.toThrow("reopenLast");
   });
@@ -141,13 +156,19 @@ describe("ContentManager", () => {
     await expect(content.remove(id, "repo", "src")).rejects.toThrow("not a regular file");
   });
 
-  it.each(["../x", "docs/../../x", ".git/config", ".git./config", "/etc/passwd", "docs\\Home.md", "", ...(windows ? ["GIT~1/config", "code.ts:stream", "docs/Home.md.", "con"] : [])])(
-    "refuses the path %j",
-    async (path) => {
-      const { content, id } = await opened();
-      await expect(content.write(id, "repo", path, "bad", null)).rejects.toThrow();
-    },
-  );
+  it.each([
+    "../x",
+    "docs/../../x",
+    ".git/config",
+    ".git./config",
+    "/etc/passwd",
+    "docs\\Home.md",
+    "",
+    ...(windows ? ["GIT~1/config", "code.ts:stream", "docs/Home.md.", "con"] : []),
+  ])("refuses the path %j", async (path) => {
+    const { content, id } = await opened();
+    await expect(content.write(id, "repo", path, "bad", null)).rejects.toThrow();
+  });
 
   it("serves images as data URLs and refuses other files", async () => {
     const { content, id, repository } = await opened();
@@ -183,7 +204,11 @@ describe("ContentManager", () => {
 
   it("turns broken tasks, duplicate IDs and broken settings into warnings", async () => {
     const task = "---\nid: X-1\ntitle: T\nstatus: todo\n---\n";
-    const { content, id, latest, repository } = await opened({ "tasks/bad.md": "---\nid: [broken\n---\n", "tasks/a.md": task, "tasks/b.md": task });
+    const { content, id, latest, repository } = await opened({
+      "tasks/bad.md": "---\nid: [broken\n---\n",
+      "tasks/a.md": task,
+      "tasks/b.md": task,
+    });
     let snapshot = await latest();
     expect(snapshot.tasks).toHaveLength(2);
     expect(snapshot.warnings.join("\n")).toMatch(/bad\.md: Invalid YAML/);
@@ -198,14 +223,19 @@ describe("ContentManager", () => {
   });
 
   it("saves settings over the file, keeping unknown keys, and rejects stale or invalid saves", async () => {
-    const { content, id, latest, repository } = await opened({ ".gitdesk.yml": "# comment\nname: A\ncustom: true\n", "docs/Home.md": "# Home\n" });
+    const { content, id, latest, repository } = await opened({
+      ".gitdesk.yml": "# comment\nname: A\ncustom: true\n",
+      "docs/Home.md": "# Home\n",
+    });
     const snapshot = await latest();
     await content.saveSettings(id, { ...snapshot.settings, name: "B", statuses: ["open", "closed"] }, snapshot.settingsHash);
     expect(await repository.read(".gitdesk.yml")).toMatch(/# comment[\s\S]*custom: true/);
     await expect(content.saveSettings(id, snapshot.settings, snapshot.settingsHash)).rejects.toThrow("changed on disk");
     const next = await latest();
     expect(next.settings).toMatchObject({ name: "B", statuses: ["open", "closed"] });
-    await expect(content.saveSettings(id, { ...next.settings, wikiRoot: "tasks" }, next.settingsHash)).rejects.toThrow("contain each other");
+    await expect(content.saveSettings(id, { ...next.settings, wikiRoot: "tasks" }, next.settingsHash)).rejects.toThrow(
+      "contain each other",
+    );
   });
 
   it("keeps wiki and tasks on a dedicated branch when asked", async () => {
@@ -219,7 +249,10 @@ describe("ContentManager", () => {
     expect(snapshot.changes).toEqual([]);
     expect(snapshot.tasks.map((t) => t.id)).toEqual(["TP-1"]);
     expect(await repository.exists(task.path)).toBe(false);
-    expect((await repository.git("log", "--format=%s", "gitdesk")).split("\n").slice(0, 2)).toEqual(["Edit docs/Home.md", "Create TP-1: Build it"]);
+    expect((await repository.git("log", "--format=%s", "gitdesk")).split("\n").slice(0, 2)).toEqual([
+      "Edit docs/Home.md",
+      "Create TP-1: Build it",
+    ]);
     await expect(content.setStorage(id, "cloud" as never)).rejects.toThrow("Invalid storage mode.");
     await content.setStorage(id, "worktree");
     expect((await latest()).storage.mode).toBe("worktree");
@@ -249,7 +282,11 @@ describe("VersionControlManager", () => {
     const { versionControl, content, id, latest } = await opened();
     const file = await content.read(id, "repo", "src/code.ts");
     await content.write(id, "repo", file.path, "export const value = 2;\n", file.hash);
-    expect(await versionControl.diff(id, "src/code.ts", "worktree")).toMatchObject({ binary: false, original: "export const value = 1;\n", modified: "export const value = 2;\n" });
+    expect(await versionControl.diff(id, "src/code.ts", "worktree")).toMatchObject({
+      binary: false,
+      original: "export const value = 1;\n",
+      modified: "export const value = 2;\n",
+    });
     await versionControl.stage(id, ["src/code.ts"]);
     await versionControl.commit(id, "  Change value  ", false);
     expect(await versionControl.lastCommitMessage(id)).toBe("Change value");
@@ -298,9 +335,13 @@ describe("WSL repositories", async () => {
     const dir = `/tmp/gitdesk-test-${Date.now()}`;
     const run = async (script: string) => {
       const { execFile } = await import("node:child_process");
-      await new Promise((resolve, reject) => execFile("wsl.exe", ["-d", "Ubuntu", "-e", "sh", "-c", script], (e) => (e ? reject(e) : resolve(null))));
+      await new Promise((resolve, reject) =>
+        execFile("wsl.exe", ["-d", "Ubuntu", "-e", "sh", "-c", script], (e) => (e ? reject(e) : resolve(null))),
+      );
     };
-    await run(`mkdir -p ${dir}/docs && cd ${dir} && git init -q -b main && git config user.name T && git config user.email t@x && printf '# Home\\n' > docs/Home.md && git add . && git commit -q -m init`);
+    await run(
+      `mkdir -p ${dir}/docs && cd ${dir} && git init -q -b main && git config user.name T && git config user.email t@x && printf '# Home\\n' > docs/Home.md && git add . && git commit -q -m init`,
+    );
     onTestFinished(async () => {
       await run(`rm -rf ${dir}`);
       await managers.dispose();
@@ -315,4 +356,3 @@ describe("WSL repositories", async () => {
     await expect(managers.content.read(id, "repo", "missing.md")).rejects.toThrow("does not exist");
   });
 });
-

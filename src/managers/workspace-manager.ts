@@ -140,9 +140,17 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     const files = contentFiles ?? repository.files;
     const tasks = await workspace.tasks(files, settings, warnings);
     if (contentBranch?.uncommitted)
-      warnings.push(`${contentBranch.uncommitted} file(s) on the ${contentBranch.branch} branch are not committed. Commit them in ${content.root}.`);
+      warnings.push(
+        `${contentBranch.uncommitted} file(s) on the ${contentBranch.branch} branch are not committed. Commit them in ${content.root}.`,
+      );
     const storage: Storage = contentBranch
-      ? { mode: "branch", branch: contentBranch.branch, remote: contentBranch.remote, ahead: contentBranch.head.ahead, behind: contentBranch.head.behind }
+      ? {
+          mode: "branch",
+          branch: contentBranch.branch,
+          remote: contentBranch.remote,
+          ahead: contentBranch.head.ahead,
+          behind: contentBranch.head.behind,
+        }
       : { mode: "worktree" };
     const body: Omit<Snapshot, "version"> = {
       location: workspace.location,
@@ -162,4 +170,3 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     return { version: sha256(JSON.stringify(body)), ...body };
   }
 }
-

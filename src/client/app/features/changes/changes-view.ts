@@ -44,9 +44,15 @@ export class ChangesView {
   protected readonly current = computed(() => this.snapshot().changes.find((change) => change.path === this.file()));
   /** Without staged changes, a commit takes everything. */
   protected readonly commitsAll = computed(() => !this.stagedChanges().length && !this.amend());
-  protected readonly canCommit = computed(() => !!this.message().trim() && (this.amend() || this.snapshot().changes.length > 0) && !this.session.busy());
+  protected readonly canCommit = computed(
+    () => !!this.message().trim() && (this.amend() || this.snapshot().changes.length > 0) && !this.session.busy(),
+  );
   protected readonly commitLabel = computed(() =>
-    this.amend() ? "Amend" : this.commitsAll() ? `Commit all ${this.snapshot().changes.length || ""}`.trim() : `Commit ${this.stagedChanges().length}`,
+    this.amend()
+      ? "Amend"
+      : this.commitsAll()
+        ? `Commit all ${this.snapshot().changes.length || ""}`.trim()
+        : `Commit ${this.stagedChanges().length}`,
   );
   protected readonly badge = computed(() => (this.showsStaged() ? "Staged" : this.current()?.index === "?" ? "Untracked" : "Working tree"));
   protected readonly loadDiff = computed(() => {
@@ -116,7 +122,9 @@ export class ChangesView {
     const single = paths.length === 1;
     const confirmed = await this.dialogs.confirm({
       title: single ? "Discard changes" : `Discard ${paths.length} changes`,
-      message: single ? `Discard your changes to ${paths[0]}? This cannot be undone.` : "Discard all unstaged changes? Untracked files are deleted. This cannot be undone.",
+      message: single
+        ? `Discard your changes to ${paths[0]}? This cannot be undone.`
+        : "Discard all unstaged changes? Untracked files are deleted. This cannot be undone.",
       confirm: "Discard",
       danger: true,
     });

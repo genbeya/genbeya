@@ -21,7 +21,12 @@ const MINIMUM_HEADINGS = 3;
       <nav class="wiki-outline-inner" aria-label="On this page">
         <div class="outline-title">On this page</div>
         @for (heading of headings(); track heading.id) {
-          <button type="button" class="outline-item level-{{ heading.level }}" [class.is-current]="current() === heading.id" (click)="scrollTo(heading.id)">
+          <button
+            type="button"
+            class="outline-item level-{{ heading.level }}"
+            [class.is-current]="current() === heading.id"
+            (click)="scrollTo(heading.id)"
+          >
             {{ heading.text }}
           </button>
         }
@@ -71,6 +76,8 @@ export class PageOutline {
   }
 
   protected scrollTo(id: string) {
-    this.content()?.element.querySelector(`#${CSS.escape(id)}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    this.content()
+      ?.element.querySelector(`#${CSS.escape(id)}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }

@@ -50,7 +50,10 @@ function setMenu() {
 const visible = (bounds: { x: number; y: number; width: number; height: number }) =>
   screen
     .getAllDisplays()
-    .some(({ workArea: a }) => bounds.x < a.x + a.width && bounds.x + bounds.width > a.x && bounds.y < a.y + a.height && bounds.y + bounds.height > a.y);
+    .some(
+      ({ workArea: a }) =>
+        bounds.x < a.x + a.width && bounds.x + bounds.width > a.x && bounds.y < a.y + a.height && bounds.y + bounds.height > a.y,
+    );
 
 function createWindow(state: WindowState): BrowserWindow {
   const saved = state.bounds && visible(state.bounds) ? state.bounds : null;
@@ -63,7 +66,13 @@ function createWindow(state: WindowState): BrowserWindow {
     title: "GitDesk",
     show: false,
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#121316" : "#ffffff",
-    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true },
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      spellcheck: true,
+    },
   });
   if (saved?.maximized) window.maximize();
   window.once("ready-to-show", () => window.show());

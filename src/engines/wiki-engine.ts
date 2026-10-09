@@ -60,6 +60,11 @@ export class WikiEngine {
     if (from === to) return [];
     const folder = this.subpageFolder(from);
     if (hasSubpages && within(to, folder)) throw new Error("A page cannot move below itself.");
-    return hasSubpages ? [[from, to], [folder, this.subpageFolder(to)]] : [[from, to]];
+    return hasSubpages
+      ? [
+          [from, to],
+          [folder, this.subpageFolder(to)],
+        ]
+      : [[from, to]];
   }
 }

@@ -201,7 +201,8 @@ export class ContentManager implements ContentManagerContract {
   private async taskPath(workspace: Workspace, value: unknown): Promise<{ relative: string; settings: Settings }> {
     const relative = workspace.path(value);
     const { settings } = await workspace.settings();
-    if (!within(relative, settings.taskRoot) || !relative.endsWith(".md")) throw new Error(`Tasks are Markdown files inside ${settings.taskRoot}/.`);
+    if (!within(relative, settings.taskRoot) || !relative.endsWith(".md"))
+      throw new Error(`Tasks are Markdown files inside ${settings.taskRoot}/.`);
     return { relative, settings };
   }
 }

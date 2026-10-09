@@ -7,7 +7,11 @@ import { encodeText, toBase64 } from "./bytes";
 const FLAG = "--open=";
 
 export const launchArgument = (location: unknown): string =>
-  FLAG + toBase64(encodeText(JSON.stringify(location))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  FLAG +
+  toBase64(encodeText(JSON.stringify(location)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
 /** The requested location, unvalidated, or undefined when no argument asks for one. */
 export function requestedLocation(args: readonly unknown[]): unknown {

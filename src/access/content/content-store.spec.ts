@@ -37,7 +37,13 @@ describe("ContentStore on a dedicated branch", () => {
     const location = await store.locate();
     expect(location.branch).toBe("gitdesk");
     expect(location.root).not.toBe(host.paths.normalize(repository.root));
-    expect((await store.files()).sort()).toEqual([".gitdesk.yml", "docs/Architecture.md", "docs/Architecture/Backend.md", "docs/Architecture/Backend/Auth.md", "docs/Home.md"]);
+    expect((await store.files()).sort()).toEqual([
+      ".gitdesk.yml",
+      "docs/Architecture.md",
+      "docs/Architecture/Backend.md",
+      "docs/Architecture/Backend/Auth.md",
+      "docs/Home.md",
+    ]);
 
     const home = await location.files.read("docs/Home.md");
     await location.files.write("docs/Home.md", "# Home\n\nShared.\n", home.hash);

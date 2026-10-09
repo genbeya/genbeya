@@ -17,7 +17,9 @@ describe("RepositoryAccess.locate", () => {
   });
 
   it("explains folders outside repositories", async () => {
-    await expect(RepositoryAccess.locate(host, await temporaryFolder("plain-", true))).rejects.toThrow("This folder is not inside a Git repository.");
+    await expect(RepositoryAccess.locate(host, await temporaryFolder("plain-", true))).rejects.toThrow(
+      "This folder is not inside a Git repository.",
+    );
   });
 });
 
@@ -65,7 +67,10 @@ describe("RepositoryAccess", () => {
     expect(text(await repo.diffSides("src/code.ts", "index", "src/code.ts", 1000))).toEqual(["export const value = 1;\n", "two"]);
     await repo.commit("Two", false);
     const [latest] = await repo.log(0, 1);
-    expect(text(await repo.diffSides("src/code.ts", { commit: latest!.hash }, "src/code.ts", 1000))).toEqual(["export const value = 1;\n", "two"]);
+    expect(text(await repo.diffSides("src/code.ts", { commit: latest!.hash }, "src/code.ts", 1000))).toEqual([
+      "export const value = 1;\n",
+      "two",
+    ]);
     expect(text(await repo.diffSides("gone.ts", "worktree", "gone.ts", 1000))).toEqual(["", ""]);
   });
 

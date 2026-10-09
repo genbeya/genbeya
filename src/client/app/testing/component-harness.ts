@@ -10,7 +10,12 @@ import { fakeManagers, fakeShell, providePlatform, snapshot as makeSnapshot } fr
 export interface Harness {
   readonly managers: ReturnType<typeof fakeManagers>;
   readonly shell: ReturnType<typeof fakeShell>;
-  readonly dialogs: { prompt: ReturnType<typeof vi.fn>; confirm: ReturnType<typeof vi.fn>; discardEdits: ReturnType<typeof vi.fn>; open: ReturnType<typeof vi.fn> };
+  readonly dialogs: {
+    prompt: ReturnType<typeof vi.fn>;
+    confirm: ReturnType<typeof vi.fn>;
+    discardEdits: ReturnType<typeof vi.fn>;
+    open: ReturnType<typeof vi.fn>;
+  };
   readonly router: Router;
   readonly session: Session;
 }
@@ -19,7 +24,12 @@ export interface Harness {
 export async function openRepository(change: Partial<Snapshot> = {}): Promise<Harness> {
   const managers = fakeManagers();
   const shell = fakeShell();
-  const dialogs = { prompt: vi.fn(async () => null), confirm: vi.fn(async () => true), discardEdits: vi.fn(async () => true), open: vi.fn(async () => undefined) };
+  const dialogs = {
+    prompt: vi.fn(async () => null),
+    confirm: vi.fn(async () => true),
+    discardEdits: vi.fn(async () => true),
+    open: vi.fn(async () => undefined),
+  };
   managers.workspace.open.mockResolvedValue({ id: "w1", snapshot: makeSnapshot(change) });
   TestBed.configureTestingModule({
     providers: [

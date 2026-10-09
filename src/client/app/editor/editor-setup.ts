@@ -4,11 +4,29 @@
  */
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { bracketMatching, foldGutter, foldKeymap, HighlightStyle, indentOnInput, LanguageDescription, syntaxHighlighting, type LanguageSupport } from "@codemirror/language";
+import {
+  bracketMatching,
+  foldGutter,
+  foldKeymap,
+  HighlightStyle,
+  indentOnInput,
+  LanguageDescription,
+  syntaxHighlighting,
+  type LanguageSupport,
+} from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import type { Extension } from "@codemirror/state";
-import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, highlightSpecialChars, keymap, lineNumbers, rectangularSelection } from "@codemirror/view";
+import {
+  drawSelection,
+  EditorView,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  highlightSpecialChars,
+  keymap,
+  lineNumbers,
+  rectangularSelection,
+} from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 
 export const editorTheme = EditorView.theme({
@@ -31,11 +49,21 @@ export const editorTheme = EditorView.theme({
   // Diffs: the old side (and unified deletions) red, the new side green.
   "&.cm-merge-a .cm-changedLine, .cm-deletedChunk": { backgroundColor: "var(--red-soft) !important" },
   "&.cm-merge-b .cm-changedLine, .cm-insertedLine": { backgroundColor: "var(--green-soft) !important" },
-  "&.cm-merge-a .cm-changedText, .cm-deletedChunk .cm-deletedText": { background: "color-mix(in srgb, var(--red) 30%, transparent) !important" },
-  "&.cm-merge-b .cm-changedText, .cm-insertedLine .cm-changedText": { background: "color-mix(in srgb, var(--green) 30%, transparent) !important" },
+  "&.cm-merge-a .cm-changedText, .cm-deletedChunk .cm-deletedText": {
+    background: "color-mix(in srgb, var(--red) 30%, transparent) !important",
+  },
+  "&.cm-merge-b .cm-changedText, .cm-insertedLine .cm-changedText": {
+    background: "color-mix(in srgb, var(--green) 30%, transparent) !important",
+  },
   "&.cm-merge-a .cm-changedLineGutter": { background: "var(--red) !important" },
   "&.cm-merge-b .cm-changedLineGutter": { background: "var(--green) !important" },
-  ".cm-collapsedLines": { background: "var(--bg-hover) !important", color: "var(--text-3)", fontFamily: "var(--font-ui)", fontSize: "12px", padding: "4px 12px" },
+  ".cm-collapsedLines": {
+    background: "var(--bg-hover) !important",
+    color: "var(--text-3)",
+    fontFamily: "var(--font-ui)",
+    fontSize: "12px",
+    padding: "4px 12px",
+  },
 });
 
 /** Syntax colours, matching the Markdown code highlighting. */
@@ -75,7 +103,14 @@ export function editingSetup(numbered: boolean): Extension[] {
 
 /** Read-only display (diffs). */
 export function viewingSetup(): Extension[] {
-  return [lineNumbers(), highlightSpecialChars(), drawSelection(), syntaxHighlighting(highlight), EditorView.editable.of(false), editorTheme];
+  return [
+    lineNumbers(),
+    highlightSpecialChars(),
+    drawSelection(),
+    syntaxHighlighting(highlight),
+    EditorView.editable.of(false),
+    editorTheme,
+  ];
 }
 
 /** The language of a file, loaded on demand; null for plain text. */

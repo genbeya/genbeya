@@ -20,7 +20,10 @@ export function findPage(nodes: readonly WikiNode[], path: string): { node: Wiki
 
 export const flattenPages = (nodes: readonly WikiNode[]): { title: string; path: string; trail: string[] }[] => {
   const walk = (level: readonly WikiNode[], trail: string[]): { title: string; path: string; trail: string[] }[] =>
-    level.flatMap((node) => [...(node.path ? [{ title: node.title, path: node.path, trail }] : []), ...walk(node.children, [...trail, node.title])]);
+    level.flatMap((node) => [
+      ...(node.path ? [{ title: node.title, path: node.path, trail }] : []),
+      ...walk(node.children, [...trail, node.title]),
+    ]);
   return walk(nodes, []);
 };
 

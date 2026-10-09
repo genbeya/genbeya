@@ -193,7 +193,11 @@ describe("locations", () => {
 
   it("accepts well-formed locations and copies only known fields", () => {
     expect(validateLocation({ kind: "local", path: "C:\\x", extra: 1 })).toEqual({ kind: "local", path: "C:\\x" });
-    expect(validateLocation({ kind: "ssh", host: "me@server", path: "/srv/repo" })).toEqual({ kind: "ssh", host: "me@server", path: "/srv/repo" });
+    expect(validateLocation({ kind: "ssh", host: "me@server", path: "/srv/repo" })).toEqual({
+      kind: "ssh",
+      host: "me@server",
+      path: "/srv/repo",
+    });
   });
 
   it.each([

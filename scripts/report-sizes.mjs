@@ -3,11 +3,14 @@
 import { appendFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
-const size = (p) =>
-  statSync(p).isDirectory() ? readdirSync(p).reduce((sum, e) => sum + size(path.join(p, e)), 0) : statSync(p).size;
+const size = (p) => (statSync(p).isDirectory() ? readdirSync(p).reduce((sum, e) => sum + size(path.join(p, e)), 0) : statSync(p).size);
 const mb = (bytes) => (bytes / 1048576).toFixed(1) + " MB";
 const list = (dir, test) =>
-  existsSync(dir) ? readdirSync(dir, { recursive: true }).map((f) => path.join(dir, String(f))).filter(test) : [];
+  existsSync(dir)
+    ? readdirSync(dir, { recursive: true })
+        .map((f) => path.join(dir, String(f)))
+        .filter(test)
+    : [];
 
 const INSTALLER = /\.(exe|msi|dmg|AppImage|deb|rpm)$/;
 const rows = [

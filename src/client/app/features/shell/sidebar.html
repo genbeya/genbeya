@@ -1,4 +1,10 @@
-<button type="button" class="workspace-switcher" [cdkMenuTriggerFor]="switcher" #trigger="cdkMenuTriggerFor" [class.is-open]="trigger.isOpen()">
+<button
+  type="button"
+  class="workspace-switcher"
+  [cdkMenuTriggerFor]="switcher"
+  #trigger="cdkMenuTriggerFor"
+  [class.is-open]="trigger.isOpen()"
+>
   <span class="workspace-mark" aria-hidden="true">{{ mark() }}</span>
   <span class="grow">
     <span class="workspace-name ellipsis">{{ snapshot().settings.name }}</span>
@@ -17,7 +23,11 @@
     @if (others().length) {
       <div class="menu-heading">Recent</div>
       @for (entry of others(); track entry.openedAt) {
-        <button gd-menu-item [hint]="entry.location.kind === 'local' ? '' : entry.location.kind.toUpperCase()" (selected)="session.open(entry.location)">
+        <button
+          gd-menu-item
+          [hint]="entry.location.kind === 'local' ? '' : entry.location.kind.toUpperCase()"
+          (selected)="session.open(entry.location)"
+        >
           <gd-host-icon icon [location]="entry.location" [size]="14" />
           {{ entry.name }}
         </button>
@@ -27,8 +37,12 @@
     <button gd-menu-item [hint]="mod + '+O'" (selected)="session.pick()">
       <svg icon lucideFolderOpen [size]="14" aria-hidden="true"></svg>Open folder…
     </button>
-    <button gd-menu-item (selected)="ui.openRemote()"><svg icon lucideServer [size]="14" aria-hidden="true"></svg>Open on WSL or SSH…</button>
-    <button gd-menu-item (selected)="ui.openClone()"><svg icon lucideCloudDownload [size]="14" aria-hidden="true"></svg>Clone repository…</button>
+    <button gd-menu-item (selected)="ui.openRemote()">
+      <svg icon lucideServer [size]="14" aria-hidden="true"></svg>Open on WSL or SSH…
+    </button>
+    <button gd-menu-item (selected)="ui.openClone()">
+      <svg icon lucideCloudDownload [size]="14" aria-hidden="true"></svg>Clone repository…
+    </button>
     <div class="menu-separator"></div>
     <button gd-menu-item (selected)="session.close()"><svg icon lucideX [size]="14" aria-hidden="true"></svg>Close repository</button>
   </div>
@@ -56,7 +70,9 @@
   <a class="nav-item" routerLink="/changes" routerLinkActive="is-active" [title]="'Changes (' + mod + '+4)'">
     <svg lucideGitCommitHorizontal [size]="16" aria-hidden="true"></svg><span class="grow">Changes</span>
     @if (snapshot().changes.length) {
-      <span class="nav-count is-accent" [attr.aria-label]="snapshot().changes.length + ' changed files'">{{ snapshot().changes.length }}</span>
+      <span class="nav-count is-accent" [attr.aria-label]="snapshot().changes.length + ' changed files'">{{
+        snapshot().changes.length
+      }}</span>
     }
   </a>
   <a class="nav-item" routerLink="/history" routerLinkActive="is-active" [title]="'History (' + mod + '+5)'">
@@ -77,7 +93,14 @@
       @if (storage.behind) {
         <span class="sync-count"><svg lucideArrowDown [size]="11" aria-hidden="true"></svg>{{ storage.behind }}</span>
       }
-      <button type="button" class="sync-button" [disabled]="session.busy()" aria-label="Sync wiki and tasks" title="Sync wiki and tasks with the remote" (click)="actions.syncContent()">
+      <button
+        type="button"
+        class="sync-button"
+        [disabled]="session.busy()"
+        aria-label="Sync wiki and tasks"
+        title="Sync wiki and tasks with the remote"
+        (click)="actions.syncContent()"
+      >
         @if (session.busy()) {
           <span class="spinner" aria-label="Syncing"></span>
         } @else {
@@ -88,9 +111,17 @@
   }
 }
 
-<button type="button" class="branch-button" title="Switch branch" [attr.aria-label]="'Switch branch (on ' + (snapshot().head.branch ?? 'no branch') + ')'" (click)="ui.openPalette('branches')">
+<button
+  type="button"
+  class="branch-button"
+  title="Switch branch"
+  [attr.aria-label]="'Switch branch (on ' + (snapshot().head.branch ?? 'no branch') + ')'"
+  (click)="ui.openPalette('branches')"
+>
   <svg lucideGitBranch [size]="14" aria-hidden="true"></svg>
-  <span class="grow ellipsis">{{ snapshot().head.branch ?? (snapshot().head.commit ? "detached at " + snapshot().head.commit : "no commits") }}</span>
+  <span class="grow ellipsis">{{
+    snapshot().head.branch ?? (snapshot().head.commit ? "detached at " + snapshot().head.commit : "no commits")
+  }}</span>
   @if (snapshot().head.ahead) {
     <span class="sync-count"><svg lucideArrowUp [size]="11" aria-hidden="true"></svg>{{ snapshot().head.ahead }}</span>
   }

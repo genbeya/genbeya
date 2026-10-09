@@ -15,16 +15,37 @@ import { titleCase } from "../tasks/task-model";
         <gd-status-icon [status]="status" [statuses]="value()" />
         <span class="grow">{{ titleCase(status) }}</span>
         <span class="faint mono">{{ status }}</span>
-        <button type="button" class="icon-btn" aria-label="Move up" title="Move up" [disabled]="first" (click)="move(index, -1)"><svg lucideArrowUp [size]="13" aria-hidden="true"></svg></button>
-        <button type="button" class="icon-btn" aria-label="Move down" title="Move down" [disabled]="last" (click)="move(index, 1)"><svg lucideArrowDown [size]="13" aria-hidden="true"></svg></button>
-        <button type="button" class="icon-btn" [attr.aria-label]="'Remove ' + status" [title]="'Remove ' + status" [disabled]="value().length === 1" (click)="remove(status)">
+        <button type="button" class="icon-btn" aria-label="Move up" title="Move up" [disabled]="first" (click)="move(index, -1)">
+          <svg lucideArrowUp [size]="13" aria-hidden="true"></svg>
+        </button>
+        <button type="button" class="icon-btn" aria-label="Move down" title="Move down" [disabled]="last" (click)="move(index, 1)">
+          <svg lucideArrowDown [size]="13" aria-hidden="true"></svg>
+        </button>
+        <button
+          type="button"
+          class="icon-btn"
+          [attr.aria-label]="'Remove ' + status"
+          [title]="'Remove ' + status"
+          [disabled]="value().length === 1"
+          (click)="remove(status)"
+        >
           <svg lucideX [size]="13" aria-hidden="true"></svg>
         </button>
       </div>
     }
     <div class="row status-add">
-      <input #field class="input" placeholder="Add a state" aria-label="New workflow state" [value]="adding()" (input)="adding.set(field.value)" (keydown.enter)="$event.preventDefault(); add()" />
-      <button type="button" class="btn btn-default btn-m" [disabled]="!adding().trim()" (click)="add()"><svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Add</span></button>
+      <input
+        #field
+        class="input"
+        placeholder="Add a state"
+        aria-label="New workflow state"
+        [value]="adding()"
+        (input)="adding.set(field.value)"
+        (keydown.enter)="$event.preventDefault(); add()"
+      />
+      <button type="button" class="btn btn-default btn-m" [disabled]="!adding().trim()" (click)="add()">
+        <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Add</span>
+      </button>
     </div>
   `,
 })

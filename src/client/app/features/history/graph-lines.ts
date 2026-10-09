@@ -21,7 +21,14 @@ const curve = (x1: number, y1: number, x2: number, y2: number) =>
       @for (line of lines(); track $index) {
         <path [attr.d]="line.d" [attr.stroke]="line.color" />
       }
-      <circle [attr.cx]="dot().x" [attr.cy]="height / 2" [attr.r]="dot().merge ? 4.5 : 3.5" [attr.fill]="dot().merge ? 'var(--bg-panel)' : dot().color" [attr.stroke]="dot().color" stroke-width="2" />
+      <circle
+        [attr.cx]="dot().x"
+        [attr.cy]="height / 2"
+        [attr.r]="dot().merge ? 4.5 : 3.5"
+        [attr.fill]="dot().merge ? 'var(--bg-panel)' : dot().color"
+        [attr.stroke]="dot().color"
+        stroke-width="2"
+      />
     </svg>
   `,
 })

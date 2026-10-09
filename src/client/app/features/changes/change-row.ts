@@ -27,11 +27,23 @@ import type { Change } from "../../../../contracts/model";
         <svg lucideFileCode2 [size]="13" aria-hidden="true"></svg>
       </button>
       @if (!staged()) {
-        <button type="button" class="icon-btn" aria-label="Discard changes" title="Discard changes" (click)="$event.stopPropagation(); discard.emit()">
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Discard changes"
+          title="Discard changes"
+          (click)="$event.stopPropagation(); discard.emit()"
+        >
           <svg lucideUndo2 [size]="13" aria-hidden="true"></svg>
         </button>
       }
-      <button type="button" class="icon-btn" [attr.aria-label]="staged() ? 'Unstage' : 'Stage'" [title]="staged() ? 'Unstage' : 'Stage'" (click)="$event.stopPropagation(); toggleStaged.emit()">
+      <button
+        type="button"
+        class="icon-btn"
+        [attr.aria-label]="staged() ? 'Unstage' : 'Stage'"
+        [title]="staged() ? 'Unstage' : 'Stage'"
+        (click)="$event.stopPropagation(); toggleStaged.emit()"
+      >
         @if (staged()) {
           <svg lucideMinus [size]="13" aria-hidden="true"></svg>
         } @else {

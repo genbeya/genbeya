@@ -9,7 +9,6 @@ export { CONTENT_SECURITY_POLICY } from "../content-security-policy";
 export const RENDERER_ORIGIN = "gitdesk://app";
 export const RENDERER_URL = `${RENDERER_ORIGIN}/index.html`;
 
-
 /** The file a renderer URL names, or an error when it points elsewhere. */
 export function resolveAsset(root: string, url: string): string {
   const parsed = new URL(url);
@@ -25,7 +24,9 @@ export function resolveAsset(root: string, url: string): string {
 export const isRendererPage = (url: string, devOrigin: string | null): boolean => {
   try {
     const parsed = new URL(url);
-    return devOrigin ? parsed.origin === devOrigin : parsed.protocol === "gitdesk:" && parsed.host === "app" && parsed.pathname === "/index.html";
+    return devOrigin
+      ? parsed.origin === devOrigin
+      : parsed.protocol === "gitdesk:" && parsed.host === "app" && parsed.pathname === "/index.html";
   } catch {
     return false;
   }

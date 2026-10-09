@@ -1,7 +1,15 @@
 import type { Commit } from "../../../../contracts/model";
 import { layoutGraph, relativeTime } from "./commit-graph";
 
-const commit = (hash: string, parents: string[]): Commit => ({ hash, parents, author: "a", email: "", date: "2026-01-01T00:00:00Z", subject: hash, refs: [] });
+const commit = (hash: string, parents: string[]): Commit => ({
+  hash,
+  parents,
+  author: "a",
+  email: "",
+  date: "2026-01-01T00:00:00Z",
+  subject: hash,
+  refs: [],
+});
 
 describe("layoutGraph", () => {
   it("keeps a straight history on one lane", () => {

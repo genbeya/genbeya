@@ -18,14 +18,28 @@ import { nodeKey } from "./wiki-pages";
     <div class="row panel-toolbar">
       <label class="filter grow">
         <svg lucideSearch [size]="13" aria-hidden="true"></svg>
-        <input #filter placeholder="Filter pages" aria-label="Filter pages" [value]="query()" (input)="query.set(filter.value)" (keydown.escape)="clear(filter)" />
+        <input
+          #filter
+          placeholder="Filter pages"
+          aria-label="Filter pages"
+          [value]="query()"
+          (input)="query.set(filter.value)"
+          (keydown.escape)="clear(filter)"
+        />
       </label>
       <button type="button" class="icon-btn" aria-label="New page (N)" title="New page (N)" (click)="wiki.createPage()">
         <svg lucideFilePlus2 [size]="15" aria-hidden="true"></svg>
       </button>
     </div>
     <div class="side-panel-scroll">
-      <gd-tree label="Pages" [items]="shown()" [selected]="selected()" [expandAll]="!!query()" [initiallyOpen]="topLevel" (selectItem)="open($event)">
+      <gd-tree
+        label="Pages"
+        [items]="shown()"
+        [selected]="selected()"
+        [expandAll]="!!query()"
+        [initiallyOpen]="topLevel"
+        (selectItem)="open($event)"
+      >
         <ng-template let-item>
           <span class="tree-icon">
             @if (item.data.path) {
@@ -36,7 +50,13 @@ import { nodeKey } from "./wiki-pages";
           </span>
           <span class="tree-label">{{ item.label }}</span>
           <span class="tree-actions">
-            <button type="button" class="icon-btn" [attr.aria-label]="'New page in ' + item.label" [title]="'New page in ' + item.label" (click)="$event.stopPropagation(); wiki.createPage(item.data.path ?? item.data.folder + '.md')">
+            <button
+              type="button"
+              class="icon-btn"
+              [attr.aria-label]="'New page in ' + item.label"
+              [title]="'New page in ' + item.label"
+              (click)="$event.stopPropagation(); wiki.createPage(item.data.path ?? item.data.folder + '.md')"
+            >
               <svg lucidePlus [size]="13" aria-hidden="true"></svg>
             </button>
             @if (item.data.path) {
@@ -68,7 +88,10 @@ export class PageTree {
   /** Top-level pages open initially, to show the wiki's sections. */
   protected readonly topLevel = (item: TreeItem<WikiNode>) => {
     const root = this.session.snapshot()?.settings.wikiRoot ?? "";
-    return !item.key.replace("folder:", "").slice(root.length + 1).includes("/");
+    return !item.key
+      .replace("folder:", "")
+      .slice(root.length + 1)
+      .includes("/");
   };
 
   constructor() {

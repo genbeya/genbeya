@@ -38,7 +38,9 @@ export interface PromptOptions {
       }
       <footer>
         <button type="button" class="btn btn-default btn-m" (click)="dialog.close()"><span>Cancel</span></button>
-        <button type="submit" class="btn btn-primary btn-m" [disabled]="empty()"><span>{{ options.confirm ?? "OK" }}</span></button>
+        <button type="submit" class="btn btn-primary btn-m" [disabled]="empty()">
+          <span>{{ options.confirm ?? "OK" }}</span>
+        </button>
       </footer>
     </gd-dialog-frame>
   `,

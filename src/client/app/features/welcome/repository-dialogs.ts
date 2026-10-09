@@ -15,8 +15,25 @@ type Kind = "wsl" | "ssh";
   host: { style: "display: contents" },
   template: `
     <div class="segmented" role="radiogroup" aria-label="Machine">
-      <button type="button" role="radio" [attr.aria-checked]="kind() === 'wsl'" [class.is-active]="kind() === 'wsl'" [disabled]="!distributions().length" (click)="kind.set('wsl')">WSL</button>
-      <button type="button" role="radio" [attr.aria-checked]="kind() === 'ssh'" [class.is-active]="kind() === 'ssh'" (click)="kind.set('ssh')">SSH</button>
+      <button
+        type="button"
+        role="radio"
+        [attr.aria-checked]="kind() === 'wsl'"
+        [class.is-active]="kind() === 'wsl'"
+        [disabled]="!distributions().length"
+        (click)="kind.set('wsl')"
+      >
+        WSL
+      </button>
+      <button
+        type="button"
+        role="radio"
+        [attr.aria-checked]="kind() === 'ssh'"
+        [class.is-active]="kind() === 'ssh'"
+        (click)="kind.set('ssh')"
+      >
+        SSH
+      </button>
     </div>
     @if (kind() === "wsl") {
       <label class="field">
@@ -30,12 +47,24 @@ type Kind = "wsl" | "ssh";
     } @else {
       <label class="field">
         Host
-        <input class="input" spellcheck="false" placeholder="user@server or a Host from ~/.ssh/config" [value]="host()" (input)="host.set($any($event.target).value)" />
+        <input
+          class="input"
+          spellcheck="false"
+          placeholder="user@server or a Host from ~/.ssh/config"
+          [value]="host()"
+          (input)="host.set($any($event.target).value)"
+        />
       </label>
     }
     <label class="field">
       {{ pathLabel() }}
-      <input class="input mono" spellcheck="false" placeholder="/home/me/project" [value]="path()" (input)="path.set($any($event.target).value)" />
+      <input
+        class="input mono"
+        spellcheck="false"
+        placeholder="/home/me/project"
+        [value]="path()"
+        (input)="path.set($any($event.target).value)"
+      />
     </label>
   `,
 })
@@ -74,8 +103,8 @@ function remoteLocation(kind: Kind, distro: string, host: string, path: string):
     <gd-dialog-frame title="Open a repository on WSL or SSH" [width]="480" (submitted)="submit()">
       <gd-remote-fields pathLabel="Repository path" [(kind)]="kind" [(distro)]="distro" [(host)]="host" [(path)]="path" />
       <p class="dialog-hint">
-        Git runs on the remote machine. SSH uses your <code>ssh</code> configuration and agent; connect once in a terminal so the host
-        key is trusted.
+        Git runs on the remote machine. SSH uses your <code>ssh</code> configuration and agent; connect once in a terminal so the host key
+        is trusted.
       </p>
       <footer>
         <button type="button" class="btn btn-default btn-m" (click)="dialog.close()"><span>Cancel</span></button>
@@ -106,11 +135,21 @@ export class RemoteDialog {
     <gd-dialog-frame title="Clone a repository" [width]="500" (submitted)="submit()">
       <label class="field">
         Repository URL
-        <input class="input mono" spellcheck="false" placeholder="git@github.com:team/project.git" [value]="url()" (input)="url.set($any($event.target).value)" />
+        <input
+          class="input mono"
+          spellcheck="false"
+          placeholder="git@github.com:team/project.git"
+          [value]="url()"
+          (input)="url.set($any($event.target).value)"
+        />
       </label>
       <div class="segmented" role="radiogroup" aria-label="Clone to">
-        <button type="button" role="radio" [attr.aria-checked]="!remote()" [class.is-active]="!remote()" (click)="remote.set(false)">This computer</button>
-        <button type="button" role="radio" [attr.aria-checked]="remote()" [class.is-active]="remote()" (click)="remote.set(true)">WSL or SSH</button>
+        <button type="button" role="radio" [attr.aria-checked]="!remote()" [class.is-active]="!remote()" (click)="remote.set(false)">
+          This computer
+        </button>
+        <button type="button" role="radio" [attr.aria-checked]="remote()" [class.is-active]="remote()" (click)="remote.set(true)">
+          WSL or SSH
+        </button>
       </div>
       @if (remote()) {
         <gd-remote-fields pathLabel="Into folder" [(kind)]="kind" [(distro)]="distro" [(host)]="host" [(path)]="path" />
@@ -118,7 +157,13 @@ export class RemoteDialog {
         <div class="field">
           Into folder
           <div class="row">
-            <input class="input mono grow" readonly aria-label="Parent folder" placeholder="Choose a parent folder" [value]="folderText()" />
+            <input
+              class="input mono grow"
+              readonly
+              aria-label="Parent folder"
+              placeholder="Choose a parent folder"
+              [value]="folderText()"
+            />
             <button type="button" class="btn btn-default btn-m" (click)="chooseFolder()">
               <svg lucideFolderOpen [size]="14" aria-hidden="true"></svg><span>Choose…</span>
             </button>
@@ -147,7 +192,9 @@ export class CloneDialog {
     const folder = this.folder();
     return folder ? describeLocation(folder) : "";
   });
-  private readonly parent = computed(() => (this.remote() ? remoteLocation(this.kind(), this.distro(), this.host(), this.path()) : this.folder()));
+  private readonly parent = computed(() =>
+    this.remote() ? remoteLocation(this.kind(), this.distro(), this.host(), this.path()) : this.folder(),
+  );
   protected readonly valid = computed(() => !!this.url().trim() && !!this.parent());
 
   protected async chooseFolder() {

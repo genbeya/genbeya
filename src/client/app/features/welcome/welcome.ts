@@ -62,12 +62,20 @@ export function ago(time: number, now = Date.now()): string {
                 <span class="recent-mark" aria-hidden="true">{{ initials(entry.name) }}</span>
                 <span class="grow">
                   <span class="recent-name">{{ entry.name }}</span>
-                  <span class="recent-path ellipsis"><gd-host-icon [location]="entry.location" [size]="11" />{{ describe(entry.location) }}</span>
+                  <span class="recent-path ellipsis"
+                    ><gd-host-icon [location]="entry.location" [size]="11" />{{ describe(entry.location) }}</span
+                  >
                 </span>
                 <span class="recent-time">{{ ago(entry.openedAt) }}</span>
                 <svg lucideArrowRight [size]="14" class="recent-arrow" aria-hidden="true"></svg>
               </button>
-              <button type="button" class="recent-forget" [attr.aria-label]="'Remove ' + entry.name + ' from recent'" title="Remove from list" (click)="forget(entry.location)">
+              <button
+                type="button"
+                class="recent-forget"
+                [attr.aria-label]="'Remove ' + entry.name + ' from recent'"
+                title="Remove from list"
+                (click)="forget(entry.location)"
+              >
                 <svg lucideX [size]="13" aria-hidden="true"></svg>
               </button>
             </div>
@@ -93,7 +101,11 @@ export class Welcome {
 
   constructor() {
     void this.load();
-    hotkey("mod+o", () => void this.session.pick(), computed(() => !this.busy()));
+    hotkey(
+      "mod+o",
+      () => void this.session.pick(),
+      computed(() => !this.busy()),
+    );
   }
 
   protected async forget(location: Location) {

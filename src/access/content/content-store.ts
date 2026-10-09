@@ -123,7 +123,8 @@ export class ContentStore {
     if (!branch) return;
     try {
       await git.text(["add", "-A", "--", ...paths]);
-      if (await git.text(["diff", "--cached", "--name-only", "-z", "--", ...paths])) await git.text(["commit", "--quiet", "-m", message, "--", ...paths]);
+      if (await git.text(["diff", "--cached", "--name-only", "-z", "--", ...paths]))
+        await git.text(["commit", "--quiet", "-m", message, "--", ...paths]);
       if (this.failedCommit) await this.commitPending(git);
       this.failedCommit = null;
     } catch (error) {
@@ -150,7 +151,9 @@ export class ContentStore {
     const common = await this.commonDirectory();
     // The empty tree must exist as an object, or `git fsck` reports it missing.
     await this.host.write(common, "gitdesk-empty", new Uint8Array(), false);
-    const emptyTree = (await this.repository.text(["hash-object", "-w", "-t", "tree", this.host.paths.join(common, "gitdesk-empty")])).trim();
+    const emptyTree = (
+      await this.repository.text(["hash-object", "-w", "-t", "tree", this.host.paths.join(common, "gitdesk-empty")])
+    ).trim();
     await this.host.remove(common, "gitdesk-empty");
     const start = (await this.repository.text(["commit-tree", emptyTree, "-m", "Start the GitDesk content branch"])).trim();
     await this.repository.text(["branch", branch, start]);

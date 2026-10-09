@@ -16,10 +16,13 @@ export class Git {
     return [
       // Paths are never globs.
       "--literal-pathspecs",
-      "-c", "core.quotepath=false",
-      "-c", "color.ui=false",
+      "-c",
+      "core.quotepath=false",
+      "-c",
+      "color.ui=false",
       // App-issued commands never run repository hooks.
-      "-c", `core.hooksPath=${this.host.paths.separator === "/" ? "/dev/null" : "NUL"}`,
+      "-c",
+      `core.hooksPath=${this.host.paths.separator === "/" ? "/dev/null" : "NUL"}`,
       ...args,
     ];
   }

@@ -36,9 +36,7 @@
                 "output": "/"
               }
             ],
-            "styles": [
-              "src/client/styles.css"
-            ],
+            "styles": ["src/client/styles.css"],
             "baseHref": "./",
             "allowedCommonJsDependencies": [
               "@braintree/sanitize-url",
@@ -101,12 +99,8 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "tsconfig.spec.json",
-            "include": [
-              "src/client/**/*.spec.ts"
-            ],
-            "setupFiles": [
-              "src/client/test-setup.ts"
-            ]
+            "include": ["src/client/**/*.spec.ts"],
+            "setupFiles": ["src/client/test-setup.ts"]
           }
         }
       }

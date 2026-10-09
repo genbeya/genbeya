@@ -28,12 +28,20 @@ import { WikiActions } from "./wiki-actions";
     </button>
     <ng-template #menu>
       <div class="menu" cdkMenu>
-        <button gd-menu-item (selected)="wiki.createPage(path())"><svg icon lucidePlus [size]="14" aria-hidden="true"></svg>New subpage</button>
-        <button gd-menu-item (selected)="wiki.movePage(path())"><svg icon lucideFolderInput [size]="14" aria-hidden="true"></svg>Move or rename…</button>
+        <button gd-menu-item (selected)="wiki.createPage(path())">
+          <svg icon lucidePlus [size]="14" aria-hidden="true"></svg>New subpage
+        </button>
+        <button gd-menu-item (selected)="wiki.movePage(path())">
+          <svg icon lucideFolderInput [size]="14" aria-hidden="true"></svg>Move or rename…
+        </button>
         <button gd-menu-item (selected)="copyPath()"><svg icon lucideCopy [size]="14" aria-hidden="true"></svg>Copy path</button>
-        <button gd-menu-item (selected)="openAsCode()"><svg icon lucideCodeXml [size]="14" aria-hidden="true"></svg>Open in code editor</button>
+        <button gd-menu-item (selected)="openAsCode()">
+          <svg icon lucideCodeXml [size]="14" aria-hidden="true"></svg>Open in code editor
+        </button>
         <div class="menu-separator"></div>
-        <button gd-menu-item [danger]="true" (selected)="wiki.deletePage(path())"><svg icon lucideTrash2 [size]="14" aria-hidden="true"></svg>Delete page…</button>
+        <button gd-menu-item [danger]="true" (selected)="wiki.deletePage(path())">
+          <svg icon lucideTrash2 [size]="14" aria-hidden="true"></svg>Delete page…
+        </button>
       </div>
     </ng-template>
   `,

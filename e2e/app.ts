@@ -8,7 +8,8 @@ import { launchArgument } from "../src/utilities/launch-request";
 
 export const FILES: Readonly<Record<string, string>> = {
   ".gitdesk.yml": "name: Demo Project\ntaskPrefix: DP\n",
-  "docs/Home.md": "# Home\n\n[TOC]\n\n## Start\n\nSee [[Guide]] and DP-1. Missing: [[Glossary]].\n\n## Diagrams\n\n```plantuml\nAlice -> Bob: hello\n```\n",
+  "docs/Home.md":
+    "# Home\n\n[TOC]\n\n## Start\n\nSee [[Guide]] and DP-1. Missing: [[Glossary]].\n\n## Diagrams\n\n```plantuml\nAlice -> Bob: hello\n```\n",
   "docs/Guide.md": "# Guide\n\nHow it works.\n",
   "tasks/DP-1.md": "---\nid: DP-1\ntitle: First task\nstatus: todo\npriority: high\n---\n\n- [ ] Check me\n",
   "src/index.ts": "export const value = 1;\n",

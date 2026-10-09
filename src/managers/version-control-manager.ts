@@ -45,7 +45,8 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   commit(id: unknown, message: unknown, amend: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
-      if (typeof message !== "string" || !message.trim() || message.length > MESSAGE_LIMIT) throw new Error("Write a commit message first.");
+      if (typeof message !== "string" || !message.trim() || message.length > MESSAGE_LIMIT)
+        throw new Error("Write a commit message first.");
       await workspace.repository.commit(message.trim(), amend === true);
     });
   }
@@ -56,7 +57,13 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   log(id: unknown, skip: unknown, limit: unknown): Promise<readonly Commit[]> {
     return this.on(id, async (workspace) => {
-      if (!Number.isInteger(skip) || !Number.isInteger(limit) || (skip as number) < 0 || (limit as number) < 1 || (limit as number) > HISTORY_PAGE_LIMIT)
+      if (
+        !Number.isInteger(skip) ||
+        !Number.isInteger(limit) ||
+        (skip as number) < 0 ||
+        (limit as number) < 1 ||
+        (limit as number) > HISTORY_PAGE_LIMIT
+      )
         throw new Error("Invalid history range.");
       return workspace.repository.log(skip as number, limit as number);
     });
@@ -88,7 +95,8 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   setRemote(id: unknown, name: unknown, url: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
-      if (typeof name !== "string" || !REMOTE_NAME.test(name)) throw new Error("Remote names use letters, digits, dots, dashes and underscores.");
+      if (typeof name !== "string" || !REMOTE_NAME.test(name))
+        throw new Error("Remote names use letters, digits, dots, dashes and underscores.");
       if (typeof url !== "string" || !url.trim() || url.length > 2048 || url.trim().startsWith("-") || /[\r\n\0]/.test(url))
         throw new Error("Enter a valid remote URL or path.");
       await workspace.repository.setRemote(name, url.trim());
@@ -106,7 +114,8 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   private async remoteName(workspace: Workspace, name: unknown): Promise<string> {
-    if (typeof name !== "string" || !(await workspace.repository.remoteNames()).includes(name)) throw new Error("Choose a configured remote.");
+    if (typeof name !== "string" || !(await workspace.repository.remoteNames()).includes(name))
+      throw new Error("Choose a configured remote.");
     return name;
   }
 }

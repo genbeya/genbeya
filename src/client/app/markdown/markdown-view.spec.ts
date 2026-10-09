@@ -6,7 +6,13 @@ import { MarkdownView } from "./markdown-view";
 
 @Component({
   imports: [MarkdownView],
-  template: `<gd-markdown [source]="source()" path="docs/Guide/Page.md" [checkboxes]="true" (linkClicked)="links.push($event)" (checkboxToggled)="toggles.push($event)" />`,
+  template: `<gd-markdown
+    [source]="source()"
+    path="docs/Guide/Page.md"
+    [checkboxes]="true"
+    (linkClicked)="links.push($event)"
+    (checkboxToggled)="toggles.push($event)"
+  />`,
 })
 class Host {
   readonly source = signal("");
