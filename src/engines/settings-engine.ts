@@ -1,7 +1,12 @@
-/** Project settings: defaults, validation and the `.gitdesk.yml` format. */
+/**
+ * Project settings: defaults, validation and the `.gitdesk.yml` format.
+ * `windows` says whether the repository lives on a Windows file system,
+ * where folder names such as `GIT~1` or `tasks.` are aliases.
+ */
 import YAML from "yaml";
 import type { Settings } from "../contracts/model";
 import { validateRepositoryPath, within } from "../utilities/repository-path";
+import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
 
 export const SETTINGS_FILE = ".gitdesk.yml";
 const DEFAULT_STATUSES = ["backlog", "todo", "in-progress", "review", "done"];
@@ -27,13 +32,13 @@ export class SettingsEngine {
     };
   }
 
-  validate(value: Settings): Settings {
+  validate(value: Settings, windows: boolean): Settings {
     const text = (input: unknown, label: string, max: number) => {
       if (typeof input !== "string" || !input.trim() || input.length > max)
         throw new Error(`${label} is required (up to ${max} characters).`);
       return input.trim();
     };
-    const folder = (input: unknown, label: string) => validateRepositoryPath(text(input, label, 200), false);
+    const folder = (input: unknown, label: string) => validateRepositoryPath(text(input, label, 200), windows);
     const name = text(value.name, "Project name", 120);
     const wikiRoot = folder(value.wikiRoot, "Wiki folder");
     const taskRoot = folder(value.taskRoot, "Task folder");
@@ -55,22 +60,23 @@ export class SettingsEngine {
   }
 
   /** Reads a settings file over `fallback`; unknown keys are ignored here and kept by {@link serialize}. */
-  parse(content: string, fallback: Settings): Settings {
-    const document = YAML.parseDocument(content);
+  parse(content: string, fallback: Settings, windows: boolean): Settings {
+    const document = YAML.parseDocument(withoutByteOrderMark(content));
     if (document.errors.length) throw new Error(document.errors[0]!.message);
     const data: unknown = document.toJS() ?? {};
     if (typeof data !== "object" || Array.isArray(data)) throw new Error("Settings must be a YAML mapping.");
-    return this.validate({ ...fallback, ...(data as Partial<Settings>) });
+    return this.validate({ ...fallback, ...(data as Partial<Settings>) }, windows);
   }
 
-  serialize(settings: Settings, previous: string | null): string {
-    const valid = this.validate(settings);
+  /** The settings file, written over `previous` in its byte order mark and line endings. */
+  serialize(settings: Settings, previous: string | null, windows: boolean): string {
+    const valid = this.validate(settings, windows);
     let document = new YAML.Document({});
     if (previous !== null) {
-      const parsed = YAML.parseDocument(previous);
+      const parsed = YAML.parseDocument(withoutByteOrderMark(previous));
       if (!parsed.errors.length && YAML.isMap(parsed.contents)) document = parsed;
     }
     for (const [key, value] of Object.entries(valid)) document.set(key, value);
-    return document.toString();
+    return applyTextStyle(document.toString(), previous === null ? LF_STYLE : textStyleOf(previous));
   }
 }

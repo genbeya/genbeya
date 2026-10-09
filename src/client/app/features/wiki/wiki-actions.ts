@@ -2,11 +2,13 @@
 import { computed, Injectable, inject } from "@angular/core";
 import { Router } from "@angular/router";
 import { Dialogs } from "../../core/dialogs";
+import { ExternalLinks } from "../../core/external-links";
 import { Session } from "../../core/session";
+import { sameJson } from "../../core/signals";
 import { WorkspaceApi } from "../../core/workspace-api";
+import type { WikiNode } from "../../../../contracts/model";
 import type { LinkTarget } from "../../markdown/link-target";
 import type { GitdeskOptions } from "../../markdown/markdown-pipeline";
-import { SHELL } from "../../platform/platform";
 import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
 
 @Injectable({ providedIn: "root" })
@@ -15,17 +17,20 @@ export class WikiActions {
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
   private readonly router = inject(Router);
-  private readonly shell = inject(SHELL);
+  private readonly external = inject(ExternalLinks);
   private readonly root = computed(() => this.session.snapshot()?.settings.wikiRoot ?? "docs");
 
   /** Pages and tasks that Markdown can link to by title or ID. */
-  readonly linkTargets = computed<GitdeskOptions>(() => {
-    const snapshot = this.session.snapshot();
-    return {
-      pages: flattenPages(snapshot?.wiki ?? []).map(({ title, path }) => ({ title, path })),
-      tasks: (snapshot?.tasks ?? []).map(({ id, path }) => ({ id, path })),
-    };
-  });
+  readonly linkTargets = computed<GitdeskOptions>(
+    () => {
+      const snapshot = this.session.snapshot();
+      return {
+        pages: flattenPages(snapshot?.wiki ?? []).map(({ title, path }) => ({ title, path })),
+        tasks: (snapshot?.tasks ?? []).map(({ id, path }) => ({ id, path })),
+      };
+    },
+    { equal: sameJson },
+  );
 
   openPage(page: string, options: { anchor?: string; replace?: boolean } = {}): Promise<boolean> {
     return this.router.navigate(["/wiki"], { queryParams: { page, anchor: options.anchor }, replaceUrl: options.replace });
@@ -33,6 +38,12 @@ export class WikiActions {
 
   openFolder(folder: string): Promise<boolean> {
     return this.router.navigate(["/wiki"], { queryParams: { folder } });
+  }
+
+  /** Opens a page, or a folder without a page of its own. */
+  openNode(node: WikiNode): Promise<boolean> {
+    if (node.path) return this.openPage(node.path);
+    return node.folder ? this.openFolder(node.folder) : Promise.resolve(false);
   }
 
   /** Asks for a name, below `parent` (a page) when given, and creates the page. */
@@ -88,8 +99,7 @@ export class WikiActions {
   /** Follows a link from a page or a task description. */
   async followLink(target: LinkTarget): Promise<void> {
     if (target.kind === "external") {
-      if (/^(https?|mailto):/i.test(target.url)) await this.shell.openExternal(target.url);
-      return;
+      return this.external.open(target.url);
     }
     if (target.kind === "missing") return this.createPage(undefined, target.title);
     if (target.kind !== "file") return;

@@ -3,6 +3,8 @@ import type { TaskInput } from "../contracts/model";
 import { TaskEngine } from "./task-engine";
 
 const engine = new TaskEngine();
+const BOM = String.fromCharCode(0xfeff);
+const CRLF = String.fromCharCode(13, 10);
 const statuses = ["backlog", "todo", "done"];
 const input: TaskInput = {
   title: "Build it",
@@ -33,6 +35,21 @@ describe("TaskEngine.parse", () => {
     const task = engine.parse("t.md", "---\r\nid: 7\r\ntitle: T\r\nstatus: done\r\nlabels: a, b\r\n---\r\n", "h");
     expect(task.id).toBe("7");
     expect(task.labels).toEqual(["a", "b"]);
+  });
+
+  it("reads files that start with a byte order mark", () => {
+    expect(
+      engine.parse(
+        "t.md",
+        `${BOM}---
+id: 7
+title: T
+status: done
+---
+`,
+        "h",
+      ).id,
+    ).toBe("7");
   });
 
   it.each([
@@ -91,6 +108,29 @@ describe("TaskEngine serialisation", () => {
     expect(updated).toContain("title: Build it");
     expect(updated).not.toContain("labels");
     expect(updated.endsWith("- [ ] Done\n")).toBe(true);
+  });
+
+  it("keeps the byte order mark and CRLF line endings of the file", () => {
+    const original = `${BOM}---\nid: TP-1\ntitle: Old\nstatus: todo\n---\n\nOld\nbody\n`.split("\n").join(CRLF);
+    const updated = engine.serializeUpdate(original, { ...input, body: "New\nbody\n" });
+    expect(updated.startsWith(`${BOM}---${CRLF}id: TP-1${CRLF}`)).toBe(true);
+    expect(updated.endsWith(`New${CRLF}body${CRLF}`)).toBe(true);
+    expect(updated.split(CRLF).join("")).not.toContain("\n");
+    expect(engine.parse("t.md", updated, "h")).toMatchObject({ title: "Build it", body: `New${CRLF}body${CRLF}` });
+  });
+
+  it("does not add a priority the file did not have", () => {
+    const original = "---\nid: TP-1\ntitle: Old\nstatus: todo\n---\n";
+    expect(engine.serializeUpdate(original, { ...input, priority: "none" })).not.toContain("priority");
+    expect(engine.serializeNew("TP-2", { ...input, priority: "none" })).not.toContain("priority");
+  });
+
+  it("trims long whitespace runs in linear time", () => {
+    const body = " ".repeat(200_000) + "x" + " ".repeat(200_000);
+    const started = Date.now();
+    expect(engine.serializeNew("TP-1", { ...input, body }).endsWith(" x\n")).toBe(true);
+    // Linear code takes milliseconds and the quadratic regex took about 7 s; the bound sits far from both.
+    expect(Date.now() - started).toBeLessThan(3000);
   });
 });
 

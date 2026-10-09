@@ -47,6 +47,23 @@ describe("fileResource", () => {
     expect(resource.changedOnDisk()).toBe(false);
   });
 
+  it("keeps a saved version that a read started before the save would overwrite", async () => {
+    const { managers, session } = await openRepository();
+    managers.content.read.mockResolvedValue(file("one", "h1"));
+    const fixture = TestBed.createComponent(Host);
+    await settle(fixture);
+    const { resource } = fixture.componentInstance;
+    let answer!: (value: unknown) => void;
+    managers.content.read.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    managers.workspace.snapshot.mockResolvedValue(snapshot({ version: "v2" }));
+    await session.refresh();
+    await settle(fixture);
+    resource.set(file("saved", "h3"));
+    answer(file("two", "h2"));
+    await settle(fixture);
+    expect(resource.file()?.content).toBe("saved");
+  });
+
   it("reports files that cannot be read", async () => {
     const { managers } = await openRepository();
     managers.content.read.mockRejectedValue(new Error("docs/A.md does not exist."));

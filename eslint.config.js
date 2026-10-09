@@ -48,6 +48,14 @@ export default tseslint.config(
     },
   },
   {
+    // Features and their building blocks reach the platform through core services.
+    files: ["src/client/app/{features,ui,markdown,editor}/**/*.ts"],
+    rules: layer(
+      ["managers", "engines", "access", "platforms", "shells", "platform"],
+      "Features use core services; only core talks to the platform connectors.",
+    ),
+  },
+  {
     // The Tauri connector is the one place the client composes an in-page backend.
     files: ["src/client/app/platform/tauri-connector.ts"],
     rules: { "no-restricted-imports": "off" },

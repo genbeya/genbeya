@@ -76,15 +76,30 @@ export class LocalHost implements Host {
   async move(root: string, from: string, to: string) {
     const source = await this.resolve(root, from, false);
     const target = await this.resolve(root, to, true);
-    if (await this.kind(root, to)) throw new HostError("EXISTS", to);
+    if (await this.kind(root, to)) {
+      if (!(await this.isSameEntry(source, target))) throw new HostError("EXISTS", to);
+      // A rename by case only; through a temporary name, which every file system carries out.
+      const temporary = `${source}.gitdesk-${crypto.randomUUID()}`;
+      await this.moveEntry(source, temporary);
+      return this.moveEntry(temporary, target);
+    }
     await this.machine.fileSystem.makeDirectory(this.paths.dirname(target));
     await this.moveEntry(source, target);
   }
 
+  /** True when `target` reaches `source` only because the file system ignores case. */
+  private async isSameEntry(source: string, target: string): Promise<boolean> {
+    if (source.toLowerCase() !== target.toLowerCase()) return false;
+    // A file system that tells the names apart lists the target under its own name.
+    const name = target.slice(target.lastIndexOf(this.paths.separator) + 1);
+    return !(await this.machine.fileSystem.list(this.paths.dirname(target))).includes(name);
+  }
+
   /**
    * On Windows a folder cannot be renamed while another program watches it
-   * (editors, indexers). Retry briefly, then move its files one by one,
-   * which watchers do not block.
+   * (editors, indexers). Retry briefly, then move its entries one by one,
+   * which watchers do not block. Links are entries too: moving what they
+   * point to would empty folders elsewhere.
    */
   private async moveEntry(source: string, target: string): Promise<void> {
     const fs = this.machine.fileSystem;
@@ -97,7 +112,7 @@ export class LocalHost implements Host {
         await pause(100 * attempt);
       }
     }
-    if ((await fs.stat(source)).kind !== "dir") return fs.rename(source, target);
+    if ((await fs.lstat(source)).kind !== "dir") return fs.rename(source, target);
     await fs.makeDirectory(target);
     for (const entry of await fs.list(source)) await this.moveEntry(this.paths.join(source, entry), this.paths.join(target, entry));
     await fs.removeDirectory(source).catch(() => undefined);

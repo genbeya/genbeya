@@ -6,7 +6,6 @@
   margin: 0 6px;
   padding: 0 6px 0 10px;
   border-radius: var(--radius-s);
-  outline: none;
 }
 
 :host(:hover) {

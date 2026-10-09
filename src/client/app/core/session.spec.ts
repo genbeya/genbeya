@@ -66,6 +66,35 @@ describe("Session", () => {
     expect(managers.workspace.open).toHaveBeenCalled();
   });
 
+  it("keeps tracking unsaved edits when the switch does not happen", async () => {
+    const { session, managers } = setup();
+    const unsaved = TestBed.inject(UnsavedChanges);
+    unsaved.mark({}, true);
+    managers.workspace.open.mockRejectedValue(new Error("Not a repository."));
+    await session.open({ kind: "local", path: "/x" });
+    expect(unsaved.any()).toBe(true);
+  });
+
+  it("lets the user pick a folder before asking about unsaved edits", async () => {
+    const { session, dialogs } = setup();
+    TestBed.inject(UnsavedChanges).mark({}, true);
+    await session.pick();
+    expect(dialogs.confirm).not.toHaveBeenCalled();
+  });
+
+  it("ignores a snapshot that a newer refresh overtook", async () => {
+    const { session, managers } = setup();
+    await session.open({ kind: "local", path: "/repo" });
+    let answerOld!: (value: unknown) => void;
+    managers.workspace.snapshot.mockReturnValueOnce(new Promise((resolve) => (answerOld = resolve)));
+    managers.workspace.snapshot.mockResolvedValueOnce(snapshot({ version: "v3" }));
+    const old = session.refresh();
+    await session.refresh();
+    answerOld(snapshot({ version: "v2" }));
+    await old;
+    expect(session.snapshot()?.version).toBe("v3");
+  });
+
   it("closes the repository", async () => {
     const { session, managers } = setup();
     await session.open({ kind: "local", path: "/repo" });

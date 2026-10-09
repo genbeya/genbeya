@@ -25,9 +25,10 @@ export class VersionControlManager implements VersionControlManagerContract {
       const old = oldPath === undefined || oldPath === null ? relative : workspace.path(oldPath);
       if (source !== "worktree" && source !== "index" && !isCommitId((source as { commit?: unknown } | null)?.commit))
         throw new Error("Invalid diff source.");
-      const [before, after] = await workspace.repository.diffSides(relative, source as DiffSource, old, TEXT_LIMIT);
-      const binary = isBinary(before) || isBinary(after) || before.length > TEXT_LIMIT || after.length > TEXT_LIMIT;
-      return { path: relative, binary, original: binary ? "" : decodeLenient(before), modified: binary ? "" : decodeLenient(after) };
+      const sides = await workspace.repository.diffSides(relative, source as DiffSource, old, TEXT_LIMIT);
+      // Too large to show is shown like binary: no line-by-line comparison.
+      if (!sides || sides.some(isBinary)) return { path: relative, binary: true, original: "", modified: "" };
+      return { path: relative, binary: false, original: decodeLenient(sides[0]), modified: decodeLenient(sides[1]) };
     });
   }
 

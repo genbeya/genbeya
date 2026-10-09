@@ -1,12 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { temporaryFolder } from "../../testing/temp";
 import { decodeLenient, encodeText } from "../../utilities/bytes";
+import { FileSystemError, type FileSystem } from "../ports";
 import { HostError, type Host } from "./host";
-import { locationOfFolder, validateLocation } from "./host-factory";
+import { HostFactory, locationOfFolder, validateLocation } from "./host-factory";
 import { LocalHost } from "./local-host";
 import { printfFormat, ShellHost } from "./shell-host";
 import { quote, ShellSession } from "./shell-session";
@@ -31,6 +32,8 @@ interface HostFixture {
   /** Creates a file directly on the host's file system. */
   put(relative: string, content: string): Promise<void>;
   link(target: string, relative: string): Promise<boolean>;
+  /** The exact names in a folder, as the file system stores them. */
+  names(relative: string): Promise<string[]>;
 }
 
 function describeHost(name: string, setup: () => Promise<HostFixture>) {
@@ -86,6 +89,16 @@ function describeHost(name: string, setup: () => Promise<HostFixture>) {
       await expect(host.move(root, "nothing", "x")).rejects.toMatchObject({ code: "ENOENT" });
     });
 
+    it("renames entries by case only", async () => {
+      const { host, root, put, names } = await setup();
+      await put("docs/readme.md", "r");
+      await put("docs/guide/a.md", "a");
+      await host.move(root, "docs/readme.md", "docs/Readme.md");
+      await host.move(root, "docs/guide", "docs/Guide");
+      expect((await names("docs")).sort()).toEqual(["Guide", "Readme.md"]);
+      expect(decodeLenient(await host.read(root, "docs/Guide/a.md", 10))).toBe("a");
+    });
+
     it("removes files", async () => {
       const { host, root, put } = await setup();
       await put("gone.md", "x");
@@ -133,10 +146,80 @@ describeHost("LocalHost", async () => {
         throw error;
       }
     },
+    names: (relative) => fs.readdir(path.join(root, relative)),
   };
 });
 
+describe("LocalHost when Windows blocks renaming a folder", () => {
+  it("moves the folder's entries one by one, links as links", async () => {
+    const root = await temporaryFolder("host-");
+    // Renaming anything that leads to a folder fails for the first three attempts, as the host's retries do.
+    const attempts = new Map<string, number>();
+    const blocking: FileSystem = {
+      ...machine.fileSystem,
+      async rename(from, to) {
+        attempts.set(from, (attempts.get(from) ?? 0) + 1);
+        if ((await machine.fileSystem.stat(from)).kind === "dir" && attempts.get(from)! <= 3)
+          throw new FileSystemError("EPERM", "A watcher holds the folder.");
+        return machine.fileSystem.rename(from, to);
+      },
+    };
+    await fs.mkdir(path.join(root, "real"));
+    await fs.writeFile(path.join(root, "real", "page.md"), "kept");
+    await fs.mkdir(path.join(root, "from"));
+    await fs.writeFile(path.join(root, "from", "a.md"), "a");
+    try {
+      await fs.symlink(path.join(root, "real"), path.join(root, "from", "linked"), "junction");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EPERM") return;
+      throw error;
+    }
+    await new LocalHost({ ...machine, fileSystem: blocking }).move(root, "from", "to");
+    expect(await fs.readFile(path.join(root, "to", "a.md"), "utf8")).toBe("a");
+    expect((await fs.lstat(path.join(root, "to", "linked"))).isSymbolicLink()).toBe(true);
+    expect(await fs.readdir(path.join(root, "real"))).toEqual(["page.md"]);
+  });
+});
+
+/** The session's temp folder holds file contents; it must go however the session ends. */
+function describeSessionCleanup(name: string, command: string, args: string[]) {
+  const session = () => {
+    const opened = new ShellSession(machine.processes, command, args, name);
+    onTestFinished(() => opened.dispose());
+    return opened;
+  };
+  const folderOf = async (opened: ShellSession) => decodeLenient((await opened.exec(`printf '%s' "$T"`)).stdout);
+  const removed = async (folder: string) => {
+    const probe = session();
+    await expect.poll(async () => (await probe.exec(`[ -e ${quote(folder)} ]`)).code, { timeout: 10_000 }).not.toBe(0);
+  };
+
+  describe(`${name} session cleanup`, () => {
+    it("removes the temp folder when the session closes", async () => {
+      const opened = session();
+      const folder = await folderOf(opened);
+      expect(folder).not.toBe("");
+      opened.dispose();
+      await removed(folder);
+    });
+
+    it("removes the temp folder when the connection hangs up", async () => {
+      const opened = session();
+      const folder = await folderOf(opened);
+      await expect(opened.exec("kill -HUP $$")).rejects.toThrow(/Lost the connection/);
+      await removed(folder);
+    });
+  });
+}
+
 const shell = findShell();
+if (shell) describeSessionCleanup("sh", shell, []);
+
+describe("WSL", async () => {
+  const ubuntu = (await new HostFactory(machine).distributions()).includes("Ubuntu");
+  if (ubuntu) describeSessionCleanup("WSL (Ubuntu)", "wsl.exe", ["-d", "Ubuntu", "-e", "sh"]);
+  else it.skip("needs the Ubuntu distribution", () => undefined);
+});
 describe.skipIf(!shell)("shell transport", () => {
   describeHost("ShellHost", async () => {
     const session = new ShellSession(machine.processes, shell!, [], "sh");
@@ -157,6 +240,11 @@ describe.skipIf(!shell)("shell transport", () => {
       },
       async link(target, relative) {
         return (await sh(`ln -s ${quote(target)} ${quote(relative)} && [ -L ${quote(relative)} ]`)).code === 0;
+      },
+      async names(relative) {
+        return decodeLenient((await sh(`ls -A ${quote(relative)}`)).stdout)
+          .split("\n")
+          .filter(Boolean);
       },
     };
   });

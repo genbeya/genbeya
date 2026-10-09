@@ -30,7 +30,7 @@ export async function connectTauri(): Promise<Platform> {
         if (!/^(https?:|mailto:)/i.test(url)) throw new Error("Only web and mail links open externally.");
         await openUrl(url);
       },
-      setTitle: (title) => void window.setTitle(title),
+      setTitle: (title) => void window.setTitle(title.length < 300 ? title : "GitDesk"),
       setTheme: (theme) => void window.setTheme(theme === "system" ? null : theme),
       launchArgs: () => invoke<string[]>("launch_args"),
       onSecondLaunch(listener) {
@@ -47,8 +47,14 @@ export async function connectTauri(): Promise<Platform> {
               okLabel: "Discard changes",
               cancelLabel: "Keep editing",
             }));
-          if (discard) await backend.dispose();
-          else event.preventDefault();
+          // Destroy the window here: Tauri skips its own destroy when the handler throws.
+          event.preventDefault();
+          if (!discard) return;
+          try {
+            await backend.dispose();
+          } finally {
+            await window.destroy();
+          }
         });
         return () => void stop.then((unlisten) => unlisten());
       },

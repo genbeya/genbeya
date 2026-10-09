@@ -41,7 +41,11 @@ export class DiffView {
       const [path, original, modified, inline] = [this.path(), this.original(), this.modified(), this.inline()];
       untracked(() => void this.show(path, original, modified, inline));
     });
-    inject(DestroyRef).onDestroy(() => this.destroy?.());
+    inject(DestroyRef).onDestroy(() => {
+      // A language still loading must not build a view after this.
+      this.generation++;
+      this.destroy?.();
+    });
   }
 
   private async show(path: string, original: string, modified: string, inline: boolean) {

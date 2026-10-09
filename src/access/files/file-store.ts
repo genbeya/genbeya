@@ -69,8 +69,14 @@ export class FileStore {
     return this.host.remove(this.root, path);
   }
 
-  move(from: string, to: string): Promise<void> {
-    return this.host.move(this.root, from, to);
+  /**
+   * Moves entries in order, refusing before the first move when a target
+   * exists; a target differing from its source only in case is left to the
+   * host, which knows whether they are the same entry.
+   */
+  async moveAll(moves: readonly (readonly [string, string])[]): Promise<void> {
+    for (const [from, to] of moves) if (from.toLowerCase() !== to.toLowerCase() && (await this.kind(to))) throw new HostError("EXISTS", to);
+    for (const [from, to] of moves) await this.host.move(this.root, from, to);
   }
 
   kind(path: string): Promise<EntryKind> {

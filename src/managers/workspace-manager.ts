@@ -1,6 +1,6 @@
 /** Opening, closing and observing repositories; the recent list and preferences. */
 import type { WorkspaceManagerContract } from "../contracts/manager-contracts";
-import type { OpenedWorkspace, Preferences, Scope, Snapshot, Storage, Theme } from "../contracts/model";
+import type { OpenedWorkspace, Preferences, Snapshot, Storage, Theme } from "../contracts/model";
 import { RepositoryAccess } from "../access/git/repository-access";
 import { validateLocation, type HostFactory } from "../access/hosts/host-factory";
 import type { PreferencesStore } from "../access/preferences/preferences-store";
@@ -43,15 +43,16 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     return { id, snapshot };
   }
 
+  /** Null when there is nothing to reopen; a repository that cannot be opened (moved, host down) rejects. */
   async restore(launchArgs: unknown): Promise<OpenedWorkspace | null> {
     // A reloaded client keeps the open repository, under a new id.
     const current = this.registry.current();
     if (current) return { id: this.registry.activate(current), snapshot: await current.exclusive(() => this.compose(current)) };
     const requested = requestedLocation(Array.isArray(launchArgs) ? launchArgs : []);
-    if (requested !== undefined) return this.open(requested).catch(() => null);
+    if (requested !== undefined) return this.open(requested);
     const last = this.preferencesStore.recent[0];
     if (!this.preferencesStore.preferences.reopenLast || !last) return null;
-    return this.open(last.location).catch(() => null);
+    return this.open(last.location);
   }
 
   async clone(url: unknown, parent: unknown): Promise<OpenedWorkspace> {
@@ -76,19 +77,15 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     }
   }
 
+  /** Resolves right away; operations already running finish before the repository disconnects. */
   async close(id: unknown): Promise<void> {
-    if (typeof id === "string") this.registry.close(id);
+    if (typeof id === "string") void this.registry.close(id);
   }
 
   async snapshot(id: unknown, since?: unknown): Promise<Snapshot | null> {
     const workspace = this.registry.get(id);
     const snapshot = await workspace.exclusive(() => this.compose(workspace));
     return snapshot.version === since ? null : snapshot;
-  }
-
-  async rootPath(id: unknown, scope: unknown): Promise<string> {
-    const workspace = this.registry.get(id);
-    return (await workspace.files(scope as Scope)).root;
   }
 
   async recent() {

@@ -16,6 +16,7 @@ import type { Change } from "../../../../contracts/model";
     "[title]": "change().oldPath ? change().oldPath + ' → ' + change().path : change().path",
     "(click)": "chosen.emit()",
     "(keydown.enter)": "chosen.emit()",
+    "(keydown.space)": "$event.preventDefault(); chosen.emit()",
     "(dblclick)": "openFile.emit()",
   },
   template: `

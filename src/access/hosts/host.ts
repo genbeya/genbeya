@@ -50,6 +50,8 @@ export class HostError extends Error {
 
 export const isMissing = (error: unknown): boolean => error instanceof HostError && error.code === "ENOENT";
 
+export const isTooLarge = (error: unknown): boolean => error instanceof HostError && error.code === "TOOLARGE";
+
 /** Environment for every git call: never prompt, never take optional locks. */
 export const GIT_ENVIRONMENT: Readonly<Record<string, string>> = {
   GIT_TERMINAL_PROMPT: "0",

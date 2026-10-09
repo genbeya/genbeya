@@ -4,6 +4,7 @@ import { TestBed } from "@angular/core/testing";
 import type { Snapshot } from "../../../contracts/model";
 import { Dialogs } from "../core/dialogs";
 import { Session } from "../core/session";
+import { CommitDraft } from "../features/changes/commit-draft";
 import { Diagrams } from "../markdown/diagrams";
 import { fakeManagers, fakeShell, providePlatform, snapshot as makeSnapshot } from "./fake-platform";
 
@@ -36,6 +37,8 @@ export async function openRepository(change: Partial<Snapshot> = {}): Promise<Ha
       ...providePlatform(managers, shell),
       provideRouter([]),
       { provide: Dialogs, useValue: dialogs },
+      // The shell provides it in the app.
+      CommitDraft,
       { provide: Diagrams, useValue: { draw: vi.fn(async () => ({ svg: "<svg></svg>", isError: false })) } },
     ],
   });

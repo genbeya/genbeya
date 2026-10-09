@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
 import { LucideChevronRight } from "@lucide/angular";
-import type { WikiNode } from "../../../../contracts/model";
 import { Session } from "../../core/session";
 import { WikiActions } from "./wiki-actions";
 import { findPage, nodeKey } from "./wiki-pages";
@@ -14,7 +13,7 @@ import { findPage, nodeKey } from "./wiki-pages";
   template: `
     @for (node of trail(); track key(node)) {
       <span class="row crumb-row">
-        <button type="button" class="crumb plain" (click)="open(node)">{{ node.title }}</button>
+        <button type="button" class="crumb plain" (click)="wiki.openNode(node)">{{ node.title }}</button>
         <svg lucideChevronRight [size]="13" class="crumb-sep" aria-hidden="true"></svg>
       </span>
     }
@@ -29,14 +28,9 @@ import { findPage, nodeKey } from "./wiki-pages";
 export class Breadcrumbs {
   readonly path = input.required<string>();
   private readonly session = inject(Session);
-  private readonly wiki = inject(WikiActions);
+  protected readonly wiki = inject(WikiActions);
   private readonly found = computed(() => findPage(this.session.snapshot()?.wiki ?? [], this.path()));
   protected readonly trail = computed(() => this.found()?.trail ?? []);
   protected readonly title = computed(() => this.found()?.node.title ?? this.path().split("/").pop()!.replace(/\.md$/, ""));
   protected readonly key = nodeKey;
-
-  protected open(node: WikiNode) {
-    if (node.path) void this.wiki.openPage(node.path);
-    else if (node.folder) void this.wiki.openFolder(node.folder);
-  }
 }

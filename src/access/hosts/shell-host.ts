@@ -100,11 +100,15 @@ export class ShellHost implements Host {
   }
 
   async move(root: string, from: string, to: string) {
+    const caseOnly = from !== to && from.toLowerCase() === to.toLowerCase();
     await this.file(
       to,
-      [root, from, to],
-      `gd_check "$1" "$2" || exit $?; gd_check "$1" "$3" || exit $?; f=$1/$2; t=$1/$3; ` +
-        `[ -e "$f" ] || exit 4; [ -e "$t" ] && exit 7; mkdir -p -- "$(dirname -- "$t")" && mv -- "$f" "$t"`,
+      [root, from, to, caseOnly ? "1" : "0"],
+      // A rename by case only on a case-insensitive file system finds the
+      // target as the source itself; it goes through a temporary name.
+      `gd_check "$1" "$2" || exit $?; gd_check "$1" "$3" || exit $?; f=$1/$2; t=$1/$3; [ -e "$f" ] || exit 4; ` +
+        `if [ -e "$t" ]; then { [ "$4" = 1 ] && [ "$f" -ef "$t" ]; } || exit 7; m=$f.gitdesk-$$; mv -- "$f" "$m" && mv -- "$m" "$t"; ` +
+        `else mkdir -p -- "$(dirname -- "$t")" && mv -- "$f" "$t"; fi`,
     );
   }
 

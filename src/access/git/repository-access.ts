@@ -5,7 +5,7 @@
  */
 import type { Change, Commit, CommitDetail, DiffSource, Head, Remote, SyncAction } from "../../contracts/model";
 import { splitIntoBatches } from "../../utilities/serial-queue";
-import { isMissing, type Host } from "../hosts/host";
+import { isMissing, isTooLarge, type Host } from "../hosts/host";
 import { Git, GitError } from "./git";
 import { LOG_FORMAT, parseLog, parseNameStatus, parseRemotes } from "./git-parsers";
 
@@ -32,7 +32,7 @@ export class RepositoryAccess {
 
   /** The top folder of the repository containing `path`, in the host's path style. */
   static async locate(host: Host, path: string): Promise<string> {
-    const result = await host.run("git", ["rev-parse", "--show-toplevel"], { cwd: path });
+    const result = await new Git(host, path).run(["rev-parse", "--show-toplevel"]);
     if (result.code !== 0) {
       const message = result.stderr.trim();
       throw new Error(
@@ -69,22 +69,33 @@ export class RepositoryAccess {
     return (await this.git.status()).head;
   }
 
-  /** The two sides of a diff as bytes; missing sides are empty. */
-  async diffSides(path: string, source: DiffSource, oldPath: string, limit: number): Promise<[Uint8Array, Uint8Array]> {
-    if (source === "worktree") {
-      const after = await this.host.read(this.root, path, limit).catch((error: unknown) => {
-        if (isMissing(error)) return new Uint8Array();
-        throw error;
-      });
-      return [await this.show(`:${path}`), after];
-    }
-    if (source === "index") return [await this.show(`HEAD:${oldPath}`), await this.show(`:${path}`)];
-    return [await this.show(`${source.commit}^:${oldPath}`), await this.show(`${source.commit}:${path}`)];
+  /** The two sides of a diff as bytes; missing sides are empty. Null when a side is larger than `limit` bytes. */
+  async diffSides(path: string, source: DiffSource, oldPath: string, limit: number): Promise<[Uint8Array, Uint8Array] | null> {
+    const [before, after] =
+      source === "worktree"
+        ? [await this.blob(`:${path}`, limit), await this.worktreeFile(path, limit)]
+        : source === "index"
+          ? [await this.blob(`HEAD:${oldPath}`, limit), await this.blob(`:${path}`, limit)]
+          : [await this.blob(`${source.commit}^:${oldPath}`, limit), await this.blob(`${source.commit}:${path}`, limit)];
+    return before && after ? [before, after] : null;
   }
 
-  private async show(spec: string): Promise<Uint8Array> {
-    const result = await this.host.run("git", ["show", spec], { cwd: this.root });
-    return result.code === 0 ? result.stdout : new Uint8Array();
+  /** A stored file's bytes: empty when `spec` names none, null when larger than `limit`. */
+  private async blob(spec: string, limit: number): Promise<Uint8Array | null> {
+    const id = await this.git.objectId(spec);
+    if (!id) return new Uint8Array();
+    if (Number(await this.git.text(["cat-file", "-s", id])) > limit) return null;
+    return this.git.bytes(["cat-file", "blob", id]);
+  }
+
+  private async worktreeFile(path: string, limit: number): Promise<Uint8Array | null> {
+    try {
+      return await this.host.read(this.root, path, limit);
+    } catch (error) {
+      if (isMissing(error)) return new Uint8Array();
+      if (isTooLarge(error)) return null;
+      throw error;
+    }
   }
 
   async stage(paths: readonly string[]): Promise<void> {
@@ -161,13 +172,27 @@ export class RepositoryAccess {
     return this.git.lines(["remote"]);
   }
 
+  /**
+   * Fetches, pulls or pushes `branch` with `remote`. A branch tracking a
+   * branch of that remote pulls from and pushes to it, whatever its name;
+   * a branch without upstream gets one on its first push. Pushing to a
+   * remote other than the upstream's leaves the upstream as it is.
+   */
   async sync(action: SyncAction, remote: string, branch: string | null): Promise<void> {
     if (action === "fetch") return void (await this.git.text(["fetch", "--prune", remote], NETWORK_TIMEOUT));
     if (!branch) throw new Error("Switch to a branch first.");
-    await this.git.text(
-      action === "pull" ? ["pull", "--ff-only", remote, branch] : ["push", "--set-upstream", remote, branch],
-      NETWORK_TIMEOUT,
-    );
+    const [upstreamRemote, upstreamRef] = await Promise.all([
+      this.git.config(`branch.${branch}.remote`),
+      this.git.config(`branch.${branch}.merge`),
+    ]);
+    const tracked = upstreamRemote === remote && upstreamRef ? upstreamRef : null;
+    const args =
+      action === "pull"
+        ? ["pull", "--ff-only", remote, tracked ?? branch]
+        : tracked
+          ? ["push", remote, `refs/heads/${branch}:${tracked}`]
+          : ["push", ...(upstreamRemote ? [] : ["--set-upstream"]), remote, branch];
+    await this.git.text(args, NETWORK_TIMEOUT);
   }
 
   async setRemote(name: string, url: string): Promise<void> {

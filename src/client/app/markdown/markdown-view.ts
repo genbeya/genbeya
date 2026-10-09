@@ -3,6 +3,9 @@
  * repository images. Links and checkboxes are reported, not followed.
  */
 import { ChangeDetectionStrategy, Component, DestroyRef, effect, ElementRef, inject, input, output, untracked } from "@angular/core";
+import type { Scope } from "../../../contracts/model";
+import { Clipboard } from "../core/clipboard";
+import { Session } from "../core/session";
 import { WorkspaceApi } from "../core/workspace-api";
 import { Theme } from "../core/theme";
 import { Diagrams } from "./diagrams";
@@ -22,6 +25,8 @@ export class MarkdownView {
   readonly source = input.required<string>();
   /** Repository path of the document, for relative links and images. */
   readonly path = input.required<string>();
+  /** Where the document's images are read from. */
+  readonly scope = input<Scope>("content");
   readonly links = input<GitdeskOptions>({});
   /** Makes task-list checkboxes clickable. */
   readonly checkboxes = input(false);
@@ -32,9 +37,12 @@ export class MarkdownView {
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly api = inject(WorkspaceApi);
+  private readonly clipboard = inject(Clipboard);
   private readonly diagrams = inject(Diagrams);
   private readonly theme = inject(Theme);
   private objectUrls: string[] = [];
+  /** Images by path, so re-renders (typing in the preview) do not read them again. Cleared when the repository changes. */
+  private images = new Map<string, Promise<string>>();
   /** Renders count up, so a slow image or diagram never lands in a newer render. */
   private generation = 0;
 
@@ -46,7 +54,16 @@ export class MarkdownView {
       this.theme.resolved();
       untracked(() => this.show(rendered.fragment, rendered.images, rendered.diagrams));
     });
-    inject(DestroyRef).onDestroy(() => this.revoke());
+    const session = inject(Session);
+    effect(() => {
+      void session.snapshot()?.version;
+      this.images = new Map();
+    });
+    inject(DestroyRef).onDestroy(() => {
+      // Late images and diagrams must not land after this.
+      this.generation++;
+      this.revoke();
+    });
   }
 
   private show(fragment: DocumentFragment, images: readonly RepositoryImage[], diagrams: readonly Diagram[]) {
@@ -60,11 +77,22 @@ export class MarkdownView {
 
   private async load(image: RepositoryImage, generation: number) {
     try {
-      const url = await this.api.content.image("content", image.path);
+      const url = await this.image(image.path);
       if (generation === this.generation) image.element.src = url;
     } catch {
       if (generation === this.generation) image.element.replaceWith(this.missingImage(image));
     }
+  }
+
+  private image(path: string): Promise<string> {
+    const images = this.images;
+    let url = images.get(path);
+    if (!url) {
+      url = this.api.content.image(untracked(this.scope), path);
+      url.catch(() => images.delete(path));
+      images.set(path, url);
+    }
+    return url;
   }
 
   private async draw({ element, language, source }: Diagram, generation: number) {
@@ -108,7 +136,7 @@ export class MarkdownView {
   protected click(event: MouseEvent) {
     const target = event.target as Element;
     const copy = target.closest<HTMLElement>("[data-copy]");
-    if (copy) return this.copy(copy);
+    if (copy) return void this.copy(copy);
     const checkbox = target.closest<HTMLElement>(".md-check.is-interactive");
     if (checkbox) return this.checkboxToggled.emit(Number(checkbox.dataset["offset"]));
     const anchor = target.closest("a");
@@ -129,8 +157,8 @@ export class MarkdownView {
     }
   }
 
-  private copy(button: HTMLElement) {
-    void navigator.clipboard?.writeText(button.dataset["copy"] ?? "");
+  private async copy(button: HTMLElement) {
+    if (!(await this.clipboard.copy(button.dataset["copy"] ?? ""))) return;
     button.replaceChildren(icon(document, "check", 13));
     setTimeout(() => button.replaceChildren(icon(document, "copy", 13)), COPIED_FEEDBACK);
   }

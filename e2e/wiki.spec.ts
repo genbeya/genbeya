@@ -51,6 +51,27 @@ test.describe("wiki", () => {
     await expect(window).toHaveURL(/#\/tasks/);
   });
 
+  test("asks before opening another page with unsaved edits", async ({ window }) => {
+    await window.keyboard.press("e");
+    await expect(window.getByRole("textbox", { name: "Page source" })).toBeFocused();
+    await window.keyboard.type("draft ");
+    const guide = window.getByRole("tree", { name: "Pages" }).getByText("Guide", { exact: true });
+    await guide.click();
+    const dialog = window.getByRole("dialog", { name: "Discard unsaved changes?" });
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(window.getByRole("textbox", { name: "Page source" })).toContainText("draft");
+    await guide.click();
+    await window.getByRole("dialog").getByRole("button", { name: "Discard changes" }).click();
+    await expect(window.locator(".document-article").getByRole("heading", { level: 1, name: "Guide" })).toBeVisible();
+  });
+
+  test("copies the page path to the clipboard", async ({ app, window }) => {
+    await window.locator("gd-wiki-page").getByRole("button", { name: "Page actions" }).click();
+    await window.getByRole("menuitem", { name: "Copy path" }).click();
+    await expect(window.getByText("Path copied")).toBeVisible();
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe("docs/Home.md");
+  });
+
   test("creates a page with N", async ({ window, repository }) => {
     await window.keyboard.press("n");
     const dialog = window.getByRole("dialog", { name: "New page" });

@@ -1,3 +1,5 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Managers } from "../contracts/manager-contracts";
 import type { Location, Snapshot, TaskInput } from "../contracts/model";
@@ -122,10 +124,22 @@ describe("WorkspaceManager", () => {
     await expect(managers.workspace.clone("--upload-pack=evil", { kind: "local", path: parent })).rejects.toThrow("Enter a Git URL");
   });
 
-  it("names the roots of both scopes", async () => {
-    const { workspace, id } = await opened();
-    expect(await workspace.rootPath(id, "repo")).toBe(await workspace.rootPath(id, "content"));
-    await expect(workspace.rootPath(id, "elsewhere" as never)).rejects.toThrow("Invalid scope.");
+  it("explains why a repository could not be reopened", async () => {
+    const data = await temporaryFolder("data-");
+    const repository = await createRepository();
+    const first = await createBackend(machine, data);
+    await first.workspace.open({ kind: "local", path: repository.root });
+    await first.dispose();
+    const moved = `${repository.root}-moved`;
+    await fs.rename(repository.root, moved);
+    onTestFinished(() => fs.rm(moved, { recursive: true, force: true }));
+
+    const managers = await backend(data);
+    await expect(managers.workspace.restore([])).rejects.toThrow("does not exist");
+    const requested = launchArgument({ kind: "local", path: repository.root });
+    await expect(managers.workspace.restore(["app", requested])).rejects.toThrow("does not exist");
+    await managers.workspace.setPreferences({ reopenLast: false });
+    expect(await managers.workspace.restore([])).toBeNull();
   });
 });
 
@@ -168,6 +182,31 @@ describe("ContentManager", () => {
   ])("refuses the path %j", async (path) => {
     const { content, id } = await opened();
     await expect(content.write(id, "repo", path, "bad", null)).rejects.toThrow();
+  });
+
+  it.skipIf(!windows)("never lets settings reach .git through Windows aliases", async () => {
+    const { content, id, latest, repository } = await opened({
+      ".gitdesk.yml": "name: T\ntaskPrefix: TP\ntaskRoot: GIT~1/info\n",
+      "docs/Home.md": "# Home\n",
+    });
+    const snapshot = await latest();
+    expect(snapshot.settings.taskRoot).toBe("tasks");
+    expect(snapshot.warnings.join("\n")).toMatch(/GIT~1\/info is not a valid path/);
+    // Defaults apply, so the task lands in tasks/ with the folder's prefix.
+    expect((await content.createTask(id, input)).path).toMatch(/^tasks\/[A-Z]+-1\.md$/);
+    expect((await fs.readdir(path.join(repository.root, ".git", "info"))).some((name) => name.endsWith(".md"))).toBe(false);
+    await expect(content.saveSettings(id, { ...snapshot.settings, taskRoot: "GIT~1/info" }, snapshot.settingsHash)).rejects.toThrow(
+      "not a valid path",
+    );
+  });
+
+  it("renames a page and its subpages by case only", async () => {
+    const { content, id, repository } = await opened();
+    expect(await content.movePage(id, "docs/Architecture.md", "docs/architecture.md")).toBe("docs/architecture.md");
+    const names = await fs.readdir(path.join(repository.root, "docs"));
+    expect(names).toEqual(expect.arrayContaining(["architecture.md", "architecture"]));
+    expect(names).not.toContain("Architecture.md");
+    expect(await repository.read("docs/architecture/Backend.md")).toBe("# Backend\n");
   });
 
   it("serves images as data URLs and refuses other files", async () => {
@@ -299,6 +338,17 @@ describe("VersionControlManager", () => {
     const { versionControl, id, repository } = await opened();
     await repository.write("bin.dat", new Uint8Array([0, 1, 2]));
     expect(await versionControl.diff(id, "bin.dat", "worktree")).toEqual({ path: "bin.dat", binary: true, original: "", modified: "" });
+  });
+
+  it("does not compare files too large to show", async () => {
+    const { versionControl, id, repository } = await opened();
+    await repository.write("src/code.ts", "x".repeat(3 * 1024 * 1024));
+    expect(await versionControl.diff(id, "src/code.ts", "worktree")).toEqual({
+      path: "src/code.ts",
+      binary: true,
+      original: "",
+      modified: "",
+    });
   });
 
   it.each([

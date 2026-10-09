@@ -35,6 +35,7 @@ export interface FileSystem {
   writeFile(path: string, data: Uint8Array, exclusive: boolean): Promise<void>;
   makeDirectory(path: string): Promise<void>;
   list(path: string): Promise<string[]>;
+  /** Moves a file or folder; replaces an existing file at `to` (preferences rely on this for atomic saves). */
   rename(from: string, to: string): Promise<void>;
   removeFile(path: string): Promise<void>;
   removeDirectory(path: string): Promise<void>;

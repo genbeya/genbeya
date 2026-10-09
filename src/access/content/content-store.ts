@@ -176,11 +176,7 @@ export class ContentStore {
     const remotes = await this.repository.lines(["remote"]);
     const remote = (await this.repository.config(`branch.${branch}.remote`)) ?? (remotes.includes("origin") ? "origin" : remotes[0]);
     if (!remote) throw new Error("Add a remote in Settings to share wiki and tasks.");
-    const fetched = await this.host.run(
-      "git",
-      ["-c", `core.hooksPath=${this.host.paths.separator === "/" ? "/dev/null" : "NUL"}`, "fetch", remote, branch],
-      { cwd: git.cwd, timeout: NETWORK_TIMEOUT },
-    );
+    const fetched = await git.run(["fetch", remote, branch], NETWORK_TIMEOUT);
     await this.commitPending(git);
     this.failedCommit = null;
     if (fetched.code === 0) {

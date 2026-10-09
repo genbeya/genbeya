@@ -1,5 +1,5 @@
-//! File system primitives behind desktop/tauri/node/fs.ts. Errors carry
-//! Node's error codes so the engine's handling works unchanged.
+//! File system primitives for src/platforms/tauri/tauri-machine.ts. Errors carry
+//! Node's error codes so resource access handles them like on Node.
 
 use serde::Serialize;
 use std::fs;

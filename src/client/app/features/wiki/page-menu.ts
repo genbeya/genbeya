@@ -2,7 +2,7 @@ import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, inject, input } from "@angular/core";
 import { Router } from "@angular/router";
 import { LucideCodeXml, LucideCopy, LucideEllipsis, LucideFolderInput, LucidePlus, LucideTrash2 } from "@lucide/angular";
-import { Notifications } from "../../core/notifications";
+import { Clipboard } from "../../core/clipboard";
 import { MenuItem } from "../../ui/menu-item";
 import { WikiActions } from "./wiki-actions";
 
@@ -52,11 +52,10 @@ export class PageMenu {
   readonly compact = input(false);
   protected readonly wiki = inject(WikiActions);
   private readonly router = inject(Router);
-  private readonly notifications = inject(Notifications);
+  private readonly clipboard = inject(Clipboard);
 
   protected copyPath() {
-    void navigator.clipboard?.writeText(this.path());
-    this.notifications.success("Path copied");
+    void this.clipboard.copy(this.path(), "Path");
   }
 
   protected openAsCode() {

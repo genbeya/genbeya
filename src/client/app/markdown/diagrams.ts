@@ -16,14 +16,34 @@ export interface DrawnDiagram {
 
 type Mermaid = typeof mermaid;
 
+/** Drawn diagrams kept, so re-rendering a page (typing in the preview) does not draw them again. */
+const CACHED_DIAGRAMS = 64;
+
 @Injectable({ providedIn: "root" })
 export class Diagrams {
   private readonly rockuml = inject(RockumlRenderer);
   private readonly theme = inject(Theme);
   private mermaid: Promise<Mermaid> | null = null;
   private counter = 0;
+  private readonly drawn = new Map<string, Promise<DrawnDiagram>>();
 
-  async draw(language: "mermaid" | "plantuml", source: string): Promise<DrawnDiagram> {
+  draw(language: "mermaid" | "plantuml", source: string): Promise<DrawnDiagram> {
+    // Mermaid draws with the theme's colours; PlantUML does not depend on it.
+    const key = `${language === "mermaid" ? this.theme.resolved() : ""}:${language}:${source}`;
+    let diagram = this.drawn.get(key);
+    if (diagram) {
+      // Most recently used last, so the oldest goes first.
+      this.drawn.delete(key);
+    } else {
+      diagram = this.render(language, source);
+      diagram.catch(() => this.drawn.delete(key));
+    }
+    this.drawn.set(key, diagram);
+    if (this.drawn.size > CACHED_DIAGRAMS) this.drawn.delete(this.drawn.keys().next().value!);
+    return diagram;
+  }
+
+  private async render(language: "mermaid" | "plantuml", source: string): Promise<DrawnDiagram> {
     if (language === "plantuml") {
       // A bare diagram body is a convenience; rockuml needs the start and end markers.
       const text = /^\s*@start/m.test(source) ? source : `@startuml\n${source}\n@enduml`;

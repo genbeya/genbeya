@@ -1,4 +1,4 @@
-//! Child processes behind desktop/tauri/node/child_process.ts: buffered runs
+//! Child processes for src/platforms/tauri/tauri-machine.ts: buffered runs
 //! (git) and long-lived processes with piped stdio (WSL/SSH shells).
 
 use crate::files::{body, header, Failure};
@@ -7,9 +7,10 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::ipc::{Channel, InvokeResponseBody, Request, Response};
 use tauri::{AppHandle, Manager, State};
 use wait_timeout::ChildExt;
@@ -18,8 +19,25 @@ const STDOUT: u8 = 0;
 const STDERR: u8 = 1;
 const EXIT: u8 = 2;
 
+// The page shares the webview with repository content (Markdown, diagrams,
+// code), so these commands are the security boundary: they start only what
+// the backend starts (src/access/hosts) and set only the git environment of
+// host.ts. Arguments are not checked, and file paths (files.rs) are not
+// scoped yet.
+#[cfg(windows)]
+const PROGRAMS: &[&str] = &["git", "ssh", "wsl", "wsl.exe"];
+#[cfg(not(windows))]
+const PROGRAMS: &[&str] = &["git", "ssh"];
+const ENVIRONMENT: &[&str] = &["GIT_TERMINAL_PROMPT", "GIT_OPTIONAL_LOCKS", "GCM_INTERACTIVE"];
+
+/// How long a timed-out run waits for its output after the kill. Grandchildren
+/// (git-remote-https, ssh, credential helpers) inherit the pipes and can keep
+/// them open long after the child is gone.
+const GRACE: Duration = Duration::from_secs(1);
+
 struct Running {
-    stdin: Option<ChildStdin>,
+    /// Locked on its own, so a write blocked on a full pipe holds up only this process.
+    stdin: Arc<Mutex<Option<ChildStdin>>>,
     child: Arc<Mutex<Child>>,
 }
 
@@ -27,6 +45,29 @@ struct Running {
 pub struct Processes {
     next: AtomicU32,
     running: Mutex<HashMap<u32, Running>>,
+}
+
+impl Processes {
+    /// Kills every running process, so no WSL or SSH shell outlives the app.
+    pub fn kill_all(&self) {
+        let Ok(running) = self.running.lock() else { return };
+        for process in running.values() {
+            // A locked child is being reaped already.
+            if let Ok(mut child) = process.child.try_lock() {
+                let _ = child.kill();
+            }
+        }
+    }
+}
+
+fn check(program: &str, env: &HashMap<String, String>) -> Result<(), Failure> {
+    if !PROGRAMS.contains(&program) {
+        return Err(Failure::invalid(&format!("GitDesk does not run {program}.")));
+    }
+    match env.keys().find(|key| !ENVIRONMENT.contains(&key.as_str())) {
+        Some(key) => Err(Failure::invalid(&format!("GitDesk does not set {key}."))),
+        None => Ok(()),
+    }
 }
 
 fn command(program: &str, args: &[String]) -> Command {
@@ -51,12 +92,14 @@ fn start_failure(program: &str, cwd: Option<&str>, error: std::io::Error) -> Str
     }
 }
 
-fn read_all(mut source: impl Read + Send + 'static) -> thread::JoinHandle<Vec<u8>> {
+fn read_all(mut source: impl Read + Send + 'static) -> Receiver<Vec<u8>> {
+    let (send, receive) = mpsc::channel();
     thread::spawn(move || {
         let mut data = Vec::new();
         let _ = source.read_to_end(&mut data);
-        data
-    })
+        let _ = send.send(data);
+    });
+    receive
 }
 
 /// `[code: i32][stderr length: u32][stderr][stdout]`
@@ -87,11 +130,18 @@ fn run(program: String, args: Vec<String>, cwd: Option<String>, env: HashMap<Str
         child.wait().ok()
     };
     let timed_out = status.is_none();
-    if timed_out {
+    let (stdout, mut stderr) = if timed_out {
         let _ = child.kill();
         let _ = child.wait();
-    }
-    let (stdout, mut stderr) = (stdout.join().unwrap_or_default(), stderr.join().unwrap_or_default());
+        // Keep what arrives within the grace period; readers still blocked are left behind.
+        let deadline = Instant::now() + GRACE;
+        let collect = |output: Receiver<Vec<u8>>| {
+            output.recv_timeout(deadline.saturating_duration_since(Instant::now())).unwrap_or_default()
+        };
+        (collect(stdout), collect(stderr))
+    } else {
+        (stdout.recv().unwrap_or_default(), stderr.recv().unwrap_or_default())
+    };
     if timed_out && stderr.is_empty() {
         stderr = format!("{program} timed out.").into_bytes();
     }
@@ -106,6 +156,7 @@ pub async fn proc_run(
     env: HashMap<String, String>,
     timeout_ms: u64,
 ) -> Result<Response, Failure> {
+    check(&command, &env)?;
     let reply = tauri::async_runtime::spawn_blocking(move || run(command, args, cwd, env, timeout_ms))
         .await
         .map_err(|e| Failure::invalid(&e.to_string()))?;
@@ -135,6 +186,7 @@ pub async fn proc_spawn(
     args: Vec<String>,
     events: Channel<InvokeResponseBody>,
 ) -> Result<u32, Failure> {
+    check(&command, &HashMap::new())?;
     let mut child = self::command(&command, &args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -144,7 +196,7 @@ pub async fn proc_spawn(
     let id = state.next.fetch_add(1, Ordering::SeqCst);
     let output = pump(child.stdout.take().unwrap(), STDOUT, events.clone());
     let errors = pump(child.stderr.take().unwrap(), STDERR, events.clone());
-    let stdin = child.stdin.take();
+    let stdin = Arc::new(Mutex::new(child.stdin.take()));
     let child = Arc::new(Mutex::new(child));
     state.running.lock().unwrap().insert(id, Running { stdin, child: child.clone() });
     thread::spawn(move || {
@@ -164,17 +216,23 @@ pub async fn proc_spawn(
 pub async fn proc_write(state: State<'_, Processes>, request: Request<'_>) -> Result<(), Failure> {
     let id: u32 = header(&request, "id")?.parse().map_err(|_| Failure::invalid("id"))?;
     let close = header(&request, "close")? == "1";
-    let data = body(&request)?;
-    let mut running = state.running.lock().unwrap();
-    let process = running.get_mut(&id).ok_or_else(|| Failure::invalid("The process has exited."))?;
-    if let Some(stdin) = process.stdin.as_mut() {
-        stdin.write_all(data)?;
-        stdin.flush()?;
-    }
-    if close {
-        process.stdin = None;
-    }
-    Ok(())
+    let data = body(&request)?.to_vec();
+    let stdin = state.running.lock().unwrap().get(&id).map(|p| p.stdin.clone());
+    let stdin = stdin.ok_or_else(|| Failure::invalid("The process has exited."))?;
+    // A full pipe blocks until the process reads, so write off the async workers.
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), Failure> {
+        let mut stdin = stdin.lock().unwrap();
+        if let Some(pipe) = stdin.as_mut() {
+            pipe.write_all(&data)?;
+            pipe.flush()?;
+        }
+        if close {
+            *stdin = None;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| Failure::invalid(&e.to_string()))?
 }
 
 #[tauri::command]
@@ -184,4 +242,37 @@ pub async fn proc_kill(state: State<'_, Processes>, id: u32) -> Result<(), Failu
         let _ = child.lock().unwrap().kill();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn env(key: &str) -> HashMap<String, String> {
+        HashMap::from([(key.to_string(), "0".to_string())])
+    }
+
+    #[test]
+    fn starts_only_the_programs_and_environment_of_the_backend() {
+        assert!(check("git", &env("GIT_TERMINAL_PROMPT")).is_ok());
+        assert!(check("ssh", &HashMap::new()).is_ok());
+        assert_eq!(check("wsl.exe", &HashMap::new()).is_ok(), cfg!(windows));
+        assert!(check("cmd", &HashMap::new()).is_err());
+        assert!(check("/usr/bin/git", &HashMap::new()).is_err());
+        assert!(check("git", &env("GIT_SSH_COMMAND")).is_err());
+    }
+
+    #[test]
+    fn a_timeout_returns_while_a_grandchild_holds_the_pipes() {
+        // The shell is killed; the command it started keeps stderr open.
+        let (shell, script) = if cfg!(windows) {
+            ("cmd", ["/c", "ping -n 10 127.0.0.1 >nul & echo done"])
+        } else {
+            ("sh", ["-c", "sleep 10 >/dev/null; echo done"])
+        };
+        let started = Instant::now();
+        let reply = run(shell.into(), script.map(String::from).to_vec(), None, HashMap::new(), 200);
+        assert_eq!(i32::from_le_bytes(reply[..4].try_into().unwrap()), 124);
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
 }

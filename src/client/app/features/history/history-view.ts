@@ -61,7 +61,9 @@ const MAX_LANES = 12;
             }
             @if (more()) {
               <div class="history-more">
-                <button type="button" class="btn btn-ghost btn-s" (click)="load(commits()!.length)"><span>Load older commits</span></button>
+                <button type="button" class="btn btn-ghost btn-s" [disabled]="loading()" (click)="load(commits()!.length)">
+                  <span>Load older commits</span>
+                </button>
               </div>
             }
           </div>
@@ -89,6 +91,9 @@ export class HistoryView {
   protected readonly commits = signal<readonly Commit[] | null>(null);
   protected readonly more = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly loading = signal(false);
+  /** Counts loads, so a reload after a branch moved wins over an older page still loading. */
+  private ticket = 0;
   protected readonly graph = computed(() => layoutGraph(this.commits() ?? []));
   protected readonly graphWidth = computed(() => Math.min(this.graph().lanes, MAX_LANES) * LANE_WIDTH + 12);
   /** Changes when HEAD or any branch moves. */
@@ -109,12 +114,18 @@ export class HistoryView {
   }
 
   protected async load(skip: number) {
+    const ticket = ++this.ticket;
+    this.loading.set(true);
     try {
       const page = await this.api.versionControl.log(skip, PAGE);
+      if (ticket !== this.ticket) return;
       this.commits.update((loaded) => (skip ? [...(loaded ?? []), ...page] : page));
       this.more.set(page.length === PAGE);
+      this.error.set(null);
     } catch (failure) {
-      this.error.set(messageOf(failure));
+      if (ticket === this.ticket) this.error.set(messageOf(failure));
+    } finally {
+      if (ticket === this.ticket) this.loading.set(false);
     }
   }
 

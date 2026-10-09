@@ -57,6 +57,28 @@ describe("ChangesView", () => {
     expect(commitButton().textContent!.trim()).toBe("Amend");
   });
 
+  it("keeps the message while the user looks at another view", async () => {
+    const { fixture, typeMessage } = await render([{ path: "a.ts", index: " ", worktree: "M" }]);
+    await typeMessage("Half-written message");
+    fixture.destroy();
+    const again = TestBed.createComponent(ChangesView);
+    await settle(again);
+    expect((again.nativeElement as HTMLElement).querySelector("textarea")!.value).toBe("Half-written message");
+  });
+
+  it("does not overwrite what the user typed while the last message loads", async () => {
+    const { element, managers, fixture, typeMessage } = await render([{ path: "a.ts", index: " ", worktree: "M" }]);
+    let answer!: (message: string) => void;
+    managers.versionControl.lastCommitMessage.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const amend = element.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    amend.checked = true;
+    amend.dispatchEvent(new Event("change"));
+    await typeMessage("Typed meanwhile");
+    answer("Previous message");
+    await settle(fixture);
+    expect(element.querySelector("textarea")!.value).toBe("Typed meanwhile");
+  });
+
   it("asks before discarding changes", async () => {
     const { fixture, dialogs, managers } = await render([{ path: "a.ts", index: " ", worktree: "M" }]);
     dialogs.confirm.mockResolvedValue(false);

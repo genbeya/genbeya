@@ -12,6 +12,10 @@ import type { TaskEngine } from "../engines/task-engine";
 import { baseName, validateRepositoryPath, within } from "../utilities/repository-path";
 import { SerialQueue } from "../utilities/serial-queue";
 
+const CLOSED = "This repository is no longer open.";
+/** How long quitting waits for running operations before cutting them off. */
+const CLOSE_GRACE = 10_000;
+
 export interface LoadedSettings {
   readonly settings: Settings;
   /** Version of the settings file; null while it does not exist. */
@@ -30,6 +34,7 @@ export class Workspace {
   readonly content: ContentStore;
   private readonly queue = new SerialQueue();
   private loadedSettings: LoadedSettings | null = null;
+  private closed = false;
 
   constructor(
     readonly location: Location,
@@ -43,12 +48,18 @@ export class Workspace {
 
   /** Runs operations on this repository one at a time. */
   exclusive<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.closed) return Promise.reject(new Error(CLOSED));
     return this.queue.run(operation);
+  }
+
+  /** Whether the repository lives on a Windows file system, where names such as `GIT~1` are aliases. */
+  get windows(): boolean {
+    return this.host.paths.separator === "\\";
   }
 
   /** A validated repository-relative path; Windows hosts also reject Windows aliases. */
   path(value: unknown): string {
-    return validateRepositoryPath(value, this.host.paths.separator === "\\");
+    return validateRepositoryPath(value, this.windows);
   }
 
   paths(values: unknown): string[] {
@@ -83,7 +94,7 @@ export class Workspace {
       return (this.loadedSettings = { settings: fallback, hash: null });
     }
     try {
-      return (this.loadedSettings = { settings: this.engines.settings.parse(file.content, fallback), hash: file.hash });
+      return (this.loadedSettings = { settings: this.engines.settings.parse(file.content, fallback, this.windows), hash: file.hash });
     } catch (error) {
       // A broken settings file must not lock anyone out of the settings screen.
       return (this.loadedSettings = {
@@ -127,24 +138,49 @@ export class Workspace {
     return tasks;
   }
 
+  /**
+   * Refuses new operations, lets queued ones finish (an interrupted commit or
+   * rebase on a remote machine would leave the repository half-changed),
+   * then disconnects.
+   */
+  close(): Promise<void> {
+    this.closed = true;
+    return this.queue.run(async () => this.host.dispose());
+  }
+
+  /** Disconnects now, interrupting a running operation. */
   dispose(): void {
+    this.closed = true;
     this.host.dispose();
+  }
+}
+
+/** True when `promise` settles within `ms`; the timer never outlives it. */
+async function settlesWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<false>((resolve) => (timer = setTimeout(() => resolve(false), ms)));
+  try {
+    return await Promise.race([promise.then(() => true), expired]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 /** Open repositories by id. One window shows one repository, so opening another closes the rest. */
 export class WorkspaceRegistry {
   private readonly open = new Map<string, Workspace>();
+  /** Closed repositories whose queued operations are still running. */
+  private readonly closing = new Map<Workspace, Promise<void>>();
 
   get(id: unknown): Workspace {
     const workspace = typeof id === "string" ? this.open.get(id) : undefined;
-    if (!workspace) throw new Error("This repository is no longer open.");
+    if (!workspace) throw new Error(CLOSED);
     return workspace;
   }
 
   /** Registers `workspace` under a new id, closing every other one. */
   activate(workspace: Workspace): string {
-    for (const [id, other] of this.open) if (other !== workspace) this.close(id);
+    for (const [id, other] of this.open) if (other !== workspace) void this.close(id);
     for (const [id, other] of this.open) if (other === workspace) this.open.delete(id);
     const id = crypto.randomUUID();
     this.open.set(id, workspace);
@@ -156,12 +192,20 @@ export class WorkspaceRegistry {
     return this.open.values().next().value ?? null;
   }
 
-  close(id: string): void {
-    this.open.get(id)?.dispose();
+  /** Closes a repository; resolves once its queued operations finished and it disconnected. */
+  close(id: string): Promise<void> {
+    const workspace = this.open.get(id);
+    if (!workspace) return Promise.resolve();
     this.open.delete(id);
+    const closed = workspace.close().finally(() => this.closing.delete(workspace));
+    this.closing.set(workspace, closed);
+    return closed;
   }
 
-  closeAll(): void {
-    for (const id of [...this.open.keys()]) this.close(id);
+  /** Closes every repository, cutting off operations still running after `grace` ms, so quitting never hangs. */
+  async closeAll(grace = CLOSE_GRACE): Promise<void> {
+    for (const id of [...this.open.keys()]) void this.close(id);
+    const pending = [...this.closing.keys()];
+    if (!(await settlesWithin(Promise.all(this.closing.values()), grace))) for (const workspace of pending) workspace.dispose();
   }
 }

@@ -28,6 +28,7 @@ export class Session {
   private readonly current = signal<Open | null>(null);
   private readonly pending = signal(0);
   private syncTimer: ReturnType<typeof setTimeout> | undefined;
+  private refreshes = 0;
 
   readonly phase = signal<"starting" | "idle" | "opening">("starting");
   readonly preferences = signal<Preferences>(DEFAULT_PREFERENCES);
@@ -68,11 +69,9 @@ export class Session {
   }
 
   /** Lets the user pick a folder, then opens it. */
-  pick(): Promise<void> {
-    return this.switchTo(async () => {
-      const location = await this.shell.pickFolder();
-      return location ? this.managers.workspace.open(location) : null;
-    });
+  async pick(): Promise<void> {
+    const location = await this.shell.pickFolder();
+    if (location) await this.open(location);
   }
 
   clone(url: string, parent: Location): Promise<void> {
@@ -91,9 +90,10 @@ export class Session {
   async refresh(): Promise<void> {
     const open = this.current();
     if (!open) return;
+    const ticket = ++this.refreshes;
     const next = await this.managers.workspace.snapshot(open.id, open.snapshot.version);
-    // A repository switch while fetching makes the result stale.
-    if (next && this.current()?.id === open.id) this.current.set({ id: open.id, snapshot: next });
+    // A repository switch or a newer refresh while fetching makes the result stale.
+    if (next && ticket === this.refreshes && this.current()?.id === open.id) this.current.set({ id: open.id, snapshot: next });
   }
 
   /**

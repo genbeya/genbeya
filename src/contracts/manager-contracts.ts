@@ -31,8 +31,6 @@ export interface WorkspaceManagerContract {
   close(workspace: string): Promise<void>;
   /** Resolves to null when nothing changed since `since`. */
   snapshot(workspace: string, since?: string): Promise<Snapshot | null>;
-  /** Absolute path of a scope's root on the repository's machine. */
-  rootPath(workspace: string, scope: Scope): Promise<string>;
   recent(): Promise<readonly RecentEntry[]>;
   forget(location: Location): Promise<void>;
   preferences(): Promise<Preferences>;
@@ -91,19 +89,7 @@ type Methods<T> = readonly (keyof T & string)[];
 
 /** Every callable method, per manager. Transports dispatch only these names. */
 export const MANAGER_METHODS = {
-  workspace: [
-    "open",
-    "restore",
-    "clone",
-    "close",
-    "snapshot",
-    "rootPath",
-    "recent",
-    "forget",
-    "preferences",
-    "setPreferences",
-    "distributions",
-  ],
+  workspace: ["open", "restore", "clone", "close", "snapshot", "recent", "forget", "preferences", "setPreferences", "distributions"],
   content: [
     "read",
     "image",

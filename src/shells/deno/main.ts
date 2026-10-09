@@ -14,6 +14,7 @@ import { CONTENT_TYPES, resolveClientFile } from "./static-files";
 
 const CLIENT = new URL("../client/browser/", import.meta.url);
 
+// Deno Desktop serves this on a random loopback port and points the window at it.
 Deno.serve(async (request) => {
   const file = request.method === "GET" ? resolveClientFile(CLIENT, new URL(request.url).pathname) : null;
   if (!file) return new Response("Not found", { status: 404 });
@@ -29,13 +30,15 @@ Deno.serve(async (request) => {
   }
 });
 
+/** What `command` prints; rejects when it cannot run, so a missing dialog tool is reported, not taken for a cancel. */
 function output(command: string, args: string[]): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const child = spawn(command, args, { windowsHide: true });
+    const decoder = new TextDecoder();
     let text = "";
-    child.stdout.on("data", (chunk: Uint8Array) => (text += new TextDecoder().decode(chunk)));
-    child.on("error", () => resolve(""));
-    child.on("close", () => resolve(text.trim()));
+    child.stdout.on("data", (chunk: Uint8Array) => (text += decoder.decode(chunk, { stream: true })));
+    child.on("error", () => reject(new Error(`Can't show a folder dialog: ${command} is not available.`)));
+    child.on("close", () => resolve((text + decoder.decode()).trim()));
   });
 }
 
@@ -46,7 +49,8 @@ function pickFolder(): Promise<string> {
       "-NoProfile",
       "-STA",
       "-Command",
-      "Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; " +
+      // UTF-8 output, so folder names outside the console's code page survive.
+      "[Console]::OutputEncoding = [Text.Encoding]::UTF8; Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; " +
         "$d.Description = 'Open a repository'; $d.UseDescriptionForTitle = $true; if ($d.ShowDialog() -eq 'OK') { [Console]::Out.Write($d.SelectedPath) }",
     ]);
   if (Deno.build.os === "darwin") return output("osascript", ["-e", 'POSIX path of (choose folder with prompt "Open a repository")']);
@@ -70,6 +74,12 @@ const dataFolder =
     : Deno.build.os === "darwin"
       ? `${Deno.env.get("HOME")}/Library/Application Support/GitDesk Deno`
       : `${Deno.env.get("XDG_CONFIG_HOME") ?? `${Deno.env.get("HOME")}/.config`}/gitdesk-deno`;
+
+// A failure nobody awaited (a background save) is reported, not fatal: Deno would otherwise end the app.
+addEventListener("unhandledrejection", (event) => {
+  event.preventDefault();
+  console.error("GitDesk:", event.reason);
+});
 
 const backend = await createBackend(nodeMachine(), dataFolder);
 const window = new Deno.BrowserWindow({ title: "GitDesk", width: 1440, height: 920 });

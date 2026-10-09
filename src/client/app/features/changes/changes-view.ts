@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, untracked } from "@angular/core";
 import { Router } from "@angular/router";
 import { LucideCheckCheck, LucideMinus, LucidePlus, LucideUndo2 } from "@lucide/angular";
 import type { Change } from "../../../../contracts/model";
@@ -10,6 +10,7 @@ import { EmptyState } from "../../ui/empty-state";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { DiffPane } from "../diff/diff-pane";
 import { ChangeRow } from "./change-row";
+import { CommitDraft } from "./commit-draft";
 import { SyncBar } from "./sync-bar";
 
 const isStaged = (change: Change) => change.index !== " " && change.index !== "?";
@@ -34,8 +35,9 @@ export class ChangesView {
   private readonly dialogs = inject(Dialogs);
   private readonly router = inject(Router);
   protected readonly mod = MOD_KEY;
-  protected readonly message = signal("");
-  protected readonly amend = signal(false);
+  private readonly draft = inject(CommitDraft);
+  protected readonly message = this.draft.message;
+  protected readonly amend = this.draft.amend;
 
   protected readonly snapshot = computed(() => this.session.snapshot()!);
   protected readonly stagedChanges = computed(() => this.snapshot().changes.filter(isStaged));
@@ -100,14 +102,15 @@ export class ChangesView {
       },
       this.amend() ? "Commit amended" : "Committed",
     );
-    if (!done) return;
-    this.message.set("");
-    this.amend.set(false);
+    if (done) this.draft.clear();
   }
 
   protected async toggleAmend(amend: boolean) {
     this.amend.set(amend);
-    if (amend && !this.message().trim()) this.message.set(await this.api.versionControl.lastCommitMessage());
+    if (!amend || this.message().trim()) return;
+    const last = await this.session.run(() => this.api.versionControl.lastCommitMessage());
+    // Whatever the user typed meanwhile wins.
+    if (last && this.amend() && !this.message().trim()) this.message.set(last);
   }
 
   protected stage(paths: string[]) {

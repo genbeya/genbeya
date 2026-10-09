@@ -12,8 +12,9 @@ import { locationOfFolder } from "../../access/hosts/host-factory";
 import { createBackend, type Backend } from "../../managers/backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { updateJumpList } from "./jump-list";
-import { CONTENT_SECURITY_POLICY, isRendererPage, RENDERER_URL, resolveAsset } from "./renderer-protocol";
-import { WindowState } from "./window-state";
+import { CONTENT_SECURITY_POLICY } from "../content-security-policy";
+import { isRendererPage, RENDERER_URL, resolveAsset } from "./renderer-protocol";
+import { placeOnScreen, WindowState } from "./window-state";
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "gitdesk", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -25,7 +26,9 @@ const THEMES: readonly Theme[] = ["system", "light", "dark"];
 /** Workspace calls after which the recent list may have changed. */
 const RECENT_CHANGES = new Set(["open", "restore", "clone", "forget"]);
 
-if (!app.requestSingleInstanceLock()) app.quit();
+/** A second launch hands its arguments to the first instance (see `second-instance`) and stops here. */
+const primary = app.requestSingleInstanceLock();
+if (!primary) app.exit(0);
 
 function serveClient() {
   protocol.handle("gitdesk", async (request) => {
@@ -47,16 +50,13 @@ function setMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }, { role: "windowMenu" }]));
 }
 
-const visible = (bounds: { x: number; y: number; width: number; height: number }) =>
-  screen
-    .getAllDisplays()
-    .some(
-      ({ workArea: a }) =>
-        bounds.x < a.x + a.width && bounds.x + bounds.width > a.x && bounds.y < a.y + a.height && bounds.y + bounds.height > a.y,
-    );
-
 function createWindow(state: WindowState): BrowserWindow {
-  const saved = state.bounds && visible(state.bounds) ? state.bounds : null;
+  const saved =
+    state.bounds &&
+    placeOnScreen(
+      state.bounds,
+      screen.getAllDisplays().map((display) => display.workArea),
+    );
   const window = new BrowserWindow({
     width: saved?.width ?? 1440,
     height: saved?.height ?? 920,
@@ -80,7 +80,10 @@ function createWindow(state: WindowState): BrowserWindow {
   const contents = window.webContents;
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
   contents.on("will-navigate", (event) => event.preventDefault());
-  contents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  // Copy buttons write to the clipboard; nothing else is granted.
+  contents.session.setPermissionRequestHandler((requester, permission, callback) =>
+    callback(permission === "clipboard-sanitized-write" && isRendererPage(requester.getURL(), DEV_ORIGIN)),
+  );
   // The page vetoes unloading while edits are unsaved; ask before discarding them.
   contents.on("will-prevent-unload", (event) => {
     const choice = dialog.showMessageBoxSync(window, {
@@ -156,7 +159,9 @@ function connect(window: BrowserWindow, backend: Backend) {
   });
 }
 
-app.whenReady().then(async () => {
+if (primary) void app.whenReady().then(start);
+
+async function start() {
   const userData = app.getPath("userData");
   const [backend, state] = await Promise.all([createBackend(nodeMachine(), userData), WindowState.load(userData)]);
   serveClient();
@@ -169,17 +174,17 @@ app.whenReady().then(async () => {
     window.focus();
     window.webContents.send("gitdesk:second-launch", argv);
   });
-  // Quitting waits once for repositories to close and state to be written.
-  let saved = false;
-  app.on("before-quit", (event) => {
-    if (saved) return;
+  // Once the window has closed (the page may still veto that), quitting waits for repositories to close and state to be written.
+  let disposed = false;
+  app.on("will-quit", (event) => {
+    if (disposed) return;
     event.preventDefault();
     void Promise.allSettled([backend.dispose(), state.flush()]).then(() => {
-      saved = true;
+      disposed = true;
       app.quit();
     });
   });
   await window.loadURL(DEV_ORIGIN ?? RENDERER_URL);
-});
+}
 
 app.on("window-all-closed", () => app.quit());

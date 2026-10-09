@@ -15,6 +15,8 @@ interface State {
 export class PreferencesStore {
   private state: State = { recent: [], preferences: DEFAULT_PREFERENCES };
   private timer: ReturnType<typeof setTimeout> | null = null;
+  /** Changes not yet on disk. */
+  private dirty = false;
 
   private constructor(
     private readonly machine: Machine,
@@ -63,15 +65,33 @@ export class PreferencesStore {
 
   private update(change: Partial<State>) {
     this.state = { ...this.state, ...change };
+    this.dirty = true;
     if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => void this.flush(), SAVE_DELAY);
+    this.timer = setTimeout(() => {
+      // The changes stay pending; the next change or flush tries again.
+      this.flush().catch(() => undefined);
+    }, SAVE_DELAY);
   }
 
-  /** Writes pending changes now. */
+  /**
+   * Writes pending changes now. The state goes to a temporary file first and
+   * then replaces the old one (rename replaces files on every platform), so
+   * a crash mid-write never leaves a truncated file.
+   */
   async flush(): Promise<void> {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
-    await this.machine.fileSystem.makeDirectory(this.folder);
-    await this.machine.fileSystem.writeFile(this.file, encodeText(JSON.stringify(this.state, null, 2)), false);
+    if (!this.dirty) return;
+    this.dirty = false;
+    const { fileSystem } = this.machine;
+    const temporary = `${this.file}.tmp`;
+    try {
+      await fileSystem.makeDirectory(this.folder);
+      await fileSystem.writeFile(temporary, encodeText(JSON.stringify(this.state, null, 2)), false);
+      await fileSystem.rename(temporary, this.file);
+    } catch (error) {
+      this.dirty = true;
+      throw error;
+    }
   }
 }

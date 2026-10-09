@@ -8,7 +8,6 @@ export interface TreeItem<T = unknown> {
   readonly children?: readonly TreeItem<T>[];
   /** False for rows that only expand (folders without a page). */
   readonly selectable?: boolean;
-  readonly title?: string;
   readonly data: T;
 }
 
@@ -45,7 +44,6 @@ export function filterTree<T>(items: readonly TreeItem<T>[], query: string): Tre
           [attr.aria-selected]="item.key === selected()"
           [attr.aria-expanded]="parent ? open : null"
           [attr.tabindex]="item.key === selected() || (!selected() && $first && depth === 0) ? 0 : -1"
-          [attr.title]="item.title ?? null"
           [style.padding-left.px]="6 + depth * 14"
           (click)="click($event, item)"
           (keydown)="key($event, item, open)"

@@ -68,6 +68,8 @@ export function fileResource(scope: Scope, path: Signal<string | null>, editing:
     error: error.asReadonly(),
     changedOnDisk: changedOnDisk.asReadonly(),
     set: (next) => {
+      // Reads in flight started before this version existed.
+      request++;
       file.set(next);
       changedOnDisk.set(false);
     },

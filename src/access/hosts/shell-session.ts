@@ -10,12 +10,19 @@ import type { ChildProcess, ProcessRunner, RunResult } from "../ports";
 
 export const DEFAULT_TIMEOUT = 60_000;
 const CONNECT_TIMEOUT = 30_000;
+/** How long a closing sh may take to finish and clean up before it is killed. */
+const EXIT_GRACE = 3_000;
 const READY = "GDK-READY";
 
-/** Defines `gd_check root relative`, which fails with 3 when a segment below root is a link. */
+/**
+ * Defines `gd_check root relative`, which fails with 3 when a segment below
+ * root is a link. The temp folder holds file contents, so it goes on every
+ * exit: dash skips the EXIT trap when a signal ends it, hence the second trap.
+ */
 const BOOTSTRAP = `
 T=$(mktemp -d 2>/dev/null || mktemp -d -t gitdesk) || exit 1
 trap 'rm -rf "$T"' EXIT
+trap 'exit 1' HUP INT TERM
 export GIT_TERMINAL_PROMPT=0 GIT_OPTIONAL_LOCKS=0
 gd_check() { ( set -f; c=$1; IFS=/; for s in $2; do c=$c/$s; if [ -L "$c" ]; then exit 3; fi; done ) }
 printf '\\n${READY}\\n'
@@ -51,9 +58,14 @@ export class ShellSession {
     this.reset();
   }
 
+  /** Ends sh by closing its input, so it finishes the current request and cleans up; kills it if it does not. */
   private reset() {
-    this.child?.kill();
+    const child = this.child;
     this.child = null;
+    if (!child) return;
+    const timer = setTimeout(() => child.kill(), EXIT_GRACE);
+    child.onExit(() => clearTimeout(timer));
+    child.end();
   }
 
   private async send(script: string, timeout: number): Promise<RunResult> {
@@ -90,7 +102,9 @@ export class ShellSession {
     this.diagnostics = "";
     const child = this.processes.spawn(this.command, this.args);
     this.child = child;
+    // A reset sh may still write while it winds down; its output must not mix with the next one's.
     child.onStdout((chunk) => {
+      if (this.child !== child) return;
       this.buffer = concatBytes([this.buffer, chunk]);
       this.wake?.();
     });

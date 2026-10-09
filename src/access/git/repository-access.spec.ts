@@ -62,16 +62,39 @@ describe("RepositoryAccess", () => {
     const repository = await createRepository();
     const repo = await open(repository.root);
     await repository.write("src/code.ts", "two");
-    expect(text(await repo.diffSides("src/code.ts", "worktree", "src/code.ts", 1000))).toEqual(["export const value = 1;\n", "two"]);
+    expect(text((await repo.diffSides("src/code.ts", "worktree", "src/code.ts", 1000))!)).toEqual(["export const value = 1;\n", "two"]);
     await repo.stage(["src/code.ts"]);
-    expect(text(await repo.diffSides("src/code.ts", "index", "src/code.ts", 1000))).toEqual(["export const value = 1;\n", "two"]);
+    expect(text((await repo.diffSides("src/code.ts", "index", "src/code.ts", 1000))!)).toEqual(["export const value = 1;\n", "two"]);
     await repo.commit("Two", false);
     const [latest] = await repo.log(0, 1);
-    expect(text(await repo.diffSides("src/code.ts", { commit: latest!.hash }, "src/code.ts", 1000))).toEqual([
+    expect(text((await repo.diffSides("src/code.ts", { commit: latest!.hash }, "src/code.ts", 1000))!)).toEqual([
       "export const value = 1;\n",
       "two",
     ]);
-    expect(text(await repo.diffSides("gone.ts", "worktree", "gone.ts", 1000))).toEqual(["", ""]);
+    expect(text((await repo.diffSides("gone.ts", "worktree", "gone.ts", 1000))!)).toEqual(["", ""]);
+  });
+
+  it("reports diffs with a side over the limit as too large", async () => {
+    const repository = await createRepository();
+    const repo = await open(repository.root);
+    await repository.write("src/code.ts", "x".repeat(100));
+    expect(await repo.diffSides("src/code.ts", "worktree", "src/code.ts", 50)).toBeNull();
+    await repo.stage(["src/code.ts"]);
+    expect(await repo.diffSides("src/code.ts", "index", "src/code.ts", 50)).toBeNull();
+    await repo.commit("Big", false);
+    const [latest] = await repo.log(0, 1);
+    expect(await repo.diffSides("src/code.ts", { commit: latest!.hash }, "src/code.ts", 50)).toBeNull();
+  });
+
+  it("shows added files of the first commit and passes real failures through", async () => {
+    const repository = await createRepository();
+    const repo = await open(repository.root);
+    const [first] = await repo.log(0, 1);
+    expect(text((await repo.diffSides("src/code.ts", { commit: first!.hash }, "src/code.ts", 1000))!)).toEqual([
+      "",
+      "export const value = 1;\n",
+    ]);
+    await expect(repo.diffSides("src", "index", "src", 1000)).rejects.toThrow();
   });
 
   it("commits, amends and reads history with merge details against the first parent", async () => {
@@ -147,5 +170,38 @@ describe("RepositoryAccess", () => {
     expect((await repo.state()).remotes).toEqual([{ name: "origin", url: remote + "-moved" }]);
     await repo.removeRemote("origin");
     expect((await repo.state()).remotes).toEqual([]);
+  });
+
+  it("pulls and pushes a branch through its upstream, even one with another name", async () => {
+    const repository = await createRepository();
+    const repo = await open(repository.root);
+    const remote = await createRemote();
+    await repo.setRemote("origin", remote);
+    await repo.sync("push", "origin", "main");
+    const clone = await cloneRepository(remote);
+    await clone.git("switch", "-q", "--create", "mine", "--track", "origin/main");
+    const theirs = await open(clone.root);
+
+    await repository.write("pulled.md", "pulled");
+    await repo.stage(["pulled.md"]);
+    await repo.commit("Pulled", false);
+    await repo.sync("push", "origin", "main");
+    await theirs.sync("pull", "origin", "mine");
+    expect(await clone.read("pulled.md")).toBe("pulled");
+
+    await clone.write("pushed.md", "pushed");
+    await theirs.stage(["pushed.md"]);
+    await theirs.commit("Pushed", false);
+    await theirs.sync("push", "origin", "mine");
+    const heads = await clone.git("ls-remote", "--heads", "origin");
+    expect(heads).not.toContain("refs/heads/mine");
+    expect(heads).toContain(`${(await clone.git("rev-parse", "HEAD")).trim()}\trefs/heads/main`);
+    expect(await theirs.head()).toMatchObject({ branch: "mine", upstream: "origin/main", ahead: 0 });
+
+    // Pushing to another remote leaves the upstream alone.
+    await theirs.setRemote("backup", await createRemote());
+    await theirs.sync("push", "backup", "mine");
+    expect(await clone.git("ls-remote", "--heads", "backup")).toContain("refs/heads/mine");
+    expect(await theirs.head()).toMatchObject({ upstream: "origin/main" });
   });
 });

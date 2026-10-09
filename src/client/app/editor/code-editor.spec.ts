@@ -53,6 +53,8 @@ describe("CodeEditor", () => {
     fixture.componentInstance.value.set("reloaded");
     await fixture.whenStable();
     expect(view.state.sliceDoc()).toBe("reloaded");
+    // A reload is not an edit.
+    expect(host.changes).toEqual(["one two"]);
   });
 
   it("saves with Ctrl+S inside the editor", async () => {

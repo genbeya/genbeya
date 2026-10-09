@@ -13,6 +13,8 @@
     "src/platforms",
     "src/shells/electron",
     "src/shells/deno",
+    "src/shells/tauri/*.ts",
+    "src/shells/*.ts",
     "src/testing",
     "scripts/*.ts",
     "e2e",

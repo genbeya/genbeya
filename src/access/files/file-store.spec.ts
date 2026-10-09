@@ -25,6 +25,26 @@ describe("FileStore", () => {
     await expect(files.write("a.md", "again", second.hash)).rejects.toThrow("changed on disk");
   });
 
+  it("moves entries together, refusing before the first move when a target exists", async () => {
+    const files = await store();
+    await files.write("a.md", "a", null);
+    await files.write("b.md", "b", null);
+    await files.write("taken.md", "t", null);
+    await expect(
+      files.moveAll([
+        ["a.md", "moved.md"],
+        ["b.md", "taken.md"],
+      ]),
+    ).rejects.toThrow("taken.md already exists.");
+    expect(await files.kind("a.md")).toBe("file");
+    await files.moveAll([
+      ["a.md", "moved.md"],
+      ["b.md", "B.md"],
+    ]);
+    expect((await files.read("moved.md")).content).toBe("a");
+    expect((await files.read("B.md")).content).toBe("b");
+  });
+
   it("limits file sizes", async () => {
     const files = await store();
     await expect(files.write("big.md", "x".repeat(TEXT_LIMIT + 1), null)).rejects.toThrow("2 MiB");

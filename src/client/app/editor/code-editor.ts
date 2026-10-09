@@ -1,5 +1,5 @@
 /** An editable file: CodeMirror with the language of its path. */
-import { Compartment, EditorState, type Extension } from "@codemirror/state";
+import { Annotation, Compartment, EditorState, type Extension, Transaction } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import {
   afterNextRender,
@@ -18,6 +18,8 @@ import { editingSetup, isProse, languageFor } from "./editor-setup";
 const CRLF = String.fromCharCode(13, 10);
 /** Files keep their line endings: CodeMirror would otherwise turn CRLF into LF. */
 const separatorFor = (value: string): Extension => (value.includes(CRLF) ? EditorState.lineSeparator.of(CRLF) : []);
+/** Marks text replaced from outside, which is not reported as an edit. */
+const reload = Annotation.define<boolean>();
 
 @Component({
   selector: "gd-code-editor",
@@ -62,17 +64,16 @@ export class CodeEditor {
       if (!view || view.state.sliceDoc() === value) return;
       if ((view.state.lineBreak === CRLF) !== value.includes(CRLF))
         view.dispatch({ effects: this.separator.reconfigure(separatorFor(value)) });
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: value },
+        annotations: [reload.of(true), Transaction.addToHistory.of(false)],
+      });
     });
     // Focus needs the editor in the document.
     afterNextRender(() => {
       if (this.autofocus()) this.view?.focus();
     });
     inject(DestroyRef).onDestroy(() => this.view?.destroy());
-  }
-
-  focus(): void {
-    this.view?.focus();
   }
 
   private create(path: string, numbered: boolean) {
@@ -86,7 +87,8 @@ export class CodeEditor {
       EditorView.contentAttributes.of({ "aria-label": this.label(), spellcheck: isProse(path) ? "true" : "false" }),
       keymap.of([{ key: "Mod-s", preventDefault: true, run: () => (this.save.emit(), true) }]),
       EditorView.updateListener.of((update) => {
-        if (update.docChanged) this.valueChange.emit(update.state.sliceDoc());
+        if (update.docChanged && !update.transactions.some((transaction) => transaction.annotation(reload)))
+          this.valueChange.emit(update.state.sliceDoc());
       }),
     ];
     const view = new EditorView({ state: EditorState.create({ doc: value, extensions }), parent: this.host });

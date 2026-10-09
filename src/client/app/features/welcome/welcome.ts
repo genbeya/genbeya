@@ -1,9 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject } from "@angular/core";
 import { LucideArrowRight, LucideCloudDownload, LucideFolderOpen, LucideServer, LucideX } from "@lucide/angular";
-import { describeLocation, type Location, type RecentEntry } from "../../../../contracts/model";
+import { describeLocation, type Location } from "../../../../contracts/model";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
+import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
-import { MANAGERS } from "../../platform/platform";
 import { HostIcon, initials } from "../shell/repository-mark";
 import { ShellUi } from "../shell/shell-ui";
 
@@ -91,16 +91,15 @@ export function ago(time: number, now = Date.now()): string {
 export class Welcome {
   protected readonly session = inject(Session);
   protected readonly ui = inject(ShellUi);
-  private readonly managers = inject(MANAGERS);
+  private readonly repositories = inject(Repositories);
   protected readonly mod = MOD_KEY;
-  protected readonly recent = signal<readonly RecentEntry[]>([]);
+  protected readonly recent = this.repositories.recent;
   protected readonly busy = computed(() => this.session.phase() === "opening");
   protected readonly initials = initials;
   protected readonly describe = describeLocation;
   protected readonly ago = ago;
 
   constructor() {
-    void this.load();
     hotkey(
       "mod+o",
       () => void this.session.pick(),
@@ -108,12 +107,7 @@ export class Welcome {
     );
   }
 
-  protected async forget(location: Location) {
-    await this.managers.workspace.forget(location);
-    await this.load();
-  }
-
-  private async load() {
-    this.recent.set(await this.managers.workspace.recent());
+  protected forget(location: Location) {
+    void this.repositories.forget(location);
   }
 }

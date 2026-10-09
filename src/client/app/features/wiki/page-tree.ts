@@ -99,8 +99,7 @@ export class PageTree {
   }
 
   protected open(item: TreeItem<WikiNode>) {
-    if (item.data.path) void this.wiki.openPage(item.data.path);
-    else if (item.data.folder) void this.wiki.openFolder(item.data.folder);
+    void this.wiki.openNode(item.data);
   }
 
   protected clear(field: HTMLInputElement) {

@@ -19,7 +19,7 @@ import { displayId, titleCase } from "./task-model";
           <span class="faint">{{ group.tasks.length }}</span>
         </header>
         @for (task of group.tasks; track task.path) {
-          <div class="task-row" role="button" tabindex="0" [class.is-selected]="task.id === selected()" (click)="open.emit(task)" (keydown.enter)="open.emit(task)">
+          <div class="task-row" role="button" tabindex="0" [class.is-selected]="task.id === selected()" (click)="open.emit(task)" (keydown.enter)="open.emit(task)" (keydown.space)="$event.preventDefault(); open.emit(task)">
             <gd-priority-icon [priority]="task.priority" />
             <span class="task-id mono">{{ displayId(task.id) }}</span>
             <gd-status-icon [status]="task.status" [statuses]="statuses()" />

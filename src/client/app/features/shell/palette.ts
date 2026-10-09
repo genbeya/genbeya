@@ -1,10 +1,9 @@
 import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
 import { afterRenderEffect, ChangeDetectionStrategy, Component, computed, type ElementRef, inject, signal, viewChild } from "@angular/core";
 import { Router } from "@angular/router";
-import type { RecentEntry } from "../../../../contracts/model";
 import { MOD_KEY } from "../../core/hotkeys";
+import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
-import { MANAGERS } from "../../platform/platform";
 import { WikiActions } from "../wiki/wiki-actions";
 import { PaletteIcon } from "./palette-icon";
 import { allItems, branchItems, rank, type PaletteCommands, type PaletteItem } from "./palette-items";
@@ -77,7 +76,7 @@ export class Palette {
   private readonly ui = inject(ShellUi);
   protected readonly query = signal("");
   protected readonly active = signal(0);
-  private readonly recent = signal<readonly RecentEntry[]>([]);
+  private readonly recent = inject(Repositories).recent;
   private readonly list = viewChild.required<ElementRef<HTMLElement>>("list");
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>("field");
 
@@ -111,9 +110,6 @@ export class Palette {
   protected readonly results = computed(() => rank(this.items(), this.query(), this.mode === "branches"));
 
   constructor() {
-    void inject(MANAGERS)
-      .workspace.recent()
-      .then((recent) => this.recent.set(recent));
     afterRenderEffect(() => {
       this.active();
       this.list().nativeElement.querySelector(".palette-item.is-active")?.scrollIntoView({ block: "nearest" });

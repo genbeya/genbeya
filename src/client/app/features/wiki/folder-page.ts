@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
 import { LucideChevronRight, LucideFilePlus2, LucideFileText, LucideFolder } from "@lucide/angular";
-import type { WikiNode } from "../../../../contracts/model";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
@@ -29,7 +28,7 @@ import { findPage, nodeKey } from "./wiki-pages";
             <h1 class="folder-title">{{ folder.title }}</h1>
             <div class="folder-list">
               @for (child of folder.children; track key(child)) {
-                <button type="button" class="folder-card" (click)="open(child)">
+                <button type="button" class="folder-card" (click)="wiki.openNode(child)">
                   @if (child.path) {
                     <svg lucideFileText [size]="16" aria-hidden="true"></svg>
                   } @else {
@@ -55,14 +54,9 @@ export class FolderPage {
   readonly path = input.required<string>();
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
-  private readonly wiki = inject(WikiActions);
+  protected readonly wiki = inject(WikiActions);
   protected readonly node = computed(() => findPage(this.session.snapshot()?.wiki ?? [], this.path())?.node ?? null);
   protected readonly key = nodeKey;
-
-  protected open(node: WikiNode) {
-    if (node.path) void this.wiki.openPage(node.path);
-    else if (node.folder) void this.wiki.openFolder(node.folder);
-  }
 
   protected async writeOverview() {
     const page = await this.session.run(() => this.api.content.createPage(`${this.path()}.md`));

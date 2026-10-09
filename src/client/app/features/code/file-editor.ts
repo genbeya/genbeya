@@ -12,9 +12,9 @@ import {
   LucideTrash2,
 } from "@lucide/angular";
 import { Dialogs } from "../../core/dialogs";
+import { Clipboard } from "../../core/clipboard";
 import { fileResource } from "../../core/file-resource";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
-import { Notifications } from "../../core/notifications";
 import { Session } from "../../core/session";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
@@ -120,7 +120,13 @@ import { WikiActions } from "../wiki/wiki-actions";
         <div class="content-scroll">
           <div class="document">
             <article class="document-article">
-              <gd-markdown [source]="value()" [path]="path()" [links]="wiki.linkTargets()" (linkClicked)="wiki.followLink($event)" />
+              <gd-markdown
+                scope="repo"
+                [source]="value()"
+                [path]="path()"
+                [links]="wiki.linkTargets()"
+                (linkClicked)="wiki.followLink($event)"
+              />
             </article>
           </div>
         </div>
@@ -159,7 +165,7 @@ export class FileEditor {
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
-  private readonly notifications = inject(Notifications);
+  private readonly clipboard = inject(Clipboard);
   private readonly router = inject(Router);
   protected readonly mod = MOD_KEY;
   /** The edited text; null while it equals the file. */
@@ -205,8 +211,7 @@ export class FileEditor {
   }
 
   protected copyPath() {
-    void navigator.clipboard?.writeText(this.path());
-    this.notifications.success("Path copied");
+    void this.clipboard.copy(this.path(), "Path");
   }
 
   protected showChanges() {

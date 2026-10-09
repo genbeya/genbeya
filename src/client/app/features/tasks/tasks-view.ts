@@ -9,6 +9,7 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
 import { EmptyState } from "../../ui/empty-state";
 import { MenuItem } from "../../ui/menu-item";
+import { recall, remember } from "../../ui/remembered";
 import { TaskBoard } from "./task-board";
 import { PriorityIcon } from "./task-icons";
 import { TaskList } from "./task-list";
@@ -18,13 +19,6 @@ import { TaskPanel } from "./task-panel";
 type Layout = "board" | "list";
 const LAYOUT_KEY = "tasks:layout";
 
-function storedLayout(): Layout {
-  try {
-    return localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "board";
-  } catch {
-    return "board";
-  }
-}
 
 /**
  * The task board or list, with filters. `?task=` opens a task in the
@@ -53,7 +47,7 @@ export class TasksView {
   protected readonly titleCase = titleCase;
   protected readonly priorities = PRIORITIES;
   protected readonly unassigned = UNASSIGNED;
-  protected readonly layout = signal<Layout>(storedLayout());
+  protected readonly layout = signal<Layout>((recall(LAYOUT_KEY) === "list" ? "list" : "board"));
   protected readonly filters = signal<TaskFilters>(NO_FILTERS);
   private readonly moving = signal<ReadonlyMap<string, string>>(new Map());
   private readonly search = viewChild.required<ElementRef<HTMLInputElement>>("search");
@@ -84,11 +78,7 @@ export class TasksView {
 
   protected setLayout(layout: Layout) {
     this.layout.set(layout);
-    try {
-      localStorage.setItem(LAYOUT_KEY, layout);
-    } catch {
-      // The layout is a convenience.
-    }
+    remember(LAYOUT_KEY, layout);
   }
 
   protected setQuery(query: string) {

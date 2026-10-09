@@ -1,25 +1,14 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "GitDesk Tauri",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "dev.gitdesk.tauri",
   "build": {
     "frontendDist": "../../../../dist/client/browser"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "GitDesk",
-        "width": 1440,
-        "height": 920,
-        "minWidth": 960,
-        "minHeight": 600,
-        "dragDropEnabled": false
-      }
-    ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'"
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
     }
   },
   "bundle": {

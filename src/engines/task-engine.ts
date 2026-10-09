@@ -2,12 +2,14 @@
  * The task file format: one Markdown file per task with YAML frontmatter
  * (`id`, `title`, `status`, optional `priority`, `assignee`, `labels`).
  * Updates rewrite known fields in place, so comments and fields other tools
- * added survive.
+ * added survive, and keep the file's byte order mark and line endings.
  */
 import YAML from "yaml";
 import type { Task, TaskInput } from "../contracts/model";
+import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
 
 const FRONTMATTER = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
+const DEFAULT_PRIORITY = "none";
 const LIMITS = { title: 300, priority: 40, assignee: 120, label: 60, labels: 30, body: 1024 * 1024 } as const;
 
 interface Frontmatter {
@@ -16,7 +18,8 @@ interface Frontmatter {
   readonly body: string;
 }
 
-function splitFrontmatter(raw: string): Frontmatter {
+function splitFrontmatter(file: string): Frontmatter {
+  const raw = withoutByteOrderMark(file);
   const match = FRONTMATTER.exec(raw);
   const document = YAML.parseDocument(match?.[1] ?? "");
   if (document.errors.length) throw new Error(`Invalid YAML frontmatter: ${document.errors[0]!.message}`);
@@ -35,16 +38,16 @@ const toList = (value: unknown): string[] =>
           .filter(Boolean)
       : [];
 
-/** Frontmatter fields in their written order; empty optional fields are left out. */
+/** Frontmatter fields in their written order; empty or default optional fields are left out. */
 const fieldsOf = (input: TaskInput) => ({
   title: input.title,
   status: input.status,
-  priority: input.priority,
+  priority: input.priority === DEFAULT_PRIORITY ? undefined : input.priority,
   assignee: input.assignee || undefined,
   labels: input.labels.length ? [...input.labels] : undefined,
 });
 
-const compose = (frontmatter: string, body: string) => `---\n${frontmatter}---\n\n${body.replace(/^\s*\n/, "").replace(/\s*$/, "\n")}`;
+const compose = (frontmatter: string, body: string) => `---\n${frontmatter}---\n\n${body.replace(/^\s*\n/, "").trimEnd()}\n`;
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -58,7 +61,7 @@ export class TaskEngine {
       path,
       title: String(data["title"]),
       status: String(data["status"]),
-      priority: String(data["priority"] ?? "none"),
+      priority: String(data["priority"] ?? DEFAULT_PRIORITY),
       assignee: String(data["assignee"] ?? ""),
       labels: toList(data["labels"]),
       body: body.replace(/^\r?\n/, ""),
@@ -81,7 +84,7 @@ export class TaskEngine {
     return {
       title,
       status: input.status,
-      priority: text(input.priority, "priority", LIMITS.priority).trim() || "none",
+      priority: text(input.priority, "priority", LIMITS.priority).trim() || DEFAULT_PRIORITY,
       assignee: text(input.assignee, "assignee", LIMITS.assignee).trim(),
       labels: [...new Set(input.labels.map((label) => text(label, "label", LIMITS.label).trim()).filter(Boolean))],
       body: text(input.body, "description", LIMITS.body),
@@ -89,7 +92,7 @@ export class TaskEngine {
   }
 
   serializeNew(id: string, input: TaskInput): string {
-    return compose(new YAML.Document({ id, ...fieldsOf(input) }).toString(), input.body);
+    return applyTextStyle(compose(new YAML.Document({ id, ...fieldsOf(input) }).toString(), input.body), LF_STYLE);
   }
 
   serializeUpdate(original: string, input: TaskInput): string {
@@ -98,7 +101,7 @@ export class TaskEngine {
       if (value === undefined) document.delete(key);
       else document.set(key, value);
     }
-    return compose(document.toString(), input.body);
+    return applyTextStyle(compose(document.toString(), input.body), textStyleOf(original));
   }
 
   /**

@@ -2,7 +2,9 @@
  * Keyboard shortcuts. "mod" is Ctrl, or Cmd on macOS. Single-key shortcuts
  * ("e", "c", "/") never fire while the user types; Escape always does. The
  * most recent registration wins, so an open panel's Escape beats the page's.
+ * While a dialog or menu is open, it owns the keyboard.
  */
+import { Dialog } from "@angular/cdk/dialog";
 import { DestroyRef, Injectable, inject, type Signal } from "@angular/core";
 
 interface Combo {
@@ -33,14 +35,16 @@ export const isTyping = (target: EventTarget | null): boolean =>
 function matches(combo: Combo, event: KeyboardEvent): boolean {
   if (combo.mod !== (isMac ? event.metaKey : event.ctrlKey) || combo.alt !== event.altKey) return false;
   if (combo.key !== event.key.toLowerCase()) return false;
-  // "?" needs Shift on most layouts; other keys must match it exactly.
-  if (combo.key !== "?" && combo.shift !== event.shiftKey) return false;
+  // Letters, digits and named keys match Shift exactly. Symbols take whatever Shift the layout needs ("/" is Shift+7 in Switzerland).
+  const exactShift = combo.key.length > 1 || /^[a-z0-9]$/.test(combo.key);
+  if (exactShift && combo.shift !== event.shiftKey) return false;
   return combo.mod || combo.alt || combo.key === "escape" || !isTyping(event.target);
 }
 
 @Injectable({ providedIn: "root" })
 export class Hotkeys {
   private readonly registrations: Registration[] = [];
+  private readonly dialog = inject(Dialog);
 
   constructor() {
     const listener = (event: KeyboardEvent) => this.dispatch(event);
@@ -59,7 +63,8 @@ export class Hotkeys {
   }
 
   private dispatch(event: KeyboardEvent) {
-    if (event.defaultPrevented) return;
+    if (event.defaultPrevented || this.dialog.openDialogs.length > 0) return;
+    if ((event.target as HTMLElement | null)?.closest?.(".cdk-overlay-container")) return;
     for (let i = this.registrations.length - 1; i >= 0; i--) {
       const registration = this.registrations[i]!;
       if (!registration.enabled() || !registration.combos.some((combo) => matches(combo, event))) continue;

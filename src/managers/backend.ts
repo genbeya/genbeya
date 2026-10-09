@@ -29,7 +29,7 @@ export async function createBackend(machine: Machine, dataFolder: string): Promi
     content: new ContentManager(registry, engines),
     versionControl: new VersionControlManager(registry),
     async dispose() {
-      registry.closeAll();
+      await registry.closeAll();
       await preferences.flush();
     },
   };

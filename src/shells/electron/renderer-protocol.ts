@@ -4,8 +4,6 @@
  */
 import path from "node:path";
 
-export { CONTENT_SECURITY_POLICY } from "../content-security-policy";
-
 export const RENDERER_ORIGIN = "gitdesk://app";
 export const RENDERER_URL = `${RENDERER_ORIGIN}/index.html`;
 

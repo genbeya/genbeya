@@ -4,12 +4,15 @@ import { Router, RouterOutlet } from "@angular/router";
 import { hotkey } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { ShellUi } from "./shell-ui";
+import { CommitDraft } from "../changes/commit-draft";
 import { Sidebar, VIEWS } from "./sidebar";
 
 /** The open repository: sidebar, the routed view, and the shortcuts that work everywhere. */
 @Component({
   selector: "gd-shell",
   imports: [Sidebar, RouterOutlet],
+  // State that lives as long as the repository is open.
+  providers: [CommitDraft],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./shell.css",
   template: `

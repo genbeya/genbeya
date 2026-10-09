@@ -5,6 +5,7 @@ import { fileResource, stripFrontmatter } from "../../core/file-resource";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { trackUnsaved } from "../../core/unsaved-changes";
+import { debounced, sameJson } from "../../core/signals";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { CodeEditor } from "../../editor/code-editor";
 import { MarkdownView } from "../../markdown/markdown-view";
@@ -16,6 +17,8 @@ import { WikiActions } from "./wiki-actions";
 import { findPage, subpagesOf } from "./wiki-pages";
 
 /** One wiki page: rendered for reading, or Markdown beside a live preview while editing (E). */
+const PREVIEW_DELAY = 150;
+
 @Component({
   selector: "gd-wiki-page",
   imports: [
@@ -90,7 +93,7 @@ import { findPage, subpagesOf } from "./wiki-pages";
           />
           @if (preview()) {
             <div class="wiki-preview content-scroll">
-              <gd-markdown [source]="stripFrontmatter(draft())" [path]="path()" [links]="links()" (linkClicked)="wiki.followLink($event)" />
+              <gd-markdown [source]="previewSource()" [path]="path()" [links]="links()" (linkClicked)="wiki.followLink($event)" />
             </div>
           }
         </div>
@@ -132,10 +135,18 @@ export class WikiPage {
   protected readonly rendered = signal<{ element: HTMLElement } | null>(null);
   protected readonly resource = fileResource("content", this.path, this.editing);
   protected readonly dirty = computed(() => this.editing() && !!this.resource.file() && this.draft() !== this.resource.file()!.content);
-  protected readonly links = computed(() => {
-    const node = findPage(this.session.snapshot()?.wiki ?? [], this.path())?.node;
-    return { ...this.wiki.linkTargets(), subpages: subpagesOf(node?.children ?? []) };
-  });
+  protected readonly links = computed(
+    () => {
+      const node = findPage(this.session.snapshot()?.wiki ?? [], this.path())?.node;
+      return { ...this.wiki.linkTargets(), subpages: subpagesOf(node?.children ?? []) };
+    },
+    { equal: sameJson },
+  );
+  /** The live preview catches up once typing pauses. */
+  protected readonly previewSource = debounced(
+    computed(() => stripFrontmatter(this.draft())),
+    PREVIEW_DELAY,
+  );
   private saving = false;
   private scrolledTo: string | undefined;
 

@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { Router } from "@angular/router";
 import { LucideCodeXml, LucideCopy, LucideGitMerge } from "@lucide/angular";
 import type { CommitDetail } from "../../../../contracts/model";
-import { messageOf, Notifications } from "../../core/notifications";
+import { messageOf } from "../../core/notifications";
+import { Clipboard } from "../../core/clipboard";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
 import { EmptyState } from "../../ui/empty-state";
@@ -86,7 +87,7 @@ export class CommitPane {
 
   private readonly api = inject(WorkspaceApi);
   private readonly router = inject(Router);
-  private readonly notifications = inject(Notifications);
+  private readonly clipboard = inject(Clipboard);
   protected readonly relativeTime = relativeTime;
   protected readonly detail = signal<CommitDetail | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -126,8 +127,7 @@ export class CommitPane {
   }
 
   protected copyHash(hash: string) {
-    void navigator.clipboard?.writeText(hash);
-    this.notifications.success("Commit ID copied");
+    void this.clipboard.copy(hash, "Commit ID");
   }
 
   protected localTime(iso: string): string {

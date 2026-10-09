@@ -1,3 +1,4 @@
+import { Dialog } from "@angular/cdk/dialog";
 import { TestBed } from "@angular/core/testing";
 import { Hotkeys, isMac } from "./hotkeys";
 
@@ -10,7 +11,12 @@ const mod = isMac ? { metaKey: true } : { ctrlKey: true };
 
 describe("Hotkeys", () => {
   let hotkeys: Hotkeys;
-  beforeEach(() => (hotkeys = TestBed.inject(Hotkeys)));
+  const dialog = { openDialogs: [] as unknown[] };
+  beforeEach(() => {
+    dialog.openDialogs = [];
+    TestBed.configureTestingModule({ providers: [{ provide: Dialog, useValue: dialog }] });
+    hotkeys = TestBed.inject(Hotkeys);
+  });
 
   it("runs the handler for its combination and prevents the default", () => {
     const save = vi.fn();
@@ -67,5 +73,34 @@ describe("Hotkeys", () => {
     hotkeys.register("?", help);
     press("?", { shiftKey: true });
     expect(help).toHaveBeenCalled();
+  });
+
+  it("matches symbols whatever Shift the layout needs for them", () => {
+    // On Swiss and German layouts "/" is Shift+7.
+    const filter = vi.fn();
+    hotkeys.register("/", filter);
+    press("/", { shiftKey: true });
+    press("/");
+    expect(filter).toHaveBeenCalledTimes(2);
+  });
+
+  it("stays out of the way of open dialogs and menus", () => {
+    const palette = vi.fn();
+    const edit = vi.fn();
+    hotkeys.register("mod+k", palette);
+    hotkeys.register("e", edit);
+    dialog.openDialogs = [{}];
+    press("k", mod);
+    press("e");
+    dialog.openDialogs = [];
+    const overlay = document.body.appendChild(document.createElement("div"));
+    overlay.className = "cdk-overlay-container";
+    const item = overlay.appendChild(document.createElement("button"));
+    press("e", {}, item);
+    overlay.remove();
+    expect(palette).not.toHaveBeenCalled();
+    expect(edit).not.toHaveBeenCalled();
+    press("e");
+    expect(edit).toHaveBeenCalledTimes(1);
   });
 });

@@ -55,6 +55,7 @@ import { titleCase } from "./task-model";
                 [selected]="task.id === selected()"
                 (click)="open.emit(task)"
                 (keydown.enter)="open.emit(task)"
+                (keydown.space)="$event.preventDefault(); open.emit(task)"
               />
             }
           </div>

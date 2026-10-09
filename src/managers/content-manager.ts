@@ -2,7 +2,6 @@
 import type { ContentManagerContract } from "../contracts/manager-contracts";
 import type { FileContent, Scope, Settings, StorageMode, Task, TaskInput } from "../contracts/model";
 import { IMAGE_LIMIT } from "../access/files/file-store";
-import { HostError } from "../access/hosts/host";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
@@ -86,8 +85,9 @@ export class ContentManager implements ContentManagerContract {
       const hasSubpages = (await files.kind(this.engines.wiki.subpageFolder(source))) === "dir";
       const moves = this.engines.wiki.planMove(source, target, hasSubpages);
       if (!moves.length) return target;
-      for (const [, destination] of moves) if (await files.kind(destination)) throw new HostError("EXISTS", destination);
-      for (const [origin, destination] of moves) await files.move(origin, destination);
+      // Subpage folders are derived names: on Windows the page `docs/GIT~1.md` has the folder `docs/GIT~1`.
+      for (const path of moves.flat()) workspace.path(path);
+      await files.moveAll(moves);
       await workspace.content.record(moves.flat(), `Move page ${this.engines.wiki.titleOf(source)} to ${target}`);
       return target;
     });
@@ -116,7 +116,7 @@ export class ContentManager implements ContentManagerContract {
         existing.map((task) => task.id),
         (candidate) => files.includes(`${settings.taskRoot}/${candidate}.md`),
       );
-      const path = `${settings.taskRoot}/${taskId}.md`;
+      const path = workspace.path(`${settings.taskRoot}/${taskId}.md`);
       const file = await (await workspace.content.locate()).files.write(path, this.engines.tasks.serializeNew(taskId, valid), null);
       await workspace.content.record([path], `Create ${taskId}: ${valid.title}`);
       return this.engines.tasks.parse(path, file.content, file.hash);
@@ -158,7 +158,7 @@ export class ContentManager implements ContentManagerContract {
       const { files } = await workspace.content.locate();
       const version = this.version(expectedHash);
       const previous = version === null ? null : (await files.read(SETTINGS_FILE)).content;
-      await files.write(SETTINGS_FILE, this.engines.settings.serialize(settings as Settings, previous), version);
+      await files.write(SETTINGS_FILE, this.engines.settings.serialize(settings as Settings, previous, workspace.windows), version);
       workspace.forgetSettings();
       await workspace.content.record([SETTINGS_FILE], "Update GitDesk settings");
     });

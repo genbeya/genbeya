@@ -4,6 +4,7 @@ import { Router } from "@angular/router";
 import { LucideCodeXml, LucideCopy, LucideEllipsis, LucidePencil, LucideTrash2, LucideX } from "@lucide/angular";
 import type { Task, TaskInput } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
+import { Clipboard } from "../../core/clipboard";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Notifications } from "../../core/notifications";
 import { Session } from "../../core/session";
@@ -113,6 +114,7 @@ export class TaskPanel {
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
+  private readonly clipboard = inject(Clipboard);
   private readonly notifications = inject(Notifications);
   private readonly router = inject(Router);
   protected readonly mod = MOD_KEY;
@@ -238,8 +240,7 @@ export class TaskPanel {
   }
 
   protected copyId() {
-    void navigator.clipboard?.writeText(this.current()!.id);
-    this.notifications.success("ID copied");
+    void this.clipboard.copy(this.current()!.id, "ID");
   }
 
   protected openFile() {

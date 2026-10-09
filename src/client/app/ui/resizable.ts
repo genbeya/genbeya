@@ -1,14 +1,11 @@
 import { Directive, effect, input, signal } from "@angular/core";
+import { recall, remember } from "./remembered";
 
 const STORAGE_PREFIX = "width:";
 
 function stored(key: string, fallback: number): number {
-  try {
-    const value = Number(localStorage.getItem(STORAGE_PREFIX + key));
-    return value > 0 ? value : fallback;
-  } catch {
-    return fallback;
-  }
+  const value = Number(recall(STORAGE_PREFIX + key));
+  return value > 0 ? value : fallback;
 }
 
 /**
@@ -43,11 +40,7 @@ export class Resizable {
       this.dragging.set(false);
       removeEventListener("pointermove", move);
       removeEventListener("pointerup", end);
-      try {
-        localStorage.setItem(STORAGE_PREFIX + this.key(), String(clamp(ended.clientX)));
-      } catch {
-        // A remembered width is a convenience.
-      }
+      remember(STORAGE_PREFIX + this.key(), String(clamp(ended.clientX)));
     };
     addEventListener("pointermove", move);
     addEventListener("pointerup", end);

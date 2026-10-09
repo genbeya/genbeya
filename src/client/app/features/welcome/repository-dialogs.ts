@@ -3,7 +3,7 @@ import { DialogRef } from "@angular/cdk/dialog";
 import { ChangeDetectionStrategy, Component, computed, inject, input, model, signal } from "@angular/core";
 import { LucideFolderOpen } from "@lucide/angular";
 import { describeLocation, type Location } from "../../../../contracts/model";
-import { MANAGERS, SHELL } from "../../platform/platform";
+import { Repositories } from "../../core/repositories";
 import { DialogFrame } from "../../ui/dialog-frame";
 
 type Kind = "wsl" | "ssh";
@@ -77,8 +77,8 @@ export class RemoteFields {
   protected readonly distributions = signal<readonly string[]>([]);
 
   constructor() {
-    void inject(MANAGERS)
-      .workspace.distributions()
+    void inject(Repositories)
+      .distributions()
       .then((names) => {
         this.distributions.set(names);
         if (names.length && !this.distro()) this.distro.set(names[0]!);
@@ -180,7 +180,7 @@ export class RemoteDialog {
 })
 export class CloneDialog {
   protected readonly dialog = inject<DialogRef<{ url: string; parent: Location }>>(DialogRef);
-  private readonly shell = inject(SHELL);
+  private readonly repositories = inject(Repositories);
   protected readonly url = signal("");
   protected readonly remote = signal(false);
   protected readonly folder = signal<Location | null>(null);
@@ -198,7 +198,7 @@ export class CloneDialog {
   protected readonly valid = computed(() => !!this.url().trim() && !!this.parent());
 
   protected async chooseFolder() {
-    const folder = await this.shell.pickFolder();
+    const folder = await this.repositories.pickFolder();
     if (folder) this.folder.set(folder);
   }
 

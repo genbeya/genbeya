@@ -5,16 +5,9 @@ import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
 import { DiffView } from "../../editor/diff-view";
 import { EmptyState } from "../../ui/empty-state";
+import { recall, remember } from "../../ui/remembered";
 
 const INLINE_KEY = "diff:inline";
-
-function storedInline(): boolean {
-  try {
-    return localStorage.getItem(INLINE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
 
 /** A file's diff with a header; reloads whenever the repository changes. Project actions into the header. */
 @Component({
@@ -67,7 +60,7 @@ export class DiffPane {
   private readonly session = inject(Session);
   protected readonly diff = signal<Diff | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly inline = signal(storedInline());
+  protected readonly inline = signal(recall(INLINE_KEY) === "1");
   private request = 0;
 
   constructor() {
@@ -96,10 +89,6 @@ export class DiffPane {
 
   protected toggleInline() {
     this.inline.update((inline) => !inline);
-    try {
-      localStorage.setItem(INLINE_KEY, this.inline() ? "1" : "0");
-    } catch {
-      // A remembered layout is a convenience.
-    }
+    remember(INLINE_KEY, this.inline() ? "1" : "0");
   }
 }

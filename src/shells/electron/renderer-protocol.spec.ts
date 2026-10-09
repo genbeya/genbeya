@@ -1,6 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { CONTENT_SECURITY_POLICY, isRendererPage, resolveAsset } from "./renderer-protocol";
+import { CONTENT_SECURITY_POLICY } from "../content-security-policy";
+import { isRendererPage, resolveAsset } from "./renderer-protocol";
 
 const root = path.resolve("dist/client/browser");
 
