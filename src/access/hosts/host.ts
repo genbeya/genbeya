@@ -1,0 +1,58 @@
+/**
+ * A host is the machine a repository lives on. Local folders, WSL
+ * distributions and SSH servers share every line of repository logic through
+ * this interface.
+ *
+ * File operations take a root plus a validated, slash-separated relative
+ * path. Hosts refuse to traverse symbolic links below the root.
+ */
+import type { RunOptions, RunResult } from "../ports";
+import type { PathStyle } from "../../utilities/native-path";
+
+export type EntryKind = "file" | "dir" | null;
+
+export interface Host {
+  /** Paths on the host; POSIX for WSL and SSH even on Windows. */
+  readonly paths: PathStyle;
+  run(command: string, args: readonly string[], options: RunOptions): Promise<RunResult>;
+  read(root: string, relative: string, limit: number): Promise<Uint8Array>;
+  /** Reads many files at once; missing, oversized or linked files map to null. */
+  readMany(root: string, relatives: readonly string[], limit: number): Promise<(Uint8Array | null)[]>;
+  write(root: string, relative: string, data: Uint8Array, exclusive: boolean): Promise<void>;
+  kind(root: string, relative: string): Promise<EntryKind>;
+  /** Removes a file; folders are refused. */
+  remove(root: string, relative: string): Promise<void>;
+  /** Moves a file or folder; fails when the target exists. */
+  move(root: string, from: string, to: string): Promise<void>;
+  dispose(): void;
+}
+
+export type HostErrorCode = "ENOENT" | "SYMLINK" | "NOTFILE" | "TOOLARGE" | "EXISTS" | "FAILED";
+
+const MESSAGES: Record<HostErrorCode, (relative: string) => string> = {
+  ENOENT: (r) => `${r} does not exist.`,
+  SYMLINK: (r) => `${r} is behind a symbolic link, which GitDesk does not follow.`,
+  NOTFILE: (r) => `${r} is not a regular file.`,
+  TOOLARGE: (r) => `${r} is too large to open.`,
+  EXISTS: (r) => `${r} already exists.`,
+  FAILED: (r) => `Could not access ${r}.`,
+};
+
+export class HostError extends Error {
+  constructor(
+    readonly code: HostErrorCode,
+    readonly relative: string,
+    detail?: string,
+  ) {
+    super(detail ?? MESSAGES[code](relative));
+  }
+}
+
+export const isMissing = (error: unknown): boolean => error instanceof HostError && error.code === "ENOENT";
+
+/** Environment for every git call: never prompt, never take optional locks. */
+export const GIT_ENVIRONMENT: Readonly<Record<string, string>> = {
+  GIT_TERMINAL_PROMPT: "0",
+  GIT_OPTIONAL_LOCKS: "0",
+  GCM_INTERACTIVE: "never",
+};

@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/contracts",
+    "src/utilities",
+    "src/engines",
+    "src/access",
+    "src/managers",
+    "src/platforms",
+    "src/shells/electron",
+    "src/shells/deno",
+    "src/testing",
+    "scripts/*.ts",
+    "e2e",
+    "*.config.ts"
+  ]
+}
