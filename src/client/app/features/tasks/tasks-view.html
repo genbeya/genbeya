@@ -1,0 +1,91 @@
+<header class="view-header">
+  <h1 class="view-title">Tasks</h1>
+  <span class="faint" aria-label="Tasks shown">{{ tasks().length }}</span>
+  @for (chip of chips(); track chip.key) {
+    <button type="button" class="filter-chip" [attr.aria-label]="'Remove filter ' + chip.text" (click)="clearFilter(chip.key)">
+      {{ chip.text }}<svg lucideX [size]="12" aria-hidden="true"></svg>
+    </button>
+  }
+  <span class="grow"></span>
+  <label class="filter header-filter">
+    <svg lucideSearch [size]="13" aria-hidden="true"></svg>
+    <input #search placeholder="Filter" aria-label="Filter tasks" [value]="filters().query" (input)="setQuery(search.value)" (keydown.escape)="clearQuery(search)" />
+  </label>
+  <button
+    type="button"
+    class="icon-btn"
+    aria-label="Filter by"
+    title="Filter by"
+    [cdkMenuTriggerFor]="filterMenu"
+    #trigger="cdkMenuTriggerFor"
+    [class.is-active]="trigger.isOpen() || chips().length > 0"
+  >
+    <svg lucideListFilter [size]="15" aria-hidden="true"></svg>
+  </button>
+  <div class="segmented" role="radiogroup" aria-label="Layout">
+    <button type="button" role="radio" aria-label="Board" [attr.aria-checked]="layout() === 'board'" [class.is-active]="layout() === 'board'" (click)="setLayout('board')">
+      <svg lucideColumns3 [size]="14" aria-hidden="true"></svg>
+    </button>
+    <button type="button" role="radio" aria-label="List" [attr.aria-checked]="layout() === 'list'" [class.is-active]="layout() === 'list'" (click)="setLayout('list')">
+      <svg lucideLayoutList [size]="14" aria-hidden="true"></svg>
+    </button>
+  </div>
+  <button type="button" class="btn btn-primary btn-m" (click)="startTask()">
+    <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>New task</span><kbd class="kbd">C</kbd>
+  </button>
+</header>
+
+<ng-template #filterMenu>
+  <div class="menu" cdkMenu [style.width.px]="230">
+    <div class="menu-heading">Assignee</div>
+    <button gd-menu-item [checked]="filters().assignee === unassigned" (selected)="toggleFilter('assignee', unassigned)">
+      <svg icon lucideUser [size]="14" aria-hidden="true"></svg>Unassigned
+    </button>
+    @for (person of people(); track person) {
+      <button gd-menu-item [checked]="filters().assignee === person" (selected)="toggleFilter('assignee', person)">
+        <gd-avatar icon [name]="person" [size]="16" />{{ person }}
+      </button>
+    }
+    <div class="menu-heading">Priority</div>
+    @for (priority of priorities; track priority) {
+      <button gd-menu-item [checked]="filters().priority === priority" (selected)="toggleFilter('priority', priority)">
+        <gd-priority-icon icon [priority]="priority" />{{ priority === "none" ? "No priority" : titleCase(priority) }}
+      </button>
+    }
+    @if (labels().length) {
+      <div class="menu-heading">Label</div>
+      @for (label of labels(); track label) {
+        <button gd-menu-item [checked]="filters().label === label" (selected)="toggleFilter('label', label)">
+          <svg icon lucideTag [size]="13" aria-hidden="true"></svg>{{ label }}
+        </button>
+      }
+    }
+  </div>
+</ng-template>
+
+<div class="tasks-body">
+  @if (!snapshot().tasks.length) {
+    <gd-empty-state title="No tasks yet">
+      <svg icon lucideColumns3 [size]="20" aria-hidden="true"></svg>
+      <p>Each task is a Markdown file in {{ snapshot().settings.taskRoot }}/.</p>
+      <button type="button" class="btn btn-primary btn-m" (click)="startTask()"><svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create the first task</span></button>
+    </gd-empty-state>
+  } @else if (layout() === "board") {
+    <gd-task-board [columns]="columns()" [statuses]="statuses()" [tasks]="tasks()" [selected]="task()" (open)="open($event)" (move)="move($event)" (create)="startTask($event)" />
+  } @else {
+    <gd-task-list [columns]="columns()" [statuses]="statuses()" [tasks]="tasks()" [selected]="task()" (open)="open($event)" />
+  }
+
+  @if (selected() || create()) {
+    <div class="task-scrim" aria-hidden="true" (click)="closePanel()"></div>
+    @for (key of [selected()?.path ?? "new"]; track key) {
+      <gd-task-panel [task]="selected()" [createStatus]="create()" />
+    }
+  }
+  @if (task() && !selected() && snapshot().tasks.length) {
+    <div class="task-missing" role="status">
+      Task {{ task() }} no longer exists.
+      <button type="button" class="plain link" (click)="closeMissing()">Close</button>
+    </div>
+  }
+</div>

@@ -1,0 +1,43 @@
+:host {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin: 0 6px;
+  padding: 0 6px 0 10px;
+  border-radius: var(--radius-s);
+  outline: none;
+}
+
+:host(:hover) {
+  background: var(--bg-hover);
+}
+
+:host(.is-selected) {
+  background: var(--bg-active);
+}
+
+.change-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.change-dir {
+  margin-left: 8px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.change-actions {
+  display: none;
+}
+
+:host(:hover) .change-actions,
+:host(.is-selected) .change-actions {
+  display: flex;
+}
+
+.change-actions .icon-btn {
+  width: 22px;
+  height: 22px;
+}

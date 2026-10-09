@@ -39,7 +39,8 @@ export default tseslint.config(
     extends: [...angular.configs.tsRecommended],
     processor: angular.processInlineTemplates,
     rules: {
-      "@angular-eslint/component-selector": ["error", { type: "element", prefix: "gd", style: "kebab-case" }],
+      // Components are elements (gd-tree), or attributes on native elements (button[gd-menu-item]).
+      "@angular-eslint/component-selector": ["error", { type: ["element", "attribute"], prefix: "gd", style: "kebab-case" }],
       "@angular-eslint/directive-selector": ["error", { type: "attribute", prefix: "gd", style: "camelCase" }],
       "@angular-eslint/prefer-on-push-component-change-detection": "error",
       "@angular-eslint/prefer-signals": "error",

@@ -1,0 +1,115 @@
+<header class="view-header">
+  <h1 class="view-title">Settings</h1>
+  <span class="grow"></span>
+  @if (dirty()) {
+    <button type="button" class="btn btn-ghost btn-m" (click)="discard()"><span>Discard</span></button>
+    <button type="button" class="btn btn-primary btn-m" (click)="save()"><span>Save changes</span><kbd class="kbd">{{ mod }} S</kbd></button>
+  }
+</header>
+
+<div class="content-scroll">
+  <div class="settings">
+    <section class="settings-section" aria-labelledby="project-heading">
+      <h2 id="project-heading">Project</h2>
+      <p class="settings-note">Shared with everyone through <code>.gitdesk.yml</code>.</p>
+      <div class="settings-card">
+        <div class="setting-row">
+          <div class="setting-label"><label for="setting-name">Name</label></div>
+          <div class="setting-control"><input #name id="setting-name" class="input" spellcheck="false" [value]="form().name" (input)="set('name', name.value)" /></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <label for="setting-prefix">Task ID prefix</label><small>New tasks are numbered {{ prefix() }}-1, {{ prefix() }}-2, …</small>
+          </div>
+          <div class="setting-control">
+            <input #taskPrefix id="setting-prefix" class="input mono short" spellcheck="false" [value]="form().taskPrefix" (input)="set('taskPrefix', taskPrefix.value)" />
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><label for="setting-wiki">Wiki folder</label></div>
+          <div class="setting-control"><input #wikiRoot id="setting-wiki" class="input mono" spellcheck="false" [value]="form().wikiRoot" (input)="set('wikiRoot', wikiRoot.value)" /></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><label for="setting-home">Wiki home page</label><small>Relative to the wiki folder.</small></div>
+          <div class="setting-control"><input #wikiHome id="setting-home" class="input mono" spellcheck="false" [value]="form().wikiHome" (input)="set('wikiHome', wikiHome.value)" /></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><label for="setting-tasks">Task folder</label></div>
+          <div class="setting-control"><input #taskRoot id="setting-tasks" class="input mono" spellcheck="false" [value]="form().taskRoot" (input)="set('taskRoot', taskRoot.value)" /></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><span>Workflow</span><small>Board columns, in order. The last state counts as done.</small></div>
+          <div class="setting-control"><gd-status-editor [value]="form().statuses" (changed)="setStatuses($event)" /></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-section" aria-labelledby="storage-heading">
+      <h2 id="storage-heading">Where wiki and tasks live</h2>
+      <p class="settings-note">On a dedicated branch, documentation and tasks stay the same on every code branch and sync independently.</p>
+      <div class="settings-card">
+        <div class="storage-options" role="radiogroup" aria-labelledby="storage-heading">
+          <button type="button" role="radio" class="storage-option" [attr.aria-checked]="snapshot().storage.mode === 'worktree'" [class.is-active]="snapshot().storage.mode === 'worktree'" (click)="setStorage('worktree')">
+            <strong>Checked-out branch</strong>
+            <span>Files live next to the code and change with each branch. Commit them like code.</span>
+          </button>
+          <button type="button" role="radio" class="storage-option" [attr.aria-checked]="snapshot().storage.mode === 'branch'" [class.is-active]="snapshot().storage.mode === 'branch'" (click)="setStorage('branch')">
+            <strong>Dedicated branch</strong>
+            <span>Files live on the <code>{{ contentBranch() }}</code> branch. Every edit is committed automatically.</span>
+          </button>
+        </div>
+        @if (snapshot().storage.mode === "branch") {
+          <div class="setting-row">
+            <div class="setting-label"><label for="setting-autosync">Sync automatically</label><small>Pull and push the content branch a few seconds after each edit.</small></div>
+            <div class="setting-control">
+              <input #autoSync id="setting-autosync" type="checkbox" class="switch" [checked]="session.preferences().autoSyncContent" (change)="session.setPreferences({ autoSyncContent: autoSync.checked })" />
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="settings-section" aria-labelledby="remotes-heading">
+      <h2 id="remotes-heading">Remotes</h2>
+      <p class="settings-note">Credentials come from your Git credential manager and SSH agent.</p>
+      <div class="settings-card">
+        @for (remote of snapshot().remotes; track remote.name) {
+          <div class="remote-row">
+            <strong>{{ remote.name }}</strong>
+            <code class="grow ellipsis selectable">{{ remote.url }}</code>
+            <button type="button" class="icon-btn" [attr.aria-label]="'Edit ' + remote.name" [title]="'Edit ' + remote.name" (click)="editRemote(remote.name, remote.url)"><svg lucidePencil [size]="13" aria-hidden="true"></svg></button>
+            <button type="button" class="icon-btn" [attr.aria-label]="'Remove ' + remote.name" [title]="'Remove ' + remote.name" (click)="removeRemote(remote.name, remote.url)"><svg lucideTrash2 [size]="13" aria-hidden="true"></svg></button>
+          </div>
+        }
+        <div class="remote-row">
+          <button type="button" class="btn btn-default btn-m" (click)="editRemote()"><svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Add remote</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-section" aria-labelledby="app-heading">
+      <h2 id="app-heading">App</h2>
+      <p class="settings-note">Personal preferences for this computer.</p>
+      <div class="settings-card">
+        <div class="setting-row">
+          <div class="setting-label"><span id="theme-label">Theme</span></div>
+          <div class="setting-control">
+            <div class="segmented" role="radiogroup" aria-labelledby="theme-label">
+              @for (theme of themes; track theme) {
+                <button type="button" role="radio" [attr.aria-checked]="session.preferences().theme === theme" [class.is-active]="session.preferences().theme === theme" (click)="session.setPreferences({ theme })">
+                  {{ titleCase(theme) }}
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><label for="setting-reopen">Reopen last repository</label><small>On startup.</small></div>
+          <div class="setting-control">
+            <input #reopen id="setting-reopen" type="checkbox" class="switch" [checked]="session.preferences().reopenLast" (change)="session.setPreferences({ reopenLast: reopen.checked })" />
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

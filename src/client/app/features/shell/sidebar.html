@@ -1,0 +1,104 @@
+<button type="button" class="workspace-switcher" [cdkMenuTriggerFor]="switcher" #trigger="cdkMenuTriggerFor" [class.is-open]="trigger.isOpen()">
+  <span class="workspace-mark" aria-hidden="true">{{ mark() }}</span>
+  <span class="grow">
+    <span class="workspace-name ellipsis">{{ snapshot().settings.name }}</span>
+    <span class="workspace-location ellipsis" [title]="locationText()">
+      @if (hostBadge(); as badge) {
+        <span class="host-badge">{{ badge }}</span>
+      }
+      {{ folderName() }}
+    </span>
+  </span>
+  <svg lucideChevronsUpDown [size]="14" class="faint" aria-hidden="true"></svg>
+</button>
+
+<ng-template #switcher>
+  <div class="menu" cdkMenu [style.width.px]="280">
+    @if (others().length) {
+      <div class="menu-heading">Recent</div>
+      @for (entry of others(); track entry.openedAt) {
+        <button gd-menu-item [hint]="entry.location.kind === 'local' ? '' : entry.location.kind.toUpperCase()" (selected)="session.open(entry.location)">
+          <gd-host-icon icon [location]="entry.location" [size]="14" />
+          {{ entry.name }}
+        </button>
+      }
+      <div class="menu-separator"></div>
+    }
+    <button gd-menu-item [hint]="mod + '+O'" (selected)="session.pick()">
+      <svg icon lucideFolderOpen [size]="14" aria-hidden="true"></svg>Open folder…
+    </button>
+    <button gd-menu-item (selected)="ui.openRemote()"><svg icon lucideServer [size]="14" aria-hidden="true"></svg>Open on WSL or SSH…</button>
+    <button gd-menu-item (selected)="ui.openClone()"><svg icon lucideCloudDownload [size]="14" aria-hidden="true"></svg>Clone repository…</button>
+    <div class="menu-separator"></div>
+    <button gd-menu-item (selected)="session.close()"><svg icon lucideX [size]="14" aria-hidden="true"></svg>Close repository</button>
+  </div>
+</ng-template>
+
+<button type="button" class="sidebar-search" (click)="ui.openPalette()">
+  <svg lucideSearch [size]="14" aria-hidden="true"></svg>
+  <span class="grow">Search</span>
+  <kbd class="kbd">{{ mod }} K</kbd>
+</button>
+
+<nav class="sidebar-nav" aria-label="Views">
+  <a class="nav-item" routerLink="/wiki" routerLinkActive="is-active" [title]="'Wiki (' + mod + '+1)'">
+    <svg lucideBookOpen [size]="16" aria-hidden="true"></svg><span class="grow">Wiki</span>
+  </a>
+  <a class="nav-item" routerLink="/tasks" routerLinkActive="is-active" [title]="'Tasks (' + mod + '+2)'">
+    <svg lucideLayoutGrid [size]="16" aria-hidden="true"></svg><span class="grow">Tasks</span>
+    @if (openTasks()) {
+      <span class="nav-count" [attr.aria-label]="openTasks() + ' open'">{{ openTasks() }}</span>
+    }
+  </a>
+  <a class="nav-item" routerLink="/code" routerLinkActive="is-active" [title]="'Code (' + mod + '+3)'">
+    <svg lucideCodeXml [size]="16" aria-hidden="true"></svg><span class="grow">Code</span>
+  </a>
+  <a class="nav-item" routerLink="/changes" routerLinkActive="is-active" [title]="'Changes (' + mod + '+4)'">
+    <svg lucideGitCommitHorizontal [size]="16" aria-hidden="true"></svg><span class="grow">Changes</span>
+    @if (snapshot().changes.length) {
+      <span class="nav-count is-accent" [attr.aria-label]="snapshot().changes.length + ' changed files'">{{ snapshot().changes.length }}</span>
+    }
+  </a>
+  <a class="nav-item" routerLink="/history" routerLinkActive="is-active" [title]="'History (' + mod + '+5)'">
+    <svg lucideHistory [size]="16" aria-hidden="true"></svg><span class="grow">History</span>
+  </a>
+</nav>
+
+<div class="grow"></div>
+
+@if (snapshot().storage; as storage) {
+  @if (storage.mode === "branch") {
+    <div class="content-sync" [title]="'Wiki and tasks are stored on the ' + storage.branch + ' branch'">
+      <svg lucideBookOpen [size]="14" aria-hidden="true"></svg>
+      <span class="grow ellipsis">{{ storage.branch }}</span>
+      @if (storage.ahead) {
+        <span class="sync-count"><svg lucideArrowUp [size]="11" aria-hidden="true"></svg>{{ storage.ahead }}</span>
+      }
+      @if (storage.behind) {
+        <span class="sync-count"><svg lucideArrowDown [size]="11" aria-hidden="true"></svg>{{ storage.behind }}</span>
+      }
+      <button type="button" class="sync-button" [disabled]="session.busy()" aria-label="Sync wiki and tasks" title="Sync wiki and tasks with the remote" (click)="actions.syncContent()">
+        @if (session.busy()) {
+          <span class="spinner" aria-label="Syncing"></span>
+        } @else {
+          <svg lucideRefreshCw [size]="13" aria-hidden="true"></svg>
+        }
+      </button>
+    </div>
+  }
+}
+
+<button type="button" class="branch-button" title="Switch branch" (click)="ui.openPalette('branches')">
+  <svg lucideGitBranch [size]="14" aria-hidden="true"></svg>
+  <span class="grow ellipsis">{{ snapshot().head.branch ?? (snapshot().head.commit ? "detached at " + snapshot().head.commit : "no commits") }}</span>
+  @if (snapshot().head.ahead) {
+    <span class="sync-count"><svg lucideArrowUp [size]="11" aria-hidden="true"></svg>{{ snapshot().head.ahead }}</span>
+  }
+  @if (snapshot().head.behind) {
+    <span class="sync-count"><svg lucideArrowDown [size]="11" aria-hidden="true"></svg>{{ snapshot().head.behind }}</span>
+  }
+</button>
+
+<a class="nav-item" routerLink="/settings" routerLinkActive="is-active" [title]="'Settings (' + mod + '+,)'">
+  <svg lucideSettings [size]="16" aria-hidden="true"></svg><span class="grow">Settings</span>
+</a>

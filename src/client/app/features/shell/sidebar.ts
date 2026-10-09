@@ -1,0 +1,92 @@
+import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from "@angular/core";
+import { RouterLink, RouterLinkActive } from "@angular/router";
+import {
+  LucideArrowDown,
+  LucideArrowUp,
+  LucideBookOpen,
+  LucideChevronsUpDown,
+  LucideCloudDownload,
+  LucideCodeXml,
+  LucideFolderOpen,
+  LucideGitBranch,
+  LucideGitCommitHorizontal,
+  LucideHistory,
+  LucideLayoutGrid,
+  LucideRefreshCw,
+  LucideSearch,
+  LucideServer,
+  LucideSettings,
+  LucideX,
+} from "@lucide/angular";
+import { describeLocation, sameLocation, type RecentEntry } from "../../../../contracts/model";
+import { MOD_KEY } from "../../core/hotkeys";
+import { Session } from "../../core/session";
+import { MANAGERS } from "../../platform/platform";
+import { MenuItem } from "../../ui/menu-item";
+import { RepositoryActions } from "./repository-actions";
+import { HostIcon, initials } from "./repository-mark";
+import { ShellUi } from "./shell-ui";
+
+export const VIEWS = ["wiki", "tasks", "code", "changes", "history"] as const;
+export type View = (typeof VIEWS)[number];
+
+@Component({
+  selector: "gd-sidebar",
+  imports: [
+    CdkMenu,
+    CdkMenuTrigger,
+    RouterLink,
+    RouterLinkActive,
+    MenuItem,
+    HostIcon,
+    LucideArrowDown,
+    LucideArrowUp,
+    LucideBookOpen,
+    LucideChevronsUpDown,
+    LucideCloudDownload,
+    LucideCodeXml,
+    LucideFolderOpen,
+    LucideGitBranch,
+    LucideGitCommitHorizontal,
+    LucideHistory,
+    LucideLayoutGrid,
+    LucideRefreshCw,
+    LucideSearch,
+    LucideServer,
+    LucideSettings,
+    LucideX,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrl: "./sidebar.css",
+  host: { class: "sidebar" },
+  templateUrl: "./sidebar.html",
+})
+export class Sidebar {
+  protected readonly session = inject(Session);
+  protected readonly ui = inject(ShellUi);
+  protected readonly actions = inject(RepositoryActions);
+  private readonly managers = inject(MANAGERS);
+  protected readonly mod = MOD_KEY;
+  protected readonly snapshot = computed(() => this.session.snapshot()!);
+  protected readonly mark = computed(() => initials(this.snapshot().settings.name));
+  protected readonly folderName = computed(() => describeLocation(this.snapshot().location).split(/[\\/:]/).filter(Boolean).pop() ?? "");
+  protected readonly hostBadge = computed(() => {
+    const location = this.snapshot().location;
+    return location.kind === "wsl" ? location.distro : location.kind === "ssh" ? "SSH" : null;
+  });
+  protected readonly locationText = computed(() => describeLocation(this.snapshot().location));
+  protected readonly openTasks = computed(() => {
+    const { tasks, settings } = this.snapshot();
+    return tasks.filter((task) => task.status !== settings.statuses.at(-1)).length;
+  });
+  private readonly recent = signal<readonly RecentEntry[]>([]);
+  protected readonly others = computed(() => this.recent().filter((entry) => !sameLocation(entry.location, this.snapshot().location)).slice(0, 8));
+
+  constructor() {
+    effect(() => {
+      this.session.id();
+      void this.managers.workspace.recent().then((recent) => this.recent.set(recent));
+    });
+  }
+}

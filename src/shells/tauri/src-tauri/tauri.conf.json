@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "dev.gitdesk.tauri",
   "build": {
-    "frontendDist": "../../../dist-tauri"
+    "frontendDist": "../../../../dist/client/browser"
   },
   "app": {
     "windows": [
@@ -19,7 +19,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'"
     }
   },
   "bundle": {

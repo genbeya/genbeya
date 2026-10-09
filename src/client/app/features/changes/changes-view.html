@@ -1,0 +1,80 @@
+<div class="view-body">
+  <aside class="side-panel" gdResizable="changes" [initial]="340" [min]="260" [max]="600" #panel="gdResizable">
+    <div class="commit-box">
+      <textarea
+        #messageField
+        class="textarea commit-message"
+        aria-label="Commit message"
+        [placeholder]="'Commit message (' + mod + '+Enter)'"
+        [value]="message()"
+        (input)="message.set(messageField.value)"
+      ></textarea>
+      <div class="row">
+        <label class="checkbox">
+          <input #amendField type="checkbox" [checked]="amend()" (change)="toggleAmend(amendField.checked)" />
+          Amend last commit
+        </label>
+        <span class="grow"></span>
+        <button type="button" class="btn btn-primary btn-m" [disabled]="!canCommit()" (click)="commit()"><span>{{ commitLabel() }}</span></button>
+      </div>
+    </div>
+    <gd-sync-bar />
+    <div class="side-panel-scroll">
+      @if (stagedChanges().length) {
+        <section aria-label="Staged changes">
+          <div class="panel-heading">
+            Staged <span class="count">{{ stagedChanges().length }}</span>
+            <span class="grow"></span>
+            <button type="button" class="icon-btn" aria-label="Unstage all" title="Unstage all" (click)="unstage(pathsOf(stagedChanges()))"><svg lucideMinus [size]="13" aria-hidden="true"></svg></button>
+          </div>
+          @for (change of stagedChanges(); track change.path) {
+            <gd-change-row
+              [change]="change"
+              [staged]="true"
+              [selected]="isSelected(change, true)"
+              (chosen)="select(change.path, true)"
+              (openFile)="openFile(change.path)"
+              (toggleStaged)="unstage([change.path])"
+            />
+          }
+        </section>
+      }
+      <section aria-label="Changes">
+        <div class="panel-heading">
+          Changes <span class="count">{{ unstagedChanges().length }}</span>
+          <span class="grow"></span>
+          @if (unstagedChanges().length) {
+            <button type="button" class="icon-btn" aria-label="Discard all" title="Discard all" (click)="discard(pathsOf(unstagedChanges()))"><svg lucideUndo2 [size]="13" aria-hidden="true"></svg></button>
+            <button type="button" class="icon-btn" aria-label="Stage all" title="Stage all" (click)="stage(pathsOf(unstagedChanges()))"><svg lucidePlus [size]="13" aria-hidden="true"></svg></button>
+          }
+        </div>
+        @for (change of unstagedChanges(); track change.path) {
+          <gd-change-row
+            [change]="change"
+            [staged]="false"
+            [selected]="isSelected(change, false)"
+            (chosen)="select(change.path, false)"
+            (openFile)="openFile(change.path)"
+            (toggleStaged)="stage([change.path])"
+            (discard)="discard([change.path])"
+          />
+        } @empty {
+          <p class="no-changes">Nothing to stage.</p>
+        }
+      </section>
+    </div>
+  </aside>
+  <div [gdResizeHandle]="panel"></div>
+  <section class="main-pane">
+    @if (current() && file()) {
+      @for (key of [file()! + showsStaged()]; track key) {
+        <gd-diff-pane [path]="file()!" [badge]="badge()" [load]="loadDiff()" />
+      }
+    } @else {
+      <gd-empty-state title="Working tree clean">
+        <svg icon lucideCheckCheck [size]="20" aria-hidden="true"></svg>
+        <p>Nothing to commit on {{ snapshot().head.branch ?? "this checkout" }}.</p>
+      </gd-empty-state>
+    }
+  </section>
+</div>

@@ -1,0 +1,180 @@
+:host {
+  display: flex;
+  justify-content: center;
+  height: 100%;
+  overflow: auto;
+  padding: 14vh 24px 40px;
+  background:
+    radial-gradient(800px 400px at 50% -10%, var(--accent-soft), transparent 70%),
+    var(--bg-app);
+}
+
+.welcome-panel {
+  width: 440px;
+  max-width: 100%;
+}
+
+.welcome-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.welcome-brand h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--bg-panel);
+}
+
+.welcome-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 46px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  font-weight: 500;
+  text-align: left;
+}
+
+.welcome-action:last-child {
+  border-bottom: 0;
+}
+
+.welcome-action svg {
+  color: var(--accent-text);
+}
+
+.welcome-action:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.welcome-recent {
+  margin-top: 32px;
+}
+
+.welcome-recent h2 {
+  margin: 0 0 8px 4px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.recent-row {
+  position: relative;
+}
+
+.recent-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 40px 8px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  text-align: left;
+}
+
+.recent-open:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.recent-open .grow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.recent-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-active);
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.recent-name {
+  font-weight: 550;
+}
+
+.recent-path {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.recent-path svg {
+  flex: none;
+}
+
+.recent-time {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.recent-arrow {
+  color: var(--text-3);
+  opacity: 0;
+}
+
+.recent-open:hover .recent-arrow {
+  opacity: 1;
+}
+
+.recent-open:hover .recent-time {
+  display: none;
+}
+
+.recent-forget {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--text-3);
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.recent-row:hover .recent-forget {
+  opacity: 1;
+}
+
+.recent-forget:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.welcome-busy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  color: var(--text-2);
+}

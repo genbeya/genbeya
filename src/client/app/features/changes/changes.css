@@ -1,0 +1,18 @@
+.commit-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.commit-message {
+  min-height: 74px;
+  max-height: 240px;
+  font-size: 13px;
+}
+
+.no-changes {
+  margin: 4px 16px;
+  color: var(--text-3);
+}

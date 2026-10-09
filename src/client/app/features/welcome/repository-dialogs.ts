@@ -1,0 +1,162 @@
+/** Dialogs that name a repository elsewhere: on WSL or SSH, or a URL to clone. */
+import { DialogRef } from "@angular/cdk/dialog";
+import { ChangeDetectionStrategy, Component, computed, inject, input, model, signal } from "@angular/core";
+import { LucideFolderOpen } from "@lucide/angular";
+import { describeLocation, type Location } from "../../../../contracts/model";
+import { MANAGERS, SHELL } from "../../platform/platform";
+import { DialogFrame } from "../../ui/dialog-frame";
+
+type Kind = "wsl" | "ssh";
+
+/** Distribution or host, and a path; shared by both dialogs. */
+@Component({
+  selector: "gd-remote-fields",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { style: "display: contents" },
+  template: `
+    <div class="segmented" role="radiogroup" aria-label="Machine">
+      <button type="button" role="radio" [attr.aria-checked]="kind() === 'wsl'" [class.is-active]="kind() === 'wsl'" [disabled]="!distributions().length" (click)="kind.set('wsl')">WSL</button>
+      <button type="button" role="radio" [attr.aria-checked]="kind() === 'ssh'" [class.is-active]="kind() === 'ssh'" (click)="kind.set('ssh')">SSH</button>
+    </div>
+    @if (kind() === "wsl") {
+      <label class="field">
+        Distribution
+        <select class="select" [value]="distro()" (change)="distro.set($any($event.target).value)">
+          @for (name of distributions(); track name) {
+            <option [value]="name">{{ name }}</option>
+          }
+        </select>
+      </label>
+    } @else {
+      <label class="field">
+        Host
+        <input class="input" spellcheck="false" placeholder="user@server or a Host from ~/.ssh/config" [value]="host()" (input)="host.set($any($event.target).value)" />
+      </label>
+    }
+    <label class="field">
+      {{ pathLabel() }}
+      <input class="input mono" spellcheck="false" placeholder="/home/me/project" [value]="path()" (input)="path.set($any($event.target).value)" />
+    </label>
+  `,
+})
+export class RemoteFields {
+  readonly pathLabel = input.required<string>();
+  readonly kind = model<Kind>("wsl");
+  readonly distro = model("");
+  readonly host = model("");
+  readonly path = model("");
+  protected readonly distributions = signal<readonly string[]>([]);
+
+  constructor() {
+    void inject(MANAGERS)
+      .workspace.distributions()
+      .then((names) => {
+        this.distributions.set(names);
+        if (names.length && !this.distro()) this.distro.set(names[0]!);
+        if (!names.length) this.kind.set("ssh");
+      });
+  }
+}
+
+/** The location the fields describe, or null while incomplete. */
+function remoteLocation(kind: Kind, distro: string, host: string, path: string): Location | null {
+  const trimmed = path.trim();
+  if (!trimmed.startsWith("/")) return null;
+  if (kind === "wsl") return distro ? { kind, distro, path: trimmed } : null;
+  return host.trim() ? { kind, host: host.trim(), path: trimmed } : null;
+}
+
+@Component({
+  selector: "gd-remote-dialog",
+  imports: [DialogFrame, RemoteFields],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <gd-dialog-frame title="Open a repository on WSL or SSH" [width]="480" (submitted)="submit()">
+      <gd-remote-fields pathLabel="Repository path" [(kind)]="kind" [(distro)]="distro" [(host)]="host" [(path)]="path" />
+      <p class="dialog-hint">
+        Git runs on the remote machine. SSH uses your <code>ssh</code> configuration and agent; connect once in a terminal so the host
+        key is trusted.
+      </p>
+      <footer>
+        <button type="button" class="btn btn-default btn-m" (click)="dialog.close()"><span>Cancel</span></button>
+        <button type="submit" class="btn btn-primary btn-m" [disabled]="!location()"><span>Open</span></button>
+      </footer>
+    </gd-dialog-frame>
+  `,
+})
+export class RemoteDialog {
+  protected readonly dialog = inject<DialogRef<Location>>(DialogRef);
+  protected readonly kind = signal<Kind>("wsl");
+  protected readonly distro = signal("");
+  protected readonly host = signal("");
+  protected readonly path = signal("");
+  protected readonly location = computed(() => remoteLocation(this.kind(), this.distro(), this.host(), this.path()));
+
+  protected submit() {
+    const location = this.location();
+    if (location) this.dialog.close(location);
+  }
+}
+
+@Component({
+  selector: "gd-clone-dialog",
+  imports: [DialogFrame, RemoteFields, LucideFolderOpen],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <gd-dialog-frame title="Clone a repository" [width]="500" (submitted)="submit()">
+      <label class="field">
+        Repository URL
+        <input class="input mono" spellcheck="false" placeholder="git@github.com:team/project.git" [value]="url()" (input)="url.set($any($event.target).value)" />
+      </label>
+      <div class="segmented" role="radiogroup" aria-label="Clone to">
+        <button type="button" role="radio" [attr.aria-checked]="!remote()" [class.is-active]="!remote()" (click)="remote.set(false)">This computer</button>
+        <button type="button" role="radio" [attr.aria-checked]="remote()" [class.is-active]="remote()" (click)="remote.set(true)">WSL or SSH</button>
+      </div>
+      @if (remote()) {
+        <gd-remote-fields pathLabel="Into folder" [(kind)]="kind" [(distro)]="distro" [(host)]="host" [(path)]="path" />
+      } @else {
+        <div class="field">
+          Into folder
+          <div class="row">
+            <input class="input mono grow" readonly aria-label="Parent folder" placeholder="Choose a parent folder" [value]="folderText()" />
+            <button type="button" class="btn btn-default btn-m" (click)="chooseFolder()">
+              <svg lucideFolderOpen [size]="14" aria-hidden="true"></svg><span>Choose…</span>
+            </button>
+          </div>
+        </div>
+      }
+      <p class="dialog-hint">Authentication uses your existing Git credentials and SSH keys.</p>
+      <footer>
+        <button type="button" class="btn btn-default btn-m" (click)="dialog.close()"><span>Cancel</span></button>
+        <button type="submit" class="btn btn-primary btn-m" [disabled]="!valid()"><span>Clone</span></button>
+      </footer>
+    </gd-dialog-frame>
+  `,
+})
+export class CloneDialog {
+  protected readonly dialog = inject<DialogRef<{ url: string; parent: Location }>>(DialogRef);
+  private readonly shell = inject(SHELL);
+  protected readonly url = signal("");
+  protected readonly remote = signal(false);
+  protected readonly folder = signal<Location | null>(null);
+  protected readonly kind = signal<Kind>("wsl");
+  protected readonly distro = signal("");
+  protected readonly host = signal("");
+  protected readonly path = signal("");
+  protected readonly folderText = computed(() => {
+    const folder = this.folder();
+    return folder ? describeLocation(folder) : "";
+  });
+  private readonly parent = computed(() => (this.remote() ? remoteLocation(this.kind(), this.distro(), this.host(), this.path()) : this.folder()));
+  protected readonly valid = computed(() => !!this.url().trim() && !!this.parent());
+
+  protected async chooseFolder() {
+    const folder = await this.shell.pickFolder();
+    if (folder) this.folder.set(folder);
+  }
+
+  protected submit() {
+    const parent = this.parent();
+    if (this.valid() && parent) this.dialog.close({ url: this.url().trim(), parent });
+  }
+}

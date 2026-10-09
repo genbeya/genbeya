@@ -19,8 +19,9 @@ export interface ShellContract {
   /** Called with the arguments of a second launch while this window is open. */
   onSecondLaunch(listener: (args: readonly string[]) => void): () => void;
   /**
-   * Called when the user closes the window. Returning false keeps it open;
-   * the client asks about unsaved changes first.
+   * Asks `hasUnsavedChanges` when the user closes the window; if it answers
+   * true, the shell asks the user natively whether to discard them. Pages
+   * cannot show dialogs while a window closes.
    */
-  onCloseRequest(listener: () => boolean): () => void;
+  guardClose(hasUnsavedChanges: () => boolean): () => void;
 }

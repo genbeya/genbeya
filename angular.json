@@ -10,7 +10,9 @@
     "gitdesk": {
       "projectType": "application",
       "schematics": {
-        "@schematics/angular:component": { "changeDetection": "OnPush" }
+        "@schematics/angular:component": {
+          "changeDetection": "OnPush"
+        }
       },
       "root": "",
       "sourceRoot": "src/client",
@@ -24,19 +26,52 @@
             "browser": "src/client/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [
-              { "glob": "**/*", "input": "src/client/public" },
-              { "glob": "rockuml.wasm", "input": "node_modules/@rockuml/core", "output": "/" }
+              {
+                "glob": "**/*",
+                "input": "src/client/public"
+              },
+              {
+                "glob": "rockuml.wasm",
+                "input": "node_modules/@rockuml/core",
+                "output": "/"
+              }
             ],
-            "styles": ["src/client/styles.css"],
-            "baseHref": "./"
+            "styles": [
+              "src/client/styles.css"
+            ],
+            "baseHref": "./",
+            "allowedCommonJsDependencies": [
+              "@braintree/sanitize-url",
+              "cytoscape-cose-bilkent",
+              "cytoscape-fcose",
+              "dayjs",
+              "elkjs",
+              "extend"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "1.5MB", "maximumError": "2.5MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "8kB", "maximumError": "16kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "750kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
+                }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": false
+              }
             },
             "development": {
               "optimization": false,
@@ -48,10 +83,17 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
-          "options": { "host": "127.0.0.1", "port": 5173 },
+          "options": {
+            "host": "127.0.0.1",
+            "port": 5173
+          },
           "configurations": {
-            "production": { "buildTarget": "gitdesk:build:production" },
-            "development": { "buildTarget": "gitdesk:build:development" }
+            "production": {
+              "buildTarget": "gitdesk:build:production"
+            },
+            "development": {
+              "buildTarget": "gitdesk:build:development"
+            }
           },
           "defaultConfiguration": "development"
         },
@@ -59,7 +101,9 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "tsconfig.spec.json",
-            "include": ["src/client/**/*.spec.ts"]
+            "include": [
+              "src/client/**/*.spec.ts"
+            ]
           }
         }
       }

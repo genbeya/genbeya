@@ -5,7 +5,7 @@
   "description": "A desktop workspace for Git repositories: wiki, tasks, code and version control",
   "author": "Emanuel Knecht",
   "repository": "github:h3ll5ur7er/gitdesk",
-  "main": "dist/electron/main.js",
+  "main": "dist/electron/main.cjs",
   "type": "module",
   "scripts": {
     "start": "node scripts/dev.mjs",
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@angular/build": "^22.2.2",
+    "@angular/cdk": "^22.2.2",
     "@angular/cli": "^22.2.2",
     "@angular/common": "^22.2.2",
     "@angular/compiler": "^22.2.2",
@@ -30,6 +31,7 @@
     "@angular/core": "^22.2.2",
     "@angular/platform-browser": "^22.2.2",
     "@angular/router": "^22.2.2",
+    "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language": "^6.13.1",

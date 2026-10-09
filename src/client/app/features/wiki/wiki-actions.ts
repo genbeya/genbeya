@@ -1,0 +1,115 @@
+/** Creating, moving and deleting pages, and following links; shared by the wiki, tasks and the palette. */
+import { computed, Injectable, inject } from "@angular/core";
+import { Router } from "@angular/router";
+import { Dialogs } from "../../core/dialogs";
+import { Session } from "../../core/session";
+import { WorkspaceApi } from "../../core/workspace-api";
+import type { LinkTarget } from "../../markdown/link-target";
+import type { GitdeskOptions } from "../../markdown/markdown-pipeline";
+import { SHELL } from "../../platform/platform";
+import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
+
+@Injectable({ providedIn: "root" })
+export class WikiActions {
+  private readonly session = inject(Session);
+  private readonly api = inject(WorkspaceApi);
+  private readonly dialogs = inject(Dialogs);
+  private readonly router = inject(Router);
+  private readonly shell = inject(SHELL);
+  private readonly root = computed(() => this.session.snapshot()?.settings.wikiRoot ?? "docs");
+
+  /** Pages and tasks that Markdown can link to by title or ID. */
+  readonly linkTargets = computed<GitdeskOptions>(() => {
+    const snapshot = this.session.snapshot();
+    return {
+      pages: flattenPages(snapshot?.wiki ?? []).map(({ title, path }) => ({ title, path })),
+      tasks: (snapshot?.tasks ?? []).map(({ id, path }) => ({ id, path })),
+    };
+  });
+
+  openPage(page: string, options: { anchor?: string; replace?: boolean } = {}): Promise<boolean> {
+    return this.router.navigate(["/wiki"], { queryParams: { page, anchor: options.anchor }, replaceUrl: options.replace });
+  }
+
+  openFolder(folder: string): Promise<boolean> {
+    return this.router.navigate(["/wiki"], { queryParams: { folder } });
+  }
+
+  /** Asks for a name, below `parent` (a page) when given, and creates the page. */
+  async createPage(parent?: string, name = ""): Promise<void> {
+    const root = this.root();
+    const value = await this.dialogs.prompt({
+      title: "New page",
+      label: "Page name",
+      initial: (parent ? `${pageName(parent, root)}/` : "") + name,
+      placeholder: "Architecture/Database",
+      confirm: "Create",
+      hint: `Use / to nest pages. The page is saved as Markdown in ${root}/.`,
+      validate: pageNameProblem,
+    });
+    if (!value) return;
+    const created = await this.session.run(() => this.api.content.createPage(pagePath(root, value)));
+    if (!created) return;
+    this.session.contentChanged();
+    await this.openPage(created.path);
+  }
+
+  async movePage(path: string): Promise<void> {
+    const root = this.root();
+    const value = await this.dialogs.prompt({
+      title: "Move page",
+      label: "New name",
+      initial: pageName(path, root),
+      confirm: "Move",
+      hint: "Subpages move along. Links to this page are not rewritten.",
+      validate: pageNameProblem,
+    });
+    if (!value) return;
+    const moved = await this.session.run(() => this.api.content.movePage(path, pagePath(root, value)), "Page moved");
+    if (!moved) return;
+    this.session.contentChanged();
+    await this.openPage(moved, { replace: true });
+  }
+
+  async deletePage(path: string): Promise<void> {
+    const confirmed = await this.dialogs.confirm({
+      title: "Delete page",
+      message: `Delete ${pageName(path, this.root())}? The file is removed from the working tree; Git history keeps it.`,
+      confirm: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
+    const deleted = await this.session.run(async () => (await this.api.content.deletePage(path), true), "Page deleted");
+    if (!deleted) return;
+    this.session.contentChanged();
+    await this.router.navigate(["/wiki"], { replaceUrl: true });
+  }
+
+  /** Follows a link from a page or a task description. */
+  async followLink(target: LinkTarget): Promise<void> {
+    if (target.kind === "external") {
+      if (/^(https?|mailto):/i.test(target.url)) await this.shell.openExternal(target.url);
+      return;
+    }
+    if (target.kind === "missing") return this.createPage(undefined, target.title);
+    if (target.kind !== "file") return;
+    const snapshot = this.session.snapshot();
+    if (!snapshot) return;
+    const { taskRoot } = snapshot.settings;
+    const root = this.root();
+    let path = target.path;
+    const task = path.startsWith(`${taskRoot}/`) ? snapshot.tasks.find((candidate) => candidate.path === path) : undefined;
+    if (task) return void (await this.router.navigate(["/tasks"], { queryParams: { task: task.id } }));
+    if (path === root || path.startsWith(`${root}/`)) {
+      // Links may leave out `.md` or point at a page's folder.
+      if (!/\.[a-z0-9]+$/i.test(path)) path += ".md";
+      if (path.endsWith(".md")) {
+        const found = findPage(snapshot.wiki, path) ?? findPage(snapshot.wiki, path.slice(0, -3));
+        if (found?.node.path) return void (await this.openPage(found.node.path, { anchor: target.anchor }));
+        if (found?.node.folder) return void (await this.openFolder(found.node.folder));
+        return void (await this.openPage(path, { anchor: target.anchor }));
+      }
+    }
+    await this.router.navigate(["/code"], { queryParams: { file: path } });
+  }
+}

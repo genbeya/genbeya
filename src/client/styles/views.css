@@ -1,0 +1,228 @@
+/* Chrome shared by every view: headers, side panels, filters, resizers, status letters. */
+.view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.view-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: var(--header-height);
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.view-title {
+  margin: 0;
+  font-size: inherit;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.view-title .crumb {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.view-title .crumb:hover {
+  color: var(--text);
+}
+
+.view-title .crumb-sep {
+  color: var(--text-3);
+}
+
+.view-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+}
+
+.side-panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px 0 14px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.panel-heading .count {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text-3);
+}
+
+.filter:focus-within {
+  border-color: var(--accent);
+}
+
+.filter input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+}
+
+.filter input::placeholder {
+  color: var(--text-3);
+}
+
+.resizer {
+  flex: none;
+  width: 5px;
+  margin: 0 -3px;
+  position: relative;
+  z-index: 2;
+  cursor: col-resize;
+}
+
+.resizer:hover,
+.resizer.is-dragging {
+  background: linear-gradient(to right, transparent 2px, var(--accent) 2px, var(--accent) 3px, transparent 3px);
+}
+
+.content-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dirty-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.status-letter {
+  flex: none;
+  width: 16px;
+  font: 600 11px var(--font-mono);
+  text-align: center;
+}
+
+.status-letter.M {
+  color: var(--yellow);
+}
+
+.status-letter.A,
+.status-letter.U,
+.status-letter.\? {
+  color: var(--green);
+}
+
+.status-letter.D {
+  color: var(--red);
+}
+
+.status-letter.R,
+.status-letter.C {
+  color: var(--blue);
+}
+
+.tree-empty {
+  margin: 8px 16px;
+  color: var(--text-3);
+}
+
+button.plain {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--yellow-soft);
+  color: var(--text);
+}
+
+/* Documents: a centred article, with room for an outline on wide screens. */
+.main-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-toolbar {
+  gap: 2px;
+  padding-right: 6px;
+}
+
+.panel-toolbar .filter {
+  margin-right: 0;
+}
+
+.content-scroll {
+  container-type: inline-size;
+}
+
+.document {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 760px) minmax(0, 1fr);
+  min-height: 100%;
+  padding: 44px 40px 120px;
+}
+
+.document-article {
+  grid-column: 2;
+  min-width: 0;
+}
+
+/* Ahead/behind counts next to branches. */
+.sync-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
