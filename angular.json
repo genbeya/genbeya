@@ -103,6 +103,9 @@
             "tsConfig": "tsconfig.spec.json",
             "include": [
               "src/client/**/*.spec.ts"
+            ],
+            "setupFiles": [
+              "src/client/test-setup.ts"
             ]
           }
         }

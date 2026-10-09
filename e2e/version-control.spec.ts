@@ -35,4 +35,16 @@ test.describe("code, changes and history", () => {
     await expect(window.getByRole("region", { name: "Staged changes" }).locator("gd-change-row", { hasText: "notes.txt" })).toBeVisible();
     expect(repository.git("status", "--porcelain")).toContain("A  notes.txt");
   });
+
+  test("opens files with Windows line endings without marking them changed", async ({ window, repository }) => {
+    const crlf = String.fromCharCode(13, 10);
+    repository.write("windows.txt", ["one", "two", ""].join(crlf));
+    repository.git("add", ".");
+    repository.git("commit", "-q", "-m", "CRLF file");
+    await window.keyboard.press(`${MOD}+3`);
+    await window.getByRole("tree", { name: "Files" }).getByText("windows.txt").click();
+    await expect(window.getByRole("textbox", { name: "Contents of windows.txt" })).toBeVisible();
+    await expect(window.getByLabel("Unsaved changes")).toBeHidden();
+    await expect(window.getByRole("button", { name: /^Save/ })).toBeDisabled();
+  });
 });

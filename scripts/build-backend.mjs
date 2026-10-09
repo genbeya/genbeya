@@ -26,6 +26,8 @@ if (shell === "electron") {
     platform: "node",
     format: "esm",
     target: "esnext",
+    // Bundled CommonJS packages (yaml) require Node built-ins at run time.
+    banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
   });
 } else {
   throw new Error(`Unknown shell ${shell}; use electron or deno.`);

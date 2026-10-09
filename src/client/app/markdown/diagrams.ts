@@ -40,6 +40,8 @@ export class Diagrams {
       flowchart: { htmlLabels: false },
     });
     const { svg } = await mermaid.render(`gd-mermaid-${++this.counter}`, source);
-    return { svg, isError: false };
+    // As an image, width="100%" would stretch the diagram; keep its natural width instead.
+    const width = /viewBox="[-\d.]+ [-\d.]+ ([\d.]+) /.exec(svg)?.[1];
+    return { svg: width ? svg.replace('width="100%"', `width="${width}"`) : svg, isError: false };
   }
 }

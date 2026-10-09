@@ -42,7 +42,8 @@ export function fileResource(scope: Scope, path: Signal<string | null>, editing:
         changedOnDisk.set(false);
       }
     } catch (failure) {
-      if (ticket !== request || !fresh) return;
+      // A background re-read keeps what is shown, unless nothing could be shown yet.
+      if (ticket !== request || (!fresh && untracked(file))) return;
       file.set(null);
       error.set(messageOf(failure));
     }
