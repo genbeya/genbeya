@@ -175,14 +175,10 @@ async function start() {
     window.webContents.send("gitdesk:second-launch", argv);
   });
   // Once the window has closed (the page may still veto that), quitting waits for repositories to close and state to be written.
-  let disposed = false;
-  app.on("will-quit", (event) => {
-    if (disposed) return;
+  // Then it exits: on macOS a second app.quit() after a prevented will-quit does nothing.
+  app.once("will-quit", (event) => {
     event.preventDefault();
-    void Promise.allSettled([backend.dispose(), state.flush()]).then(() => {
-      disposed = true;
-      app.quit();
-    });
+    void Promise.allSettled([backend.dispose(), state.flush()]).then(() => app.exit(0));
   });
   await window.loadURL(DEV_ORIGIN ?? RENDERER_URL);
 }

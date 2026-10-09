@@ -41,17 +41,18 @@ test.describe("tasks", () => {
 
   test("moves a card to another column by dragging", async ({ window, repository }) => {
     const card = window.locator("gd-task-card", { hasText: "First task" });
-    const done = window.getByRole("region", { name: "Done" });
+    // The next column, so it is on screen in small windows too.
+    const target = window.getByRole("region", { name: "In progress" });
     const from = (await card.boundingBox())!;
-    const to = (await done.boundingBox())!;
+    const to = (await target.boundingBox())!;
     await window.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
     await window.mouse.down();
     // The CDK starts dragging after a few pixels of movement.
     await window.mouse.move(from.x + from.width / 2 + 10, from.y + from.height / 2, { steps: 4 });
     await window.mouse.move(to.x + to.width / 2, to.y + 120, { steps: 12 });
     await window.mouse.up();
-    await expect.poll(() => repository.read("tasks/DP-1.md")).toContain("status: done");
-    await expect(done.getByText("First task")).toBeVisible();
+    await expect.poll(() => repository.read("tasks/DP-1.md")).toContain("status: in-progress");
+    await expect(target.getByText("First task")).toBeVisible();
   });
 
   test("filters by text", async ({ window }) => {

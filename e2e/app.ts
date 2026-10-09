@@ -67,6 +67,8 @@ export const test = base.extend<Fixtures>({
   },
   window: async ({ app }, use) => {
     const window = await app.firstWindow();
+    // The size of a CI runner's screen, so layouts match everywhere.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setContentSize(1000, 680));
     await window.waitForSelector("gd-shell");
     await use(window);
   },
