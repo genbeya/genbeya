@@ -1,8 +1,8 @@
 name: Runtime comparison
 
 # Tests GitDesk, packages it with Electron, Tauri and Deno Desktop on every
-# platform, reports the sizes in the job summary and uploads the Tauri
-# installers and Deno builds for testing. Experiment branches only.
+# platform, reports the sizes in the job summary and uploads every build for
+# testing. Experiment branches only.
 on:
   push:
     branches: ["experiment/**"]
@@ -56,18 +56,32 @@ jobs:
       - name: Report sizes
         run: node scripts/report-sizes.mjs
 
-      # Archives keep the executable bits that artifact zips drop.
+      # One artifact per runtime, so testers pick the one they want. Archives keep the executable bits that artifact zips drop.
       - name: Collect installers
         shell: bash
         run: |
-          mkdir -p out
+          mkdir -p out/electron out/tauri out/deno
+          find release -maxdepth 1 -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' \) \
+            ! -name '__uninstaller*' -exec cp {} out/electron/ \;
           find src/shells/tauri/src-tauri/target/release/bundle -maxdepth 2 -type f \
             \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) \
-            -exec cp {} out/ \;
-          tar -czf "out/GitDesk-deno-${{ runner.os }}.tar.gz" -C release-deno .
+            -exec cp {} out/tauri/ \;
+          tar -czf "out/deno/GitDesk-deno-${{ runner.os }}.tar.gz" -C release-deno .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GitDesk-tauri-deno-${{ runner.os }}
-          path: out/*
+          name: GitDesk-electron-${{ runner.os }}
+          path: out/electron/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GitDesk-tauri-${{ runner.os }}
+          path: out/tauri/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GitDesk-deno-${{ runner.os }}
+          path: out/deno/*
           if-no-files-found: error

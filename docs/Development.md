@@ -28,7 +28,7 @@ Code is written test first. Specs sit next to the code they test.
 ## Continuous integration
 
 - `.github/workflows/build.yml` runs lint, unit and end-to-end tests and packages the Electron app on Windows, macOS and Linux for every push and pull request to `main`. Pull requests upload the installers as workflow artifacts; pushes to `main` also publish them as a GitHub release tagged `v<version>-build.<run>`.
-- `.github/workflows/runtimes.yml` runs the same tests and packages all three shells on every push to an `experiment/**` branch, reporting their sizes (see [[Runtimes]]).
+- `.github/workflows/runtimes.yml` runs the same tests and packages all three shells on every push to an `experiment/**` branch, reports their sizes and uploads each build as its own artifact (see [[Runtimes]]).
 
 ## Conventions
 

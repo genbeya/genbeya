@@ -48,6 +48,14 @@ The Angular client is 613 kB of initial JavaScript (120 kB compressed). Mermaid 
 
 ## Trying the builds
 
-Every push to an `experiment/**` branch runs the *Runtime comparison* workflow. Each run has one artifact per platform with the Tauri installers (`.exe`/`.msi`, `.dmg`, `.deb`/`.rpm`/`.AppImage`) and the Deno build as a `.tar.gz`. The builds are unsigned: on macOS, open the app once with right-click → *Open*; on Linux, `chmod +x` the AppImage.
+Every push to an `experiment/**` branch runs the *Runtime comparison* workflow. Each run has one artifact per runtime and platform, such as `GitDesk-tauri-macOS`:
 
-Tauri keeps its settings apart from the Electron app (`dev.gitdesk.tauri`) and installs as "GitDesk Tauri", so both can be installed side by side. To build locally, see [[Development]].
+| Runtime | Windows | macOS | Linux |
+| --- | --- | --- | --- |
+| Electron | `.exe` installer | `.dmg` | `.AppImage` |
+| Tauri | `.exe` and `.msi` installers | `.dmg` | `.deb`, `.rpm`, `.AppImage` |
+| Deno Desktop | `.tar.gz` with the app folder | `.tar.gz` with the `.app` | `.tar.gz` with the executable |
+
+The builds are unsigned: on Windows choose *More info → Run anyway*; on macOS open the app once with right-click → *Open*; on Linux `chmod +x` the AppImage.
+
+The Electron build installs as "GitDesk" and replaces the version from `main`. Tauri installs as "GitDesk Tauri" with its own settings (`dev.gitdesk.tauri`), and Deno runs from its folder, so both can be used next to it. To build locally, see [[Development]].
