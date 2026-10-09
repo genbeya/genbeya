@@ -6,10 +6,10 @@ GitDesk needs **Git** on the machine that holds the repository. To run from sour
 
 ```bash
 npm install
-npm run dev
+npm start
 ```
 
-`npm run dev` starts the renderer with hot reload and the Electron app. Restart it after changing `core/` or `electron/`.
+`npm start` runs the client with hot reload and the Electron app. Restart it after changing anything outside `src/client/`.
 
 ## Open a repository
 

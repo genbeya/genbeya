@@ -1,28 +1,40 @@
 # Development
 
+Requires Node.js 24 and Git. Tauri also needs a Rust toolchain (and `libwebkit2gtk-4.1-dev` on Linux); Deno Desktop comes from npm.
+
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Renderer with hot reload plus the Electron app |
-| `npm run dev:browser` | Renderer in a browser against this repository, through a local HTTP bridge (design work, screenshots) |
-| `npm run check` | Type-check renderer, engine and main process |
-| `npm test` | Engine tests (real repositories, plus WSL when available) and UI tests |
-| `npm run build` | Production renderer and main process |
-| `npm run package` | Installer for the current OS via electron-builder |
+| `npm start` | Client with hot reload plus the Electron app. Restart it after changing the backend or the shell |
+| `npm run check` | Type-check backend, shells and client |
+| `npm run lint` | ESLint, including the layer rules of the [[Architecture]] |
+| `npm run format` | Prettier |
+| `npm test` | Backend and client unit tests |
+| `npm run e2e` | Build, then end-to-end tests against the Electron app |
+| `npm run build` | Production client and Electron shell |
+| `npm run package` | Electron installer for the current OS |
+| `npm run package:tauri` | Tauri installers, in `src/shells/tauri/src-tauri/target/release/bundle/` |
+| `npm run package:deno` | Deno Desktop build, in `release-deno/` |
 
 ## Tests
 
-- `tests/core.test.ts` runs the engine against disposable repositories in `.test-work/`, including a content branch synced through a bare remote, and a WSL repository when the `Ubuntu` distribution exists.
-- `tests/ui.test.tsx` renders the app in jsdom against the real engine. Monaco is replaced by a textarea.
+Code is written test first. Specs sit next to the code they test.
+
+- **Backend** (`npm run test:backend`, Vitest): engines with plain data; resource access and managers against disposable repositories in `.test-work/`, including a content branch synced through a bare remote, and a WSL repository when the `Ubuntu` distribution exists. `backend.spec.ts` drives the managers through the RPC envelope, as a shell does. Both platforms pass the same machine contract (`src/testing/machine-contract.ts`).
+- **Client** (`npm run test:client`, Vitest through `ng test`): components with a fake platform (`src/client/app/testing/fake-platform.ts`), engines of the client such as fuzzy search and the commit graph, and the Markdown pipeline.
+- **End to end** (`npm run e2e`, Playwright): the packaged Electron app with a fresh profile and a fresh repository per test, opened through the `--open` launch argument. Covers wiki, tasks, version control and the shell.
 
 ## Continuous integration
 
-`.github/workflows/build.yml` runs the tests and packages the app on Windows, macOS and Linux for every push and pull request to `main`. Pull requests upload the installers as workflow artifacts; pushes to `main` also publish them as a GitHub release tagged `v<version>-build.<run>`.
+- `.github/workflows/build.yml` runs lint, unit and end-to-end tests and packages the Electron app on Windows, macOS and Linux for every push and pull request to `main`. Pull requests upload the installers as workflow artifacts; pushes to `main` also publish them as a GitHub release tagged `v<version>-build.<run>`.
+- `.github/workflows/runtimes.yml` runs the same tests and packages all three shells on every push to an `experiment/**` branch, reporting their sizes (see [[Runtimes]]).
 
 ## Conventions
 
-- The engine (`core/`) must not import Electron; it is tested without it.
-- Every engine method that the renderer can reach validates its own input.
-- Views own their state; shared state lives in `src/app/workspace.tsx` (repository) and `src/app/router.tsx` (navigation).
-- Styles use the tokens in `src/styles/tokens.css`; each component imports its own CSS file.
+- Calls only go down the layers; ESLint enforces it. Managers do not call each other; engines do no I/O.
+- Every manager method validates its own input.
+- Client state lives in signals. The repository is in `core/session.ts`, navigation in the router; views own everything else.
+- Operations go through `session.run`, which reports errors and refreshes the snapshot afterwards. Apply a save's result before the refresh, so the editor is clean when the snapshot arrives.
+- Styles use the tokens in `src/client/styles/tokens.css`.
+- Line endings are LF (`.gitattributes`); `npm run format` before committing.

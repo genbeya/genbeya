@@ -2,9 +2,9 @@
 
 A desktop workspace for a Git repository: wiki, task board, code editor and version control in one window. Everything is a plain file in the repository — Markdown pages, one Markdown file per task, and `.gitdesk.yml` for settings — so it works with any Git host and any other tool.
 
-- **Wiki** with nested pages, `[[wiki links]]`, `[TOC]`, subpage listings, callouts, Mermaid and PlantUML diagrams, syntax highlighting, and a side-by-side editor.
+- **Wiki** with nested pages, `[[wiki links]]`, `[TOC]`, subpage listings, callouts, Mermaid and PlantUML diagrams (rendered locally by [rockuml](https://github.com/h3ll5ur7er/rockuml)), syntax highlighting, and a side-by-side editor.
 - **Tasks** on a board or list, with readable IDs (`GENBEYA-12`), drag and drop, inline status/priority/assignee/labels, and rendered descriptions with clickable checkboxes.
-- **Code, changes and history**: Monaco editor, staging, commit and amend, fetch/pull/push, branch switching, and a commit graph.
+- **Code, changes and history**: CodeMirror editor, staging, commit and amend, fetch/pull/push, branch switching, and a commit graph.
 - **Local, WSL and SSH** repositories. Git runs where the repository is.
 - **Dedicated content branch** (optional): keep wiki and tasks on a shared `gitdesk` branch so they look the same on every code branch.
 - Command palette (`Ctrl+K`), back/forward (`Alt+←/→`, mouse buttons), recent repositories, dark and light themes.
@@ -15,7 +15,7 @@ Requires Node.js 24 and Git.
 
 ```bash
 npm install
-npm run dev
+npm start
 ```
 
 Open this folder in GitDesk: its wiki documents the app and its task board is the real backlog.
@@ -32,5 +32,9 @@ The documentation lives in [`docs/`](docs/Home.md) and is best read in GitDesk i
 
 - [Getting started](docs/Getting-started.md)
 - [Guide](docs/Guide.md): [wiki](docs/Guide/Wiki.md), [tasks](docs/Guide/Tasks.md), [version control](docs/Guide/Version-control.md), [shortcuts](docs/Guide/Keyboard-shortcuts.md)
-- [Architecture](docs/Architecture.md): [engine](docs/Architecture/Engine.md), [hosts](docs/Architecture/Hosts.md), [content branch](docs/Architecture/Content-branch.md), [security](docs/Architecture/Security.md)
+- [Architecture](docs/Architecture.md): [managers](docs/Architecture/Managers.md), [hosts](docs/Architecture/Hosts.md), [content branch](docs/Architecture/Content-branch.md), [security](docs/Architecture/Security.md), [runtimes](docs/Architecture/Runtimes.md)
 - [Development](docs/Development.md): scripts, tests, conventions
+
+## Built with
+
+Angular 22, CodeMirror 6, unified/remark, rockuml and Mermaid in the client; plain TypeScript managers on Node (Electron, Deno Desktop) or in the webview with Rust file and process commands (Tauri). See [Architecture](docs/Architecture.md).

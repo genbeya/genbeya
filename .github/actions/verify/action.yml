@@ -1,0 +1,39 @@
+name: Verify
+description: Lint, unit tests and end-to-end tests against the Electron app. Expects `npm ci` to have run.
+
+runs:
+  using: composite
+  steps:
+    - name: Configure Git for tests
+      shell: bash
+      run: |
+        git config --global user.name "GitDesk CI"
+        git config --global user.email "ci@gitdesk.invalid"
+        git config --global init.defaultBranch main
+
+    - name: Lint
+      shell: bash
+      run: npm run lint && npx prettier --check .
+
+    - name: Unit tests
+      shell: bash
+      run: npm test
+
+    # Ubuntu's AppArmor blocks the user namespaces Chromium's sandbox needs.
+    - name: Allow Electron's sandbox
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+    - name: End-to-end tests
+      shell: bash
+      run: ${{ runner.os == 'Linux' && 'xvfb-run -a ' || '' }}npm run e2e
+
+    - uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: playwright-report-${{ runner.os }}
+        path: |
+          playwright-report/
+          test-results/
+        if-no-files-found: ignore

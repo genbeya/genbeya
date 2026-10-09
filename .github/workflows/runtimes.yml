@@ -1,8 +1,8 @@
 name: Runtime comparison
 
-# Packages GitDesk with Electron, Tauri and Deno Desktop on every platform,
-# reports the sizes in the job summary and uploads the Tauri installers and
-# Deno builds for testing. Experiment branches only.
+# Tests GitDesk, packages it with Electron, Tauri and Deno Desktop on every
+# platform, reports the sizes in the job summary and uploads the Tauri
+# installers and Deno builds for testing. Experiment branches only.
 on:
   push:
     branches: ["experiment/**"]
@@ -35,12 +35,15 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: desktop/tauri/src-tauri
+          workspaces: src/shells/tauri/src-tauri
 
       - run: npm ci
 
+      - uses: ./.github/actions/verify
+
+      # The end-to-end tests have built the client and the Electron shell.
       - name: Electron
-        run: npm run build && npx electron-builder --publish never
+        run: npx electron-builder --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
@@ -58,7 +61,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p out
-          find desktop/tauri/src-tauri/target/release/bundle -maxdepth 2 -type f \
+          find src/shells/tauri/src-tauri/target/release/bundle -maxdepth 2 -type f \
             \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) \
             -exec cp {} out/ \;
           tar -czf "out/GitDesk-deno-${{ runner.os }}.tar.gz" -C release-deno .

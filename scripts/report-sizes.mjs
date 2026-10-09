@@ -15,7 +15,7 @@ const list = (dir, test) =>
 const INSTALLER = /\.(exe|msi|dmg|AppImage|deb|rpm)$/;
 const rows = [
   ...list("release", (f) => INSTALLER.test(f) && !f.includes("unpacked") && !f.includes("__uninstaller")).map((f) => ["Electron", f]),
-  ...list("desktop/tauri/src-tauri/target/release/bundle", (f) => INSTALLER.test(f)).map((f) => ["Tauri", f]),
+  ...list("src/shells/tauri/src-tauri/target/release/bundle", (f) => INSTALLER.test(f)).map((f) => ["Tauri", f]),
   ...list("release-deno", (f) => path.dirname(f) === "release-deno").map((f) => ["Deno", f]),
 ];
 

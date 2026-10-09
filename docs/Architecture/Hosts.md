@@ -1,10 +1,10 @@
 # Hosts
 
-A host is the machine a repository lives on. The engine only uses the `Host` interface (`core/host.ts`): run a command, read, write, move and delete files.
+A host is the machine a repository lives on. Resource access only uses the `Host` interface (`src/access/hosts/host.ts`): run a command, read, write, move and delete files.
 
 | Host | Implementation |
 | --- | --- |
-| Local | `LocalHost` — Node's `fs` and `execFile` |
+| Local | `LocalHost` — the platform's file system and processes |
 | WSL | `ShellHost` over `wsl.exe -d <distro> -e sh` |
 | SSH | `ShellHost` over `ssh -T -o BatchMode=yes <host> sh` |
 
@@ -14,7 +14,7 @@ WSL and SSH share one implementation. `ShellSession` keeps a single `sh` running
 
 ```mermaid
 sequenceDiagram
-  participant E as Engine
+  participant E as Git access
   participant S as ShellSession
   participant R as sh on the remote
   E->>S: run git status

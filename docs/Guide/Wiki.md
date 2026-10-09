@@ -36,8 +36,8 @@ A folder without a matching page still shows up and lists its children. Moving a
 | ` ```plantuml ` | A PlantUML diagram |
 | ` ```ts ` (any language) | Syntax highlighting |
 
-> [!WARNING]
-> PlantUML renders with a local `plantuml` command, or with a server you set in **Settings → App**. Diagram source is only sent to a server you configured.
+> [!TIP]
+> PlantUML diagrams render inside GitDesk with [rockuml](https://github.com/h3ll5ur7er/rockuml); no Java, no server, and the diagram source never leaves your machine. A diagram may start with `@startuml` or contain just the body.
 
 ## Diagrams
 

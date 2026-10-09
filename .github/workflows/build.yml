@@ -42,17 +42,9 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Configure Git for tests
-        run: |
-          git config --global user.name "GitDesk CI"
-          git config --global user.email "ci@gitdesk.invalid"
-          git config --global init.defaultBranch main
-
       - run: npm ci
 
-      - run: npm test
-
-      - run: npm run build
+      - uses: ./.github/actions/verify
 
       - name: Package
         run: npx electron-builder ${{ matrix.target }} --publish never

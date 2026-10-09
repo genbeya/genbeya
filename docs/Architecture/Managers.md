@@ -1,10 +1,22 @@
-# Engine
+# Managers
 
-`core/workspace.ts` is the single entry point for everything the renderer can do with a repository. Every method validates its arguments, so the class can sit directly behind IPC.
+Three managers implement everything the client can do with a repository. Their contracts are in `src/contracts/manager-contracts.ts`; `src/managers/backend.ts` composes them for a shell.
+
+| Manager | Use cases |
+| --- | --- |
+| `workspace` | Open, clone, restore and close repositories; snapshots; recent repositories; app preferences |
+| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, and the [[Content branch]] |
+| `versionControl` | Diffs, staging, commits, branches, remotes, fetch/pull/push, history |
+
+Every call names the workspace it was made for, so a call racing a repository switch fails instead of touching the new repository. Every argument is validated again in the manager, so managers can sit directly behind IPC.
+
+## Calls
+
+The client sends `{ manager, method, args }` and receives `{ ok: true, value }` or `{ ok: false, message }` (`src/contracts/rpc.ts`). `MANAGER_METHODS` lists the methods a shell may dispatch; the compiler checks that it matches the contracts.
 
 ## Snapshots
 
-The renderer polls `snapshot(version)` every few seconds and whenever the window regains focus. A snapshot holds branch state, changes, the file tree, the wiki tree, all tasks and settings. Its `version` is a hash of the content; when nothing changed the engine answers `null` and nothing is sent.
+The client asks for `snapshot(workspace, since)` every four seconds and whenever the window regains focus. A snapshot holds branch state, changes, the file tree, the wiki tree, all tasks and settings. `since` is the version the client already has; when nothing changed the manager answers `null` and nothing is sent.
 
 One snapshot costs a handful of Git calls:
 
@@ -15,8 +27,8 @@ One snapshot costs a handful of Git calls:
 
 ## Writes
 
-Saves carry the hash of the content they were based on. If the file changed on disk since, the save is rejected and the editor keeps the draft. All operations on one workspace run one at a time.
+Saves carry the hash of the content they were based on. If the file changed on disk since, the save is rejected and the editor keeps the draft. Line endings and a byte order mark are kept as they were. All operations on one workspace run one at a time.
 
 ## Paths
 
-Repository paths from the renderer are validated in `core/paths.ts`: no absolute paths, no `..`, nothing inside `.git` (including Windows aliases such as `.git.` and `GIT~1`). Hosts refuse to follow symbolic links below the repository root. Git runs with `--literal-pathspecs`, so file names are never globs.
+Repository paths from the client are validated in `src/utilities/repository-path.ts`: no absolute paths, no `..`, nothing inside `.git` (including Windows aliases such as `.git.` and `GIT~1`). Hosts refuse to follow symbolic links below the repository root. Git runs with `--literal-pathspecs`, so file names are never globs.
