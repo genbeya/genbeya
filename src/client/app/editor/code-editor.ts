@@ -1,7 +1,7 @@
 /** An editable file: CodeMirror with the language of its path. */
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
-import { ChangeDetectionStrategy, Component, DestroyRef, effect, ElementRef, inject, input, output, untracked } from "@angular/core";
+import { afterNextRender, ChangeDetectionStrategy, Component, DestroyRef, effect, ElementRef, inject, input, output, untracked } from "@angular/core";
 import { editingSetup, isProse, languageFor } from "./editor-setup";
 
 @Component({
@@ -45,6 +45,10 @@ export class CodeEditor {
       // Outside changes (reloads) replace the text; the user's own edits already match.
       if (view && view.state.doc.toString() !== value) view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
     });
+    // Focus needs the editor in the document.
+    afterNextRender(() => {
+      if (this.autofocus()) this.view?.focus();
+    });
     inject(DestroyRef).onDestroy(() => this.view?.destroy());
   }
 
@@ -66,7 +70,6 @@ export class CodeEditor {
     ];
     const view = new EditorView({ state: EditorState.create({ doc: untracked(this.value), extensions }), parent: this.host });
     this.view = view;
-    if (this.autofocus()) view.focus();
     void languageFor(path).then((support) => {
       if (support && this.view === view) view.dispatch({ effects: this.language.reconfigure(support) });
     });

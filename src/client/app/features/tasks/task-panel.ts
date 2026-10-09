@@ -192,19 +192,25 @@ export class TaskPanel {
     try {
       const task = this.task();
       if (!task) {
-        const created = await this.session.run(() => this.api.content.createTask(this.draft()));
+        const created = await this.session.run(async () => {
+          const result = await this.api.content.createTask(this.draft());
+          this.base.set(JSON.stringify(this.draft()));
+          return result;
+        });
         if (!created) return;
         this.session.contentChanged();
-        this.base.set(JSON.stringify(this.draft()));
         await this.router.navigate(["/tasks"], { queryParams: { task: created.id }, replaceUrl: true });
         return;
       }
-      const updated = await this.session.run(() => this.api.content.updateTask(task.path, this.draft(), this.editBase ?? task.hash));
-      if (!updated) return;
-      this.saved.set(updated);
-      this.session.contentChanged();
-      this.base.set(JSON.stringify(this.draft()));
-      this.editing.set(false);
+      // The result applies before the snapshot refresh, so the task is clean at once.
+      const updated = await this.session.run(async () => {
+        const result = await this.api.content.updateTask(task.path, this.draft(), this.editBase ?? task.hash);
+        this.saved.set(result);
+        this.base.set(JSON.stringify(this.draft()));
+        this.editing.set(false);
+        return result;
+      });
+      if (updated) this.session.contentChanged();
     } finally {
       this.saving = false;
     }

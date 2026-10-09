@@ -127,12 +127,14 @@ export class FileEditor {
     if (!file || !this.dirty() || this.saving) return;
     this.saving = true;
     const content = this.draft()!;
-    const saved = await this.session.run(() => this.api.content.write("repo", this.path(), content, file.hash));
+    // The result applies before the snapshot refresh, so the file is clean at once.
+    await this.session.run(async () => {
+      const saved = await this.api.content.write("repo", this.path(), content, file.hash);
+      this.resource.set(saved);
+      // Keep whatever was typed while the save was in flight.
+      this.draft.update((current) => (current === saved.content ? null : current));
+    });
     this.saving = false;
-    if (!saved) return;
-    this.resource.set(saved);
-    // Keep whatever was typed while the save was in flight.
-    this.draft.update((current) => (current === saved.content ? null : current));
   }
 
   protected async reload() {

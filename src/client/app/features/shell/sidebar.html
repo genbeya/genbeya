@@ -88,7 +88,7 @@
   }
 }
 
-<button type="button" class="branch-button" title="Switch branch" (click)="ui.openPalette('branches')">
+<button type="button" class="branch-button" title="Switch branch" [attr.aria-label]="'Switch branch (on ' + (snapshot().head.branch ?? 'no branch') + ')'" (click)="ui.openPalette('branches')">
   <svg lucideGitBranch [size]="14" aria-hidden="true"></svg>
   <span class="grow ellipsis">{{ snapshot().head.branch ?? (snapshot().head.commit ? "detached at " + snapshot().head.commit : "no commits") }}</span>
   @if (snapshot().head.ahead) {

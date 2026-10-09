@@ -127,10 +127,14 @@ export class WikiPage {
     if (!file || this.saving) return;
     if (this.draft() !== file.content) {
       this.saving = true;
-      const saved = await this.session.run(() => this.api.content.write("content", this.path(), this.draft(), file.hash));
+      // The result applies before the snapshot refresh, so the page is clean at once.
+      const saved = await this.session.run(async () => {
+        const result = await this.api.content.write("content", this.path(), this.draft(), file.hash);
+        this.resource.set(result);
+        return result;
+      });
       this.saving = false;
       if (!saved) return;
-      this.resource.set(saved);
       this.session.contentChanged();
     }
     if (close) this.editing.set(false);

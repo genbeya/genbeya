@@ -68,9 +68,11 @@ export class SettingsView {
 
   protected async save() {
     const form = this.form();
-    const saved = await this.session.run(async () => (await this.api.content.saveSettings(form, this.base().hash), true), "Settings saved");
     // The next snapshot brings the new version; until then the form counts as clean.
-    if (saved) this.base.update((base) => ({ ...base, settings: form }));
+    await this.session.run(async () => {
+      await this.api.content.saveSettings(form, this.base().hash);
+      this.base.update((base) => ({ ...base, settings: form }));
+    }, "Settings saved");
   }
 
   protected async setStorage(mode: StorageMode) {
