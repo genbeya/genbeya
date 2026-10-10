@@ -8,6 +8,7 @@
  */
 import type { RunOptions, RunResult } from "../ports";
 import type { PathStyle } from "../../utilities/native-path";
+import type { TerminalCommand } from "./terminal-commands";
 
 export type EntryKind = "file" | "dir" | null;
 
@@ -24,8 +25,12 @@ export interface Host {
   remove(root: string, relative: string): Promise<void>;
   /** Moves a file or folder; fails when the target exists. */
   move(root: string, from: string, to: string): Promise<void>;
+  /** How to start the user's shell in `path` on this machine's pseudo-terminal. */
+  terminalCommand(path: string): Promise<TerminalCommand>;
   dispose(): void;
 }
+
+export const TERMINALS_UNAVAILABLE = "The terminal is not available in this build.";
 
 export type HostErrorCode = "ENOENT" | "SYMLINK" | "NOTFILE" | "TOOLARGE" | "EXISTS" | "FAILED";
 

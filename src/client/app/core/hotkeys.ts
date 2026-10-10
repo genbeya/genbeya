@@ -32,14 +32,20 @@ function parse(text: string): Combo {
 export const isTyping = (target: EventTarget | null): boolean =>
   !!(target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable=true], [contenteditable=''], .cm-editor");
 
+/** Keys also matched by their position on a US keyboard: "`" is "§" on Swiss layouts and a dead key on German ones. */
+const BY_POSITION: Readonly<Record<string, string>> = { Backquote: "`" };
+
 function matches(combo: Combo, event: KeyboardEvent): boolean {
   if (combo.mod !== (isMac ? event.metaKey : event.ctrlKey) || combo.alt !== event.altKey) return false;
-  if (combo.key !== event.key.toLowerCase()) return false;
+  if (combo.key !== event.key.toLowerCase() && combo.key !== BY_POSITION[event.code]) return false;
   // Letters, digits and named keys match Shift exactly. Symbols take whatever Shift the layout needs ("/" is Shift+7 in Switzerland).
   const exactShift = combo.key.length > 1 || /^[a-z0-9]$/.test(combo.key);
   if (exactShift && combo.shift !== event.shiftKey) return false;
   return combo.mod || combo.alt || combo.key === "escape" || !isTyping(event.target);
 }
+
+/** True when `event` is the shortcut `combo`; for widgets that hand some keys to the app, such as the terminal. */
+export const matchesHotkey = (combo: string, event: KeyboardEvent): boolean => matches(parse(combo), event);
 
 @Injectable({ providedIn: "root" })
 export class Hotkeys {

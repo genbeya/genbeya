@@ -35,6 +35,13 @@ describe("palette items", () => {
     expect(rank(items, "", false).some((item) => item.group === "Files")).toBe(false);
   });
 
+  it("toggles the terminal", () => {
+    const toggle = items.find((item) => item.label === "Toggle terminal")!;
+    expect(toggle.hint).toBe("Ctrl `");
+    toggle.run();
+    expect(commands.toggleTerminal).toHaveBeenCalled();
+  });
+
   it("lists local and remote branches with an action to create one", () => {
     const branches = branchItems(repository, "new-name", commands);
     expect(branches.map((item) => item.label)).toEqual(["main", "feature", "origin/other", "Create branch…"]);

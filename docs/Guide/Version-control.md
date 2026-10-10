@@ -20,4 +20,4 @@ The branch button at the bottom of the sidebar switches branches; remote branche
 **History** shows every branch with a commit graph. Select a commit to see its message and files; merges are compared with their first parent.
 
 > [!NOTE]
-> GitDesk runs its own Git commands without repository hooks. Run Git in a terminal when a workflow depends on hooks.
+> GitDesk runs its own Git commands without repository hooks. Run Git in the [[Terminal]] when a workflow depends on hooks.

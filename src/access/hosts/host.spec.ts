@@ -11,6 +11,7 @@ import { HostFactory, locationOfFolder, validateFolderLocation, validateLocation
 import { LocalHost } from "./local-host";
 import { printfFormat, ShellHost } from "./shell-host";
 import { quote, ShellSession } from "./shell-session";
+import { localTerminal, sshTerminal, wslTerminal } from "./terminal-commands";
 
 const machine = nodeMachine();
 
@@ -207,11 +208,32 @@ describe("WSL", async () => {
   const ubuntu = (await new HostFactory(machine).distributions()).includes("Ubuntu");
   if (ubuntu) describeSessionCleanup("WSL (Ubuntu)", "wsl.exe", ["-d", "Ubuntu", "-e", "sh"]);
   else it.skip("needs the Ubuntu distribution", () => undefined);
+
+  it.skipIf(!ubuntu)("opens a terminal in the repository's folder", async () => {
+    const root = "/tmp/gitdesk terminal's test";
+    const host = new HostFactory(machine).connect({ kind: "wsl", distro: "Ubuntu", path: root });
+    await host.run("mkdir", ["-p", root], { cwd: "/" });
+    const { command, args } = await host.terminalCommand(root);
+    const terminal = await machine.terminals!.open(command, args, { cols: 120, rows: 30 });
+    onTestFinished(async () => {
+      terminal.kill();
+      await host.run("rm", ["-rf", root], { cwd: "/" });
+      host.dispose();
+    });
+    let output = "";
+    terminal.onData((data) => (output += data));
+    const exit = new Promise<number>((resolve) => terminal.onExit(resolve));
+    // The folder is printed in a form that differs from the typed command.
+    terminal.write("pwd | tr a-z A-Z\r");
+    await expect.poll(() => output, { timeout: 20_000 }).toContain("/TMP/GITDESK TERMINAL'S TEST");
+    terminal.write("exit\r");
+    expect(await exit).toBe(0);
+  });
 });
 describe.skipIf(!shell)("shell transport", () => {
   describeHost("ShellHost", async () => {
     const session = new ShellSession(machine.processes, shell!, [], "sh");
-    const host = new ShellHost(session);
+    const host = new ShellHost(session, (path) => ({ command: shell!, args: [], cwd: path }));
     const made = await host.run("sh", ["-c", "mktemp -d"], { cwd: "/" });
     const root = decodeLenient(made.stdout).trim();
     const sh = (script: string) => host.run("sh", ["-c", script], { cwd: root });
@@ -305,6 +327,28 @@ describe("locations", () => {
     [null, "Invalid"],
   ])("refuses to browse %j", (value, message) => {
     expect(() => validateFolderLocation(value)).toThrow(message);
+  });
+});
+
+describe("terminal commands of hosts", () => {
+  it("start each host's shell in the repository", async () => {
+    const factory = new HostFactory(machine);
+    const hosts = [
+      factory.connect({ kind: "wsl", distro: "Ubuntu", path: "/r" }),
+      factory.connect({ kind: "ssh", host: "me@server", path: "/r" }),
+      factory.connect({ kind: "local", path: "C:\\r" }),
+    ];
+    onTestFinished(() => hosts.forEach((host) => host.dispose()));
+    const [wsl, ssh, local] = await Promise.all(hosts.map((host) => host.terminalCommand("/r")));
+    expect(wsl).toEqual(wslTerminal("Ubuntu", "/r"));
+    expect(ssh).toEqual(sshTerminal("me@server", "/r"));
+    expect(local).toEqual(localTerminal(await machine.terminals!.shell(), "/r"));
+  });
+
+  it("explain that a runtime without terminals has none", async () => {
+    await expect(new LocalHost({ ...machine, terminals: null }).terminalCommand("/r")).rejects.toThrow(
+      "The terminal is not available in this build.",
+    );
   });
 });
 

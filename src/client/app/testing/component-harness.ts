@@ -1,4 +1,5 @@
 /** Test setup for feature components: fake platform, router, dialogs and diagrams, and an open repository. */
+import type { Provider } from "@angular/core";
 import { provideRouter, Router } from "@angular/router";
 import { TestBed } from "@angular/core/testing";
 import type { Snapshot } from "../../../contracts/model";
@@ -21,8 +22,8 @@ export interface Harness {
   readonly session: Session;
 }
 
-/** Configures TestBed and opens a repository with `snapshot`. */
-export async function openRepository(change: Partial<Snapshot> = {}): Promise<Harness> {
+/** Configures TestBed, with extra `providers` if given, and opens a repository with `snapshot`. */
+export async function openRepository(change: Partial<Snapshot> = {}, providers: Provider[] = []): Promise<Harness> {
   const managers = fakeManagers();
   const shell = fakeShell();
   const dialogs = {
@@ -40,6 +41,7 @@ export async function openRepository(change: Partial<Snapshot> = {}): Promise<Ha
       // The shell provides it in the app.
       CommitDraft,
       { provide: Diagrams, useValue: { draw: vi.fn(async () => ({ svg: "<svg></svg>", isError: false })) } },
+      ...providers,
     ],
   });
   const session = TestBed.inject(Session);

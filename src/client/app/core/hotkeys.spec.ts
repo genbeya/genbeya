@@ -1,6 +1,6 @@
 import { Dialog } from "@angular/cdk/dialog";
 import { TestBed } from "@angular/core/testing";
-import { Hotkeys, isMac } from "./hotkeys";
+import { Hotkeys, isMac, isTyping, matchesHotkey } from "./hotkeys";
 
 const press = (key: string, init: KeyboardEventInit = {}, target: EventTarget = document.body) => {
   const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
@@ -82,6 +82,24 @@ describe("Hotkeys", () => {
     press("/", { shiftKey: true });
     press("/");
     expect(filter).toHaveBeenCalledTimes(2);
+  });
+
+  it("matches the backquote key by position on layouts without it", () => {
+    // Ctrl+` on a US layout is Ctrl+§ on a Swiss one, and a dead key on a German one.
+    const toggle = vi.fn();
+    hotkeys.register("mod+`", toggle);
+    press("`", mod);
+    press("§", { ...mod, code: "Backquote" });
+    press("Dead", { ...mod, code: "Equal" });
+    expect(toggle).toHaveBeenCalledTimes(2);
+  });
+
+  it("tells whether an event is a shortcut, for widgets that let some keys through", () => {
+    const textarea = document.body.appendChild(document.createElement("textarea"));
+    expect(matchesHotkey("mod+`", new KeyboardEvent("keydown", { key: "`", ...mod }))).toBe(true);
+    expect(matchesHotkey("mod+`", new KeyboardEvent("keydown", { key: "`" }))).toBe(false);
+    expect(isTyping(textarea)).toBe(true);
+    textarea.remove();
   });
 
   it("stays out of the way of open dialogs and menus", () => {

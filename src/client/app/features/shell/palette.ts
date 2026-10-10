@@ -4,6 +4,7 @@ import { Router } from "@angular/router";
 import { MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
+import { Terminals } from "../../core/terminals";
 import { WikiActions } from "../wiki/wiki-actions";
 import { PaletteIcon } from "./palette-icon";
 import { allItems, branchItems, rank, type PaletteCommands, type PaletteItem } from "./palette-items";
@@ -74,6 +75,7 @@ export class Palette {
   private readonly wiki = inject(WikiActions);
   private readonly repository = inject(RepositoryActions);
   private readonly ui = inject(ShellUi);
+  private readonly terminals = inject(Terminals);
   protected readonly query = signal("");
   protected readonly active = signal(0);
   private readonly recent = inject(Repositories).recent;
@@ -99,6 +101,7 @@ export class Palette {
     openRecent: (entry) => void this.session.open(entry.location),
     setTheme: (theme) => void this.session.setPreferences({ theme }),
     showHelp: () => void this.ui.showHelp(),
+    toggleTerminal: () => void this.terminals.toggle(),
   };
 
   private readonly items = computed<PaletteItem[]>(() => {

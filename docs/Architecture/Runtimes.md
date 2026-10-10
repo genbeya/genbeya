@@ -34,16 +34,17 @@ The Angular client is 613 kB of initial JavaScript (120 kB compressed). Mermaid 
 
 ## What each runtime costs
 
-**Electron**: the largest download, and Chromium updates come with the app. In exchange the best isolation (managers in their own process, sandboxed renderer, navigation guard), the same engine on every OS, and the end-to-end tests run against it.
+**Electron**: the largest download, and Chromium updates come with the app. In exchange the best isolation (managers in their own process, sandboxed renderer, navigation guard), the same engine on every OS, and the end-to-end tests run against it. The [[Terminal]] uses node-pty, a native module that ships unpacked next to the app archive.
 
 **Tauri**
-- The managers run in the webview, so the page has file and process access through the Rust commands. Processes are limited to `git`, `ssh` and `wsl`, but file paths are not scoped yet. The content security policy and the Markdown allowlist are what keeps repository content from using it. Keeping a process boundary means moving the managers into a sidecar process or porting them to Rust.
+- The managers run in the webview, so the page has file and process access through the Rust commands. Processes are limited to `git`, `ssh` and `wsl`, terminals to the user's shell, `wsl` and `ssh` (portable-pty), but file paths are not scoped yet. The content security policy and the Markdown allowlist are what keeps repository content from using it. Keeping a process boundary means moving the managers into a sidecar process or porting them to Rust.
 - Linux renders with WebKitGTK, which is slower and less complete than Chromium; macOS uses WKWebView. Both need testing with the editor, diagrams and drag and drop.
 - No jump list or window size memory yet.
 
 **Deno Desktop**
 - Labelled experimental. No folder dialog (the shell calls PowerShell, `osascript` or `zenity`), no theme override, no shell-level navigation guard, no single-instance or jump list support. It is packaged with all permissions (`-A`).
 - Would write its WebView2 profile next to the executable; the packaged app moves it to `%LOCALAPPDATA%\GitDesk Deno` with an environment file read at start (`src/shells/deno/desktop.env`).
+- No [[Terminal]]. node-pty loads under Deno's Node compatibility, but on Windows it opens its ConPTY pipes with `fs` calls Deno rejects, and `deno desktop` cannot bundle a native module. The shell gives the managers a machine without terminals, and the panel says so.
 - Ships its own runtime, so the size win is small, and it uses the most memory of the three.
 
 ## Trying the builds

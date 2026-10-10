@@ -21,6 +21,9 @@
     "package:deno": "ng build && node scripts/package-deno.mjs",
     "package:tauri": "ng build && cd src/shells/tauri && tauri build"
   },
+  "dependencies": {
+    "node-pty": "^1.1.0"
+  },
   "devDependencies": {
     "@angular/build": "^22.2.2",
     "@angular/cdk": "^22.2.2",
@@ -56,6 +59,8 @@
     "@types/hast": "^3.0.5",
     "@types/mdast": "^4.0.4",
     "@types/node": "^24.19.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "angular-eslint": "^22.5.0",
     "deno": "^2.9.6",
     "electron": "^44.7.0",
@@ -91,8 +96,14 @@
     "files": [
       "dist/client/**/*",
       "dist/electron/**/*",
-      "package.json"
+      "package.json",
+      "!node_modules/node-pty/{deps,scripts,src,third_party,typings}/**",
+      "!node_modules/node-pty/**/*.pdb"
     ],
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ],
+    "npmRebuild": false,
     "publish": null,
     "mac": {
       "target": {
@@ -132,6 +143,7 @@
     "@parcel/watcher": false,
     "electron-winstaller": false,
     "lmdb": false,
-    "msgpackr-extract": false
+    "msgpackr-extract": false,
+    "node-pty@1.1.0": true
   }
 }

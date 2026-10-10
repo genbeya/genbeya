@@ -12,7 +12,7 @@ flowchart TB
     bridge[Bridge: RPC envelope, window, dialogs]
   end
   subgraph Backend["Backend (plain TypeScript)"]
-    managers[Managers: workspace, content, version control] --> engines[Engines: wiki, tasks, settings]
+    managers[Managers: workspace, content, version control, terminal] --> engines[Engines: wiki, tasks, settings]
     managers --> access[Resource access: hosts, Git, files, content, preferences]
     access --> machine[Machine port]
   end
@@ -28,7 +28,7 @@ flowchart TB
 | Engines | `src/engines/` | The rules for tasks, wiki pages and settings. Pure functions, no I/O | contracts, utilities |
 | Resource access | `src/access/` | Where repositories live (local, WSL, SSH), how Git is called, how files and preferences are stored | contracts, utilities, the Machine port |
 | Managers | `src/managers/` | The use cases: open a repository, save a page, commit. One per area of change | engines, access |
-| Platforms | `src/platforms/` | The machine itself: Node's `fs` and `child_process`, or Tauri's Rust commands | contracts |
+| Platforms | `src/platforms/` | The machine itself: Node's `fs`, `child_process` and node-pty, or Tauri's Rust commands | contracts |
 | Shells | `src/shells/` | The desktop runtime: window, IPC, menus, packaging | everything below |
 | Client | `src/client/` | The user interface | contracts only; reaches the managers through its platform connector |
 

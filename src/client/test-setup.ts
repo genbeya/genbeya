@@ -18,6 +18,14 @@ if (typeof CSS === "undefined" || typeof CSS.escape !== "function")
     CSS: { ...(globalThis as { CSS?: object }).CSS, escape: (value: string) => value.replace(/[^\w-]/g, (c) => `\\${c}`) },
   });
 
+// The terminal waits for its font and fits itself to its box.
+if (!("fonts" in document)) Object.assign(document, { fonts: { load: async () => [] } });
+globalThis.ResizeObserver ??= class {
+  observe = () => undefined;
+  unobserve = () => undefined;
+  disconnect = () => undefined;
+};
+
 // CodeMirror measures text through ranges.
 const emptyRects = () => Object.assign([], { item: () => null }) as unknown as DOMRectList;
 Range.prototype.getClientRects ??= emptyRects;

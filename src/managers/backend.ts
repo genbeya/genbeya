@@ -11,12 +11,13 @@ import { SettingsEngine } from "../engines/settings-engine";
 import { TaskEngine } from "../engines/task-engine";
 import { WikiEngine } from "../engines/wiki-engine";
 import { ContentManager } from "./content-manager";
+import { TerminalManager } from "./terminal-manager";
 import { VersionControlManager } from "./version-control-manager";
 import { WorkspaceManager } from "./workspace-manager";
 import { WorkspaceRegistry } from "./workspace";
 
 export interface Backend extends Managers {
-  /** Closes repositories and remote sessions, and saves pending preferences. */
+  /** Closes repositories (ending their terminals) and remote sessions, and saves pending preferences. */
   dispose(): Promise<void>;
 }
 
@@ -31,6 +32,7 @@ export async function createBackend(machine: Machine, dataFolder: string): Promi
     workspace: new WorkspaceManager(registry, hosts, folders, preferences, engines),
     content: new ContentManager(registry, engines),
     versionControl: new VersionControlManager(registry),
+    terminal: new TerminalManager(registry, machine.terminals),
     async dispose() {
       folders.dispose();
       await registry.closeAll();

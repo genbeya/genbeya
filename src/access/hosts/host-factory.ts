@@ -5,6 +5,7 @@ import type { Host } from "./host";
 import { LocalHost } from "./local-host";
 import { ShellHost } from "./shell-host";
 import { ShellSession } from "./shell-session";
+import { sshTerminal, wslTerminal } from "./terminal-commands";
 
 const SSH_DESTINATION = /^(ssh:\/\/)?[A-Za-z0-9._@:[\]%-]+$/;
 const MAX_TEXT = 4096;
@@ -65,7 +66,10 @@ export class HostFactory {
   constructor(private readonly machine: Machine) {}
 
   connect(location: Location): Host {
-    return location.kind === "local" ? new LocalHost(this.machine) : new ShellHost(this.session(location));
+    if (location.kind === "local") return new LocalHost(this.machine);
+    const terminal =
+      location.kind === "wsl" ? (path: string) => wslTerminal(location.distro, path) : (path: string) => sshTerminal(location.host, path);
+    return new ShellHost(this.session(location), terminal);
   }
 
   /** A shell on the WSL distribution or SSH server of `location`; it connects on first use. */

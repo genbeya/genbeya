@@ -1,6 +1,6 @@
 /** Behaviour every Machine implementation must show; run by each platform's spec. */
-import { describe, expect, it } from "vitest";
-import { FileSystemError, type Machine } from "../access/ports";
+import { describe, expect, it, onTestFinished } from "vitest";
+import { FileSystemError, type Machine, type Terminal } from "../access/ports";
 import { decodeLenient, encodeText } from "../utilities/bytes";
 
 export interface MachineFixture {
@@ -11,6 +11,21 @@ export interface MachineFixture {
   echo: { command: string; args: string[] };
   /** Creates a symbolic link or junction; false when the OS refuses (unprivileged Windows). */
   link(target: string, path: string): Promise<boolean>;
+  /**
+   * A program for a pseudo-terminal: prints `size <cols>x<rows>` when it starts
+   * and when the terminal is resized, `got <input>` for input, and exits with
+   * code 7 on "q".
+   */
+  terminalProgram: { command: string; args: string[] };
+}
+
+/** Collects a terminal's output; `until` waits for text to appear in it. */
+function recorder(terminal: Terminal) {
+  let output = "";
+  terminal.onData((data) => (output += data));
+  const exit = new Promise<number>((resolve) => terminal.onExit(resolve));
+  const until = (text: string) => expect.poll(() => output, { timeout: 15_000 }).toContain(text);
+  return { exit, until, output: () => output };
 }
 
 export function describeMachine(name: string, fixture: () => MachineFixture) {
@@ -105,6 +120,46 @@ export function describeMachine(name: string, fixture: () => MachineFixture) {
       const { machine } = fixture();
       const child = machine.processes.spawn("gitdesk-no-such-program", []);
       expect(await new Promise<number>((resolve) => child.onExit(resolve))).toBe(127);
+    });
+  });
+
+  describe.skipIf(!fixture().machine.terminals)(`${name} terminals`, () => {
+    const open = async (command: string, args: readonly string[], cwd?: string) => {
+      const terminal = await fixture().machine.terminals!.open(command, args, {
+        cwd: cwd ?? (await fixture().folder()),
+        cols: 100,
+        rows: 30,
+      });
+      onTestFinished(() => terminal.kill());
+      return { terminal, ...recorder(terminal) };
+    };
+
+    it("runs a program on a terminal of the given size, with input, resizing and its exit code", async () => {
+      const { command, args } = fixture().terminalProgram;
+      const { terminal, until, exit } = await open(command, args);
+      await until("size 100x30");
+      terminal.write("x");
+      await until("got x");
+      terminal.resize(90, 20);
+      await until("size 90x20");
+      terminal.write("q");
+      expect(await exit).toBe(7);
+    });
+
+    it("starts the user's shell in a folder", async () => {
+      const { machine, folder } = fixture();
+      const shell = await machine.terminals!.shell();
+      const root = await folder();
+      const { terminal, until, exit } = await open(shell, [], root);
+      // The output differs from the echoed input, so it proves the command ran.
+      terminal.write("git --version\r");
+      await until("git version");
+      terminal.write("exit\r");
+      expect(await exit).toBe(0);
+    });
+
+    it("rejects programs that cannot start", async () => {
+      await expect(open("gitdesk-no-such-program", [])).rejects.toThrow("gitdesk-no-such-program was not found");
     });
   });
 }

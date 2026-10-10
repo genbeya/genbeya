@@ -118,6 +118,18 @@
   background: linear-gradient(to right, transparent 2px, var(--accent) 2px, var(--accent) 3px, transparent 3px);
 }
 
+.resizer[aria-orientation="horizontal"] {
+  width: auto;
+  height: 5px;
+  margin: -3px 0;
+  cursor: row-resize;
+}
+
+.resizer[aria-orientation="horizontal"]:hover,
+.resizer[aria-orientation="horizontal"].is-dragging {
+  background: linear-gradient(to bottom, transparent 2px, var(--accent) 2px, var(--accent) 3px, transparent 3px);
+}
+
 .content-scroll {
   flex: 1;
   min-width: 0;

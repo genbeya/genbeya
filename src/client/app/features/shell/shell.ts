@@ -1,13 +1,14 @@
 import { Location as BrowserHistory } from "@angular/common";
-import { ChangeDetectionStrategy, Component, DestroyRef, inject } from "@angular/core";
+import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, viewChild, ViewContainerRef } from "@angular/core";
 import { Router, RouterOutlet } from "@angular/router";
 import { hotkey } from "../../core/hotkeys";
 import { Session } from "../../core/session";
+import { Terminals, TOGGLE_TERMINAL } from "../../core/terminals";
 import { ShellUi } from "./shell-ui";
 import { CommitDraft } from "../changes/commit-draft";
 import { Sidebar, VIEWS } from "./sidebar";
 
-/** The open repository: sidebar, the routed view, and the shortcuts that work everywhere. */
+/** The open repository: sidebar, the routed view, the terminal panel, and the shortcuts that work everywhere. */
 @Component({
   selector: "gd-shell",
   imports: [Sidebar, RouterOutlet],
@@ -17,13 +18,18 @@ import { Sidebar, VIEWS } from "./sidebar";
   styleUrl: "./shell.css",
   template: `
     <gd-sidebar />
-    <main class="main" [attr.aria-busy]="session.phase() === 'opening'">
-      <router-outlet />
-    </main>
+    <div class="workspace">
+      <main class="main" [attr.aria-busy]="session.phase() === 'opening'">
+        <router-outlet />
+      </main>
+      <ng-container #terminalPanel />
+    </div>
   `,
 })
 export class Shell {
   protected readonly session = inject(Session);
+  private readonly terminals = inject(Terminals);
+  private readonly terminalPanel = viewChild.required("terminalPanel", { read: ViewContainerRef });
 
   constructor() {
     const router = inject(Router);
@@ -42,6 +48,14 @@ export class Shell {
       (event) => void router.navigate(["/" + VIEWS[Number(event.key) - 1]]),
     );
     hotkey("mod+,", () => void router.navigate(["/settings"]));
+    hotkey(TOGGLE_TERMINAL, () => void this.terminals.toggle());
+    // The panel, with xterm.js, loads when a terminal is first wanted; then it stays, shown or hidden, for every view.
+    let loading = false;
+    effect(() => {
+      if (!this.terminals.shown() || loading) return;
+      loading = true;
+      void import("../terminal/terminal-panel").then(({ TerminalPanel }) => this.terminalPanel().createComponent(TerminalPanel));
+    });
 
     // The mouse's back and forward buttons.
     const mouse = (event: MouseEvent) => {
@@ -51,6 +65,9 @@ export class Shell {
       else history.forward();
     };
     addEventListener("mouseup", mouse);
-    inject(DestroyRef).onDestroy(() => removeEventListener("mouseup", mouse));
+    const destroyRef = inject(DestroyRef);
+    destroyRef.onDestroy(() => removeEventListener("mouseup", mouse));
+    // Terminals belong to the repository; the backend ends their shells as it closes.
+    destroyRef.onDestroy(() => this.terminals.closeAll());
   }
 }
