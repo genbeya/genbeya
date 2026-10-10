@@ -2,7 +2,7 @@
 import { posixPaths } from "../../utilities/native-path";
 import type { RunOptions } from "../ports";
 import { HostError, type EntryKind, type Host, type HostErrorCode } from "./host";
-import { quote, type ShellSession } from "./shell-session";
+import { exportVariables, quote, type ShellSession } from "./shell-session";
 import type { TerminalCommand } from "./terminal-commands";
 
 /** Exit codes of the file scripts below. */
@@ -27,8 +27,10 @@ export class ShellHost implements Host {
     private readonly terminal: (path: string) => TerminalCommand,
   ) {}
 
-  run(command: string, args: readonly string[], { cwd, timeout }: RunOptions) {
-    return this.session.exec(`cd ${quote(cwd)} && exec ${[command, ...args].map(quote).join(" ")}`, timeout);
+  run(command: string, args: readonly string[], { cwd, timeout, env }: RunOptions) {
+    // Each request runs in a subshell of its own, so the variables stay with this command.
+    const variables = env && Object.keys(env).length ? `${exportVariables(env)} && ` : "";
+    return this.session.exec(`cd ${quote(cwd)} && ${variables}exec ${[command, ...args].map(quote).join(" ")}`, timeout);
   }
 
   /** Runs a file script with positional parameters; maps its exit code to an error. */

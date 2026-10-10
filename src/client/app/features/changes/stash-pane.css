@@ -1,0 +1,57 @@
+.stash-head {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  max-height: 46%;
+  padding: 18px 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.stash-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.stash-meta {
+  margin-top: 4px;
+  font-size: 12.5px;
+}
+
+.stash-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 10px;
+}
+
+.stash-files {
+  flex: 1;
+  min-height: 0;
+  margin: 0 -12px;
+  padding-bottom: 8px;
+  overflow: auto;
+}
+
+.stash-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: none;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.stash-file:hover {
+  background: var(--bg-hover);
+}
+
+.stash-file.is-selected {
+  background: var(--bg-active);
+}

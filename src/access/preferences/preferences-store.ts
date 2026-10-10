@@ -8,6 +8,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
   reopenLast: true,
   autoSyncContent: false,
+  minimap: true,
   lastSeenVersion: null,
   tourSeen: false,
   tourOffered: [],

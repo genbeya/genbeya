@@ -2,20 +2,11 @@
  * The look and behaviour every CodeMirror instance shares. Colours come
  * from the design tokens, so editors follow the theme without reconfiguring.
  */
-import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import {
-  bracketMatching,
-  foldGutter,
-  foldKeymap,
-  HighlightStyle,
-  indentOnInput,
-  LanguageDescription,
-  syntaxHighlighting,
-  type LanguageSupport,
-} from "@codemirror/language";
+import { closeBrackets } from "@codemirror/autocomplete";
+import { history } from "@codemirror/commands";
+import { indentOnInput, LanguageDescription, syntaxHighlighting, type LanguageSupport } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
-import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
+import { highlightSelectionMatches } from "@codemirror/search";
 import type { Extension } from "@codemirror/state";
 import {
   drawSelection,
@@ -23,11 +14,13 @@ import {
   highlightActiveLine,
   highlightActiveLineGutter,
   highlightSpecialChars,
-  keymap,
   lineNumbers,
-  rectangularSelection,
 } from "@codemirror/view";
-import { tags } from "@lezer/highlight";
+import { brackets } from "./brackets";
+import { editingKeymap, multipleCursors } from "./editor-keymap";
+import { findWidget } from "./find-widget";
+import { folding } from "./folding";
+import { highlight } from "./syntax";
 
 export const editorTheme = EditorView.theme({
   "&": { height: "100%", color: "var(--text)", backgroundColor: "transparent", fontSize: "13px" },
@@ -37,12 +30,11 @@ export const editorTheme = EditorView.theme({
   "&.cm-focused": { outline: "none" },
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": { backgroundColor: "var(--accent-soft) !important" },
   ".cm-activeLine": { backgroundColor: "var(--bg-hover)" },
-  ".cm-gutters": { backgroundColor: "transparent", color: "var(--text-3)", border: "none", paddingLeft: "6px" },
+  // Opaque, so text scrolled sideways passes under the line numbers.
+  ".cm-gutters": { backgroundColor: "var(--bg-panel)", color: "var(--text-3)", border: "none", paddingLeft: "6px" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--text-2)" },
-  ".cm-foldPlaceholder": { backgroundColor: "var(--bg-active)", border: "none", color: "var(--text-2)" },
   ".cm-searchMatch": { backgroundColor: "var(--yellow-soft)", outline: "1px solid var(--yellow)" },
   ".cm-selectionMatch": { backgroundColor: "var(--bg-active)" },
-  ".cm-matchingBracket": { backgroundColor: "var(--bg-active)", outline: "1px solid var(--line-strong)" },
   ".cm-panels": { backgroundColor: "var(--bg-raised)", color: "var(--text)", borderColor: "var(--line)" },
   ".cm-panel input, .cm-panel button": { font: "inherit", color: "inherit" },
   ".cm-tooltip": { backgroundColor: "var(--bg-overlay)", border: "none", boxShadow: "var(--shadow-pop)", borderRadius: "var(--radius)" },
@@ -66,37 +58,23 @@ export const editorTheme = EditorView.theme({
   },
 });
 
-/** Syntax colours, matching the Markdown code highlighting. */
-const highlight = HighlightStyle.define([
-  { tag: [tags.keyword, tags.operatorKeyword, tags.modifier, tags.controlKeyword], color: "var(--purple)" },
-  { tag: [tags.string, tags.special(tags.string), tags.regexp], color: "var(--green)" },
-  { tag: [tags.number, tags.bool, tags.null, tags.atom], color: "var(--orange)" },
-  { tag: [tags.comment, tags.meta], color: "var(--text-3)", fontStyle: "italic" },
-  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: "var(--blue)" },
-  { tag: [tags.typeName, tags.className, tags.namespace], color: "var(--yellow)" },
-  { tag: [tags.tagName, tags.heading], color: "var(--accent-text)", fontWeight: "600" },
-  { tag: [tags.attributeName, tags.propertyName], color: "var(--text-2)" },
-  { tag: tags.link, color: "var(--accent-text)", textDecoration: "underline" },
-  { tag: tags.emphasis, fontStyle: "italic" },
-  { tag: tags.strong, fontWeight: "700" },
-  { tag: tags.invalid, color: "var(--red)" },
-]);
-
-/** Editing behaviour; line numbers and folding are optional for prose. */
+/** Editing as in VS Code (see editor-keymap.ts); line numbers are optional for prose. */
 export function editingSetup(numbered: boolean): Extension[] {
   return [
-    ...(numbered ? [lineNumbers(), highlightActiveLineGutter(), foldGutter()] : []),
+    ...(numbered ? [lineNumbers(), highlightActiveLineGutter()] : []),
+    folding(),
     highlightSpecialChars(),
     history(),
     drawSelection(),
+    multipleCursors,
     indentOnInput(),
-    bracketMatching(),
+    brackets(),
     closeBrackets(),
-    rectangularSelection(),
     highlightActiveLine(),
     highlightSelectionMatches(),
+    findWidget(),
     syntaxHighlighting(highlight),
-    keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap, ...foldKeymap, indentWithTab]),
+    editingKeymap,
     editorTheme,
   ];
 }

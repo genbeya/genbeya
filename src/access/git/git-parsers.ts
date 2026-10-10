@@ -1,5 +1,66 @@
 /** Parsers for git's machine-readable output formats. */
-import type { Change, Commit, CommitFile, Head } from "../../contracts/model";
+import type { Change, Commit, CommitFile, ConflictKind, Head, Operation, RebaseCommit, Stash } from "../../contracts/model";
+
+/** Files of the git directory that tell which operation is in progress, and how far it got. */
+export const OPERATION_FILES = [
+  "MERGE_HEAD",
+  "MERGE_MSG",
+  "CHERRY_PICK_HEAD",
+  "REVERT_HEAD",
+  "rebase-merge/head-name",
+  "rebase-merge/onto",
+  "rebase-merge/msgnum",
+  "rebase-merge/end",
+  "rebase-apply/head-name",
+  "rebase-apply/onto",
+  "rebase-apply/next",
+  "rebase-apply/last",
+] as const;
+
+export type OperationFiles = Partial<Record<(typeof OPERATION_FILES)[number], string>>;
+
+/**
+ * The operation in progress, from the {@link OPERATION_FILES} that exist; null
+ * when there is none. `branch` is the checked-out branch, which merges, picks
+ * and reverts go into; a rebase names the commit it goes onto.
+ */
+export function parseOperation(files: OperationFiles, branch: string | null): Operation | null {
+  const firstLine = (text?: string) => text?.split("\n")[0]!.trim() ?? "";
+  const number = (text?: string) => (text?.trim() ? Number(text.trim()) : null);
+  const progress = { step: null, steps: null };
+  for (const backend of ["rebase-merge", "rebase-apply"] as const) {
+    const head = files[`${backend}/head-name`];
+    if (head === undefined) continue;
+    const merge = backend === "rebase-merge";
+    return {
+      kind: "rebase",
+      source: firstLine(head).replace(/^refs\/heads\//, ""),
+      target: firstLine(files[`${backend}/onto`]) || null,
+      step: number(merge ? files["rebase-merge/msgnum"] : files["rebase-apply/next"]),
+      steps: number(merge ? files["rebase-merge/end"] : files["rebase-apply/last"]),
+    };
+  }
+  const message = firstLine(files.MERGE_MSG);
+  if (files.MERGE_HEAD !== undefined) {
+    const named = /^Merge (?:remote-tracking branch|branch|tag|commit) '([^']+)'/.exec(message);
+    return { kind: "merge", source: named?.[1] ?? firstLine(files.MERGE_HEAD).slice(0, 7), target: branch, ...progress };
+  }
+  if (files.CHERRY_PICK_HEAD !== undefined) return { kind: "cherry-pick", source: message, target: branch, ...progress };
+  if (files.REVERT_HEAD !== undefined)
+    return { kind: "revert", source: /^Revert "(.*)"$/.exec(message)?.[1] ?? message, target: branch, ...progress };
+  return null;
+}
+
+/** The XY letters of an unmerged entry in `git status`. */
+const CONFLICTS: Readonly<Record<string, ConflictKind>> = {
+  UU: "both-modified",
+  AA: "both-added",
+  DD: "both-deleted",
+  AU: "added-by-us",
+  UA: "added-by-them",
+  DU: "deleted-by-us",
+  UD: "deleted-by-them",
+};
 
 /** `git status --porcelain=v2 --branch -z` → branch state and changes. */
 export function parseStatus(output: string): { head: Head; changes: Change[] } {
@@ -16,10 +77,15 @@ export function parseStatus(output: string): { head: Head; changes: Change[] } {
       else if (key === "branch.head" && value !== "(detached)") head = { ...head, branch: value };
       else if (key === "branch.upstream") head = { ...head, upstream: value };
       else if (key === "branch.ab") head = { ...head, ahead: Number(rest[0]), behind: -Number(rest[1]) };
-    } else if (record.startsWith("1 ") || record.startsWith("u ")) {
+    } else if (record.startsWith("1 ")) {
       const fields = record.split(" ");
       const xy = fields[1]!;
-      changes.push({ path: fields.slice(record[0] === "1" ? 8 : 10).join(" "), index: letter(xy[0]!), worktree: letter(xy[1]!) });
+      changes.push({ path: fields.slice(8).join(" "), index: letter(xy[0]!), worktree: letter(xy[1]!) });
+    } else if (record.startsWith("u ")) {
+      const fields = record.split(" ");
+      const xy = fields[1]!;
+      const conflict = CONFLICTS[xy];
+      changes.push({ path: fields.slice(10).join(" "), index: xy[0]!, worktree: xy[1]!, ...(conflict ? { conflict } : {}) });
     } else if (record.startsWith("2 ")) {
       const fields = record.split(" ");
       const xy = fields[1]!;
@@ -52,6 +118,45 @@ export function parseLog(output: string): Commit[] {
     });
   }
   return commits;
+}
+
+/** Hash, parents, author, date and full message of commits to rebase; NUL-separated. */
+export const REBASE_FORMAT = "%H%x00%P%x00%an%x00%aI%x00%B%x00";
+
+export function parseRebaseCommits(output: string): RebaseCommit[] {
+  const parts = output.split("\0");
+  const commits: RebaseCommit[] = [];
+  for (let i = 0; i + 4 < parts.length; i += 5) {
+    const hash = parts[i]!.trim();
+    if (!hash) continue;
+    const message = parts[i + 4]!.trim();
+    commits.push({
+      hash,
+      subject: message.split("\n")[0]!,
+      message,
+      author: parts[i + 2]!,
+      date: parts[i + 3]!,
+      merge: parts[i + 1]!.split(" ").filter(Boolean).length > 1,
+    });
+  }
+  return commits;
+}
+
+/** Hash, date and reflog subject of each stash, one per line. */
+export const STASH_FORMAT = "%H%x00%cI%x00%gs";
+
+/** `git stash list` in STASH_FORMAT → stashes, newest first. */
+export function parseStashes(output: string): Stash[] {
+  return output
+    .split("\n")
+    .filter(Boolean)
+    .map((line, index) => {
+      const [hash = "", date = "", subject = ""] = line.split("\0");
+      // "On main: message" or "WIP on main: 1234567 subject"; branch names cannot hold colons.
+      const match = /^(?:WIP on|On) ([^:]+): ([\s\S]*)$/.exec(subject);
+      const branch = match && match[1] !== "(no branch)" ? match[1]! : null;
+      return { hash, index, date, branch, message: match ? match[2]! : subject };
+    });
 }
 
 /** `--name-status -z` output; renames and copies report the new path and keep the old one. */

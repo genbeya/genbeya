@@ -20,6 +20,11 @@ describe("Git", () => {
     expect(await repository.exists("fsmonitor-ran")).toBe(false);
   });
 
+  it("explains failures git prints to standard output", async () => {
+    const repository = await createRepository();
+    await expect(new Git(host, repository.root).text(["commit", "-m", "Nothing"])).rejects.toThrow(/nothing to commit/);
+  });
+
   it("passes a failed command's result through without throwing", async () => {
     const repository = await createRepository();
     const result = await new Git(host, repository.root).run(["rev-parse", "--verify", "--quiet", "no-such-ref"]);

@@ -254,6 +254,19 @@
             />
           </div>
         </div>
+        <div class="setting-row">
+          <div class="setting-label"><label for="setting-minimap">Show minimap</label><small>Beside code in the editor.</small></div>
+          <div class="setting-control">
+            <input
+              #minimap
+              id="setting-minimap"
+              type="checkbox"
+              class="switch"
+              [checked]="session.preferences().minimap"
+              (change)="session.setPreferences({ minimap: minimap.checked })"
+            />
+          </div>
+        </div>
       </div>
     </section>
 

@@ -132,10 +132,11 @@ describe("WorkspaceManager", () => {
 
   it("validates preferences", async () => {
     const managers = await backend();
-    expect(await managers.workspace.setPreferences({ theme: "dark", autoSyncContent: true })).toEqual({
+    expect(await managers.workspace.setPreferences({ theme: "dark", autoSyncContent: true, minimap: false })).toEqual({
       theme: "dark",
       reopenLast: true,
       autoSyncContent: true,
+      minimap: false,
       lastSeenVersion: null,
       tourSeen: false,
       tourOffered: [],
@@ -143,6 +144,7 @@ describe("WorkspaceManager", () => {
     await expect(managers.workspace.setPreferences({ theme: "neon" } as never)).rejects.toThrow("theme");
     await expect(managers.workspace.setPreferences({ reopenLast: "yes" } as never)).rejects.toThrow("reopenLast");
     await expect(managers.workspace.setPreferences({ tourSeen: 1 } as never)).rejects.toThrow("tourSeen");
+    await expect(managers.workspace.setPreferences({ minimap: 1 } as never)).rejects.toThrow("minimap");
     await expect(managers.workspace.setPreferences({ lastSeenVersion: "latest" })).rejects.toThrow("lastSeenVersion");
     await expect(managers.workspace.setPreferences({ tourOffered: ["local:/a", 3] } as never)).rejects.toThrow("tourOffered");
     await expect(managers.workspace.setPreferences({ tourOffered: "local:/a" } as never)).rejects.toThrow("tourOffered");
@@ -850,6 +852,28 @@ describe("VersionControlManager", () => {
     ["action", (m: Managers, id: string) => m.versionControl.sync(id, "merge" as never, "origin"), "Invalid action."],
     ["remote name", (m: Managers, id: string) => m.versionControl.setRemote(id, "-x", "u"), "Remote names"],
     ["remote URL", (m: Managers, id: string) => m.versionControl.setRemote(id, "origin", "-u"), "valid remote URL"],
+    ["stash message", (m: Managers, id: string) => m.versionControl.stash(id, { message: "a\nb" } as never), "one line"],
+    ["stash", (m: Managers, id: string) => m.versionControl.applyStash(id, "stash@{0}", false), "Invalid stash."],
+    ["start point", (m: Managers, id: string) => m.versionControl.createBranch(id, "x", "HEAD~1"), "Choose a branch, tag or commit."],
+    ["start commit", (m: Managers, id: string) => m.versionControl.createBranch(id, "x", "a".repeat(40)), "Choose a branch, tag"],
+    ["branch to delete", (m: Managers, id: string) => m.versionControl.deleteBranch(id, "--all", true), "Choose a branch."],
+    ["remote branch", (m: Managers, id: string) => m.versionControl.deleteRemoteBranch(id, "origin/x"), "Choose a remote branch."],
+    ["upstream", (m: Managers, id: string) => m.versionControl.setUpstream(id, "main", "main"), "Choose a remote branch."],
+    ["tag name", (m: Managers, id: string) => m.versionControl.createTag(id, "bad..tag", "main", ""), "not a valid tag name"],
+    ["tag option", (m: Managers, id: string) => m.versionControl.createTag(id, "-d", "main", ""), "Invalid tag name."],
+    ["tag", (m: Managers, id: string) => m.versionControl.deleteTag(id, "missing"), "Choose a tag."],
+    ["merge source", (m: Managers, id: string) => m.versionControl.merge(id, "--abort", { noFastForward: false, message: "" }), "Choose a"],
+    ["resolution", (m: Managers, id: string) => m.versionControl.resolveConflict(id, "a", { use: "mine" } as never), "Invalid resolution."],
+    ["conflict path", (m: Managers, id: string) => m.versionControl.resolveConflict(id, "../a", { use: "ours" }), "path"],
+    [
+      "unconflicted file",
+      (m: Managers, id: string) => m.versionControl.resolveConflict(id, "src/code.ts", { use: "ours" }),
+      "no conflicts",
+    ],
+    ["continue", (m: Managers, id: string) => m.versionControl.continueOperation(id), "No merge, rebase"],
+    ["rebase base", (m: Managers, id: string) => m.versionControl.rebaseInteractive(id, "main", [], false), "Choose a commit"],
+    ["rebase onto", (m: Managers, id: string) => m.versionControl.rebase(id, "--root", false), "Choose a branch, tag or commit."],
+    ["cherry-pick", (m: Managers, id: string) => m.versionControl.cherryPick(id, "HEAD"), "Invalid commit ID."],
   ])("rejects an invalid %s", async (_, call, message) => {
     const { managers, id } = await opened();
     await expect(call(managers, id)).rejects.toThrow(message);
@@ -861,6 +885,105 @@ describe("VersionControlManager", () => {
     expect((await latest()).head.branch).toBe("feature/x");
     await versionControl.switchBranch(id, "main");
     expect((await latest()).branches).toEqual(["feature/x", "main"]);
+  });
+
+  it("manages branches and tags at commits", async () => {
+    const { versionControl, id, latest, repository } = await opened();
+    const [initial] = await versionControl.log(id, 0, 1);
+    await versionControl.createBranch(id, "at-initial", initial!.hash, false);
+    expect((await latest()).head.branch).toBe("main");
+    await versionControl.renameBranch(id, "at-initial", "renamed");
+    await versionControl.createTag(id, "v1", initial!.hash, "First release");
+    expect(await latest()).toMatchObject({ branches: ["main", "renamed"], tags: ["v1"] });
+    expect(await versionControl.deleteBranch(id, "renamed", false)).toBe(true);
+    await versionControl.deleteTag(id, "v1");
+    expect(await latest()).toMatchObject({ branches: ["main"], tags: [] });
+    expect(await repository.git("tag")).toBe("");
+  });
+
+  it("merges with a conflict, shows it in the snapshot, and continues once it is resolved", async () => {
+    const { versionControl, id, latest, repository } = await opened();
+    await repository.git("switch", "-q", "-c", "feature");
+    await repository.write("src/code.ts", "feature\n");
+    await repository.git("commit", "-qam", "Feature");
+    await repository.git("switch", "-q", "main");
+    await repository.write("src/code.ts", "main\n");
+    await repository.git("commit", "-qam", "Main");
+
+    expect(await versionControl.merge(id, "feature", { noFastForward: false, message: "" })).toBe("stopped");
+    const snapshot = await latest();
+    expect(snapshot.operation).toEqual({ kind: "merge", source: "feature", target: "main", step: null, steps: null });
+    expect(snapshot.changes).toEqual([expect.objectContaining({ path: "src/code.ts", conflict: "both-modified" })]);
+    expect((await versionControl.conflict(id, "src/code.ts")).text).toContain(">>>>>>> feature");
+    await versionControl.resolveConflict(id, "src/code.ts", { use: "theirs" });
+    expect(await versionControl.continueOperation(id)).toBe("done");
+    expect(await latest()).toMatchObject({ operation: null, changes: [] });
+    expect(await repository.read("src/code.ts")).toBe("feature\n");
+  });
+
+  it("rebases interactively, squashing and rewording through the contract", async () => {
+    const { versionControl, id, repository } = await opened();
+    const base = (await repository.git("rev-parse", "HEAD")).trim();
+    for (const name of ["One", "Two", "Three"]) {
+      await repository.write(`${name}.txt`, name);
+      await repository.git("add", ".");
+      await repository.git("commit", "-q", "-m", name);
+    }
+    const plan = await versionControl.rebasePlan(id, base);
+    expect(plan.commits.map((commit) => commit.subject)).toEqual(["One", "Two", "Three"]);
+    const [one, two, three] = plan.commits.map((commit) => commit.hash);
+    await repository.write("src/code.ts", "dirty");
+    const steps = [
+      { hash: three!, action: "reword" as const, message: "Three, first" },
+      { hash: one!, action: "pick" as const },
+      { hash: two!, action: "squash" as const, message: "One and two" },
+    ];
+    await expect(versionControl.rebaseInteractive(id, base, steps, false)).rejects.toThrow("Commit or stash your changes first.");
+    expect(await versionControl.rebaseInteractive(id, base, steps, true)).toBe("done");
+    expect((await repository.git("log", "--format=%s", `${base}..HEAD`)).trim().split("\n")).toEqual(["One and two", "Three, first"]);
+    expect(await repository.read("src/code.ts")).toBe("dirty");
+    await expect(versionControl.rebaseInteractive(id, base, steps, true)).rejects.toThrow("The commits changed meanwhile.");
+  });
+
+  it("cherry-picks and reverts commits, but not merges", async () => {
+    const { versionControl, id, repository } = await opened();
+    await repository.git("switch", "-q", "-c", "feature");
+    await repository.write("picked.txt", "picked");
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Pick me");
+    const picked = (await repository.git("rev-parse", "HEAD")).trim();
+    await repository.git("switch", "-q", "main");
+    expect(await versionControl.cherryPick(id, picked)).toBe("done");
+    expect(await repository.read("picked.txt")).toBe("picked");
+    expect(await versionControl.revert(id, (await repository.git("rev-parse", "HEAD")).trim())).toBe("done");
+    expect(await repository.exists("picked.txt")).toBe(false);
+    expect((await repository.git("log", "-1", "--format=%s")).trim()).toBe('Revert "Pick me"');
+    await repository.git("switch", "-q", "-c", "other");
+    await repository.write("other.txt", "other");
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Other");
+    await repository.git("switch", "-q", "main");
+    await repository.git("merge", "-q", "--no-ff", "-m", "Merge", "other");
+    const merge = (await repository.git("rev-parse", "HEAD")).trim();
+    await expect(versionControl.revert(id, merge)).rejects.toThrow("merge commits");
+  });
+
+  it("stashes changes, shows and pops them", async () => {
+    const { versionControl, id, latest, repository } = await opened();
+    const stashOptions = { message: "", includeUntracked: true, keepIndex: false };
+    await expect(versionControl.stash(id, stashOptions)).rejects.toThrow("There are no changes to stash.");
+    await repository.write("new.txt", "new");
+    await expect(versionControl.stash(id, { ...stashOptions, includeUntracked: false })).rejects.toThrow("no changes to stash");
+    await versionControl.stash(id, { ...stashOptions, message: "  Untracked  " });
+    const { stashes, changes } = await latest();
+    expect(changes).toEqual([]);
+    expect(stashes).toEqual([expect.objectContaining({ index: 0, message: "Untracked", branch: "main" })]);
+    const detail = await versionControl.stashDetail(id, stashes[0]!.hash);
+    expect(detail.files.map((file) => file.path)).toEqual(["new.txt"]);
+    expect(await versionControl.applyStash(id, stashes[0]!.hash, true)).toBe("done");
+    expect(await repository.read("new.txt")).toBe("new");
+    expect((await latest()).stashes).toEqual([]);
+    await expect(versionControl.dropStash(id, stashes[0]!.hash)).rejects.toThrow("This stash no longer exists.");
   });
 });
 

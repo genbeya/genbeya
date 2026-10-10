@@ -6,7 +6,7 @@ Four managers implement everything the client can do with a repository. Their co
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
 | `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [[Content branch]]), full-text [[Search]], and the files that teach [[AI agents]] to use them |
-| `versionControl` | Diffs, staging, commits, branches, remotes, fetch/pull/push, history |
+| `versionControl` | Diffs, staging, commits, stashes, branches, tags, remotes, fetch/pull/push, history, merges, rebases and conflicts |
 | `terminal` | Shells in the repository for the [[Terminal]]: open, input, size, output, close |
 
 Every call names the workspace it was made for (or a terminal, which belongs to one), so a call racing a repository switch fails instead of touching the new repository. Every argument is validated again in the manager, so managers can sit directly behind IPC.
@@ -17,14 +17,30 @@ The client sends `{ manager, method, args }` and receives `{ ok: true, value }` 
 
 ## Snapshots
 
-The client asks for `snapshot(workspace, since)` every four seconds and whenever the window regains focus. A snapshot holds branch state, changes, the file tree, the wiki tree, all tasks and settings. `since` is the version the client already has; when nothing changed the manager answers `null` and nothing is sent.
+The client asks for `snapshot(workspace, since)` every four seconds and whenever the window regains focus. A snapshot holds branch state, changes (conflicted ones say how they conflict), tags, stashes, the merge, rebase, cherry-pick or revert in progress, the file tree, the wiki tree, all tasks and settings. `since` is the version the client already has; when nothing changed the manager answers `null` and nothing is sent.
 
 One snapshot costs a handful of Git calls:
 
-- `git status --porcelain=v2 --branch` for branch, upstream, ahead/behind and changes
+- `git status --porcelain=v2 --branch` for branch, upstream, ahead/behind, changes and conflicts
 - `git ls-files` for the tree, which also hides everything `.gitignore` excludes
-- `for-each-ref` and `remote -v` for branches and remotes
+- `for-each-ref` and `remote -v` for branches, tags and remotes
+- `stash list` for the stashes
 - a single batched read for all task files
+- a single batched read of `MERGE_HEAD`, `rebase-merge/…` and their kind in the git directory for the operation in progress (and, during a rebase, a `for-each-ref` to name what it goes onto)
+
+## Operations that stop
+
+Merging, rebasing, cherry-picking, reverting and applying a stash can stop for conflicts. These calls resolve to `"done"`, or to `"stopped"` when Git left conflicts or an operation in progress; the snapshot then shows the operation and the conflicted files, and `continueOperation`, `skipOperation` and `abortOperation` go on with whatever is in progress — the manager reads which operation that is, the client does not say. `continueOperation` refuses while conflicts are left. A failure that leaves nothing to resolve (local changes in the way, say) is an error as usual.
+
+`conflict(path)` returns a conflicted file's text with its markers (null for binary, missing or oversized files); `resolveConflict` takes one side (`git checkout --ours/--theirs`, or `git rm` when that side deleted the file), keeps the working-tree file, deletes the file, or writes new text — and stages the result. Conflict markers, including the diff3 style, are parsed in `src/utilities/conflict-markers.ts`, which the client uses for its hunk buttons.
+
+Git never opens an editor for GitDesk: every call runs with `GIT_EDITOR=:`, which makes Git keep the message it prepared, as for `merge --continue`.
+
+Rewriting history needs a clean working tree: `rebase`, `pullRebase` and `rebaseInteractive` refuse uncommitted changes to tracked files unless `autostash` is set, which passes `--autostash`. `rebasePlan(base)` lists the commits a rebase would rewrite and the remote branches that already have them, so the client can warn before anyone has to force-push. Merge commits are not cherry-picked, reverted or rebased interactively.
+
+### Interactive rebase
+
+The client sends every commit after `base` once, in the new order, each with an action and, for reword and squash, a message. `src/engines/rebase-engine.ts` checks the steps against the commits and turns them into a todo list that needs no editor: squashes become `fixup`, and a commit whose message changes is followed by `exec git commit --amend --file=<message>`. Git access writes the todo list and the messages into `gitdesk-rebase/` in the git directory and runs `git rebase -i` with `GIT_SEQUENCE_EDITOR="cat '<todo>' >"`: Git runs editors and `exec` lines through its own `sh`, so the same commands work on Windows (Git for Windows' sh), WSL and SSH hosts. Shell hosts pass environment variables by exporting them in the request's subshell.
 
 ## Task comments and activity
 

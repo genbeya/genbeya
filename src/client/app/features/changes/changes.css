@@ -16,3 +16,30 @@
   margin: 4px 16px;
   color: var(--text-3);
 }
+
+.entry-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: calc(100% - 12px);
+  height: 40px;
+  margin: 0 6px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: none;
+  text-align: left;
+}
+
+.entry-row:hover {
+  background: var(--bg-hover);
+}
+
+.entry-row.is-selected {
+  background: var(--bg-active);
+}
+
+.entry-row-meta {
+  color: var(--text-3);
+  font-size: 12px;
+}

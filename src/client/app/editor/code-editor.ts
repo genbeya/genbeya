@@ -14,7 +14,9 @@ import {
   output,
   untracked,
 } from "@angular/core";
+import { wordWrap } from "./editor-keymap";
 import { editingSetup, isProse, languageFor } from "./editor-setup";
+import { minimap } from "./minimap";
 import { referenceCompletion, type ReferenceCandidate } from "./reference-completion";
 
 const CRLF = String.fromCharCode(13, 10);
@@ -54,6 +56,8 @@ export class CodeEditor {
   readonly reveal = input<LineRange | null>(null);
   /** Offers these after `[[` (Markdown references); null for none. */
   readonly references = input<readonly ReferenceCandidate[] | null>(null);
+  /** Shows a minimap for code; prose never has one. */
+  readonly minimap = input(false);
   readonly valueChange = output<string>();
   /** Ctrl+S (Cmd+S) inside the editor. */
   readonly save = output();
@@ -62,7 +66,9 @@ export class CodeEditor {
   private readonly language = new Compartment();
   private readonly separator = new Compartment();
   private readonly completion = new Compartment();
+  private readonly overview = new Compartment();
   private readonly offersReferences = computed(() => this.references() !== null);
+  private readonly showsMinimap = computed(() => this.minimap() && !isProse(this.path()));
   private view: EditorView | null = null;
 
   constructor() {
@@ -87,6 +93,10 @@ export class CodeEditor {
       // The extension reads the candidates when completing, so only switching it on or off reconfigures.
       const offered = this.offersReferences();
       untracked(() => this.view?.dispatch({ effects: this.completion.reconfigure(this.completionFor(offered)) }));
+    });
+    effect(() => {
+      const shown = this.showsMinimap();
+      untracked(() => this.view?.dispatch({ effects: this.overview.reconfigure(shown ? minimap() : []) }));
     });
     let revealed: LineRange | null = null;
     effect(() => {
@@ -120,7 +130,8 @@ export class CodeEditor {
       ...editingSetup(numbered),
       this.language.of([]),
       this.completion.of(this.completionFor(untracked(this.offersReferences))),
-      ...(isProse(path) ? [EditorView.lineWrapping] : []),
+      wordWrap(isProse(path)),
+      this.overview.of(untracked(this.showsMinimap) ? minimap() : []),
       EditorView.contentAttributes.of({ "aria-label": this.label(), spellcheck: isProse(path) ? "true" : "false" }),
       keymap.of([{ key: "Mod-s", preventDefault: true, run: () => (this.save.emit(), true) }]),
       EditorView.updateListener.of((update) => {

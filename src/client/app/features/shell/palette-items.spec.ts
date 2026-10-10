@@ -1,5 +1,5 @@
 import { contentBranch, snapshot, task } from "../../testing/fake-platform";
-import { allItems, branchItems, linkItem, rank, type PaletteCommands } from "./palette-items";
+import { allItems, branchItems, linkItem, mergeItems, rank, rebaseItems, type PaletteCommands } from "./palette-items";
 
 const calls = new Map<string, ReturnType<typeof vi.fn>>();
 const commands = new Proxy({}, { get: (_, name: string) => calls.get(name) ?? calls.set(name, vi.fn()).get(name) }) as PaletteCommands;
@@ -49,6 +49,13 @@ describe("palette items", () => {
     expect(commands.toggleTerminal).toHaveBeenCalled();
   });
 
+  it("toggles the minimap among the preferences", () => {
+    const [toggle] = rank(items, "minimap", false);
+    expect(toggle).toMatchObject({ label: "Toggle minimap", group: "Preferences" });
+    toggle!.run();
+    expect(commands.toggleMinimap).toHaveBeenCalled();
+  });
+
   it("brings back the tour and what's new, and opens the documentation", () => {
     for (const [query, command] of [
       ["tour", "startTour"],
@@ -78,6 +85,32 @@ describe("palette items", () => {
     expect(commands.openLink).toHaveBeenCalledWith({ remote: "git@github.com:acme/demo.git", item: { kind: "task", id: "DP-1" } });
     expect(linkItem("login", commands)).toBeNull();
     expect(linkItem("gitdesk://open?remote=/srv/demo.git&task=DP-1", commands)).toBeNull();
+  });
+
+  it("lists the branches to merge, with the upstream, but not the current branch", () => {
+    const merges = mergeItems(repository, commands);
+    expect(merges.map((item) => item.label)).toEqual(["feature", "origin/main", "origin/other"]);
+    merges[1]!.run();
+    expect(commands.merge).toHaveBeenCalledWith("origin/main", "remote");
+    expect(items.find((item) => item.id === "merge")?.label).toBe("Merge into main…");
+    const merging = allItems(
+      { ...repository, operation: { kind: "merge", source: "x", target: "main", step: null, steps: null } },
+      [],
+      "dark",
+      { mod: "", ctrl: "" },
+      commands,
+    );
+    expect(merging.some((item) => item.id === "merge")).toBe(false);
+  });
+
+  it("lists the branches to rebase onto, and pulls by rebasing", () => {
+    const rebases = rebaseItems(repository, commands);
+    expect(rebases.map((item) => item.label)).toEqual(["feature", "origin/main", "origin/other"]);
+    rebases[0]!.run();
+    expect(commands.rebase).toHaveBeenCalledWith("feature");
+    expect(items.find((item) => item.id === "rebase")?.label).toBe("Rebase main onto…");
+    items.find((item) => item.id === "pull-rebase")!.run();
+    expect(commands.pullRebase).toHaveBeenCalledWith("origin");
   });
 
   it("lists local and remote branches with an action to create one", () => {

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, untracked } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideCheckCheck, LucideMinus, LucidePlus, LucideUndo2 } from "@lucide/angular";
-import type { Change } from "../../../../contracts/model";
+import { LucideArchive, LucideCheckCheck, LucideMinus, LucidePlus, LucideUndo2 } from "@lucide/angular";
+import type { Change, ConflictKind } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
@@ -9,17 +9,48 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { DiffPane } from "../diff/diff-pane";
+import { relativeTime } from "../history/commit-graph";
 import { ChangeRow } from "./change-row";
 import { CommitDraft } from "./commit-draft";
+import { ConflictPane } from "./conflict-pane";
+import { StashActions } from "./stash-actions";
+import { StashPane } from "./stash-pane";
 import { SyncBar } from "./sync-bar";
 
-const isStaged = (change: Change) => change.index !== " " && change.index !== "?";
-const isUnstaged = (change: Change) => change.worktree !== " ";
+const isStaged = (change: Change) => !change.conflict && change.index !== " " && change.index !== "?";
+const isUnstaged = (change: Change) => !change.conflict && change.worktree !== " ";
 
-/** Staging and committing, with the selected change's diff (`?file=&staged=`). */
+const CONFLICT_KINDS: Readonly<Record<ConflictKind, string>> = {
+  "both-modified": "changed on both sides",
+  "both-added": "added on both sides",
+  "both-deleted": "deleted on both sides",
+  "added-by-us": "added here",
+  "added-by-them": "added by incoming",
+  "deleted-by-us": "deleted here",
+  "deleted-by-them": "deleted by incoming",
+};
+
+/**
+ * Conflicts, staging, committing and stashes, with the selected change's diff
+ * (`?file=&staged=`), conflict (`?conflict=`) or stash (`?stash=&file=`).
+ */
 @Component({
   selector: "gd-changes-view",
-  imports: [ChangeRow, DiffPane, EmptyState, Resizable, ResizeHandle, SyncBar, LucideCheckCheck, LucideMinus, LucidePlus, LucideUndo2],
+  imports: [
+    ChangeRow,
+    ConflictPane,
+    DiffPane,
+    EmptyState,
+    Resizable,
+    ResizeHandle,
+    StashPane,
+    SyncBar,
+    LucideArchive,
+    LucideCheckCheck,
+    LucideMinus,
+    LucidePlus,
+    LucideUndo2,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./changes.css",
   host: { class: "view" },
@@ -29,25 +60,35 @@ export class ChangesView {
   readonly file = input<string>();
   /** Query parameters are strings: "true" selects the staged version. */
   readonly staged = input<string>();
+  readonly stash = input<string>();
+  readonly conflict = input<string>();
 
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
   private readonly router = inject(Router);
+  protected readonly stashes = inject(StashActions);
   protected readonly mod = MOD_KEY;
+  protected readonly relativeTime = relativeTime;
+  protected readonly conflictKinds = CONFLICT_KINDS;
   private readonly draft = inject(CommitDraft);
   protected readonly message = this.draft.message;
   protected readonly amend = this.draft.amend;
 
   protected readonly snapshot = computed(() => this.session.snapshot()!);
+  protected readonly conflicts = computed(() => this.snapshot().changes.filter((change) => change.conflict));
   protected readonly stagedChanges = computed(() => this.snapshot().changes.filter(isStaged));
   protected readonly unstagedChanges = computed(() => this.snapshot().changes.filter(isUnstaged));
   protected readonly showsStaged = computed(() => this.staged() === "true");
   protected readonly current = computed(() => this.snapshot().changes.find((change) => change.path === this.file()));
+  protected readonly selectedStash = computed(() => this.snapshot().stashes.find((entry) => entry.hash === this.stash()));
+  protected readonly selectedConflict = computed(() => this.conflicts().find((change) => change.path === this.conflict()));
   /** Without staged changes, a commit takes everything. */
   protected readonly commitsAll = computed(() => !this.stagedChanges().length && !this.amend());
+  /** A merge, rebase, cherry-pick or revert in progress goes on with Continue instead. */
   protected readonly canCommit = computed(
-    () => !!this.message().trim() && (this.amend() || this.snapshot().changes.length > 0) && !this.session.busy(),
+    () =>
+      !!this.message().trim() && (this.amend() || this.snapshot().changes.length > 0) && !this.snapshot().operation && !this.session.busy(),
   );
   protected readonly commitLabel = computed(() =>
     this.amend()
@@ -65,14 +106,17 @@ export class ChangesView {
   });
 
   constructor() {
-    // Keep a valid selection: fall back to the first change.
+    // Keep a valid selection: fall back to the first conflict, else the first change.
     effect(() => {
+      if (this.selectedStash() || this.selectedConflict()) return;
       const list = this.showsStaged() ? this.stagedChanges() : this.unstagedChanges();
       const file = this.file();
       if (file && list.some((change) => change.path === file)) return;
+      const conflict = this.conflicts()[0];
       const first = this.unstagedChanges()[0] ?? this.stagedChanges()[0];
       untracked(() => {
-        if (first) this.select(first.path, !this.unstagedChanges()[0]);
+        if (conflict) this.selectConflict(conflict.path);
+        else if (first) this.select(first.path, !this.unstagedChanges()[0]);
         else if (file) void this.router.navigate(["/changes"], { replaceUrl: true });
       });
     });
@@ -81,6 +125,14 @@ export class ChangesView {
 
   protected select(path: string, staged: boolean) {
     void this.router.navigate(["/changes"], { queryParams: { file: path, staged: staged ? "true" : null }, replaceUrl: true });
+  }
+
+  protected selectConflict(path: string) {
+    void this.router.navigate(["/changes"], { queryParams: { conflict: path }, replaceUrl: true });
+  }
+
+  protected selectStash(hash: string) {
+    void this.router.navigate(["/changes"], { queryParams: { stash: hash }, replaceUrl: true });
   }
 
   protected openFile(path: string) {
