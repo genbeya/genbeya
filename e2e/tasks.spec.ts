@@ -55,6 +55,38 @@ test.describe("tasks", () => {
     await expect(target.getByText("First task")).toBeVisible();
   });
 
+  test("comments on a task below its description in the file", async ({ window, repository }) => {
+    await window.getByText("First task").click();
+    const panel = window.getByRole("dialog", { name: "Task DP-1" });
+    await panel.getByRole("textbox", { name: "New comment" }).fill("Looks good, see [[Guide]].");
+    await window.keyboard.press(`${MOD}+Enter`);
+    await expect
+      .poll(() => repository.read("tasks/DP-1.md"))
+      .toMatch(/- \[ \] Check me\n\n## Comments\n\n### E2E — \d{4}-\d\d-\d\d \d\d:\d\d[+-]\d\d:\d\d\n\nLooks good, see \[\[Guide\]\]\.\n$/);
+    const comment = panel.getByRole("article", { name: "Comment by E2E" });
+    await expect(comment).toContainText("Looks good, see Guide.");
+    await expect(panel.getByRole("textbox", { name: "New comment" })).toHaveValue("");
+    await expect(panel.getByRole("tab", { name: "Comments 1" })).toBeVisible();
+  });
+
+  test("shows who changed the status once it is committed", async ({ window, repository }) => {
+    await window.getByText("First task").click();
+    const panel = window.getByRole("dialog", { name: "Task DP-1" });
+    await panel.getByRole("button", { name: "Status" }).click();
+    await window.getByRole("menuitem", { name: "In progress" }).click();
+    await expect.poll(() => repository.read("tasks/DP-1.md")).toContain("status: in-progress");
+    await panel.getByRole("tab", { name: "Activity" }).click();
+    const pending = panel.locator(".task-activity-entry", { hasText: "Not committed yet" });
+    await expect(pending).toContainText("status Todo → In progress");
+
+    repository.git("commit", "-q", "-am", "Start DP-1");
+    const committed = panel.locator(".task-activity-entry", { hasText: "Start DP-1" });
+    await expect(committed).toContainText("status Todo → In progress");
+    await expect(committed).toContainText("E2E");
+    await expect(pending).toBeHidden();
+    await expect(panel.locator(".task-activity-entry", { hasText: "Initial commit" })).toContainText("created the task");
+  });
+
   test("filters by text", async ({ window }) => {
     await window.getByRole("textbox", { name: "Filter tasks" }).fill("nothing like this");
     await expect(window.getByText("First task")).toBeHidden();

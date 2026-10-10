@@ -26,6 +26,22 @@ One snapshot costs a handful of Git calls:
 - `for-each-ref` and `remote -v` for branches and remotes
 - a single batched read for all task files
 
+## Task comments and activity
+
+Comments live at the end of the task file (format in [[Tasks#comments]]); `Task.body` is the description above them and `Task.comments` the comments, oldest first. The task engine splits and joins the two, so `updateTask` keeps the comments as written and the comment calls keep the frontmatter and description as written.
+
+- `addComment(workspace, path, text)` appends a comment to the file as it is now; it needs no version, since comments only ever go last.
+- `editComment` and `deleteComment` name the comment by its index in the version `expectedHash`, and only change comments signed with the user's name.
+- `commentAuthor(workspace)` is that name: `git var GIT_AUTHOR_IDENT`, which is `user.name` or what Git derives from the system account. Without one, comment calls ask the user to set `user.name`.
+
+`taskActivity(workspace, path)` reads the history of the task file wherever it lives — the checkout, or the worktree of the [[Content branch]] — with one call:
+
+```
+git log --follow --no-merges --max-count=100 --patch --unified=1000000 -- <path>
+```
+
+The patches carry whole files, so every commit yields both versions, and `rename from`/`rename to` lines give the path before and after; the task engine compares the two versions (status, priority, assignee, title, epic, labels, description, comments, other frontmatter fields). Task files over 256 KiB are listed without patch context, so the output stays small. Edits not committed yet come first, as an entry without commit; a task moved to another epic since the last commit is found under its committed path by its file name.
+
 ## Remote folders
 
 `workspace.browse({ kind, distro | host, path })` lists the subfolders of a folder on WSL or SSH, for the folder browser of the open and clone dialogs. An empty path, `~` or `~/…` starts in the home folder. The listing has the folder's absolute path (links resolved), its parent (null at `/`) and up to 2000 subfolders, sorted by name ignoring case with hidden ones last; each says whether it is a Git repository (holds `.git`), and `truncated` says when there were more. Folders on this computer use the system folder dialog instead.
