@@ -59,6 +59,18 @@ sequenceDiagram
 
 Saves carry the hash of the content they were based on. If the file changed on disk since, the save is rejected and the editor keeps the draft. Line endings and a byte order mark are kept as they were. All operations on one workspace run one at a time.
 
+## Moving pages
+
+`content.movePage(workspace, from, to, { updateLinks })` moves a page with its subpage folder. With `updateLinks`, it reads every Markdown file of the content location (in the checkout, that includes `README.md` and other documentation) in one batch, and the link engine (`src/engines/link-engine.ts`) rewrites what the move would break:
+
+- relative Markdown links and definitions (`[x](../Guide/Wiki.md#part)`, `[x]: Guide.md`) and images that point into the moved pages, from anywhere;
+- relative links inside the moved pages that point out of them;
+- `[[references]]` to moved pages by path (`[[Guide/Wiki]]`, `[[docs/Guide/Wiki.md]]`), and by title when the title changes; to files in a moved folder by path.
+
+The engine parses with the same Markdown parser as the client, so code blocks and inline code stay untouched, and resolves references by the rules the client renders them with (`src/utilities/references.ts`). Only destinations and reference targets change, written in the style they had: relative or from the root, title or path, with or without `.md`, percent-encoded or in `<…>`. A new title that another page also has is written as a path. The moves and the rewritten files are committed together, so on a [[Content branch]] the move is one commit.
+
+`content.pageLinks(workspace, from, to)` returns the same changes without making them, per file with line, before and after, for the move dialog.
+
 ## Paths
 
 Repository paths from the client are validated in `src/utilities/repository-path.ts`: no absolute paths, no `..`, nothing inside `.git` (including Windows aliases such as `.git.` and `GIT~1`). Hosts refuse to follow symbolic links below the repository root. Git runs with `--literal-pathspecs`, so file names are never globs.
