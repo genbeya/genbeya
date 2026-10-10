@@ -99,7 +99,7 @@
   min-height: 72px;
 }
 
-.board-cell .board-cards {
+.board-cell.board-cards {
   overflow: visible;
   padding-top: 6px;
 }
