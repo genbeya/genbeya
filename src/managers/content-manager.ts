@@ -164,7 +164,7 @@ export class ContentManager implements ContentManagerContract {
       const files = await workspace.content.files("tasks");
       const existing = await workspace.tasks(files, settings, []);
       // A free ID may still name a file in some epic, e.g. a task renamed on another branch.
-      const fileNames = new Set(files.filter((file) => within(file, settings.taskRoot)).map(baseName));
+      const fileNames = new Set(files.filter((file) => this.engines.tasks.isTaskFile(file, settings.taskRoot)).map(baseName));
       const taskId = this.engines.tasks.nextId(
         settings.taskPrefix,
         existing.map((task) => task.id),
@@ -336,7 +336,9 @@ export class ContentManager implements ContentManagerContract {
     const content = await workspace.content.committed("tasks", relative);
     if (content !== null) return { path: relative, content };
     const name = baseName(relative);
-    const moved = (await workspace.content.committedFiles("tasks", taskRoot)).find((file) => baseName(file) === name);
+    const moved = (await workspace.content.committedFiles("tasks", taskRoot)).find(
+      (file) => baseName(file) === name && this.engines.tasks.isTaskFile(file, taskRoot),
+    );
     return moved ? { path: moved, content: await workspace.content.committed("tasks", moved) } : null;
   }
 

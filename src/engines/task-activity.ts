@@ -24,14 +24,30 @@ const FIELDS: readonly TaskField[] = ["title", "type", "status", "priority", "as
 const changedNames = (before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>): string[] =>
   [...new Set([...Object.keys(before), ...Object.keys(after)])].sort().filter((name) => before[name] !== after[name]);
 
-const keyOf = (comment: TaskComment) => `${comment.author}\n${comment.date}`;
+/** Text without its outer whitespace, with LF line breaks: Git may convert them on checkout. */
+const normalized = (text: string) => text.replace(/\r\n?/g, "\n").trim();
+
+/**
+ * Comment texts by author, date and place among the comments with both:
+ * dates are to the minute, so one person may write several at once.
+ */
+function keyed(comments: readonly TaskComment[]): Map<string, string> {
+  const seen = new Map<string, number>();
+  return new Map(
+    comments.map((comment) => {
+      const key = `${comment.author}\n${comment.date}`;
+      const count = seen.get(key) ?? 0;
+      seen.set(key, count + 1);
+      return [`${key}\n${count}`, comment.body];
+    }),
+  );
+}
 
 function commentChanges(before: readonly TaskComment[], after: readonly TaskComment[]): TaskChange[] {
-  const old = new Map(before.map((comment) => [keyOf(comment), comment.body]));
-  const kept = new Set(after.map(keyOf));
-  const added = after.filter((comment) => !old.has(keyOf(comment))).length;
-  const edited = after.filter((comment) => old.has(keyOf(comment)) && old.get(keyOf(comment)) !== comment.body).length;
-  const removed = before.filter((comment) => !kept.has(keyOf(comment))).length;
+  const [old, now] = [keyed(before), keyed(after)];
+  const added = [...now.keys()].filter((key) => !old.has(key)).length;
+  const edited = [...now].filter(([key, body]) => old.has(key) && old.get(key) !== body).length;
+  const removed = [...old.keys()].filter((key) => !now.has(key)).length;
   return added || edited || removed ? [{ kind: "comments", added, edited, removed }] : [];
 }
 
@@ -47,7 +63,7 @@ export function diffTasks(before: TaskState | null, after: TaskState): TaskChang
   const added = after.labels.filter((label) => !before.labels.includes(label));
   const removed = before.labels.filter((label) => !after.labels.includes(label));
   if (added.length || removed.length) changes.push({ kind: "labels", added, removed });
-  if (before.description.trim() !== after.description.trim()) changes.push({ kind: "description" });
+  if (normalized(before.description) !== normalized(after.description)) changes.push({ kind: "description" });
   changes.push(...commentChanges(before.comments, after.comments));
   for (const field of changedNames(before.fields, after.fields))
     changes.push({ kind: "custom", field, from: before.fields[field] ?? "", to: after.fields[field] ?? "" });

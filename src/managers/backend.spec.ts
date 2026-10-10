@@ -594,6 +594,15 @@ describe("ContentManager", () => {
     ]);
   });
 
+  it("never takes a template for an earlier version of a task with its name", async () => {
+    const { content, id, repository } = await opened({
+      ...DEFAULT_FILES,
+      "tasks/.templates/bug.md": "---\npriority: high\n---\n\nSteps\n",
+    });
+    await repository.write("tasks/bug.md", "---\nid: TP-9\ntitle: Bug\nstatus: todo\n---\n\nBroken.\n");
+    expect((await content.taskActivity(id, "tasks/bug.md")).map((entry) => entry.changes)).toEqual([[{ kind: "created" }]]);
+  });
+
   it("reads the activity from the content branch, where every edit is a commit", async () => {
     const { content, id, repository } = await opened();
     await content.setStorage(id, "tasks", "branch");
