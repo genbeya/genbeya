@@ -38,7 +38,8 @@ export type PaletteIcon =
   | "changes"
   | "history"
   | "terminal"
-  | "link";
+  | "link"
+  | "search";
 
 export interface PaletteItem {
   readonly id: string;
@@ -63,6 +64,8 @@ export interface PaletteCommands {
   switchBranch(name: string): void;
   createBranch(name: string): void;
   showBranches(): void;
+  /** Reopens the palette for searching inside files. */
+  searchText(): void;
   sync(action: "fetch" | "pull" | "push", remote: string): void;
   syncContent(): void;
   pickFolder(): void;
@@ -106,12 +109,12 @@ export function allItems(
   snapshot: Snapshot,
   recent: readonly RecentEntry[],
   theme: Theme,
-  /** How the platform names the modifiers ("⌘" and "⌃" on macOS). */
-  keys: { readonly mod: string; readonly ctrl: string },
+  /** How the platform names the modifiers ("⌘", "⌃" and "⇧" on macOS). */
+  keys: { readonly mod: string; readonly ctrl: string; readonly shift?: string },
   commands: PaletteCommands,
 ): PaletteItem[] {
   const { head, remotes, storage, wiki, tasks, files, settings } = snapshot;
-  const { mod, ctrl } = keys;
+  const { mod, ctrl, shift = "Shift" } = keys;
   const remote = head.upstream?.split("/")[0] ?? remotes[0]?.name;
   const views = [
     ["wiki", "Wiki"],
@@ -131,6 +134,15 @@ export function allItems(
   const actions: PaletteItem[] = [
     { id: "new-page", group: "Actions", label: "New page…", icon: "add", hint: "N", run: () => commands.newPage() },
     { id: "new-task", group: "Actions", label: "New task", icon: "add", hint: "C", run: () => commands.newTask() },
+    {
+      id: "search-text",
+      group: "Actions",
+      label: "Search in files…",
+      icon: "search",
+      hint: `${mod} ${shift} F`,
+      keywords: "find text grep",
+      run: () => commands.searchText(),
+    },
     { id: "switch-branch", group: "Actions", label: "Switch branch…", icon: "branch", run: () => commands.showBranches() },
     {
       id: "terminal",

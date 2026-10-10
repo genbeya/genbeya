@@ -20,6 +20,7 @@ import {
   LucideMoon,
   LucidePlus,
   LucideRefreshCw,
+  LucideSearch,
   LucideServer,
   LucideSquareTerminal,
   LucideSun,
@@ -51,6 +52,7 @@ import type { PaletteIcon as Icon } from "./palette-items";
     LucideMoon,
     LucidePlus,
     LucideRefreshCw,
+    LucideSearch,
     LucideServer,
     LucideSquareTerminal,
     LucideSun,
@@ -150,6 +152,9 @@ import type { PaletteIcon as Icon } from "./palette-items";
       }
       @case ("link") {
         <svg lucideLink [size]="15" aria-hidden="true"></svg>
+      }
+      @case ("search") {
+        <svg lucideSearch [size]="15" aria-hidden="true"></svg>
       }
     }
   `,
