@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, ViewEncapsulation } from "@angular/core";
 import { LucideChevronDown, LucidePlus, LucideSquareTerminal, LucideX } from "@lucide/angular";
-import { MOD_KEY } from "../../core/hotkeys";
+import { CTRL_KEY } from "../../core/hotkeys";
 import { Terminals } from "../../core/terminals";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { TerminalView } from "./terminal-view";
@@ -75,5 +75,5 @@ import { TerminalView } from "./terminal-view";
 })
 export class TerminalPanel {
   protected readonly terminals = inject(Terminals);
-  protected readonly hideTitle = `Hide (${MOD_KEY}+\`)`;
+  protected readonly hideTitle = `Hide (${CTRL_KEY}+\`)`;
 }

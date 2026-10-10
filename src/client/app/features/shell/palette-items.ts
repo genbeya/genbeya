@@ -108,10 +108,12 @@ export function allItems(
   snapshot: Snapshot,
   recent: readonly RecentEntry[],
   theme: Theme,
-  mod: string,
+  /** How the platform names the modifiers ("⌘" and "⌃" on macOS). */
+  keys: { readonly mod: string; readonly ctrl: string },
   commands: PaletteCommands,
 ): PaletteItem[] {
   const { head, remotes, storage, wiki, tasks, files, settings } = snapshot;
+  const { mod, ctrl } = keys;
   const remote = head.upstream?.split("/")[0] ?? remotes[0]?.name;
   const views = [
     ["wiki", "Wiki"],
@@ -137,7 +139,7 @@ export function allItems(
       group: "Actions",
       label: "Toggle terminal",
       icon: "terminal",
-      hint: `${mod} \``,
+      hint: `${ctrl} \``,
       run: () => commands.toggleTerminal(),
     },
     { id: "create-branch", group: "Actions", label: "Create branch…", icon: "add-branch", run: () => commands.createBranch("") },

@@ -16,7 +16,7 @@ const repository = snapshot({
 });
 
 describe("palette items", () => {
-  const items = allItems(repository, [], "dark", "Ctrl", commands);
+  const items = allItems(repository, [], "dark", { mod: "⌘", ctrl: "⌃" }, commands);
 
   it("offers views, actions, pages, tasks and files, but not wiki files twice", () => {
     expect(items.map((item) => item.id)).toEqual(
@@ -35,9 +35,10 @@ describe("palette items", () => {
     expect(rank(items, "", false).some((item) => item.group === "Files")).toBe(false);
   });
 
-  it("toggles the terminal", () => {
+  it("toggles the terminal with Ctrl, also on macOS", () => {
     const toggle = items.find((item) => item.label === "Toggle terminal")!;
-    expect(toggle.hint).toBe("Ctrl `");
+    expect(toggle.hint).toBe("⌃ `");
+    expect(items.find((item) => item.id === "go:wiki")?.hint).toBe("⌘ 1");
     toggle.run();
     expect(commands.toggleTerminal).toHaveBeenCalled();
   });

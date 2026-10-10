@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from "@angular/core";
-import { MOD_KEY } from "../../core/hotkeys";
+import { CTRL_KEY, MOD_KEY } from "../../core/hotkeys";
 import { DialogFrame } from "../../ui/dialog-frame";
 
 const GROUPS: readonly (readonly [string, readonly (readonly [readonly string[], string])[]])[] = [
@@ -11,7 +11,7 @@ const GROUPS: readonly (readonly [string, readonly (readonly [readonly string[],
       [["Alt ←", "Alt →"], "Back / forward (also mouse buttons)"],
       [[`${MOD_KEY} O`], "Open a folder"],
       [[`${MOD_KEY} ,`], "Settings"],
-      [[`${MOD_KEY} \``], "Show or hide the terminal"],
+      [[`${CTRL_KEY} \``], "Show or hide the terminal"],
       [["/"], "Focus the filter"],
       [["?"], "This overview"],
     ],

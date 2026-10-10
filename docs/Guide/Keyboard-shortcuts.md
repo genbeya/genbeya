@@ -1,6 +1,6 @@
 # Keyboard shortcuts
 
-On macOS, use `⌘` where this page says `Ctrl`.
+On macOS, use `⌘` where this page says `Ctrl`, except for `` Ctrl+` ``: macOS switches windows with `` ⌘+` ``, so the terminal keeps `Ctrl` there.
 
 | Keys | Action |
 | --- | --- |

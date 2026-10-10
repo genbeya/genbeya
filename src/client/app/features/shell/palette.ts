@@ -1,7 +1,7 @@
 import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
 import { afterRenderEffect, ChangeDetectionStrategy, Component, computed, type ElementRef, inject, signal, viewChild } from "@angular/core";
 import { Router } from "@angular/router";
-import { MOD_KEY } from "../../core/hotkeys";
+import { CTRL_KEY, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
@@ -109,7 +109,7 @@ export class Palette {
     const snapshot = this.session.snapshot()!;
     return this.mode === "branches"
       ? branchItems(snapshot, this.query(), this.commands)
-      : allItems(snapshot, this.recent(), this.session.preferences().theme, MOD_KEY, this.commands);
+      : allItems(snapshot, this.recent(), this.session.preferences().theme, { mod: MOD_KEY, ctrl: CTRL_KEY }, this.commands);
   });
   protected readonly results = computed(() => {
     const link = this.mode === "all" ? linkItem(this.query(), this.commands) : null;

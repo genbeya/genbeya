@@ -8,8 +8,8 @@ import { MANAGERS } from "../platform/platform";
 import { messageOf } from "./notifications";
 import { Session } from "./session";
 
-/** Shows and hides the panel, from anywhere, the terminal included. */
-export const TOGGLE_TERMINAL = "mod+`";
+/** Shows and hides the panel, from anywhere, the terminal included. Ctrl on macOS too, where Cmd+` cycles windows. */
+export const TOGGLE_TERMINAL = "ctrl+`";
 /** Input is sent in pieces of this size, so a large paste stays within what the manager accepts. */
 const WRITE_CHUNK = 64 * 1024;
 

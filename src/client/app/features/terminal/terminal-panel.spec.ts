@@ -90,8 +90,7 @@ describe("TerminalPanel", () => {
     await setup();
     const xterm = FakeXterm.created[0]!;
     const key = (key: string, init: KeyboardEventInit = {}) => xterm.keys(new KeyboardEvent("keydown", { key, ...init }));
-    const mod = isMac ? { metaKey: true } : { ctrlKey: true };
-    expect(key("`", mod)).toBe(false);
+    expect(key("`", { ctrlKey: true })).toBe(false);
     expect(key("a")).toBe(true);
     if (isMac) return;
     expect(key("c", { ctrlKey: true })).toBe(true);
