@@ -96,6 +96,11 @@ export class Session {
     return this.switchTo(() => this.managers.workspace.clone(url, parent));
   }
 
+  /** Creates the sample repository in a new folder below `parent`, and opens it. */
+  createSample(parent: Location): Promise<void> {
+    return this.switchTo(() => this.managers.workspace.createSample(parent));
+  }
+
   async close(): Promise<void> {
     const open = this.current();
     if (!open || !(await this.unsaved.confirmDiscard())) return;

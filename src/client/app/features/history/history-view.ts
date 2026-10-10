@@ -53,7 +53,15 @@ const MAX_LANES = 12;
       </gd-empty-state>
     } @else {
       <div class="view-body">
-        <aside class="side-panel history-list" gdResizable="history" [initial]="520" [min]="340" [max]="900" #panel="gdResizable">
+        <aside
+          class="side-panel history-list"
+          gdResizable="history"
+          [initial]="520"
+          [min]="340"
+          [max]="900"
+          #panel="gdResizable"
+          data-tour="history"
+        >
           <gd-share-menu #share="gdShareMenu" />
           <div class="side-panel-scroll" role="list" aria-label="Commits">
             @for (row of graph().rows; track row.commit.hash) {
