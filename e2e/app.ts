@@ -65,9 +65,8 @@ export const test = base.extend<Fixtures>({
     await use(repository);
     rmSync(repository.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   },
-  // Playwright reads the fixtures a fixture needs from its first parameter; this one needs none.
-  // eslint-disable-next-line no-empty-pattern
-  launch: async ({}, use) => {
+  // Needing the repository makes Playwright remove it only after every launch has closed and let go of it.
+  launch: async ({ repository: _repository }, use) => {
     const profile = mkdtempSync(path.join(tmpdir(), "gitdesk-profile-"));
     const running = new Set<ElectronApplication>();
     await use(async (...args) => {
