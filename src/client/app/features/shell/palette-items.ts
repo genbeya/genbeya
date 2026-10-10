@@ -32,7 +32,8 @@ export type PaletteIcon =
   | "tasks"
   | "code"
   | "changes"
-  | "history";
+  | "history"
+  | "terminal";
 
 export interface PaletteItem {
   readonly id: string;
@@ -66,6 +67,7 @@ export interface PaletteCommands {
   openRecent(entry: RecentEntry): void;
   setTheme(theme: Theme): void;
   showHelp(): void;
+  toggleTerminal(): void;
 }
 
 const GROUP_WEIGHT: Readonly<Record<string, number>> = { Pages: 40, Tasks: 30, "Go to": 20, Actions: 10 };
@@ -125,6 +127,14 @@ export function allItems(
     { id: "new-page", group: "Actions", label: "New page…", icon: "add", hint: "N", run: () => commands.newPage() },
     { id: "new-task", group: "Actions", label: "New task", icon: "add", hint: "C", run: () => commands.newTask() },
     { id: "switch-branch", group: "Actions", label: "Switch branch…", icon: "branch", run: () => commands.showBranches() },
+    {
+      id: "terminal",
+      group: "Actions",
+      label: "Toggle terminal",
+      icon: "terminal",
+      hint: `${mod} \``,
+      run: () => commands.toggleTerminal(),
+    },
     { id: "create-branch", group: "Actions", label: "Create branch…", icon: "add-branch", run: () => commands.createBranch("") },
     ...(remote
       ? ([

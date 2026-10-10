@@ -20,6 +20,7 @@ import {
   LucidePlus,
   LucideRefreshCw,
   LucideServer,
+  LucideSquareTerminal,
   LucideSun,
   LucideSunMoon,
   LucideX,
@@ -49,6 +50,7 @@ import type { PaletteIcon as Icon } from "./palette-items";
     LucidePlus,
     LucideRefreshCw,
     LucideServer,
+    LucideSquareTerminal,
     LucideSun,
     LucideSunMoon,
     LucideX,
@@ -140,6 +142,9 @@ import type { PaletteIcon as Icon } from "./palette-items";
       }
       @case ("keyboard") {
         <svg lucideKeyboard [size]="15" aria-hidden="true"></svg>
+      }
+      @case ("terminal") {
+        <svg lucideSquareTerminal [size]="15" aria-hidden="true"></svg>
       }
     }
   `,

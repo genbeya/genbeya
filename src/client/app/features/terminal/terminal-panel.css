@@ -1,0 +1,96 @@
+/* Not encapsulated, for xterm.js's own DOM; every rule is scoped to the panel. */
+@import "@xterm/xterm/css/xterm.css";
+
+gd-terminal-panel {
+  display: contents;
+}
+
+.terminal-panel {
+  display: flex;
+  flex-direction: column;
+  /* The view above keeps some room however tall the panel was dragged. */
+  max-height: calc(100% - 160px);
+  margin: 0 8px 8px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--bg-panel);
+}
+
+.terminal-panel[hidden],
+.terminal-panel .terminal-view[hidden] {
+  display: none;
+}
+
+.terminal-panel > .resizer {
+  position: absolute;
+  top: -6px;
+  right: 0;
+  left: 0;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: 36px;
+  padding: 0 6px 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.terminal-tabs {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 26px;
+  border-radius: var(--radius);
+  color: var(--text-2);
+}
+
+.terminal-tab:hover,
+.terminal-tab.is-active {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.terminal-tab-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 4px 0 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 12px;
+}
+
+.terminal-tab .icon-btn {
+  width: 22px;
+  height: 22px;
+  margin-right: 2px;
+}
+
+.terminal-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.terminal-view {
+  position: absolute;
+  inset: 6px 4px 4px 12px;
+}
+
+.terminal-unavailable {
+  margin: 0;
+  padding: 16px;
+  color: var(--text-2);
+}
