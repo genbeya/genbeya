@@ -67,11 +67,14 @@ describe("CommitMenu", () => {
       "Create tag here…",
       "Rename main…",
       "Set upstream of main…",
+      "Merge feature into main…",
       "Switch to feature",
       "Rename feature…",
       "Set upstream of feature…",
       "Delete feature…",
+      "Merge origin/feature into main…",
       "Delete origin/feature on the remote…",
+      "Merge v1 into main…",
       "Push tag v1 to origin",
       "Delete tag v1…",
       "Delete tag v1 on origin…",
@@ -111,6 +114,17 @@ describe("CommitMenu", () => {
     await choose("Delete tag v1 on origin…");
     expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Delete remote tag", danger: true }));
     expect(managers.versionControl.deleteRemoteTag).not.toHaveBeenCalled();
+  });
+
+  it("merges a branch into the current one", async () => {
+    const { dialogs, managers, choose } = await rightClick();
+    dialogs.open.mockResolvedValue({ noFastForward: true, message: "" });
+    managers.versionControl.merge.mockResolvedValue("done");
+    await choose("Merge origin/feature into main…");
+    await vi.waitFor(() =>
+      expect(managers.versionControl.merge).toHaveBeenCalledWith("w1", "origin/feature", { noFastForward: true, message: "" }),
+    );
+    expect(dialogs.open).toHaveBeenCalledWith(expect.anything(), { source: "origin/feature", kind: "remote", target: "main" });
   });
 
   it("deletes remote branches after asking", async () => {

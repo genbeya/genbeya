@@ -22,7 +22,7 @@ Stashes are listed below the changes, newest first, with the branch they were ma
 - **Branch…** creates a branch at the commit the stash was made on, switches to it and pops the stash there — useful when the stash no longer applies cleanly.
 - **Drop…** deletes it. GitDesk asks first.
 
-When a stash conflicts with your changes, the stash stays in the list.
+When a stash conflicts with your changes, the stash stays in the list and the conflicted files appear under **Conflicts** (see below).
 
 ## Branches
 
@@ -37,6 +37,32 @@ Right-click a commit in **History** for everything else:
 ## Tags
 
 Tags show as yellow chips in **History**. Right-click a commit and choose **Create tag here…**; with a message the tag is annotated, without one it is lightweight. The menu also pushes a tag to the remote, deletes it here, or deletes it on the remote. Deleting asks first.
+
+## Merging
+
+To merge a branch into the current one, right-click a commit it points to in **History** and choose **Merge … into …**, or search the palette (`Ctrl+K`) for **Merge into …** and pick the branch. Remote branches and tags merge the same way.
+
+The dialog shows the merge commit's message, which you can change. When the current branch has no commits of its own, Git just moves it forward and makes no merge commit; tick **Always create a merge commit** to get one anyway.
+
+## Conflicts
+
+When a merge, rebase, cherry-pick or revert conflicts, Git stops halfway. A banner above every view says what is going on — for example *Merging feature into main — 2 conflicts* — with:
+
+- **Continue**, once every conflict is resolved: finishes the merge with its prepared message, or goes on with the next commit of a rebase.
+- **Skip** (rebase, cherry-pick and revert): leaves out the commit Git stopped at.
+- **Abort**: puts everything back as it was before the operation started. GitDesk asks first; resolutions made so far are lost.
+
+Conflicted files are listed under **Conflicts** at the top of **Changes**. Select one to resolve it:
+
+- The editor shows the file with Git's conflict markers. The bar above it steps through the conflicts; **Accept current** keeps your side (HEAD), **Accept incoming** the side being merged in, **Accept both** keeps both, yours first. Files written in Git's diff3 style also show the common ancestor, which accepting a side drops.
+- Edit the result freely in the editor — the buttons always act on the conflicts still marked in the text.
+- **Take current** and **Take incoming** in the header use one side for the whole file.
+- **Mark as resolved** saves the result and stages it. With conflict markers left, GitDesk asks first.
+
+Binary files offer only whole sides. A file one side deleted and the other changed offers to keep it or delete it.
+
+> [!NOTE]
+> During a rebase, *current* is the branch you rebase onto, with the commits already replayed, and *incoming* is the commit being replayed — that is how Git names the sides.
 
 ## History
 

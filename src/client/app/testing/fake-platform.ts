@@ -46,6 +46,7 @@ export function snapshot(change: Partial<Snapshot> = {}): Snapshot {
     changes: [],
     tags: [],
     stashes: [],
+    operation: null,
     files: [{ name: "docs", path: "docs", children: [{ name: "Home.md", path: "docs/Home.md" }] }],
     wiki: [{ title: "Home", path: "docs/Home.md", folder: null, children: [] }],
     tasks: [],

@@ -41,4 +41,31 @@ test.describe("stashes, branches, tags, merges and rebases", () => {
     await expect(row.locator(".ref-tag")).toHaveCount(0);
     expect(repository.git("tag")).toBe("");
   });
+
+  test("merges a branch, resolves its conflict with the incoming side and continues", async ({ window, repository }) => {
+    repository.git("switch", "-q", "-c", "feature");
+    repository.write("src/index.ts", "export const value = 3;\n");
+    repository.git("commit", "-qam", "Feature change");
+    repository.git("switch", "-q", "main");
+    repository.write("src/index.ts", "export const value = 2;\n");
+    repository.git("commit", "-qam", "Main change");
+
+    await window.keyboard.press(`${MOD}+5`);
+    await window.locator(".history-row", { hasText: "Feature change" }).click({ button: "right" });
+    await window.getByRole("menuitem", { name: "Merge feature into main…" }).click();
+    await window.getByRole("dialog", { name: "Merge feature into main" }).getByRole("button", { name: "Merge" }).click();
+
+    const banner = window.getByRole("status", { name: "Merging feature into main" });
+    await expect(banner).toContainText("1 conflict");
+    await expect(window.getByRole("region", { name: "Conflicts" })).toContainText("src/index.ts");
+    await expect(window.locator(".conflict-count")).toHaveText("Conflict 1 of 1");
+    await window.getByRole("button", { name: "Accept incoming" }).click();
+    await window.getByRole("button", { name: "Mark as resolved" }).click();
+    await expect(banner).toContainText("no conflicts left");
+    await banner.getByRole("button", { name: "Continue" }).click();
+    await expect(banner).toBeHidden();
+    expect(repository.read("src/index.ts")).toBe("export const value = 3;\n");
+    expect(repository.git("log", "-1", "--format=%s").trim()).toBe("Merge branch 'feature'");
+    expect(repository.git("status", "--porcelain")).toBe("");
+  });
 });

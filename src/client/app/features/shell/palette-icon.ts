@@ -12,6 +12,7 @@ import {
   LucideGitBranch,
   LucideGitBranchPlus,
   LucideGitCommitHorizontal,
+  LucideGitMerge,
   LucideHistory,
   LucideKeyboard,
   LucideLayoutGrid,
@@ -43,6 +44,7 @@ import type { PaletteIcon as Icon } from "./palette-items";
     LucideGitBranch,
     LucideGitBranchPlus,
     LucideGitCommitHorizontal,
+    LucideGitMerge,
     LucideHistory,
     LucideKeyboard,
     LucideLayoutGrid,
@@ -96,6 +98,9 @@ import type { PaletteIcon as Icon } from "./palette-items";
       }
       @case ("add-branch") {
         <svg lucideGitBranchPlus [size]="15" aria-hidden="true"></svg>
+      }
+      @case ("merge") {
+        <svg lucideGitMerge [size]="15" aria-hidden="true"></svg>
       }
       @case ("add") {
         <svg lucidePlus [size]="15" aria-hidden="true"></svg>

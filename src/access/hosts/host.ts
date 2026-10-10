@@ -57,9 +57,13 @@ export const isMissing = (error: unknown): boolean => error instanceof HostError
 
 export const isTooLarge = (error: unknown): boolean => error instanceof HostError && error.code === "TOOLARGE";
 
-/** Environment for every git call: never prompt, never take optional locks. */
+/**
+ * Environment for every git call: never prompt, never take optional locks,
+ * never open an editor (":" tells git to keep the message it prepared).
+ */
 export const GIT_ENVIRONMENT: Readonly<Record<string, string>> = {
   GIT_TERMINAL_PROMPT: "0",
   GIT_OPTIONAL_LOCKS: "0",
   GCM_INTERACTIVE: "never",
+  GIT_EDITOR: ":",
 };

@@ -6,21 +6,24 @@
 import type {
   CommitDetail,
   Commit,
-  OperationOutcome,
-  StashDetail,
-  StashOptions,
+  ConflictFile,
+  ConflictResolution,
   Diff,
   DiffSource,
   FileContent,
   FolderListing,
   Location,
+  MergeOptions,
   OpenedWorkspace,
+  OperationOutcome,
   Preferences,
   RecentEntry,
   RemoteLocation,
   Scope,
   Settings,
   Snapshot,
+  StashDetail,
+  StashOptions,
   StorageMode,
   SyncAction,
   Task,
@@ -109,6 +112,16 @@ export interface VersionControlManagerContract {
   dropStash(workspace: string, hash: string): Promise<void>;
   /** Creates and switches to a branch at the stash's base commit, applies the stash there and drops it. */
   branchFromStash(workspace: string, hash: string, name: string): Promise<void>;
+  /** Merges a branch, tag or commit into the current branch. */
+  merge(workspace: string, ref: string, options: MergeOptions): Promise<OperationOutcome>;
+  /** Continues the operation in progress once its conflicts are resolved. */
+  continueOperation(workspace: string): Promise<OperationOutcome>;
+  /** Leaves out the commit a rebase, cherry-pick or revert stopped at. */
+  skipOperation(workspace: string): Promise<OperationOutcome>;
+  /** Restores the state before the operation began. */
+  abortOperation(workspace: string): Promise<void>;
+  conflict(workspace: string, path: string): Promise<ConflictFile>;
+  resolveConflict(workspace: string, path: string, resolution: ConflictResolution): Promise<void>;
 }
 
 /**
@@ -195,6 +208,12 @@ export const MANAGER_METHODS = {
     "applyStash",
     "dropStash",
     "branchFromStash",
+    "merge",
+    "continueOperation",
+    "skipOperation",
+    "abortOperation",
+    "conflict",
+    "resolveConflict",
   ],
   terminal: ["available", "open", "write", "resize", "read", "close"],
 } as const satisfies { [K in keyof Managers]: Methods<Managers[K]> };

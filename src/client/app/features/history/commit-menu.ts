@@ -5,6 +5,7 @@ import {
   LucideCloudOff,
   LucideCloudUpload,
   LucideGitBranchPlus,
+  LucideGitMerge,
   LucideGlobe,
   LucideLink,
   LucidePencil,
@@ -15,14 +16,15 @@ import type { Commit } from "../../../../contracts/model";
 import { Session } from "../../core/session";
 import { ShareLinks } from "../../core/share-links";
 import { MenuItem } from "../../ui/menu-item";
+import { OperationActions } from "../operations/operation-actions";
 import { RepositoryActions } from "../shell/repository-actions";
 import { RefActions } from "./ref-actions";
 import { parseRefs, type Ref } from "./ref-chips";
 
 /**
  * The context menu of a commit: create branches and tags there, act on the
- * branches and tags pointing at it (a group each), and copy its links. Declare it once per
- * view and point rows at it:
+ * branches and tags pointing at it (a group each: merge, switch, rename,
+ * delete…), and copy its links. Declare it once per view and point rows at it:
  * `[cdkContextMenuTriggerFor]="commitMenu.menu()" [cdkContextMenuTriggerData]="{ $implicit: commit }"`.
  */
 @Component({
@@ -35,6 +37,7 @@ import { parseRefs, type Ref } from "./ref-chips";
     LucideCloudOff,
     LucideCloudUpload,
     LucideGitBranchPlus,
+    LucideGitMerge,
     LucideGlobe,
     LucideLink,
     LucidePencil,
@@ -54,6 +57,11 @@ import { parseRefs, type Ref } from "./ref-chips";
         </button>
         @for (ref of refsOf(commit); track ref.raw) {
           <div class="menu-separator"></div>
+          @if (!ref.head && current(); as branch) {
+            <button gd-menu-item (selected)="operations.merge(ref.name, ref.kind)">
+              <svg icon lucideGitMerge [size]="14" aria-hidden="true"></svg>Merge {{ ref.name }} into {{ branch }}…
+            </button>
+          }
           @switch (ref.kind) {
             @case ("branch") {
               @if (!ref.head) {
@@ -124,9 +132,12 @@ export class CommitMenu {
   readonly menu = viewChild.required<TemplateRef<{ $implicit: Commit }>>("menu");
   protected readonly refs = inject(RefActions);
   protected readonly repository = inject(RepositoryActions);
+  protected readonly operations = inject(OperationActions);
   protected readonly links = inject(ShareLinks);
   private readonly session = inject(Session);
-  protected readonly remote = computed(() => (this.session.snapshot() ? this.repository.remote() : null));
+  protected readonly remote = computed(() => this.repository.remote());
+  /** The branch to merge into; none while another operation is in progress. */
+  protected readonly current = computed(() => (this.session.snapshot()?.operation ? null : this.session.snapshot()?.head.branch));
 
   /** The refs to act on: a detached HEAD and remote HEADs are not. */
   protected refsOf(commit: Commit): Ref[] {

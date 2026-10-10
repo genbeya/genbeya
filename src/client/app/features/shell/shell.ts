@@ -17,6 +17,7 @@ import { Session } from "../../core/session";
 import { Terminals, TOGGLE_TERMINAL } from "../../core/terminals";
 import { ShellUi } from "./shell-ui";
 import { CommitDraft } from "../changes/commit-draft";
+import { OperationBanner } from "../operations/operation-banner";
 import { Sidebar, VIEWS } from "./sidebar";
 
 /** Loads the terminal panel, with xterm.js; a separate chunk, since many never open a terminal. */
@@ -28,7 +29,7 @@ export const TERMINAL_PANEL = new InjectionToken<() => Promise<Type<unknown>>>("
 /** The open repository: sidebar, the routed view, the terminal panel, and the shortcuts that work everywhere. */
 @Component({
   selector: "gd-shell",
-  imports: [Sidebar, RouterOutlet],
+  imports: [OperationBanner, Sidebar, RouterOutlet],
   // State that lives as long as the repository is open.
   providers: [CommitDraft],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,6 +37,9 @@ export const TERMINAL_PANEL = new InjectionToken<() => Promise<Type<unknown>>>("
   template: `
     <gd-sidebar />
     <div class="workspace">
+      @if (session.snapshot()?.operation) {
+        <gd-operation-banner />
+      }
       <main class="main" [attr.aria-busy]="session.phase() === 'opening'">
         <router-outlet />
       </main>

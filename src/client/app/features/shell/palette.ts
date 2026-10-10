@@ -7,7 +7,8 @@ import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
 import { WikiActions } from "../wiki/wiki-actions";
 import { PaletteIcon } from "./palette-icon";
-import { allItems, branchItems, linkItem, rank, type PaletteCommands, type PaletteItem } from "./palette-items";
+import { allItems, branchItems, linkItem, mergeItems, rank, type PaletteCommands, type PaletteItem } from "./palette-items";
+import { OperationActions } from "../operations/operation-actions";
 import { RepositoryActions } from "./repository-actions";
 import { ShellUi, type PaletteMode } from "./shell-ui";
 
@@ -18,7 +19,7 @@ import { ShellUi, type PaletteMode } from "./shell-ui";
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./palette.css",
   template: `
-    <div class="palette" role="dialog" [attr.aria-label]="mode === 'branches' ? 'Switch branch' : 'Command palette'">
+    <div class="palette" role="dialog" [attr.aria-label]="label">
       <input
         #field
         class="palette-input"
@@ -27,7 +28,7 @@ import { ShellUi, type PaletteMode } from "./shell-ui";
         aria-controls="palette-results"
         [attr.aria-activedescendant]="results()[active()] ? 'palette-' + active() : null"
         spellcheck="false"
-        [placeholder]="mode === 'branches' ? 'Switch to branch…' : 'Search pages, tasks, files and commands…'"
+        [placeholder]="placeholder"
         [value]="query()"
         (input)="search(field.value)"
         (keydown)="key($event)"
@@ -74,8 +75,15 @@ export class Palette {
   private readonly router = inject(Router);
   private readonly wiki = inject(WikiActions);
   private readonly repository = inject(RepositoryActions);
+  private readonly operations = inject(OperationActions);
   private readonly ui = inject(ShellUi);
   private readonly terminals = inject(Terminals);
+  protected readonly label = { all: "Command palette", branches: "Switch branch", merge: "Merge branch" }[this.mode];
+  protected readonly placeholder = {
+    all: "Search pages, tasks, files and commands…",
+    branches: "Switch to branch…",
+    merge: `Merge into ${this.session.snapshot()?.head.branch ?? "the current branch"}…`,
+  }[this.mode];
   protected readonly query = signal("");
   protected readonly active = signal(0);
   private readonly recent = inject(Repositories).recent;
@@ -92,6 +100,8 @@ export class Palette {
     switchBranch: (name) => void this.repository.switchBranch(name),
     createBranch: (name) => void this.repository.createBranch(name),
     showBranches: () => void this.ui.openPalette("branches"),
+    merge: (source, kind) => void this.operations.merge(source, kind),
+    showMerge: () => void this.ui.openPalette("merge"),
     sync: (action, remote) => void this.repository.sync(action, remote),
     syncContent: () => void this.repository.syncContent(),
     pickFolder: () => void this.session.pick(),
@@ -107,13 +117,13 @@ export class Palette {
 
   private readonly items = computed<PaletteItem[]>(() => {
     const snapshot = this.session.snapshot()!;
-    return this.mode === "branches"
-      ? branchItems(snapshot, this.query(), this.commands)
-      : allItems(snapshot, this.recent(), this.session.preferences().theme, { mod: MOD_KEY, ctrl: CTRL_KEY }, this.commands);
+    if (this.mode === "branches") return branchItems(snapshot, this.query(), this.commands);
+    if (this.mode === "merge") return mergeItems(snapshot, this.commands);
+    return allItems(snapshot, this.recent(), this.session.preferences().theme, { mod: MOD_KEY, ctrl: CTRL_KEY }, this.commands);
   });
   protected readonly results = computed(() => {
     const link = this.mode === "all" ? linkItem(this.query(), this.commands) : null;
-    return link ? [link] : rank(this.items(), this.query(), this.mode === "branches");
+    return link ? [link] : rank(this.items(), this.query(), this.mode !== "all");
   });
 
   constructor() {

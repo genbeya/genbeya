@@ -7,7 +7,8 @@ import { Dialogs } from "../../core/dialogs";
 import { LinkOpener } from "../../core/link-opener";
 import { Session } from "../../core/session";
 
-export type PaletteMode = "all" | "branches";
+/** Everything, or a list of branches to switch to or merge. */
+export type PaletteMode = "all" | "branches" | "merge";
 
 @Injectable({ providedIn: "root" })
 export class ShellUi {

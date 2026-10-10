@@ -450,6 +450,15 @@ describe("VersionControlManager", () => {
     ["tag name", (m: Managers, id: string) => m.versionControl.createTag(id, "bad..tag", "main", ""), "not a valid tag name"],
     ["tag option", (m: Managers, id: string) => m.versionControl.createTag(id, "-d", "main", ""), "Invalid tag name."],
     ["tag", (m: Managers, id: string) => m.versionControl.deleteTag(id, "missing"), "Choose a tag."],
+    ["merge source", (m: Managers, id: string) => m.versionControl.merge(id, "--abort", { noFastForward: false, message: "" }), "Choose a"],
+    ["resolution", (m: Managers, id: string) => m.versionControl.resolveConflict(id, "a", { use: "mine" } as never), "Invalid resolution."],
+    ["conflict path", (m: Managers, id: string) => m.versionControl.resolveConflict(id, "../a", { use: "ours" }), "path"],
+    [
+      "unconflicted file",
+      (m: Managers, id: string) => m.versionControl.resolveConflict(id, "src/code.ts", { use: "ours" }),
+      "no conflicts",
+    ],
+    ["continue", (m: Managers, id: string) => m.versionControl.continueOperation(id), "No merge, rebase"],
   ])("rejects an invalid %s", async (_, call, message) => {
     const { managers, id } = await opened();
     await expect(call(managers, id)).rejects.toThrow(message);
@@ -475,6 +484,26 @@ describe("VersionControlManager", () => {
     await versionControl.deleteTag(id, "v1");
     expect(await latest()).toMatchObject({ branches: ["main"], tags: [] });
     expect(await repository.git("tag")).toBe("");
+  });
+
+  it("merges with a conflict, shows it in the snapshot, and continues once it is resolved", async () => {
+    const { versionControl, id, latest, repository } = await opened();
+    await repository.git("switch", "-q", "-c", "feature");
+    await repository.write("src/code.ts", "feature\n");
+    await repository.git("commit", "-qam", "Feature");
+    await repository.git("switch", "-q", "main");
+    await repository.write("src/code.ts", "main\n");
+    await repository.git("commit", "-qam", "Main");
+
+    expect(await versionControl.merge(id, "feature", { noFastForward: false, message: "" })).toBe("stopped");
+    const snapshot = await latest();
+    expect(snapshot.operation).toEqual({ kind: "merge", source: "feature", target: "main", step: null, steps: null });
+    expect(snapshot.changes).toEqual([expect.objectContaining({ path: "src/code.ts", conflict: "both-modified" })]);
+    expect((await versionControl.conflict(id, "src/code.ts")).text).toContain(">>>>>>> feature");
+    await versionControl.resolveConflict(id, "src/code.ts", { use: "theirs" });
+    expect(await versionControl.continueOperation(id)).toBe("done");
+    expect(await latest()).toMatchObject({ operation: null, changes: [] });
+    expect(await repository.read("src/code.ts")).toBe("feature\n");
   });
 
   it("stashes changes, shows and pops them", async () => {

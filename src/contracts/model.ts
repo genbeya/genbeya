@@ -227,6 +227,8 @@ export interface Snapshot {
   readonly tags: readonly string[];
   /** Newest first. */
   readonly stashes: readonly Stash[];
+  /** The merge, rebase, cherry-pick or revert in progress, if any. */
+  readonly operation: Operation | null;
   readonly files: readonly FileNode[];
   readonly wiki: readonly WikiNode[];
   readonly tasks: readonly Task[];

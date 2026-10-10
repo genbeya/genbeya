@@ -85,7 +85,7 @@ describe("StashAccess", () => {
     await repository.git("commit", "-qam", "Change");
     const [stash] = await repo.stashes.list();
     expect(await repo.stashes.apply(stash!, true)).toBe("stopped");
-    expect(await repo.conflicted()).toBe(true);
+    expect(await repo.operations.conflicted()).toBe(true);
     expect((await repo.changes())[0]).toMatchObject({ path: "src/code.ts", conflict: "both-modified" });
     expect(await repo.stashes.list()).toHaveLength(1);
   });

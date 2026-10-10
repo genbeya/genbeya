@@ -4,6 +4,7 @@ import {
   LOG_FORMAT,
   parseLog,
   parseNameStatus,
+  parseOperation,
   parseRemotes,
   parseStashes,
   parseStatus,
@@ -95,6 +96,57 @@ describe("parseStashes", () => {
       { hash: c, index: 2, date: "2026-01-01T00:00:00Z", branch: null, message: "Detached" },
     ]);
     expect(parseStashes("")).toEqual([]);
+  });
+});
+
+describe("parseOperation", () => {
+  it("reads merges, naming the merged branch, tag or commit", () => {
+    const merge = (message: string) => parseOperation({ MERGE_HEAD: "a".repeat(40) + "\n", MERGE_MSG: message }, "main");
+    expect(merge("Merge branch 'feature'\n\n# Conflicts:\n#\ta.txt\n")).toEqual({
+      kind: "merge",
+      source: "feature",
+      target: "main",
+      step: null,
+      steps: null,
+    });
+    expect(merge("Merge remote-tracking branch 'origin/x' into dev\n")?.source).toBe("origin/x");
+    expect(merge("Merge tag 'v1'\n")?.source).toBe("v1");
+    expect(merge("Custom message\n")?.source).toBe("aaaaaaa");
+  });
+
+  it("reads rebases with their progress, from either backend", () => {
+    expect(
+      parseOperation(
+        {
+          "rebase-merge/head-name": "refs/heads/feature\n",
+          "rebase-merge/onto": "b".repeat(40) + "\n",
+          "rebase-merge/msgnum": "2\n",
+          "rebase-merge/end": "5\n",
+          MERGE_MSG: "Picked\n",
+        },
+        null,
+      ),
+    ).toEqual({ kind: "rebase", source: "feature", target: "b".repeat(40), step: 2, steps: 5 });
+    expect(
+      parseOperation({ "rebase-apply/head-name": "detached HEAD\n", "rebase-apply/next": "1\n", "rebase-apply/last": "3\n" }, null),
+    ).toEqual({ kind: "rebase", source: "detached HEAD", target: null, step: 1, steps: 3 });
+  });
+
+  it("reads cherry-picks and reverts by the subject of their commit", () => {
+    expect(parseOperation({ CHERRY_PICK_HEAD: "c".repeat(40), MERGE_MSG: "Fix the build\n\nDetails\n" }, "main")).toEqual({
+      kind: "cherry-pick",
+      source: "Fix the build",
+      target: "main",
+      step: null,
+      steps: null,
+    });
+    expect(parseOperation({ REVERT_HEAD: "d".repeat(40), MERGE_MSG: 'Revert "Fix the build"\n\nThis reverts' }, "main")?.source).toBe(
+      "Fix the build",
+    );
+  });
+
+  it("finds nothing in progress without those files", () => {
+    expect(parseOperation({ MERGE_MSG: "left over\n" }, "main")).toBeNull();
   });
 });
 

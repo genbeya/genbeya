@@ -22,6 +22,25 @@
     </div>
     <gd-sync-bar />
     <div class="side-panel-scroll">
+      @if (conflicts().length) {
+        <section aria-label="Conflicts">
+          <div class="panel-heading">
+            Conflicts <span class="count">{{ conflicts().length }}</span>
+          </div>
+          @for (change of conflicts(); track change.path) {
+            <button
+              type="button"
+              class="entry-row"
+              [class.is-selected]="change.path === conflict()"
+              [attr.aria-current]="change.path === conflict() || null"
+              (click)="selectConflict(change.path)"
+            >
+              <span class="ellipsis">{{ change.path }}</span>
+              <span class="entry-row-meta ellipsis">{{ conflictKinds[change.conflict!] }}</span>
+            </button>
+          }
+        </section>
+      }
       @if (stagedChanges().length) {
         <section aria-label="Staged changes">
           <div class="panel-heading">
@@ -89,13 +108,13 @@
           @for (entry of snapshot().stashes; track entry.hash) {
             <button
               type="button"
-              class="stash-row"
+              class="entry-row"
               [class.is-selected]="entry.hash === stash()"
               [attr.aria-current]="entry.hash === stash() || null"
               (click)="selectStash(entry.hash)"
             >
               <span class="ellipsis">{{ entry.message || "Stash" }}</span>
-              <span class="stash-row-meta ellipsis">{{ entry.branch ?? "detached HEAD" }} · {{ relativeTime(entry.date) }}</span>
+              <span class="entry-row-meta ellipsis">{{ entry.branch ?? "detached HEAD" }} · {{ relativeTime(entry.date) }}</span>
             </button>
           }
         </section>
@@ -104,7 +123,11 @@
   </aside>
   <div [gdResizeHandle]="panel"></div>
   <section class="main-pane">
-    @if (selectedStash(); as entry) {
+    @if (selectedConflict(); as change) {
+      @for (key of [change.path]; track key) {
+        <gd-conflict-pane [path]="change.path" />
+      }
+    } @else if (selectedStash(); as entry) {
       @for (key of [entry.hash]; track key) {
         <gd-stash-pane [stash]="entry" [file]="file()" />
       }

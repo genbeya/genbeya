@@ -1,5 +1,5 @@
 import { snapshot, task } from "../../testing/fake-platform";
-import { allItems, branchItems, linkItem, rank, type PaletteCommands } from "./palette-items";
+import { allItems, branchItems, linkItem, mergeItems, rank, type PaletteCommands } from "./palette-items";
 
 const calls = new Map<string, ReturnType<typeof vi.fn>>();
 const commands = new Proxy({}, { get: (_, name: string) => calls.get(name) ?? calls.set(name, vi.fn()).get(name) }) as PaletteCommands;
@@ -50,6 +50,22 @@ describe("palette items", () => {
     expect(commands.openLink).toHaveBeenCalledWith({ remote: "git@github.com:acme/demo.git", item: { kind: "task", id: "DP-1" } });
     expect(linkItem("login", commands)).toBeNull();
     expect(linkItem("gitdesk://open?remote=/srv/demo.git&task=DP-1", commands)).toBeNull();
+  });
+
+  it("lists the branches to merge, with the upstream, but not the current branch", () => {
+    const merges = mergeItems(repository, commands);
+    expect(merges.map((item) => item.label)).toEqual(["feature", "origin/main", "origin/other"]);
+    merges[1]!.run();
+    expect(commands.merge).toHaveBeenCalledWith("origin/main", "remote");
+    expect(items.find((item) => item.id === "merge")?.label).toBe("Merge into main…");
+    const merging = allItems(
+      { ...repository, operation: { kind: "merge", source: "x", target: "main", step: null, steps: null } },
+      [],
+      "dark",
+      { mod: "", ctrl: "" },
+      commands,
+    );
+    expect(merging.some((item) => item.id === "merge")).toBe(false);
   });
 
   it("lists local and remote branches with an action to create one", () => {

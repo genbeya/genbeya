@@ -137,6 +137,17 @@ describe("ChangesView", () => {
     expect(harness.managers.versionControl.dropStash).not.toHaveBeenCalled();
   });
 
+  it("lists conflicts on their own and selects the first one", async () => {
+    const { element, router, managers } = await render([
+      { path: "a.ts", index: "U", worktree: "U", conflict: "both-modified" },
+      { path: "b.ts", index: "M", worktree: " " },
+    ]);
+    managers.versionControl.conflict.mockResolvedValue({ path: "a.ts", kind: "both-modified", text: "" });
+    expect(element.querySelector("[aria-label='Conflicts']")!.textContent).toContain("changed on both sides");
+    expect(element.querySelector("[aria-label='Staged changes']")!.textContent).not.toContain("a.ts");
+    expect(router.navigate).toHaveBeenCalledWith(["/changes"], { queryParams: { conflict: "a.ts" }, replaceUrl: true });
+  });
+
   it("selects the first change", async () => {
     const { router } = await render([{ path: "b.ts", index: " ", worktree: "M" }]);
     expect(router.navigate).toHaveBeenCalledWith(["/changes"], { queryParams: { file: "b.ts", staged: null }, replaceUrl: true });

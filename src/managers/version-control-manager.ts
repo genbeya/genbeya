@@ -1,6 +1,17 @@
 /** Staging, committing, history, branches and remotes of the checked-out repository. */
 import type { VersionControlManagerContract } from "../contracts/manager-contracts";
-import type { Commit, CommitDetail, Diff, DiffSource, OperationOutcome, Stash, StashDetail, SyncAction } from "../contracts/model";
+import type {
+  Commit,
+  CommitDetail,
+  ConflictFile,
+  ConflictResolution,
+  Diff,
+  DiffSource,
+  OperationOutcome,
+  Stash,
+  StashDetail,
+  SyncAction,
+} from "../contracts/model";
 import { TEXT_LIMIT } from "../access/files/file-store";
 import { isCommitId } from "../access/git/git-parsers";
 import { decodeLenient, isBinary } from "../utilities/bytes";
@@ -193,6 +204,44 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.on(id, async (workspace) =>
       workspace.repository.stashes.branch(await this.stashOf(workspace, hash), await this.branchName(workspace, name)),
     );
+  }
+
+  merge(id: unknown, ref: unknown, options: unknown): Promise<OperationOutcome> {
+    return this.on(id, async (workspace) => {
+      const source = await this.revision(workspace, ref);
+      const { noFastForward, message } = (options ?? {}) as Partial<Record<string, unknown>>;
+      if (typeof message !== "string" || message.length > MESSAGE_LIMIT) throw new Error("Invalid merge message.");
+      return workspace.repository.operations.merge(source, { noFastForward: noFastForward === true, message: message.trim() });
+    });
+  }
+
+  continueOperation(id: unknown): Promise<OperationOutcome> {
+    return this.on(id, (workspace) => workspace.repository.operations.continue());
+  }
+
+  skipOperation(id: unknown): Promise<OperationOutcome> {
+    return this.on(id, (workspace) => workspace.repository.operations.skip());
+  }
+
+  abortOperation(id: unknown): Promise<void> {
+    return this.on(id, (workspace) => workspace.repository.operations.abort());
+  }
+
+  conflict(id: unknown, path: unknown): Promise<ConflictFile> {
+    return this.on(id, async (workspace) => workspace.repository.operations.conflict(workspace.path(path)));
+  }
+
+  resolveConflict(id: unknown, path: unknown, resolution: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { use, text } = (resolution ?? {}) as Partial<Record<string, unknown>>;
+      let resolved: ConflictResolution;
+      if (use === "text" && typeof text === "string" && text.length <= TEXT_LIMIT) resolved = { use, text };
+      else if (use === "ours" || use === "theirs" || use === "worktree" || use === "delete") resolved = { use };
+      else throw new Error("Invalid resolution.");
+      if (!(await workspace.repository.operations.conflictedPaths()).includes(relative)) throw new Error(`${relative} has no conflicts.`);
+      await workspace.repository.operations.resolve(relative, resolved);
+    });
   }
 
   private async stashOf(workspace: Workspace, hash: unknown): Promise<Stash> {

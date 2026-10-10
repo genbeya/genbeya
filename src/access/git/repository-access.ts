@@ -3,11 +3,12 @@
  * committing, history, branches, remotes. Callers validate their input;
  * this class assumes well-formed paths, names and commit IDs.
  */
-import type { Change, Commit, CommitDetail, DiffSource, Head, Remote, Stash, SyncAction } from "../../contracts/model";
+import type { Change, Commit, CommitDetail, DiffSource, Head, Operation, Remote, Stash, SyncAction } from "../../contracts/model";
 import { splitIntoBatches } from "../../utilities/serial-queue";
 import { isMissing, isTooLarge, type Host } from "../hosts/host";
 import { Git, GitError, NETWORK_TIMEOUT } from "./git";
 import { LOG_FORMAT, parseLog, parseNameStatus, parseRemotes } from "./git-parsers";
+import { OperationAccess } from "./operation-access";
 import { RefAccess } from "./ref-access";
 import { StashAccess } from "./stash-access";
 
@@ -20,12 +21,14 @@ export interface RepositoryState {
   readonly remotes: Remote[];
   readonly tags: string[];
   readonly stashes: Stash[];
+  readonly operation: Operation | null;
 }
 
 export class RepositoryAccess {
   readonly git: Git;
   readonly refs: RefAccess;
   readonly stashes: StashAccess;
+  readonly operations: OperationAccess;
 
   constructor(
     private readonly host: Host,
@@ -33,7 +36,8 @@ export class RepositoryAccess {
   ) {
     this.git = new Git(host, root);
     this.refs = new RefAccess(this.git);
-    this.stashes = new StashAccess(this.git, () => this.conflicted());
+    this.operations = new OperationAccess(host, root, this.git);
+    this.stashes = new StashAccess(this.git, () => this.operations.conflicted());
   }
 
   /** The top folder of the repository containing `path`, in the host's path style. */
@@ -62,16 +66,12 @@ export class RepositoryAccess {
     ]);
     // Remote branches with a local counterpart are switched to through that.
     const remoteOnly = remoteBranches.filter((ref) => !branches.includes(ref.slice(ref.indexOf("/") + 1)));
-    return { files, head, changes, branches, remoteBranches: remoteOnly, remotes: parseRemotes(remoteText), tags, stashes };
+    const operation = await this.operations.current(head.branch);
+    return { files, head, changes, branches, remoteBranches: remoteOnly, remotes: parseRemotes(remoteText), tags, stashes, operation };
   }
 
   async changes(): Promise<Change[]> {
     return (await this.git.status()).changes;
-  }
-
-  /** True while files have unresolved conflicts. */
-  async conflicted(): Promise<boolean> {
-    return (await this.changes()).some((change) => change.conflict);
   }
 
   async head(): Promise<Head> {

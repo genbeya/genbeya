@@ -7,12 +7,22 @@
 import { concatBytes, decodeLenient, encodeText } from "../../utilities/bytes";
 import { SerialQueue } from "../../utilities/serial-queue";
 import type { ChildProcess, ProcessRunner, RunResult } from "../ports";
+import { GIT_ENVIRONMENT } from "./host";
 
 export const DEFAULT_TIMEOUT = 60_000;
 const CONNECT_TIMEOUT = 30_000;
 /** How long a closing sh may take to finish and clean up before it is killed. */
 const EXIT_GRACE = 3_000;
 const READY = "GDK-READY";
+
+/** Quotes a value for POSIX sh. */
+export const quote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
+
+/** `export 'NAME=value' …`, for a script that runs before commands. */
+export const exportVariables = (variables: Readonly<Record<string, string>>): string =>
+  `export ${Object.entries(variables)
+    .map(([name, value]) => quote(`${name}=${value}`))
+    .join(" ")}`;
 
 /**
  * Defines `gd_check root relative`, which fails with 3 when a segment below
@@ -23,13 +33,10 @@ const BOOTSTRAP = `
 T=$(mktemp -d 2>/dev/null || mktemp -d -t gitdesk) || exit 1
 trap 'rm -rf "$T"' EXIT
 trap 'exit 1' HUP INT TERM
-export GIT_TERMINAL_PROMPT=0 GIT_OPTIONAL_LOCKS=0
+${exportVariables(GIT_ENVIRONMENT)}
 gd_check() { ( set -f; c=$1; IFS=/; for s in $2; do c=$c/$s; if [ -L "$c" ]; then exit 3; fi; done ) }
 printf '\\n${READY}\\n'
 `;
-
-/** Quotes a value for POSIX sh. */
-export const quote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
 
 /** The connection ended, or never started; `detail` is what the connecting program wrote to stderr. */
 export class ConnectionError extends Error {
