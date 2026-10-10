@@ -68,6 +68,13 @@ describe("AgentEngine", () => {
     expect(frontmatter["description"]).toContain("Tasks live in work: items/");
   });
 
+  it("tells agents to find each area where .gitdesk-content says it lives", () => {
+    for (const target of ["agentsSkill", "agents"] as const) {
+      expect(fileOf(target).text).toContain("`.gitdesk-content`");
+      expect(fileOf(target).text).toMatch(/`branch`[\s\S]*`checkout`/);
+    }
+  });
+
   it("points instruction files to the skill that is added", () => {
     expect(fileOf("agents").text).toContain("(`.agents/skills/gitdesk/SKILL.md`)");
     expect(fileOf("agents", gitdesk, ["claudeSkill", "agents"]).text).toContain("(`.claude/skills/gitdesk/SKILL.md`)");

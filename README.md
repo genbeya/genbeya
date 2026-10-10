@@ -6,7 +6,7 @@ A desktop workspace for a Git repository: wiki, task board, code editor and vers
 - **Tasks** on a board or list, with readable IDs (`GENBEYA-12`), drag and drop, inline status/priority/assignee/labels, and rendered descriptions with clickable checkboxes.
 - **Code, changes and history**: CodeMirror editor, staging, commit and amend, fetch/pull/push, branch switching, and a commit graph.
 - **Local, WSL and SSH** repositories. Git runs where the repository is.
-- **Dedicated content branch** (optional): keep wiki and tasks on a shared `gitdesk` branch so they look the same on every code branch.
+- **Shared content branch** (optional): keep the wiki, the tasks or the settings, each on its own, on a shared `gitdesk` branch so they look the same on every code branch.
 - **Terminal** (`` Ctrl+` ``) in the repository, on the machine it lives on.
 - **AI agents**: a skill and an `AGENTS.md` section teach Claude Code, Codex, Copilot, Cursor and others to track their work as tasks and keep project knowledge in the wiki ([AI agents](docs/Guide/AI-agents.md)).
 - Command palette (`Ctrl+K`), back/forward (`Alt+←/→`, mouse buttons), recent repositories, dark and light themes.

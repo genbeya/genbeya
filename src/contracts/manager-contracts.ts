@@ -9,6 +9,7 @@ import type {
   AgentTarget,
   CommitDetail,
   Commit,
+  ContentArea,
   Diff,
   DiffSource,
   FileContent,
@@ -87,9 +88,12 @@ export interface ContentManagerContract {
   editComment(workspace: string, path: string, index: number, text: string, expectedHash: string): Promise<Task>;
   deleteComment(workspace: string, path: string, index: number, expectedHash: string): Promise<Task>;
   saveSettings(workspace: string, settings: Settings, expectedHash: string | null): Promise<void>;
-  /** Keeps wiki and tasks in the checkout, or on a dedicated branch shared by all code branches. */
-  setStorage(workspace: string, mode: StorageMode): Promise<void>;
-  /** Exchanges wiki and task edits on the dedicated branch with its remote. */
+  /**
+   * Keeps one area (wiki, tasks or settings) in the checkout, or on the
+   * content branch shared by all code branches. The area's files move along.
+   */
+  setStorage(workspace: string, area: ContentArea, mode: StorageMode): Promise<void>;
+  /** Exchanges the edits on the content branch with its remote. */
   syncContent(workspace: string): Promise<void>;
   /** Every agent file and whether the checkout has it, generated as if `targets` were added (they refer to each other). */
   agentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFile[]>;

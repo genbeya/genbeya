@@ -1,14 +1,18 @@
 /**
- * Where wiki pages, tasks and settings live. By default that is the
- * checkout, so they change with the checked-out branch. Teams can instead
- * keep them on a dedicated branch, checked out as a worktree inside `.git`,
- * where every edit is committed right away and sync rebases and pushes it.
+ * Where wiki pages, tasks and settings live. Each area lives either in the
+ * checkout, where it changes with the checked-out branch, or on the shared
+ * content branch, checked out as a worktree inside `.git`, where every edit
+ * is committed right away and sync rebases and pushes it.
  *
- * Configured with `git config gitdesk.storage worktree|branch` and
- * `gitdesk.branch` (default `gitdesk`). A clone whose remote has the
- * branch uses it automatically.
+ * The content branch is `gitdesk` unless `git config gitdesk.branch` names
+ * another. Its `.gitdesk-content` file lists which areas it holds, so the
+ * whole team shares the layout; a branch without that file (made by earlier
+ * versions) holds every area. A clone whose remote has the branch uses it
+ * automatically; `git config gitdesk.storage worktree` keeps every area of
+ * one clone in its checkout.
  */
-import type { Head, StorageMode } from "../../contracts/model";
+import { CONTENT_AREAS, type ContentArea, type Head, type StorageMode } from "../../contracts/model";
+import { encodeText } from "../../utilities/bytes";
 import { FileStore, TEXT_LIMIT } from "../files/file-store";
 import { committedFile, committedFiles, fileHistory } from "../git/file-history";
 import { Git, GitError } from "../git/git";
@@ -16,14 +20,31 @@ import { parseWorktrees, type FileRevision } from "../git/git-parsers";
 import type { Host } from "../hosts/host";
 
 export const DEFAULT_CONTENT_BRANCH = "gitdesk";
+/** The file on the content branch that lists where each area lives. */
+export const AREAS_FILE = ".gitdesk-content";
 const NETWORK_TIMEOUT = 5 * 60_000;
+
+export type AreaModes = Readonly<Record<ContentArea, StorageMode>>;
+
+const everyArea = (mode: StorageMode): AreaModes =>
+  Object.fromEntries(CONTENT_AREAS.map((area) => [area, mode])) as Record<ContentArea, StorageMode>;
+const IN_CHECKOUT = everyArea("checkout");
+const ON_BRANCH = everyArea("branch");
+
+const AREA_NAMES: Readonly<Record<ContentArea, string>> = { wiki: "the wiki", tasks: "tasks", settings: "settings" };
 
 export interface ContentLocation {
   readonly root: string;
   readonly files: FileStore;
   readonly git: Git;
-  /** The dedicated branch, or null when content lives in the checkout. */
+  /** The content branch, or null for the checkout. */
   readonly branch: string | null;
+}
+
+export interface ContentLayout {
+  readonly areas: AreaModes;
+  /** The content branch's worktree while this clone uses the branch, whether or not an area lives on it. */
+  readonly branch: ContentLocation | null;
 }
 
 export interface ContentBranchState {
@@ -33,16 +54,36 @@ export interface ContentBranchState {
   readonly uncommitted: number;
 }
 
+/** The areas file, in Git's config format so Git reads it. */
+const areasFile = (areas: AreaModes) =>
+  [
+    `# Where GitDesk keeps each area: "branch" is this content branch,`,
+    `# "checkout" is the checked-out code branch of every clone.`,
+    "[areas]",
+    ...CONTENT_AREAS.map((area) => `\t${area} = ${areas[area]}`),
+    "",
+  ].join("\n");
+
+/** `git config --list` output of an areas file; areas it does not name live in the checkout. */
+function parseAreas(listed: string): AreaModes {
+  const values = new Map(listed.split("\n").map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1).trim()]));
+  return Object.fromEntries(
+    CONTENT_AREAS.map((area) => [area, values.get(`areas.${area}`) === "branch" ? "branch" : "checkout"]),
+  ) as Record<ContentArea, StorageMode>;
+}
+
 export class ContentStore {
-  private current: ContentLocation & { key: string };
+  private readonly checkout: ContentLocation;
+  private worktreeLocation: (ContentLocation & { key: string }) | null = null;
+  private listedAreas: { commit: string; areas: AreaModes } | null = null;
   private failedCommit: string | null = null;
 
   constructor(
     private readonly host: Host,
     private readonly repository: Git,
-    private readonly checkout: FileStore,
+    files: FileStore,
   ) {
-    this.current = { key: "", root: checkout.root, files: checkout, git: repository, branch: null };
+    this.checkout = { root: files.root, files, git: repository, branch: null };
   }
 
   /** Why the last auto-commit failed, while edits are still uncommitted. */
@@ -50,26 +91,56 @@ export class ContentStore {
     return this.failedCommit;
   }
 
-  /** The current location, checking the branch out as a worktree when needed. */
-  async locate(): Promise<ContentLocation> {
+  /** Where each area lives, checking the content branch out as a worktree when this clone uses it. */
+  async layout(): Promise<ContentLayout> {
     const [mode, configured] = await Promise.all([this.repository.config("gitdesk.storage"), this.repository.config("gitdesk.branch")]);
-    const branch = configured ?? DEFAULT_CONTENT_BRANCH;
-    const refs = mode === "worktree" ? [] : await this.branchRefs(branch);
-    const local = refs.includes(`refs/heads/${branch}`);
-    const remote = refs.find((ref) => ref.startsWith("refs/remotes/"));
-    const key = `${mode}|${branch}|${local}|${remote}`;
-    if (this.current.key === key && (await this.host.kind(this.current.root, ".").catch(() => null)) === "dir") return this.current;
-    if (!local && !remote) {
-      this.current = { key, root: this.checkout.root, files: this.checkout, git: this.repository, branch: null };
-      return this.current;
-    }
-    const root = await this.worktree(branch, local ? null : remote!.replace("refs/remotes/", ""));
-    this.current = { key, root, files: new FileStore(this.host, root), git: new Git(this.host, root), branch };
-    return this.current;
+    const name = configured ?? DEFAULT_CONTENT_BRANCH;
+    const tips = mode === "worktree" ? [] : await this.branchTips(name);
+    const local = tips.find((tip) => tip.ref === `refs/heads/${name}`);
+    const remote = tips.find((tip) => tip.ref.startsWith("refs/remotes/"));
+    const tip = local ?? remote;
+    if (!tip) return { areas: IN_CHECKOUT, branch: null };
+    const branch = await this.checkedOut(name, local ? null : remote!.ref.slice("refs/remotes/".length));
+    return { areas: await this.areasAt(tip.commit), branch };
   }
 
-  private branchRefs(branch: string): Promise<string[]> {
-    return this.repository.lines(["for-each-ref", "--format=%(refname)", `refs/heads/${branch}`, `refs/remotes/*/${branch}`]);
+  /** Where `area` lives: the checkout or the content branch's worktree. */
+  async locate(area: ContentArea): Promise<ContentLocation> {
+    const { areas, branch } = await this.layout();
+    return branch && areas[area] === "branch" ? branch : this.checkout;
+  }
+
+  /** Files of the location `area` lives in. */
+  async files(area: ContentArea): Promise<string[]> {
+    return (await this.locate(area)).git.files();
+  }
+
+  private async branchTips(branch: string): Promise<{ ref: string; commit: string }[]> {
+    const lines = await this.repository.lines([
+      "for-each-ref",
+      "--format=%(objectname) %(refname)",
+      `refs/heads/${branch}`,
+      `refs/remotes/*/${branch}`,
+    ]);
+    return lines.map((line) => ({ commit: line.slice(0, line.indexOf(" ")), ref: line.slice(line.indexOf(" ") + 1) }));
+  }
+
+  /** The areas the content branch holds at `commit`; read once per commit. */
+  private async areasAt(commit: string): Promise<AreaModes> {
+    if (this.listedAreas?.commit !== commit) {
+      const listed = await this.repository.attempt(["config", "--blob", `${commit}:${AREAS_FILE}`, "--list"]);
+      this.listedAreas = { commit, areas: listed === null ? ON_BRANCH : parseAreas(listed) };
+    }
+    return this.listedAreas.areas;
+  }
+
+  private async checkedOut(branch: string, upstream: string | null): Promise<ContentLocation> {
+    const key = `${branch}|${upstream}`;
+    const current = this.worktreeLocation;
+    if (current?.key === key && (await this.host.kind(current.root, ".").catch(() => null)) === "dir") return current;
+    const root = await this.worktree(branch, upstream);
+    this.worktreeLocation = { key, root, files: new FileStore(this.host, root), git: new Git(this.host, root), branch };
+    return this.worktreeLocation;
   }
 
   /** The worktree of `branch`, created (tracking `upstream` when given) or repaired as needed. */
@@ -100,27 +171,22 @@ export class ContentStore {
     return (await this.repository.text(["rev-parse", "--path-format=absolute", "--git-common-dir"])).trim();
   }
 
-  /** Files of the content location. */
-  async files(): Promise<string[]> {
-    return (await this.locate()).git.files();
-  }
-
   /**
-   * Commits of the content location's branch that changed `path`, newest
-   * first, following renames; with `contents`, each with the file before and after.
+   * Commits that changed `path` on the branch `area` lives on, newest first,
+   * following renames; with `contents`, each with the file before and after.
    */
-  async history(path: string, limit: number, contents: boolean): Promise<FileRevision[]> {
-    return fileHistory((await this.locate()).git, path, limit, contents);
+  async history(area: ContentArea, path: string, limit: number, contents: boolean): Promise<FileRevision[]> {
+    return fileHistory((await this.locate(area)).git, path, limit, contents);
   }
 
-  /** `path` as last committed on the content location's branch; null when it is not. */
-  async committed(path: string): Promise<string | null> {
-    return committedFile((await this.locate()).git, path, TEXT_LIMIT);
+  /** `path` as last committed on the branch `area` lives on; null when it is not. */
+  async committed(area: ContentArea, path: string): Promise<string | null> {
+    return committedFile((await this.locate(area)).git, path, TEXT_LIMIT);
   }
 
-  /** The files below `folder` last committed on the content location's branch. */
-  async committedFiles(folder: string): Promise<string[]> {
-    return committedFiles((await this.locate()).git, folder);
+  /** The files below `folder` last committed on the branch `area` lives on. */
+  async committedFiles(area: ContentArea, folder: string): Promise<string[]> {
+    return committedFiles((await this.locate(area)).git, folder);
   }
 
   /** The name Git signs commits with: `user.name`, or what Git derives from the system account; null if Git has none. */
@@ -130,22 +196,22 @@ export class ContentStore {
     return ident?.split(" <")[0]!.trim() || null;
   }
 
-  /** State of the dedicated branch, or null when content lives in the checkout. */
+  /** State of the content branch, or null while this clone does not use one. */
   async branchState(): Promise<ContentBranchState | null> {
-    const location = await this.locate();
-    if (!location.branch) return null;
+    const { branch: location } = await this.layout();
+    if (!location) return null;
     const { head, changes } = await location.git.status();
     const remote = head.upstream?.split("/")[0] ?? (await this.repository.config(`branch.${location.branch}.remote`));
-    return { branch: location.branch, remote, head, uncommitted: changes.length };
+    return { branch: location.branch!, remote, head, uncommitted: changes.length };
   }
 
   /**
-   * Commits edited content paths right away on the dedicated branch. The
-   * files are already saved; a failing commit is remembered, not thrown,
-   * and the next edit or sync commits whatever is still pending.
+   * Commits edited paths of `area` right away when it lives on the content
+   * branch. The files are already saved; a failing commit is remembered, not
+   * thrown, and the next edit or sync commits whatever is still pending.
    */
-  async record(paths: readonly string[], message: string): Promise<void> {
-    const { git, branch } = await this.locate();
+  async record(area: ContentArea, paths: readonly string[], message: string): Promise<void> {
+    const { git, branch } = await this.locate(area);
     if (!branch) return;
     try {
       await git.text(["add", "-A", "--", ...paths]);
@@ -165,15 +231,59 @@ export class ContentStore {
   }
 
   /**
-   * Switches the storage mode. The first switch to `branch` creates the
-   * branch from an empty root commit and copies `seed` (the committed wiki,
-   * tasks and settings) into it.
+   * Moves `area`, whose files are at `path`, into the checkout or onto the
+   * content branch, and records the new layout on the branch for everyone.
+   * The side the area moves to gets the other side's files: the branch the
+   * checked-out commit's files, the checkout the branch's files as
+   * uncommitted changes. Nothing is lost: the branch keeps its copy in its
+   * history, and uncommitted changes in the checkout stop the move.
    */
-  async setMode(mode: StorageMode, seed: readonly string[]): Promise<void> {
-    await this.repository.text(["config", "gitdesk.storage", mode]);
-    const branch = (await this.repository.config("gitdesk.branch")) ?? DEFAULT_CONTENT_BRANCH;
-    if (mode === "worktree" || (await this.branchRefs(branch)).length) return void (await this.locate());
+  async setStorage(area: ContentArea, mode: StorageMode, path: string): Promise<void> {
+    if ((await this.layout()).areas[area] === mode) return;
+    if (await this.repository.text(["status", "--porcelain", "-z", "--", path]))
+      throw new Error(
+        `Commit or discard the changes in ${path} first: ${
+          mode === "branch" ? "the content branch gets the committed files." : "the files from the content branch replace them."
+        }`,
+      );
+    // A choice made here ends this clone's opt-out; the team's layout on the branch applies again.
+    await this.repository.attempt(["config", "--unset", "gitdesk.storage"]);
+    const created = mode === "branch" && (await this.startBranch());
+    const { areas, branch } = await this.layout();
+    // A new branch starts with nothing on it; one without an areas file would hold every area.
+    const before = created ? IN_CHECKOUT : areas;
+    if (!branch || before[area] === mode) return;
+    await this.commitPending(branch.git);
+    await this.copyAcross(branch.git, mode, path);
+    await this.host.write(branch.root, AREAS_FILE, encodeText(areasFile({ ...before, [area]: mode })), false);
+    await branch.git.text(["add", "--", AREAS_FILE]);
+    await branch.git.text([
+      "commit",
+      "--quiet",
+      "-m",
+      `Move ${AREA_NAMES[area]} to the ${mode === "branch" ? "content branch" : "checkout"}`,
+    ]);
+  }
 
+  /**
+   * Gives the side `mode` names the files at `path` from the other side's
+   * last commit, removing what that commit does not have. The branch gets
+   * them staged, to commit with the move; the checkout as uncommitted changes.
+   */
+  private async copyAcross(content: Git, mode: StorageMode, path: string): Promise<void> {
+    const [from, to, index] = mode === "branch" ? [this.repository, content, ["--staged"]] : [content, this.repository, []];
+    const source = await from.objectId("HEAD");
+    if (source && (await this.holds(source, path))) await to.text(["restore", `--source=${source}`, ...index, "--worktree", "--", path]);
+  }
+
+  private async holds(commit: string, path: string): Promise<boolean> {
+    return (await this.repository.attempt(["cat-file", "-e", `${commit}:${path}`])) !== null;
+  }
+
+  /** Creates the content branch from an empty root commit unless it exists here or on a remote; true when it did. */
+  private async startBranch(): Promise<boolean> {
+    const name = (await this.repository.config("gitdesk.branch")) ?? DEFAULT_CONTENT_BRANCH;
+    if ((await this.branchTips(name)).length) return false;
     const common = await this.commonDirectory();
     // The empty tree must exist as an object, or `git fsck` reports it missing.
     await this.host.write(common, "gitdesk-empty", new Uint8Array(), false);
@@ -182,23 +292,16 @@ export class ContentStore {
     ).trim();
     await this.host.remove(common, "gitdesk-empty");
     const start = (await this.repository.text(["commit-tree", emptyTree, "-m", "Start the GitDesk content branch"])).trim();
-    await this.repository.text(["branch", branch, start]);
-    const content = await this.locate();
-    const head = await this.repository.attempt(["rev-parse", "--verify", "--quiet", "HEAD"]);
-    if (!head) return;
-    const copied: string[] = [];
-    for (const item of seed)
-      if ((await this.repository.attempt(["cat-file", "-e", `HEAD:${item}`])) !== null) {
-        await content.git.text(["checkout", head.trim(), "--", item]);
-        copied.push(item);
-      }
-    if (copied.length) await content.git.text(["commit", "--quiet", "-m", "Copy wiki and tasks from the main checkout"]);
+    await this.repository.text(["branch", name, start]);
+    return true;
   }
 
   /** Rebases local content commits onto the remote branch, then pushes them. */
   async sync(): Promise<void> {
-    const { git, branch } = await this.locate();
-    if (!branch) throw new Error("Wiki and tasks are stored in the checkout; use Pull and Push instead.");
+    const { branch: location } = await this.layout();
+    if (!location) throw new Error("Wiki, tasks and settings are stored in the checkout; use Pull and Push instead.");
+    const { git } = location;
+    const branch = location.branch!;
     const remotes = await this.repository.lines(["remote"]);
     const remote = (await this.repository.config(`branch.${branch}.remote`)) ?? (remotes.includes("origin") ? "origin" : remotes[0]);
     if (!remote) throw new Error("Add a remote in Settings to share wiki and tasks.");

@@ -46,4 +46,4 @@ The skill files belong to GitDesk entirely, and **Update** replaces them. Keep p
 
 ## With a content branch
 
-When the wiki and tasks live on a [[Content branch]], the agent files still go into the checkout, because they belong with the code. They tell agents to look for the worktree inside `.git/gitdesk/` and to edit and commit tasks and pages there.
+When the wiki, the tasks or the settings live on a [[Content branch]], the agent files still go into the checkout, because they belong with the code. They tell agents to look for the worktree inside `.git/gitdesk/`, read its `.gitdesk-content` file to learn which areas live there, and edit and commit those there; the other areas stay in the checkout.

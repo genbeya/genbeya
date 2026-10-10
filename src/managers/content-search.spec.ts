@@ -90,7 +90,7 @@ describe("ContentManager.search", () => {
 
   it("searches the content branch for pages and tasks, and the checkout only for code", async () => {
     const { managers, id, repository, search } = await opened();
-    await managers.content.setStorage(id, "branch");
+    for (const area of ["wiki", "tasks", "settings"] as const) await managers.content.setStorage(id, area, "branch");
     const home = await managers.content.read(id, "content", "docs/Home.md");
     await managers.content.write(id, "content", "docs/Home.md", "# Home\n\nThe gadget moved here.\n", home.hash);
     // The checkout keeps its stale copy, which must not show up as well.
@@ -98,6 +98,20 @@ describe("ContentManager.search", () => {
     const results = await search("gadget");
     expect(paths(results)).toEqual({ wiki: ["docs/Home.md"], tasks: ["tasks/TP-1.md", "tasks/broken.md"], code: ["src/gadget.ts"] });
     expect(results.wiki[0]!.matches.map((match) => match.text)).toEqual(["The gadget moved here."]);
+  });
+
+  it("searches each area where it lives: tasks on the content branch, the wiki in the checkout", async () => {
+    const { managers, id, repository, search } = await opened();
+    await managers.content.setStorage(id, "tasks", "branch");
+    const task = await managers.content.read(id, "content", "tasks/TP-1.md");
+    await managers.content.write(id, "content", "tasks/TP-1.md", task.content.replace("Build the gadget.", "Polish it."), task.hash);
+    await repository.write("docs/Home.md", "# Home\n\nThe gadget stays here.\n");
+    // The checkout's stale tasks must not show up as well.
+    expect(await repository.read("tasks/TP-1.md")).toContain("Build the gadget.");
+    const results = await search("gadget");
+    expect(paths(results)).toEqual({ wiki: ["docs/Home.md"], tasks: ["tasks/TP-1.md", "tasks/broken.md"], code: ["src/gadget.ts"] });
+    expect(results.wiki[0]!.matches.map((match) => match.text)).toEqual(["The gadget stays here."]);
+    expect(results.tasks[0]!.matches.map((match) => match.line)).toEqual([3]);
   });
 
   it("caps files per area and matches per file, and shortens long lines", async () => {
