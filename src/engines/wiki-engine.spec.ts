@@ -34,6 +34,17 @@ describe("WikiEngine.tree", () => {
   it("is empty when the wiki folder is missing", () => {
     expect(engine.tree(["src/a.ts"], settings)).toEqual([]);
   });
+
+  it("lists the pages in tree order", () => {
+    expect(engine.pages(files, settings)).toEqual([
+      { title: "Home", path: "docs/Home.md" },
+      { title: "Architecture", path: "docs/Architecture.md" },
+      { title: "Backend", path: "docs/Architecture/Backend.md" },
+      { title: "Auth", path: "docs/Architecture/Backend/Auth.md" },
+      { title: "Getting started", path: "docs/Getting-started.md" },
+      { title: "Leaf", path: "docs/Orphan/Leaf.md" },
+    ]);
+  });
 });
 
 describe("WikiEngine page rules", () => {
