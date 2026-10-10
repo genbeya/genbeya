@@ -22,6 +22,8 @@ IDs are `PREFIX-number`; the prefix is set in **Settings**. Extra frontmatter fi
 
 Reference a task anywhere in Markdown with `[[GENBEYA-12]]`: it shows the task's title and current state (see [[Wiki#references]]).
 
+Task files change with the checked-out branch and are committed like code. To see the same board on every branch, keep the tasks on the shared [[Content branch]] (**Settings → Where content lives → Tasks**); every change is then committed there right away, while the wiki can stay with the code.
+
 ## The board
 
 - Drag cards between columns to change their status, or switch to the list layout.

@@ -65,4 +65,4 @@ flowchart LR
 
 ## Images
 
-Images stored in the repository render inline: `![Board](images/board.png)`. Remote images are not loaded automatically; they show as a link.
+Images stored in the repository render inline: `![Board](images/board.png)`. They belong to the wiki, so while the wiki lives on the [[Content branch]], GitDesk loads them from there. Remote images are not loaded automatically; they show as a link.

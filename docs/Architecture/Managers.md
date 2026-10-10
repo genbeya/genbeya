@@ -5,7 +5,7 @@ Four managers implement everything the client can do with a repository. Their co
 | Manager | Use cases |
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
-| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, and the [[Content branch]] |
+| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, and where each of those areas lives (the [[Content branch]]) |
 | `versionControl` | Diffs, staging, commits, branches, remotes, fetch/pull/push, history |
 | `terminal` | Shells in the repository for the [[Terminal]]: open, input, size, output, close |
 
@@ -58,6 +58,12 @@ sequenceDiagram
 ## Writes
 
 Saves carry the hash of the content they were based on. If the file changed on disk since, the save is rejected and the editor keeps the draft. Line endings and a byte order mark are kept as they were. All operations on one workspace run one at a time.
+
+## Content areas
+
+The wiki, tasks and settings each live in the checkout or on the [[Content branch]]. File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.gitdesk.yml` belongs to the settings, the task folder to the tasks, and everything else, such as pages and their images, to the wiki. Page, task and settings calls use their own area, and edits are committed right away only when that area is on the content branch. `content.setStorage(workspace, area, mode)` moves one area.
+
+Inside the backend, `workspace.locateContent(path)` names the location of a content path (its root, files, Git and branch), for reading a file's history wherever it lives.
 
 ## Paths
 
