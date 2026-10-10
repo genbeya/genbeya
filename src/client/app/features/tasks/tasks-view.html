@@ -42,7 +42,7 @@
       <svg lucideRows3 [size]="15" aria-hidden="true"></svg>
     </button>
   }
-  <div class="segmented" role="radiogroup" aria-label="Layout">
+  <div class="segmented" role="radiogroup" aria-label="Layout" data-tour="task-layout">
     <button
       type="button"
       role="radio"
@@ -64,7 +64,7 @@
       <svg lucideLayoutList [size]="14" aria-hidden="true"></svg>
     </button>
   </div>
-  <button type="button" class="btn btn-primary btn-m" (click)="startTask()">
+  <button type="button" class="btn btn-primary btn-m" data-tour="new-task" (click)="startTask()">
     <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>New task</span><kbd class="kbd">C</kbd>
   </button>
 </header>
@@ -119,7 +119,7 @@
   </div>
 </ng-template>
 
-<div class="tasks-body">
+<div class="tasks-body" data-tour="task-board">
   @if (!snapshot().tasks.length) {
     <gd-empty-state title="No tasks yet">
       <svg icon lucideColumns3 [size]="20" aria-hidden="true"></svg>

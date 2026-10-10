@@ -34,7 +34,7 @@ import { FileEditor } from "./file-editor";
   host: { class: "view" },
   template: `
     <div class="view-body">
-      <aside class="side-panel" gdResizable="code-tree" [initial]="270" #panel="gdResizable">
+      <aside class="side-panel" gdResizable="code-tree" [initial]="270" #panel="gdResizable" data-tour="code-tree">
         <div class="row panel-toolbar">
           <label class="filter grow">
             <svg lucideSearch [size]="13" aria-hidden="true"></svg>

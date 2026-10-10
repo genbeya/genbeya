@@ -2,10 +2,12 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 import {
   LucideArrowDownToLine,
   LucideArrowUpFromLine,
+  LucideBookMarked,
   LucideBookOpen,
   LucideCircleDot,
   LucideCloudDownload,
   LucideCodeXml,
+  LucideCompass,
   LucideFileCode2,
   LucideFileText,
   LucideFolderOpen,
@@ -21,6 +23,7 @@ import {
   LucidePlus,
   LucideRefreshCw,
   LucideServer,
+  LucideSparkles,
   LucideSquareTerminal,
   LucideSun,
   LucideSunMoon,
@@ -33,10 +36,12 @@ import type { PaletteIcon as Icon } from "./palette-items";
   imports: [
     LucideArrowDownToLine,
     LucideArrowUpFromLine,
+    LucideBookMarked,
     LucideBookOpen,
     LucideCircleDot,
     LucideCloudDownload,
     LucideCodeXml,
+    LucideCompass,
     LucideFileCode2,
     LucideFileText,
     LucideFolderOpen,
@@ -52,6 +57,7 @@ import type { PaletteIcon as Icon } from "./palette-items";
     LucidePlus,
     LucideRefreshCw,
     LucideServer,
+    LucideSparkles,
     LucideSquareTerminal,
     LucideSun,
     LucideSunMoon,
@@ -150,6 +156,15 @@ import type { PaletteIcon as Icon } from "./palette-items";
       }
       @case ("link") {
         <svg lucideLink [size]="15" aria-hidden="true"></svg>
+      }
+      @case ("tour") {
+        <svg lucideCompass [size]="15" aria-hidden="true"></svg>
+      }
+      @case ("news") {
+        <svg lucideSparkles [size]="15" aria-hidden="true"></svg>
+      }
+      @case ("docs") {
+        <svg lucideBookMarked [size]="15" aria-hidden="true"></svg>
       }
     }
   `,

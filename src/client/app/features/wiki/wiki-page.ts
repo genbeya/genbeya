@@ -52,6 +52,7 @@ const PREVIEW_DELAY = 150;
       <gd-share-menu #share="gdShareMenu" />
       <header
         class="view-header"
+        data-tour="page-header"
         [cdkContextMenuTriggerFor]="share.menu()"
         [cdkContextMenuTriggerData]="{ $implicit: { kind: 'page', path: path() } }"
       >
@@ -77,7 +78,7 @@ const PREVIEW_DELAY = 150;
             <span>Save</span><kbd class="kbd">{{ mod }} S</kbd>
           </button>
         } @else {
-          <button type="button" class="btn btn-default btn-m" [disabled]="!resource.file()" (click)="edit()">
+          <button type="button" class="btn btn-default btn-m" data-tour="wiki-edit" [disabled]="!resource.file()" (click)="edit()">
             <svg lucidePencil [size]="13" aria-hidden="true"></svg><span>Edit</span><kbd class="kbd">E</kbd>
           </button>
           <gd-page-menu [path]="path()" />

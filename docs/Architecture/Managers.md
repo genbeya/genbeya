@@ -4,7 +4,7 @@ Four managers implement everything the client can do with a repository. Their co
 
 | Manager | Use cases |
 | --- | --- |
-| `workspace` | Open, clone, restore and close repositories; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
+| `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
 | `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, the [[Content branch]], and the files that teach [[AI agents]] to use them |
 | `versionControl` | Diffs, staging, commits, branches, remotes, fetch/pull/push, history |
 | `terminal` | Shells in the repository for the [[Terminal]]: open, input, size, output, close |
@@ -41,6 +41,14 @@ git log --follow --no-merges --max-count=100 --patch --unified=1000000 -- <path>
 ```
 
 The patches carry whole files, so every commit yields both versions, and `rename from`/`rename to` lines give the path before and after; the task engine compares the two versions (status, priority, assignee, title, epic, labels, description, comments, other frontmatter fields). Task files over 256 KiB are listed without patch context, so the output stays small. Edits not committed yet come first, as an entry without commit; a task moved to another epic since the last commit is found under its committed path by its file name.
+
+## Preferences
+
+`workspace.preferences()` and `setPreferences(change)` keep the user's preferences in `state.json` in the app's data folder, next to the recent repositories, so they survive reinstalling the same variant. Besides theme and startup they remember the onboarding: the version whose news the user has seen (`null` before the first start; state saved by versions that did not remember it counts as `0.0.0`, so its user sees all news), whether the tour was taken, and the repositories that offered it.
+
+## Sample repository
+
+`workspace.createSample(parent)` creates `gitdesk-sample` (or `gitdesk-sample-2`, …) below `parent` on its host, so it works locally, on WSL and over SSH, and opens it. The sample engine (`src/engines/sample-engine.ts`) holds the files and the commits that create them; the last step stays uncommitted, so **Changes** has something to show. The commits are made as *GitDesk*, without signing: the user's identity may not be set up yet.
 
 ## Remote folders
 

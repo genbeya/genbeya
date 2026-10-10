@@ -43,6 +43,20 @@ describe("palette items", () => {
     expect(commands.toggleTerminal).toHaveBeenCalled();
   });
 
+  it("brings back the tour and what's new, and opens the documentation", () => {
+    for (const [query, command] of [
+      ["tour", "startTour"],
+      ["what's new", "showWhatsNew"],
+      ["release notes", "showWhatsNew"],
+      ["documentation", "openDocs"],
+    ] as const) {
+      const [first] = rank(items, query, false);
+      expect(first?.group).toBe("Help");
+      first!.run();
+      expect(commands[command]).toHaveBeenCalled();
+    }
+  });
+
   it("offers to open a pasted GitDesk link, and nothing for other text", () => {
     const item = linkItem("  gitdesk://open?remote=git@github.com:acme/demo.git&task=DP-1 ", commands)!;
     expect(item).toMatchObject({ label: "Open link", detail: "task DP-1 in github.com/acme/demo", icon: "link" });

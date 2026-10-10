@@ -48,6 +48,14 @@ describe("Terminals", () => {
     expect(terminals.tabs()).toEqual([]);
   });
 
+  it("asks the build once whether it has terminals", async () => {
+    const { terminals, terminal } = await setup(false);
+    expect(terminals.available()).toBeNull();
+    expect(await terminals.detect()).toBe(false);
+    await terminals.toggle();
+    expect(terminal.available).toHaveBeenCalledOnce();
+  });
+
   it("starts a tab's shell in the open repository and streams its output to the screen", async () => {
     const { terminals, terminal } = await setup();
     const output = shellOutput(terminal.read);

@@ -16,6 +16,7 @@
     "target": "ES2022",
     "module": "preserve",
     "moduleResolution": "bundler",
+    "resolveJsonModule": true,
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": []
   },
