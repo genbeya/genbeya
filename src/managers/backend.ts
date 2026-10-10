@@ -7,6 +7,7 @@ import { HostFactory } from "../access/hosts/host-factory";
 import { RemoteFolders } from "../access/hosts/remote-folders";
 import type { Machine } from "../access/ports";
 import { PreferencesStore } from "../access/preferences/preferences-store";
+import { RebaseEngine } from "../engines/rebase-engine";
 import { SettingsEngine } from "../engines/settings-engine";
 import { TaskEngine } from "../engines/task-engine";
 import { WikiEngine } from "../engines/wiki-engine";
@@ -31,7 +32,7 @@ export async function createBackend(machine: Machine, dataFolder: string): Promi
   return {
     workspace: new WorkspaceManager(registry, hosts, folders, preferences, engines),
     content: new ContentManager(registry, engines),
-    versionControl: new VersionControlManager(registry),
+    versionControl: new VersionControlManager(registry, new RebaseEngine()),
     terminal: new TerminalManager(registry, machine.terminals),
     async dispose() {
       folders.dispose();

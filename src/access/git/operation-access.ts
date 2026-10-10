@@ -3,15 +3,21 @@
  * and reverts — what is in progress, and resolving conflicted files.
  * Callers validate refs, commits and paths.
  */
-import type { ConflictFile, ConflictResolution, MergeOptions, Operation, OperationOutcome } from "../../contracts/model";
+import type { ConflictFile, ConflictResolution, MergeOptions, Operation, OperationOutcome, RebasePlan } from "../../contracts/model";
+import type { RebaseTodo, TodoLine } from "../../contracts/rebase-todo";
 import { decodeLenient, encodeText, isBinary } from "../../utilities/bytes";
 import { TEXT_LIMIT } from "../files/file-store";
 import { isMissing, isTooLarge, type Host } from "../hosts/host";
+import { quote } from "../hosts/shell-session";
 import { GitError, type Git } from "./git";
-import { OPERATION_FILES, parseOperation, type OperationFiles } from "./git-parsers";
+import { OPERATION_FILES, parseOperation, parseRebaseCommits, REBASE_FORMAT, type OperationFiles } from "./git-parsers";
 
 /** The operation files are small; a larger one is not git's. */
 const OPERATION_FILE_LIMIT = 64 * 1024;
+/** Where the todo list and messages of an interactive rebase are prepared, in the git directory. */
+const REBASE_FOLDER = "gitdesk-rebase";
+/** Rebases rewriting more commits than this are for the terminal. */
+export const REBASE_LIMIT = 1000;
 
 export class OperationAccess {
   private gitDirectory: Promise<string> | null = null;
@@ -68,14 +74,69 @@ export class OperationAccess {
     return (await this.conflictedPaths()).length > 0;
   }
 
-  /** True when a failed command left conflicts or an operation in progress. */
-  private readonly stopped = async () => (await this.conflicted()) || (await this.current(null)) !== null;
+  /** True when conflicts or an operation in progress are left, as after a command that stopped. */
+  readonly unfinished = async (): Promise<boolean> => (await this.conflicted()) || (await this.current(null)) !== null;
 
   merge(ref: string, { noFastForward, message }: MergeOptions): Promise<OperationOutcome> {
     return this.git.outcome(
       ["merge", "--no-edit", ...(noFastForward ? ["--no-ff"] : []), ...(message ? ["--message", message] : []), ref],
-      this.stopped,
+      this.unfinished,
     );
+  }
+
+  /**
+   * The commits a rebase onto `base` rewrites (those HEAD has and `base` has
+   * not), oldest first, and the remote branches that already have some.
+   */
+  async plan(base: string): Promise<RebasePlan> {
+    const hash = (await this.git.text(["rev-parse", "--verify", `${base}^{commit}`])).trim();
+    const count = Number(await this.git.text(["rev-list", "--count", `${hash}..HEAD`]));
+    if (count > REBASE_LIMIT) throw new GitError(`That rewrites ${count} commits; GitDesk rebases up to ${REBASE_LIMIT} at a time.`);
+    const commits = parseRebaseCommits(await this.git.text(["log", "--reverse", `--format=${REBASE_FORMAT}`, `${hash}..HEAD`]));
+    // History is linear from the oldest rewritten commit, so a branch with any of them has that one.
+    const pushed = commits.length
+      ? (await this.git.lines(["for-each-ref", `--contains=${commits[0]!.hash}`, "--format=%(refname:short)", "refs/remotes"])).filter(
+          (ref) => !ref.endsWith("/HEAD"),
+        )
+      : [];
+    return { base: hash, commits, pushed };
+  }
+
+  async isAncestorOfHead(commit: string): Promise<boolean> {
+    return (await this.git.run(["merge-base", "--is-ancestor", commit, "HEAD"])).code === 0;
+  }
+
+  rebase(onto: string, autostash: boolean): Promise<OperationOutcome> {
+    return this.git.outcome(["rebase", ...(autostash ? ["--autostash"] : []), onto], this.unfinished);
+  }
+
+  /**
+   * Runs `git rebase -i` with a prepared todo list: git's sequence editor
+   * copies it over the one git wrote, and new messages come from files, so
+   * no editor ever opens. Both go through git's own sh, on every host.
+   */
+  async rebaseInteractive(base: string, { lines, messages }: RebaseTodo, autostash: boolean): Promise<OperationOutcome> {
+    const gitDir = await this.gitDir();
+    const folder = `${gitDir}/${REBASE_FOLDER}`;
+    const prepare = (name: string, text: string) => this.host.write(gitDir, `${REBASE_FOLDER}/${name}`, encodeText(text), false);
+    for (const [index, message] of messages.entries()) await prepare(`message-${index}`, message);
+    const line = (entry: TodoLine) =>
+      entry.command === "amend"
+        ? `exec git commit --amend --allow-empty --no-verify --quiet --file=${quote(`${folder}/message-${entry.message}`)}`
+        : `${entry.command} ${entry.hash}`;
+    await prepare("todo", lines.map(line).join("\n") + "\n");
+    return this.git.outcome(["rebase", "--interactive", ...(autostash ? ["--autostash"] : []), base], this.unfinished, {
+      env: { GIT_SEQUENCE_EDITOR: `cat ${quote(`${folder}/todo`)} >` },
+    });
+  }
+
+  /** Merge commits are left out: which parent to follow is a question for the terminal. */
+  cherryPick(commit: string): Promise<OperationOutcome> {
+    return this.git.outcome(["cherry-pick", commit], this.unfinished);
+  }
+
+  revert(commit: string): Promise<OperationOutcome> {
+    return this.git.outcome(["revert", "--no-edit", commit], this.unfinished);
   }
 
   /** Continues once the conflicts are resolved; "stopped" when the next commit conflicts. */

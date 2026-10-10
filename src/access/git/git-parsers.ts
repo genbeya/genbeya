@@ -1,5 +1,5 @@
 /** Parsers for git's machine-readable output formats. */
-import type { Change, Commit, CommitFile, ConflictKind, Head, Operation, Stash } from "../../contracts/model";
+import type { Change, Commit, CommitFile, ConflictKind, Head, Operation, RebaseCommit, Stash } from "../../contracts/model";
 
 /** Files of the git directory that tell which operation is in progress, and how far it got. */
 export const OPERATION_FILES = [
@@ -115,6 +115,28 @@ export function parseLog(output: string): Commit[] {
       date: parts[i + 4]!,
       subject: parts[i + 5]!,
       refs: parts[i + 6]!.split(", ").filter(Boolean),
+    });
+  }
+  return commits;
+}
+
+/** Hash, parents, author, date and full message of commits to rebase; NUL-separated. */
+export const REBASE_FORMAT = "%H%x00%P%x00%an%x00%aI%x00%B%x00";
+
+export function parseRebaseCommits(output: string): RebaseCommit[] {
+  const parts = output.split("\0");
+  const commits: RebaseCommit[] = [];
+  for (let i = 0; i + 4 < parts.length; i += 5) {
+    const hash = parts[i]!.trim();
+    if (!hash) continue;
+    const message = parts[i + 4]!.trim();
+    commits.push({
+      hash,
+      subject: message.split("\n")[0]!,
+      message,
+      author: parts[i + 2]!,
+      date: parts[i + 3]!,
+      merge: parts[i + 1]!.split(" ").filter(Boolean).length > 1,
     });
   }
   return commits;

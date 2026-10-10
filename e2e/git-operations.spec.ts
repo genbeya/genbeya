@@ -68,4 +68,25 @@ test.describe("stashes, branches, tags, merges and rebases", () => {
     expect(repository.git("log", "-1", "--format=%s").trim()).toBe("Merge branch 'feature'");
     expect(repository.git("status", "--porcelain")).toBe("");
   });
+
+  test("squashes two commits with an interactive rebase", async ({ window, repository }) => {
+    for (const name of ["Two", "Three"]) {
+      repository.write(`${name}.txt`, name);
+      repository.git("add", ".");
+      repository.git("commit", "-q", "-m", name);
+    }
+    await window.keyboard.press(`${MOD}+5`);
+    await window.locator(".history-row", { hasText: "Initial commit" }).click({ button: "right" });
+    await window.getByRole("menuitem", { name: "Rebase interactively from here…" }).click();
+    const dialog = window.getByRole("dialog", { name: "Rebase main interactively" });
+    await dialog.getByRole("combobox", { name: "Action for Three" }).selectOption("squash");
+    const message = dialog.getByRole("textbox", { name: "Message for Three" });
+    await expect(message).toHaveValue("Two\n\nThree");
+    await message.fill("Two and three");
+    await dialog.getByRole("button", { name: "Rebase" }).click();
+    await expect(window.locator(".history-row").first()).toContainText("Two and three");
+    expect(repository.git("log", "--format=%s").trim().split("\n")).toEqual(["Two and three", "Initial commit"]);
+    expect(repository.read("Two.txt")).toBe("Two");
+    expect(repository.read("Three.txt")).toBe("Three");
+  });
 });

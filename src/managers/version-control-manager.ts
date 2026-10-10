@@ -8,12 +8,17 @@ import type {
   Diff,
   DiffSource,
   OperationOutcome,
+  RebasePlan,
+  RebaseStep,
   Stash,
   StashDetail,
   SyncAction,
 } from "../contracts/model";
+import { REBASE_ACTIONS } from "../contracts/model";
 import { TEXT_LIMIT } from "../access/files/file-store";
 import { isCommitId } from "../access/git/git-parsers";
+import { REBASE_LIMIT } from "../access/git/operation-access";
+import type { RebaseEngine } from "../engines/rebase-engine";
 import { decodeLenient, isBinary } from "../utilities/bytes";
 import type { Workspace, WorkspaceRegistry } from "./workspace";
 
@@ -24,7 +29,10 @@ const HISTORY_PAGE_LIMIT = 1000;
 const REMOTE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
 export class VersionControlManager implements VersionControlManagerContract {
-  constructor(private readonly registry: WorkspaceRegistry) {}
+  constructor(
+    private readonly registry: WorkspaceRegistry,
+    private readonly rebases: RebaseEngine,
+  ) {}
 
   private on<T>(id: unknown, operation: (workspace: Workspace) => Promise<T>): Promise<T> {
     const workspace = this.registry.get(id);
@@ -215,6 +223,46 @@ export class VersionControlManager implements VersionControlManagerContract {
     });
   }
 
+  rebase(id: unknown, onto: unknown, autostash: unknown): Promise<OperationOutcome> {
+    return this.on(id, async (workspace) => {
+      const target = await this.revision(workspace, onto);
+      await this.cleanUnless(workspace, autostash);
+      return workspace.repository.operations.rebase(target, autostash === true);
+    });
+  }
+
+  pullRebase(id: unknown, remote: unknown, autostash: unknown): Promise<OperationOutcome> {
+    return this.on(id, async (workspace) => {
+      const name = await this.remoteName(workspace, remote);
+      await this.cleanUnless(workspace, autostash);
+      const { branch } = await workspace.repository.head();
+      return workspace.repository.pullRebase(name, branch, autostash === true);
+    });
+  }
+
+  rebasePlan(id: unknown, base: unknown): Promise<RebasePlan> {
+    return this.on(id, async (workspace) => workspace.repository.operations.plan(await this.revision(workspace, base)));
+  }
+
+  rebaseInteractive(id: unknown, base: unknown, steps: unknown, autostash: unknown): Promise<OperationOutcome> {
+    return this.on(id, async (workspace) => {
+      const operations = workspace.repository.operations;
+      if (!isCommitId(base) || !(await operations.isAncestorOfHead(base))) throw new Error("Choose a commit of the current branch.");
+      const chosen = this.rebaseSteps(steps);
+      await this.cleanUnless(workspace, autostash);
+      const todo = this.rebases.todo((await operations.plan(base)).commits, chosen);
+      return operations.rebaseInteractive(base, todo, autostash === true);
+    });
+  }
+
+  cherryPick(id: unknown, hash: unknown): Promise<OperationOutcome> {
+    return this.on(id, async (workspace) => workspace.repository.operations.cherryPick(await this.singleParent(workspace, hash)));
+  }
+
+  revert(id: unknown, hash: unknown): Promise<OperationOutcome> {
+    return this.on(id, async (workspace) => workspace.repository.operations.revert(await this.singleParent(workspace, hash)));
+  }
+
   continueOperation(id: unknown): Promise<OperationOutcome> {
     return this.on(id, (workspace) => workspace.repository.operations.continue());
   }
@@ -242,6 +290,32 @@ export class VersionControlManager implements VersionControlManagerContract {
       if (!(await workspace.repository.operations.conflictedPaths()).includes(relative)) throw new Error(`${relative} has no conflicts.`);
       await workspace.repository.operations.resolve(relative, resolved);
     });
+  }
+
+  private rebaseSteps(steps: unknown): RebaseStep[] {
+    if (!Array.isArray(steps) || !steps.length || steps.length > REBASE_LIMIT) throw new Error("Invalid rebase steps.");
+    return steps.map((value) => {
+      const { hash, action, message } = (value ?? {}) as Partial<Record<string, unknown>>;
+      if (!isCommitId(hash) || !REBASE_ACTIONS.includes(action as RebaseStep["action"])) throw new Error("Invalid rebase steps.");
+      if (message !== undefined && (typeof message !== "string" || message.length > MESSAGE_LIMIT))
+        throw new Error("Invalid commit message.");
+      return { hash, action: action as RebaseStep["action"], ...(message === undefined ? {} : { message }) };
+    });
+  }
+
+  /** Rewriting history needs a clean working tree, unless the changes are stashed meanwhile. */
+  private async cleanUnless(workspace: Workspace, autostash: unknown): Promise<void> {
+    if (autostash === true) return;
+    if ((await workspace.repository.changes()).some((change) => change.index !== "?"))
+      throw new Error("Commit or stash your changes first.");
+  }
+
+  /** A commit with one parent: picking or reverting a merge needs to know which side to follow. */
+  private async singleParent(workspace: Workspace, hash: unknown): Promise<string> {
+    if (!isCommitId(hash)) throw new Error("Invalid commit ID.");
+    const { commit } = await workspace.repository.commitDetail(hash);
+    if (commit.parents.length > 1) throw new Error("GitDesk does not cherry-pick or revert merge commits. Use the terminal instead.");
+    return hash;
   }
 
   private async stashOf(workspace: Workspace, hash: unknown): Promise<Stash> {

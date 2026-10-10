@@ -17,6 +17,8 @@ import type {
   OpenedWorkspace,
   OperationOutcome,
   Preferences,
+  RebasePlan,
+  RebaseStep,
   RecentEntry,
   RemoteLocation,
   Scope,
@@ -114,6 +116,18 @@ export interface VersionControlManagerContract {
   branchFromStash(workspace: string, hash: string, name: string): Promise<void>;
   /** Merges a branch, tag or commit into the current branch. */
   merge(workspace: string, ref: string, options: MergeOptions): Promise<OperationOutcome>;
+  /** Rebases the current branch onto a branch, tag or commit; `autostash` sets uncommitted changes aside meanwhile. */
+  rebase(workspace: string, onto: string, autostash: boolean): Promise<OperationOutcome>;
+  /** Pulls the current branch from `remote` by rebasing onto what it tracks there. */
+  pullRebase(workspace: string, remote: string, autostash: boolean): Promise<OperationOutcome>;
+  /** The commits a rebase onto `base` (a branch, tag or commit) would rewrite. */
+  rebasePlan(workspace: string, base: string): Promise<RebasePlan>;
+  /** Rewrites the commits after `base`, an ancestor of HEAD: every one of them, in their new order. */
+  rebaseInteractive(workspace: string, base: string, steps: readonly RebaseStep[], autostash: boolean): Promise<OperationOutcome>;
+  /** Applies a commit's changes as a new commit on the current branch. */
+  cherryPick(workspace: string, hash: string): Promise<OperationOutcome>;
+  /** Undoes a commit with a new commit on the current branch. */
+  revert(workspace: string, hash: string): Promise<OperationOutcome>;
   /** Continues the operation in progress once its conflicts are resolved. */
   continueOperation(workspace: string): Promise<OperationOutcome>;
   /** Leaves out the commit a rebase, cherry-pick or revert stopped at. */
@@ -209,6 +223,12 @@ export const MANAGER_METHODS = {
     "dropStash",
     "branchFromStash",
     "merge",
+    "rebase",
+    "pullRebase",
+    "rebasePlan",
+    "rebaseInteractive",
+    "cherryPick",
+    "revert",
     "continueOperation",
     "skipOperation",
     "abortOperation",

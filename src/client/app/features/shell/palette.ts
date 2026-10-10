@@ -7,7 +7,7 @@ import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
 import { WikiActions } from "../wiki/wiki-actions";
 import { PaletteIcon } from "./palette-icon";
-import { allItems, branchItems, linkItem, mergeItems, rank, type PaletteCommands, type PaletteItem } from "./palette-items";
+import { allItems, branchItems, linkItem, mergeItems, rank, rebaseItems, type PaletteCommands, type PaletteItem } from "./palette-items";
 import { OperationActions } from "../operations/operation-actions";
 import { RepositoryActions } from "./repository-actions";
 import { ShellUi, type PaletteMode } from "./shell-ui";
@@ -78,11 +78,12 @@ export class Palette {
   private readonly operations = inject(OperationActions);
   private readonly ui = inject(ShellUi);
   private readonly terminals = inject(Terminals);
-  protected readonly label = { all: "Command palette", branches: "Switch branch", merge: "Merge branch" }[this.mode];
+  protected readonly label = { all: "Command palette", branches: "Switch branch", merge: "Merge branch", rebase: "Rebase onto" }[this.mode];
   protected readonly placeholder = {
     all: "Search pages, tasks, files and commands…",
     branches: "Switch to branch…",
     merge: `Merge into ${this.session.snapshot()?.head.branch ?? "the current branch"}…`,
+    rebase: `Rebase ${this.session.snapshot()?.head.branch ?? "the current branch"} onto…`,
   }[this.mode];
   protected readonly query = signal("");
   protected readonly active = signal(0);
@@ -102,6 +103,9 @@ export class Palette {
     showBranches: () => void this.ui.openPalette("branches"),
     merge: (source, kind) => void this.operations.merge(source, kind),
     showMerge: () => void this.ui.openPalette("merge"),
+    rebase: (onto) => void this.operations.rebase(onto),
+    showRebase: () => void this.ui.openPalette("rebase"),
+    pullRebase: (remote) => void this.operations.pullRebase(remote),
     sync: (action, remote) => void this.repository.sync(action, remote),
     syncContent: () => void this.repository.syncContent(),
     pickFolder: () => void this.session.pick(),
@@ -119,6 +123,7 @@ export class Palette {
     const snapshot = this.session.snapshot()!;
     if (this.mode === "branches") return branchItems(snapshot, this.query(), this.commands);
     if (this.mode === "merge") return mergeItems(snapshot, this.commands);
+    if (this.mode === "rebase") return rebaseItems(snapshot, this.commands);
     return allItems(snapshot, this.recent(), this.session.preferences().theme, { mod: MOD_KEY, ctrl: CTRL_KEY }, this.commands);
   });
   protected readonly results = computed(() => {

@@ -18,6 +18,7 @@ export type PaletteIcon =
   | "add"
   | "add-branch"
   | "merge"
+  | "rebase"
   | "fetch"
   | "pull"
   | "push"
@@ -66,6 +67,9 @@ export interface PaletteCommands {
   showBranches(): void;
   merge(source: string, kind: "branch" | "remote"): void;
   showMerge(): void;
+  rebase(onto: string): void;
+  showRebase(): void;
+  pullRebase(remote: string): void;
   sync(action: "fetch" | "pull" | "push", remote: string): void;
   syncContent(): void;
   pickFolder(): void;
@@ -125,6 +129,17 @@ export function mergeItems(snapshot: Snapshot, commands: PaletteCommands): Palet
   }));
 }
 
+/** The branches to rebase the current one onto. */
+export function rebaseItems(snapshot: Snapshot, commands: PaletteCommands): PaletteItem[] {
+  return otherBranches(snapshot).map(({ name, kind }): PaletteItem => ({
+    id: `rebase:${name}`,
+    group: kind === "branch" ? "Branches" : "Remote branches",
+    label: name,
+    icon: "rebase",
+    run: () => commands.rebase(name),
+  }));
+}
+
 export function allItems(
   snapshot: Snapshot,
   recent: readonly RecentEntry[],
@@ -173,12 +188,27 @@ export function allItems(
             icon: "merge",
             run: () => commands.showMerge(),
           } satisfies PaletteItem,
+          {
+            id: "rebase",
+            group: "Actions",
+            label: `Rebase ${head.branch} onto…`,
+            icon: "rebase",
+            run: () => commands.showRebase(),
+          } satisfies PaletteItem,
         ]
       : []),
     ...(remote
       ? ([
           { id: "fetch", group: "Actions", label: `Fetch from ${remote}`, icon: "fetch", run: () => commands.sync("fetch", remote) },
           { id: "pull", group: "Actions", label: `Pull from ${remote}`, icon: "pull", run: () => commands.sync("pull", remote) },
+          {
+            id: "pull-rebase",
+            group: "Actions",
+            label: `Pull from ${remote} by rebasing`,
+            icon: "pull",
+            keywords: "update rebase",
+            run: () => commands.pullRebase(remote),
+          },
           { id: "push", group: "Actions", label: `Push to ${remote}`, icon: "push", run: () => commands.sync("push", remote) },
         ] satisfies PaletteItem[])
       : []),

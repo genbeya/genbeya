@@ -1,5 +1,5 @@
 import { snapshot, task } from "../../testing/fake-platform";
-import { allItems, branchItems, linkItem, mergeItems, rank, type PaletteCommands } from "./palette-items";
+import { allItems, branchItems, linkItem, mergeItems, rank, rebaseItems, type PaletteCommands } from "./palette-items";
 
 const calls = new Map<string, ReturnType<typeof vi.fn>>();
 const commands = new Proxy({}, { get: (_, name: string) => calls.get(name) ?? calls.set(name, vi.fn()).get(name) }) as PaletteCommands;
@@ -66,6 +66,16 @@ describe("palette items", () => {
       commands,
     );
     expect(merging.some((item) => item.id === "merge")).toBe(false);
+  });
+
+  it("lists the branches to rebase onto, and pulls by rebasing", () => {
+    const rebases = rebaseItems(repository, commands);
+    expect(rebases.map((item) => item.label)).toEqual(["feature", "origin/main", "origin/other"]);
+    rebases[0]!.run();
+    expect(commands.rebase).toHaveBeenCalledWith("feature");
+    expect(items.find((item) => item.id === "rebase")?.label).toBe("Rebase main onto…");
+    items.find((item) => item.id === "pull-rebase")!.run();
+    expect(commands.pullRebase).toHaveBeenCalledWith("origin");
   });
 
   it("lists local and remote branches with an action to create one", () => {

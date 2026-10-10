@@ -10,9 +10,13 @@ export class GitError extends Error {}
 /** How long fetches and pushes may take. */
 export const NETWORK_TIMEOUT = 5 * 60_000;
 
-/** A failed command as a {@link GitError} with git's message. */
+/** A failed command as a {@link GitError} with git's message, which some commands ("nothing to commit") print to stdout. */
 export const failure = (args: readonly string[], result: RunResult): GitError =>
-  new GitError(result.stderr.replace(/^(fatal|error): /gm, "").trim() || `git ${args[0]} failed with exit code ${result.code}.`);
+  new GitError(
+    result.stderr.replace(/^(fatal|error): /gm, "").trim() ||
+      decodeLenient(result.stdout.subarray(0, 2000)).trim() ||
+      `git ${args[0]} failed with exit code ${result.code}.`,
+  );
 
 export interface GitOptions {
   /** Milliseconds; 60 s unless given. */

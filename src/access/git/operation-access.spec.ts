@@ -108,6 +108,23 @@ describe("OperationAccess", () => {
     await expect(repo.operations.conflict("a.txt")).rejects.toThrow("a.txt has no conflicts.");
   });
 
+  it("stops conflicting cherry-picks and reverts, naming the commit", async () => {
+    const { repository, repo } = await conflicting();
+    const feature = (await repository.git("rev-parse", "feature")).trim();
+    expect(await repo.operations.cherryPick(feature)).toBe("stopped");
+    expect(await repo.operations.current("main")).toMatchObject({ kind: "cherry-pick", source: "Feature change", target: "main" });
+    await repo.operations.abort();
+    await commitOn(repository, "main", { "src/code.ts": "main again\n" }, "Again");
+    expect(await repo.operations.revert((await repository.git("rev-parse", "HEAD~1")).trim())).toBe("stopped");
+    expect(await repo.operations.current("main")).toMatchObject({ kind: "revert", source: "Main change" });
+    // Keeping the current side leaves nothing to revert: git says so, and the revert can be skipped.
+    await repo.operations.resolve("src/code.ts", { use: "ours" });
+    await expect(repo.operations.continue()).rejects.toThrow(/nothing to commit/);
+    expect(await repo.operations.skip()).toBe("done");
+    expect(await repo.operations.current("main")).toBeNull();
+    expect((await repository.git("log", "-1", "--format=%s")).trim()).toBe("Again");
+  });
+
   it("reports failures that leave nothing to resolve", async () => {
     const { repository, repo } = await conflicting();
     await repository.write("src/code.ts", "uncommitted\n");

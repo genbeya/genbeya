@@ -65,16 +65,22 @@ describe("CommitMenu", () => {
     expect(menuItems().map(label)).toEqual([
       "Create branch here…",
       "Create tag here…",
+      "Cherry-pick onto main",
+      "Revert…",
+      "Rebase interactively from here…",
       "Rename main…",
       "Set upstream of main…",
       "Merge feature into main…",
+      "Rebase main onto feature…",
       "Switch to feature",
       "Rename feature…",
       "Set upstream of feature…",
       "Delete feature…",
       "Merge origin/feature into main…",
+      "Rebase main onto origin/feature…",
       "Delete origin/feature on the remote…",
       "Merge v1 into main…",
+      "Rebase main onto v1…",
       "Push tag v1 to origin",
       "Delete tag v1…",
       "Delete tag v1 on origin…",
@@ -125,6 +131,40 @@ describe("CommitMenu", () => {
       expect(managers.versionControl.merge).toHaveBeenCalledWith("w1", "origin/feature", { noFastForward: true, message: "" }),
     );
     expect(dialogs.open).toHaveBeenCalledWith(expect.anything(), { source: "origin/feature", kind: "remote", target: "main" });
+  });
+
+  it("rebases onto a branch after warning that its commits were pushed", async () => {
+    const { dialogs, managers, choose } = await rightClick({ changes: [{ path: "a.ts", index: " ", worktree: "M" }] });
+    managers.versionControl.rebasePlan.mockResolvedValue({
+      base: "b".repeat(40),
+      commits: [{ hash: COMMIT.hash }],
+      pushed: ["origin/main"],
+    });
+    managers.versionControl.rebase.mockResolvedValue("done");
+    await choose("Rebase main onto feature…");
+    await vi.waitFor(() => expect(managers.versionControl.rebase).toHaveBeenCalledWith("w1", "feature", true));
+    const { message } = dialogs.confirm.mock.calls[0]![0] as { message: string };
+    expect(message).toContain("force-push");
+    expect(message).toContain("stashed meanwhile");
+  });
+
+  it("rebases interactively from the commit with the steps the dialog returns", async () => {
+    const { dialogs, managers, choose } = await rightClick();
+    const plan = { base: COMMIT.hash, commits: [{ hash: "d".repeat(40), merge: false }], pushed: [] };
+    managers.versionControl.rebasePlan.mockResolvedValue(plan);
+    const steps = [{ hash: "d".repeat(40), action: "drop" }];
+    dialogs.open.mockResolvedValue(steps);
+    await choose("Rebase interactively from here…");
+    await vi.waitFor(() => expect(managers.versionControl.rebaseInteractive).toHaveBeenCalledWith("w1", COMMIT.hash, steps, false));
+    expect(managers.versionControl.rebasePlan).toHaveBeenCalledWith("w1", COMMIT.hash);
+  });
+
+  it("cherry-picks a commit, and reverts it after asking", async () => {
+    const { managers, choose } = await rightClick();
+    await choose("Cherry-pick onto main");
+    await vi.waitFor(() => expect(managers.versionControl.cherryPick).toHaveBeenCalledWith("w1", COMMIT.hash));
+    await choose("Revert…");
+    await vi.waitFor(() => expect(managers.versionControl.revert).toHaveBeenCalledWith("w1", COMMIT.hash));
   });
 
   it("deletes remote branches after asking", async () => {

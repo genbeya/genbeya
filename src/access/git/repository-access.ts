@@ -3,7 +3,18 @@
  * committing, history, branches, remotes. Callers validate their input;
  * this class assumes well-formed paths, names and commit IDs.
  */
-import type { Change, Commit, CommitDetail, DiffSource, Head, Operation, Remote, Stash, SyncAction } from "../../contracts/model";
+import type {
+  Change,
+  Commit,
+  CommitDetail,
+  DiffSource,
+  Head,
+  Operation,
+  OperationOutcome,
+  Remote,
+  Stash,
+  SyncAction,
+} from "../../contracts/model";
 import { splitIntoBatches } from "../../utilities/serial-queue";
 import { isMissing, isTooLarge, type Host } from "../hosts/host";
 import { Git, GitError, NETWORK_TIMEOUT } from "./git";
@@ -194,11 +205,7 @@ export class RepositoryAccess {
   async sync(action: SyncAction, remote: string, branch: string | null): Promise<void> {
     if (action === "fetch") return void (await this.git.text(["fetch", "--prune", remote], NETWORK_TIMEOUT));
     if (!branch) throw new Error("Switch to a branch first.");
-    const [upstreamRemote, upstreamRef] = await Promise.all([
-      this.git.config(`branch.${branch}.remote`),
-      this.git.config(`branch.${branch}.merge`),
-    ]);
-    const tracked = upstreamRemote === remote && upstreamRef ? upstreamRef : null;
+    const { upstreamRemote, tracked } = await this.upstream(branch, remote);
     const args =
       action === "pull"
         ? ["pull", "--ff-only", remote, tracked ?? branch]
@@ -206,6 +213,23 @@ export class RepositoryAccess {
           ? ["push", remote, `refs/heads/${branch}:${tracked}`]
           : ["push", ...(upstreamRemote ? [] : ["--set-upstream"]), remote, branch];
     await this.git.text(args, NETWORK_TIMEOUT);
+  }
+
+  /** Pulls `branch`'s counterpart on `remote` (see {@link sync}) by rebasing onto it. */
+  async pullRebase(remote: string, branch: string | null, autostash: boolean): Promise<OperationOutcome> {
+    if (!branch) throw new Error("Switch to a branch first.");
+    const { tracked } = await this.upstream(branch, remote);
+    const args = ["pull", "--rebase", ...(autostash ? ["--autostash"] : []), remote, tracked ?? branch];
+    return this.git.outcome(args, this.operations.unfinished, { timeout: NETWORK_TIMEOUT });
+  }
+
+  /** The remote `branch` tracks, and the branch it tracks there when that remote is `remote`. */
+  private async upstream(branch: string, remote: string): Promise<{ upstreamRemote: string | null; tracked: string | null }> {
+    const [upstreamRemote, upstreamRef] = await Promise.all([
+      this.git.config(`branch.${branch}.remote`),
+      this.git.config(`branch.${branch}.merge`),
+    ]);
+    return { upstreamRemote, tracked: upstreamRemote === remote && upstreamRef ? upstreamRef : null };
   }
 
   async setRemote(name: string, url: string): Promise<void> {

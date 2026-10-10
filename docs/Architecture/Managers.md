@@ -30,11 +30,17 @@ One snapshot costs a handful of Git calls:
 
 ## Operations that stop
 
-Merging (and applying a stash) can stop for conflicts. These calls resolve to `"done"`, or to `"stopped"` when Git left conflicts or an operation in progress; the snapshot then shows the operation and the conflicted files, and `continueOperation`, `skipOperation` and `abortOperation` go on with whatever is in progress — the manager reads which operation that is, the client does not say. `continueOperation` refuses while conflicts are left. A failure that leaves nothing to resolve (local changes in the way, say) is an error as usual.
+Merging, rebasing, cherry-picking, reverting and applying a stash can stop for conflicts. These calls resolve to `"done"`, or to `"stopped"` when Git left conflicts or an operation in progress; the snapshot then shows the operation and the conflicted files, and `continueOperation`, `skipOperation` and `abortOperation` go on with whatever is in progress — the manager reads which operation that is, the client does not say. `continueOperation` refuses while conflicts are left. A failure that leaves nothing to resolve (local changes in the way, say) is an error as usual.
 
 `conflict(path)` returns a conflicted file's text with its markers (null for binary, missing or oversized files); `resolveConflict` takes one side (`git checkout --ours/--theirs`, or `git rm` when that side deleted the file), keeps the working-tree file, deletes the file, or writes new text — and stages the result. Conflict markers, including the diff3 style, are parsed in `src/utilities/conflict-markers.ts`, which the client uses for its hunk buttons.
 
 Git never opens an editor for GitDesk: every call runs with `GIT_EDITOR=:`, which makes Git keep the message it prepared, as for `merge --continue`.
+
+Rewriting history needs a clean working tree: `rebase`, `pullRebase` and `rebaseInteractive` refuse uncommitted changes to tracked files unless `autostash` is set, which passes `--autostash`. `rebasePlan(base)` lists the commits a rebase would rewrite and the remote branches that already have them, so the client can warn before anyone has to force-push. Merge commits are not cherry-picked, reverted or rebased interactively.
+
+### Interactive rebase
+
+The client sends every commit after `base` once, in the new order, each with an action and, for reword and squash, a message. `src/engines/rebase-engine.ts` checks the steps against the commits and turns them into a todo list that needs no editor: squashes become `fixup`, and a commit whose message changes is followed by `exec git commit --amend --file=<message>`. Git access writes the todo list and the messages into `gitdesk-rebase/` in the git directory and runs `git rebase -i` with `GIT_SEQUENCE_EDITOR="cat '<todo>' >"`: Git runs editors and `exec` lines through its own `sh`, so the same commands work on Windows (Git for Windows' sh), WSL and SSH hosts. Shell hosts pass environment variables by exporting them in the request's subshell.
 
 ## Remote folders
 

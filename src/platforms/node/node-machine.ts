@@ -66,7 +66,9 @@ export const nodeProcesses: ProcessRunner = {
           resolve({
             code: !failure ? 0 : typeof failure.code === "number" ? failure.code : failure.killed ? 124 : 1,
             stdout: new Uint8Array(stdout),
-            stderr: stderrText || (failure?.killed ? `${command} timed out.` : (failure?.message ?? "")),
+            // A plain exit code needs no explanation of Node's: "Command failed: …" only repeats the command.
+            stderr:
+              stderrText || (failure?.killed ? `${command} timed out.` : typeof failure?.code === "number" ? "" : (failure?.message ?? "")),
           });
         },
       );

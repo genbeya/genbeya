@@ -44,6 +44,31 @@ To merge a branch into the current one, right-click a commit it points to in **H
 
 The dialog shows the merge commit's message, which you can change. When the current branch has no commits of its own, Git just moves it forward and makes no merge commit; tick **Always create a merge commit** to get one anyway.
 
+## Rebasing
+
+Rebasing replays the current branch's own commits on top of another branch, for a straight history instead of a merge commit.
+
+- **Rebase … onto …** in the menu of a branch, remote branch or tag in **History**, or **Rebase … onto…** in the palette. GitDesk says how many commits are replayed before it starts.
+- **Pull from … by rebasing** in the palette fetches the upstream and replays your unpushed commits on top of it, instead of the fast-forward-only **Pull**.
+
+Rebasing creates new commits. When some of them are already on a remote branch, GitDesk warns you: you would have to force-push that branch, which GitDesk does not do for you.
+
+Uncommitted changes are stashed while a rebase runs and put back afterwards; if they no longer apply cleanly, they stay in the stash list.
+
+### Interactive rebase
+
+Right-click a commit of the current branch and choose **Rebase interactively from here…** to rewrite the commits after it. The dialog lists them oldest first:
+
+- Drag a commit by its handle to reorder.
+- **Pick** keeps a commit, **Reword** keeps it with a new message, **Drop** leaves it out.
+- **Squash** joins a commit to the one above it; the message box starts with both messages, ready to edit. **Fixup** joins it and keeps the message above.
+
+**Rebase** runs it all; no editor opens. Merge commits can't be rewritten this way — GitDesk refuses and suggests the terminal. Conflicts stop the rebase as described below.
+
+## Cherry-pick and revert
+
+Right-click a commit in **History**: **Cherry-pick onto …** applies its changes as a new commit on the current branch, **Revert…** undoes them with a new commit. Merge commits are left to the terminal, since Git needs to know which side to follow.
+
 ## Conflicts
 
 When a merge, rebase, cherry-pick or revert conflicts, Git stops halfway. A banner above every view says what is going on — for example *Merging feature into main — 2 conflicts* — with:

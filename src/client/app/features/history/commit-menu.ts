@@ -2,15 +2,19 @@ import { CdkMenu } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, type TemplateRef, viewChild } from "@angular/core";
 import {
   LucideArrowRightLeft,
+  LucideCherry,
   LucideCloudOff,
   LucideCloudUpload,
   LucideGitBranchPlus,
   LucideGitMerge,
+  LucideGitPullRequestArrow,
   LucideGlobe,
   LucideLink,
+  LucideListRestart,
   LucidePencil,
   LucideTag,
   LucideTrash2,
+  LucideUndo2,
 } from "@lucide/angular";
 import type { Commit } from "../../../../contracts/model";
 import { Session } from "../../core/session";
@@ -22,9 +26,10 @@ import { RefActions } from "./ref-actions";
 import { parseRefs, type Ref } from "./ref-chips";
 
 /**
- * The context menu of a commit: create branches and tags there, act on the
- * branches and tags pointing at it (a group each: merge, switch, rename,
- * delete…), and copy its links. Declare it once per view and point rows at it:
+ * The context menu of a commit: create branches and tags there; cherry-pick,
+ * revert or rebase interactively from it; act on the branches and tags
+ * pointing at it (a group each: merge, rebase, switch, rename, delete…); and
+ * copy its links. Declare it once per view and point rows at it:
  * `[cdkContextMenuTriggerFor]="commitMenu.menu()" [cdkContextMenuTriggerData]="{ $implicit: commit }"`.
  */
 @Component({
@@ -34,15 +39,19 @@ import { parseRefs, type Ref } from "./ref-chips";
     CdkMenu,
     MenuItem,
     LucideArrowRightLeft,
+    LucideCherry,
     LucideCloudOff,
     LucideCloudUpload,
     LucideGitBranchPlus,
     LucideGitMerge,
+    LucideGitPullRequestArrow,
     LucideGlobe,
     LucideLink,
+    LucideListRestart,
     LucidePencil,
     LucideTag,
     LucideTrash2,
+    LucideUndo2,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: none" },
@@ -55,11 +64,28 @@ import { parseRefs, type Ref } from "./ref-chips";
         <button gd-menu-item (selected)="refs.createTag(commit)">
           <svg icon lucideTag [size]="14" aria-hidden="true"></svg>Create tag here…
         </button>
+        @if (current(); as branch) {
+          <div class="menu-separator"></div>
+          @if (commit.parents.length < 2) {
+            <button gd-menu-item (selected)="operations.cherryPick(commit)">
+              <svg icon lucideCherry [size]="14" aria-hidden="true"></svg>Cherry-pick onto {{ branch }}
+            </button>
+            <button gd-menu-item (selected)="operations.revert(commit)">
+              <svg icon lucideUndo2 [size]="14" aria-hidden="true"></svg>Revert…
+            </button>
+          }
+          <button gd-menu-item (selected)="operations.rebaseInteractive(commit)">
+            <svg icon lucideListRestart [size]="14" aria-hidden="true"></svg>Rebase interactively from here…
+          </button>
+        }
         @for (ref of refsOf(commit); track ref.raw) {
           <div class="menu-separator"></div>
           @if (!ref.head && current(); as branch) {
             <button gd-menu-item (selected)="operations.merge(ref.name, ref.kind)">
               <svg icon lucideGitMerge [size]="14" aria-hidden="true"></svg>Merge {{ ref.name }} into {{ branch }}…
+            </button>
+            <button gd-menu-item (selected)="operations.rebase(ref.name)">
+              <svg icon lucideGitPullRequestArrow [size]="14" aria-hidden="true"></svg>Rebase {{ branch }} onto {{ ref.name }}…
             </button>
           }
           @switch (ref.kind) {
@@ -136,7 +162,7 @@ export class CommitMenu {
   protected readonly links = inject(ShareLinks);
   private readonly session = inject(Session);
   protected readonly remote = computed(() => this.repository.remote());
-  /** The branch to merge into; none while another operation is in progress. */
+  /** The branch to merge, pick or rebase into; none while another operation is in progress. */
   protected readonly current = computed(() => (this.session.snapshot()?.operation ? null : this.session.snapshot()?.head.branch));
 
   /** The refs to act on: a detached HEAD and remote HEADs are not. */

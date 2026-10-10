@@ -459,6 +459,9 @@ describe("VersionControlManager", () => {
       "no conflicts",
     ],
     ["continue", (m: Managers, id: string) => m.versionControl.continueOperation(id), "No merge, rebase"],
+    ["rebase base", (m: Managers, id: string) => m.versionControl.rebaseInteractive(id, "main", [], false), "Choose a commit"],
+    ["rebase onto", (m: Managers, id: string) => m.versionControl.rebase(id, "--root", false), "Choose a branch, tag or commit."],
+    ["cherry-pick", (m: Managers, id: string) => m.versionControl.cherryPick(id, "HEAD"), "Invalid commit ID."],
   ])("rejects an invalid %s", async (_, call, message) => {
     const { managers, id } = await opened();
     await expect(call(managers, id)).rejects.toThrow(message);
@@ -504,6 +507,53 @@ describe("VersionControlManager", () => {
     expect(await versionControl.continueOperation(id)).toBe("done");
     expect(await latest()).toMatchObject({ operation: null, changes: [] });
     expect(await repository.read("src/code.ts")).toBe("feature\n");
+  });
+
+  it("rebases interactively, squashing and rewording through the contract", async () => {
+    const { versionControl, id, repository } = await opened();
+    const base = (await repository.git("rev-parse", "HEAD")).trim();
+    for (const name of ["One", "Two", "Three"]) {
+      await repository.write(`${name}.txt`, name);
+      await repository.git("add", ".");
+      await repository.git("commit", "-q", "-m", name);
+    }
+    const plan = await versionControl.rebasePlan(id, base);
+    expect(plan.commits.map((commit) => commit.subject)).toEqual(["One", "Two", "Three"]);
+    const [one, two, three] = plan.commits.map((commit) => commit.hash);
+    await repository.write("src/code.ts", "dirty");
+    const steps = [
+      { hash: three!, action: "reword" as const, message: "Three, first" },
+      { hash: one!, action: "pick" as const },
+      { hash: two!, action: "squash" as const, message: "One and two" },
+    ];
+    await expect(versionControl.rebaseInteractive(id, base, steps, false)).rejects.toThrow("Commit or stash your changes first.");
+    expect(await versionControl.rebaseInteractive(id, base, steps, true)).toBe("done");
+    expect((await repository.git("log", "--format=%s", `${base}..HEAD`)).trim().split("\n")).toEqual(["One and two", "Three, first"]);
+    expect(await repository.read("src/code.ts")).toBe("dirty");
+    await expect(versionControl.rebaseInteractive(id, base, steps, true)).rejects.toThrow("The commits changed meanwhile.");
+  });
+
+  it("cherry-picks and reverts commits, but not merges", async () => {
+    const { versionControl, id, repository } = await opened();
+    await repository.git("switch", "-q", "-c", "feature");
+    await repository.write("picked.txt", "picked");
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Pick me");
+    const picked = (await repository.git("rev-parse", "HEAD")).trim();
+    await repository.git("switch", "-q", "main");
+    expect(await versionControl.cherryPick(id, picked)).toBe("done");
+    expect(await repository.read("picked.txt")).toBe("picked");
+    expect(await versionControl.revert(id, (await repository.git("rev-parse", "HEAD")).trim())).toBe("done");
+    expect(await repository.exists("picked.txt")).toBe(false);
+    expect((await repository.git("log", "-1", "--format=%s")).trim()).toBe('Revert "Pick me"');
+    await repository.git("switch", "-q", "-c", "other");
+    await repository.write("other.txt", "other");
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Other");
+    await repository.git("switch", "-q", "main");
+    await repository.git("merge", "-q", "--no-ff", "-m", "Merge", "other");
+    const merge = (await repository.git("rev-parse", "HEAD")).trim();
+    await expect(versionControl.revert(id, merge)).rejects.toThrow("merge commits");
   });
 
   it("stashes changes, shows and pops them", async () => {
