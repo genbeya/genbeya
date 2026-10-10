@@ -5,14 +5,14 @@ GitDesk is decomposed by volatility, following the iDesign Method: each layer hi
 ```mermaid
 flowchart TB
   subgraph Client["Client (Angular, in the webview)"]
-    views[Features: wiki, tasks, code, changes, history, settings] --> core[Session, dialogs, hotkeys]
+    views[Features: wiki, tasks, code, changes, history, settings, onboarding] --> core[Session, dialogs, hotkeys]
     core --> connector[Platform connector]
   end
   subgraph Shell["Shell: Electron, Deno Desktop or Tauri"]
     bridge[Bridge: RPC envelope, window, dialogs]
   end
   subgraph Backend["Backend (plain TypeScript)"]
-    managers[Managers: workspace, content, version control, terminal] --> engines[Engines: wiki, tasks, settings]
+    managers[Managers: workspace, content, version control, terminal] --> engines[Engines: wiki, tasks, settings, sample]
     managers --> access[Resource access: hosts, Git, files, content, preferences]
     access --> machine[Machine port]
   end
@@ -24,8 +24,8 @@ flowchart TB
 | Layer | Folder | Hides | May use |
 | --- | --- | --- | --- |
 | Contracts | `src/contracts/` | Nothing: the types every layer agrees on, the RPC envelope and the shell bridges | — |
-| Utilities | `src/utilities/` | Path rules, hashing, queues, tree building | contracts |
-| Engines | `src/engines/` | The rules for tasks, wiki pages and settings. Pure functions, no I/O | contracts, utilities |
+| Utilities | `src/utilities/` | Path rules, hashing, queues, tree building, version numbers | contracts |
+| Engines | `src/engines/` | The rules for tasks, wiki pages and settings, and the sample repository's content. Pure functions, no I/O | contracts, utilities |
 | Resource access | `src/access/` | Where repositories live (local, WSL, SSH), how Git is called, how files and preferences are stored | contracts, utilities, the Machine port |
 | Managers | `src/managers/` | The use cases: open a repository, save a page, commit. One per area of change | engines, access |
 | Platforms | `src/platforms/` | The machine itself: Node's `fs`, `child_process` and node-pty, or Tauri's Rust commands | contracts |
@@ -33,5 +33,7 @@ flowchart TB
 | Client | `src/client/` | The user interface | contracts only; reaches the managers through its platform connector |
 
 ESLint enforces the table: a layer that imports from a layer it may not use fails the lint, and `node:*` modules are only allowed in platforms and shells.
+
+Within the client, features use the core services and the generic building blocks in `ui/` (dialogs, trees, menus, the guided tour); only `core/` talks to the platform connector.
 
 [SUBPAGES]

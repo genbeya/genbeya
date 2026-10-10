@@ -9,6 +9,7 @@ A desktop workspace for a Git repository: wiki, task board, code editor and vers
 - **Dedicated content branch** (optional): keep wiki and tasks on a shared `gitdesk` branch so they look the same on every code branch.
 - **Terminal** (`` Ctrl+` ``) in the repository, on the machine it lives on.
 - Command palette (`Ctrl+K`), back/forward (`Alt+←/→`, mouse buttons), recent repositories, dark and light themes.
+- **Getting started** inside the app: a sample project, a guided tour, and what's new after each update.
 
 ## Run
 
