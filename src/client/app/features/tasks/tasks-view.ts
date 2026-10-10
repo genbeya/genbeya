@@ -90,7 +90,6 @@ export class TasksView {
   protected readonly boardColumns = computed(() => this.columns().filter((status) => !this.hidden().includes(status)));
   protected readonly epics = computed(() => epicsOf(this.snapshot().tasks));
   protected readonly lanes = computed(() => (this.swimlanes() && this.epics().length ? lanesOf(this.snapshot().tasks) : null));
-  protected readonly epicName = epicName;
   protected readonly people = computed(() => peopleOf(this.snapshot().tasks));
   protected readonly labels = computed(() => labelsOf(this.snapshot().tasks));
   protected readonly selected = computed(() => {
