@@ -190,7 +190,7 @@
 .task-card-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 5px;
   min-height: 18px;
 }
 
@@ -313,6 +313,12 @@
   font-weight: 500;
 }
 
+/* Rows keep a column for the type icon, so IDs line up. */
+.task-row .type-slot {
+  flex: none;
+  width: 14px;
+}
+
 .avatar-placeholder {
   width: 20px;
   height: 20px;
@@ -432,6 +438,33 @@
   height: 18px;
   border: 0;
   padding: 0;
+}
+
+.task-fields {
+  display: grid;
+  grid-template-columns: minmax(80px, 140px) minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 12px;
+  max-width: 560px;
+  margin: -8px 0 22px;
+}
+
+.task-fields[hidden] {
+  display: none;
+}
+
+.task-field {
+  display: contents;
+}
+
+.task-field-name {
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.task-field-value {
+  padding: 0 11px;
+  overflow-wrap: anywhere;
 }
 
 .task-description {

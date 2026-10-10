@@ -71,6 +71,17 @@
 
 <ng-template #filterMenu>
   <div class="menu" cdkMenu [style.width.px]="230">
+    @if (types().length) {
+      <div class="menu-heading">Type</div>
+      @for (type of types(); track type.name) {
+        <button gd-menu-item [checked]="filters().type === type.name" (selected)="toggleFilter('type', type.name)">
+          <gd-type-icon icon [type]="type.name" [decorative]="true" />{{ titleCase(type.name) }}
+        </button>
+      }
+      <button gd-menu-item [checked]="filters().type === ''" (selected)="toggleFilter('type', '')">
+        <svg icon lucideShapes [size]="13" aria-hidden="true"></svg>No type
+      </button>
+    }
     @if (epics().length) {
       <div class="menu-heading">Epic</div>
       @for (epic of epics(); track epic) {
@@ -122,6 +133,7 @@
       <gd-task-board
         [columns]="boardColumns()"
         [statuses]="statuses()"
+        [statusIcons]="snapshot().settings.statusIcons"
         [tasks]="tasks()"
         [lanes]="lanes()"
         [selected]="task()"
@@ -140,6 +152,7 @@
     <gd-task-list
       [columns]="columns()"
       [statuses]="statuses()"
+      [statusIcons]="snapshot().settings.statusIcons"
       [hidden]="hidden()"
       [tasks]="tasks()"
       [selected]="task()"

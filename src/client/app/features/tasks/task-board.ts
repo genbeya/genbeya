@@ -25,7 +25,7 @@ interface Cell extends Placement {
   template: `
     <ng-template #header let-status>
       <header class="board-column-header">
-        <gd-status-icon [status]="status" [statuses]="statuses()" />
+        <gd-status-icon [status]="status" [statuses]="statuses()" [iconName]="statusIcons()[status]" />
         <strong>{{ titleCase(status) }}</strong>
         <span class="faint">{{ countIn(status) }}</span>
         <span class="grow"></span>
@@ -127,6 +127,8 @@ interface Cell extends Placement {
 export class TaskBoard {
   readonly columns = input.required<readonly string[]>();
   readonly statuses = input.required<readonly string[]>();
+  /** Icons of the states that have one. */
+  readonly statusIcons = input<Readonly<Record<string, string>>>({});
   readonly tasks = input.required<readonly Task[]>();
   /** Epics as swimlanes ("" for tasks without one), or null for a board without lanes. */
   readonly lanes = input<readonly string[] | null>(null);

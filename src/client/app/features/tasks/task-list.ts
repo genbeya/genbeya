@@ -4,7 +4,7 @@ import { LucideFolder } from "@lucide/angular";
 import type { Task } from "../../../../contracts/model";
 import { Avatar } from "../../ui/avatar";
 import { ShareMenu } from "../share/share-menu";
-import { LabelChip, PriorityIcon, StatusIcon } from "./task-icons";
+import { LabelChip, PriorityIcon, StatusIcon, TypeIcon } from "./task-icons";
 import { displayId, titleCase } from "./task-model";
 
 /**
@@ -13,7 +13,7 @@ import { displayId, titleCase } from "./task-model";
  */
 @Component({
   selector: "gd-task-list",
-  imports: [Avatar, CdkContextMenuTrigger, LabelChip, PriorityIcon, ShareMenu, StatusIcon, LucideFolder],
+  imports: [Avatar, CdkContextMenuTrigger, LabelChip, PriorityIcon, ShareMenu, StatusIcon, TypeIcon, LucideFolder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-list" },
   template: `
@@ -34,7 +34,7 @@ import { displayId, titleCase } from "./task-model";
           } @else {
             <span class="column-toggle"></span>
           }
-          <gd-status-icon [status]="group.status" [statuses]="statuses()" />
+          <gd-status-icon [status]="group.status" [statuses]="statuses()" [iconName]="statusIcons()[group.status]" />
           <strong>{{ titleCase(group.status) }}</strong>
           <span class="faint">{{ group.tasks.length }}</span>
         </header>
@@ -51,8 +51,9 @@ import { displayId, titleCase } from "./task-model";
             (keydown.space)="$event.preventDefault(); open.emit(task)"
           >
             <gd-priority-icon [priority]="task.priority" />
+            <gd-type-icon class="type-slot" [type]="task.type" />
             <span class="task-id mono">{{ displayId(task.id) }}</span>
-            <gd-status-icon [status]="task.status" [statuses]="statuses()" />
+            <gd-status-icon [status]="task.status" [statuses]="statuses()" [iconName]="statusIcons()[task.status]" />
             <span class="task-row-title ellipsis">{{ task.title }}</span>
             <span class="grow"></span>
             @if (task.epic) {
@@ -77,6 +78,8 @@ import { displayId, titleCase } from "./task-model";
 export class TaskList {
   readonly columns = input.required<readonly string[]>();
   readonly statuses = input.required<readonly string[]>();
+  /** Icons of the states that have one. */
+  readonly statusIcons = input<Readonly<Record<string, string>>>({});
   /** States the board leaves out. */
   readonly hidden = input<readonly string[]>([]);
   readonly tasks = input.required<readonly Task[]>();

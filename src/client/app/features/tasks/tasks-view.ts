@@ -19,6 +19,7 @@ import {
   LucidePlus,
   LucideRows3,
   LucideSearch,
+  LucideShapes,
   LucideTag,
   LucideUser,
   LucideX,
@@ -32,7 +33,7 @@ import { EmptyState } from "../../ui/empty-state";
 import { MenuItem } from "../../ui/menu-item";
 import { recall, remember } from "../../ui/remembered";
 import { TaskBoard } from "./task-board";
-import { PriorityIcon } from "./task-icons";
+import { PriorityIcon, TypeIcon } from "./task-icons";
 import { TaskList } from "./task-list";
 import {
   columnsOf,
@@ -44,6 +45,7 @@ import {
   NO_FILTERS,
   peopleOf,
   titleCase,
+  typesOf,
   UNASSIGNED,
   visibleTasks,
   type Placement,
@@ -52,6 +54,7 @@ import {
 import { TaskPanel } from "./task-panel";
 
 type Layout = "board" | "list";
+type FilterKey = "assignee" | "priority" | "label" | "epic" | "type";
 const LAYOUT_KEY = "tasks:layout";
 const LANES_KEY = "tasks:lanes";
 
@@ -72,6 +75,7 @@ const LANES_KEY = "tasks:lanes";
     TaskBoard,
     TaskList,
     TaskPanel,
+    TypeIcon,
     LucideColumns3,
     LucideFolder,
     LucideLayoutList,
@@ -79,6 +83,7 @@ const LANES_KEY = "tasks:lanes";
     LucidePlus,
     LucideRows3,
     LucideSearch,
+    LucideShapes,
     LucideTag,
     LucideUser,
     LucideX,
@@ -121,6 +126,7 @@ export class TasksView {
   protected readonly boardColumns = computed(() => this.columns().filter((status) => !this.hidden().includes(status)));
   protected readonly epics = computed(() => epicsOf(this.snapshot().tasks));
   protected readonly lanes = computed(() => (this.swimlanes() && this.epics().length ? lanesOf(this.snapshot().tasks) : null));
+  protected readonly types = computed(() => typesOf(this.snapshot().settings.types, this.snapshot().tasks));
   protected readonly people = computed(() => peopleOf(this.snapshot().tasks));
   protected readonly labels = computed(() => labelsOf(this.snapshot().tasks));
   protected readonly selected = computed(() => {
@@ -128,8 +134,9 @@ export class TasksView {
     return id ? this.snapshot().tasks.find((task) => task.id === id) : undefined;
   });
   protected readonly chips = computed(() => {
-    const { assignee, priority, label, epic } = this.filters();
+    const { assignee, priority, label, epic, type } = this.filters();
     return [
+      ...(type !== null ? [{ key: "type" as const, text: type ? titleCase(type) : "No type" }] : []),
       ...(epic !== null ? [{ key: "epic" as const, text: epicName(epic) }] : []),
       ...(assignee ? [{ key: "assignee" as const, text: assignee === UNASSIGNED ? "Unassigned" : assignee }] : []),
       ...(priority ? [{ key: "priority" as const, text: titleCase(priority) }] : []),
@@ -188,11 +195,11 @@ export class TasksView {
   }
 
   /** Selecting the active value again clears it. */
-  protected toggleFilter(key: "assignee" | "priority" | "label" | "epic", value: string) {
+  protected toggleFilter(key: FilterKey, value: string) {
     this.filters.update((filters) => ({ ...filters, [key]: filters[key] === value ? null : value }));
   }
 
-  protected clearFilter(key: "assignee" | "priority" | "label" | "epic") {
+  protected clearFilter(key: FilterKey) {
     this.filters.update((filters) => ({ ...filters, [key]: null }));
   }
 

@@ -2,17 +2,21 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
 import { Avatar } from "../../ui/avatar";
 import { LucideFolder } from "@lucide/angular";
-import { LabelChip, PriorityIcon } from "./task-icons";
+import { LabelChip, PriorityIcon, TypeIcon } from "./task-icons";
 import { displayId, titleCase } from "./task-model";
 
 @Component({
   selector: "gd-task-card",
-  imports: [Avatar, LabelChip, PriorityIcon, LucideFolder],
+  imports: [Avatar, LabelChip, PriorityIcon, TypeIcon, LucideFolder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-card", "[class.is-selected]": "selected()" },
   template: `
     <div class="task-card-top">
+      @if (task().type) {
+        <gd-type-icon [type]="task().type" [size]="13" />
+      }
       <span class="task-id mono">{{ displayId(task().id) }}</span>
+      <span class="grow"></span>
       @if (task().assignee) {
         <gd-avatar [name]="task().assignee" [size]="18" />
       }

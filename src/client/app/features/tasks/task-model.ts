@@ -1,5 +1,5 @@
 /** How tasks are ordered, filtered, grouped and labelled on the board and list. */
-import { PRIORITIES, type Task, type TaskInput } from "../../../../contracts/model";
+import { GENERIC_TYPE_ICON, PRIORITIES, type Task, type TaskInput, type TaskType, type Tone } from "../../../../contracts/model";
 import { statusTone } from "../../ui/status-tone";
 
 export interface TaskFilters {
@@ -10,6 +10,8 @@ export interface TaskFilters {
   readonly priority: string | null;
   /** An epic, "" for tasks without one, or null for all. */
   readonly epic: string | null;
+  /** A task type, "" for tasks without one, or null for all. */
+  readonly type: string | null;
 }
 
 /** Where a dragged card goes while its move is saved. */
@@ -18,7 +20,7 @@ export interface Placement {
   readonly epic: string;
 }
 
-export const NO_FILTERS: TaskFilters = { query: "", assignee: null, label: null, priority: null, epic: null };
+export const NO_FILTERS: TaskFilters = { query: "", assignee: null, label: null, priority: null, epic: null, type: null };
 export const UNASSIGNED = "-";
 
 export const titleCase = (text: string): string => text.replace(/[-_]+/g, " ").replace(/^\w/, (letter) => letter.toUpperCase());
@@ -28,6 +30,13 @@ export function statusColor(index: number, count: number): string {
   const tone = statusTone(index, count);
   return tone === "other" ? "var(--text-3)" : `var(--${tone})`;
 }
+
+/** The CSS colour of a task type's tone; types without one are grey text. */
+export const toneColor = (tone: Tone | undefined): string => (tone ? `var(--${tone})` : "var(--text-2)");
+
+/** The configured type of this name, or the generic look of a type that is not configured. */
+export const typeLook = (name: string, types: readonly TaskType[]): TaskType =>
+  types.find((type) => type.name === name) ?? { name, icon: GENERIC_TYPE_ICON };
 
 const priorityRank = (priority: string): number => {
   const index = (PRIORITIES as readonly string[]).indexOf(priority);
@@ -46,6 +55,8 @@ export const inputOf = (task: Task): TaskInput => ({
   priority: task.priority,
   assignee: task.assignee,
   labels: task.labels,
+  type: task.type,
+  fields: task.fields,
   body: task.body,
   epic: task.epic,
 });
@@ -74,7 +85,8 @@ export function visibleTasks(tasks: readonly Task[], filters: TaskFilters, movin
         (!filters.assignee || task.assignee === filters.assignee || (filters.assignee === UNASSIGNED && !task.assignee)) &&
         (!filters.label || task.labels.includes(filters.label)) &&
         (!filters.priority || task.priority === filters.priority) &&
-        (filters.epic === null || task.epic === filters.epic),
+        (filters.epic === null || task.epic === filters.epic) &&
+        (filters.type === null || task.type === filters.type),
     )
     .sort(compareTasks);
 }
@@ -92,6 +104,15 @@ export const labelsOf = (tasks: readonly Task[]): string[] => [...new Set(tasks.
 /** Epics that hold tasks, sorted; tasks without one are not an epic. */
 export const epicsOf = (tasks: readonly Task[]): string[] =>
   [...new Set(tasks.map((task) => task.epic).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+
+/** The configured types, then other types that tasks have. */
+export const typesOf = (types: readonly TaskType[], tasks: readonly Pick<Task, "type">[]): TaskType[] => [
+  ...types,
+  ...[...new Set(tasks.map((task) => task.type))]
+    .filter((name) => name && !types.some((type) => type.name === name))
+    .sort()
+    .map((name) => typeLook(name, types)),
+];
 
 /** Swimlanes: every epic, then the tasks without one. */
 export const lanesOf = (tasks: readonly Task[]): string[] => [...epicsOf(tasks), ""];

@@ -1,16 +1,20 @@
-/** The small graphics of tasks: status rings, priority bars, label chips. */
-import { ChangeDetectionStrategy, Component, computed, input } from "@angular/core";
-import { LucideCircleCheck, LucideCircleDashed } from "@lucide/angular";
-import { labelColor, statusColor } from "./task-model";
+/** The small graphics of tasks: status rings, type icons, priority bars, label chips. */
+import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
+import { LucideCircleCheck, LucideCircleDashed, LucideDynamicIcon } from "@lucide/angular";
+import { Session } from "../../core/session";
+import { iconFor, knownIcon } from "../../ui/icons";
+import { labelColor, statusColor, titleCase, toneColor, typeLook } from "./task-model";
 
-/** A ring that fills as the status advances; the final state is a check. */
+/** The state's configured icon, or a ring that fills as the status advances; the final state is a check. */
 @Component({
   selector: "gd-status-icon",
-  imports: [LucideCircleCheck, LucideCircleDashed],
+  imports: [LucideCircleCheck, LucideCircleDashed, LucideDynamicIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: inline-flex" },
   template: `
-    @if (index() === statuses().length - 1) {
+    @if (configured(); as configured) {
+      <svg [lucideIcon]="configured" [size]="size()" [color]="color()" [strokeWidth]="2.2" aria-hidden="true"></svg>
+    } @else if (index() === statuses().length - 1) {
       <svg lucideCircleCheck [size]="size()" [color]="color()" [strokeWidth]="2.2" aria-hidden="true"></svg>
     } @else if (index() <= 0) {
       <svg lucideCircleDashed [size]="size()" [color]="color()" [strokeWidth]="2.2" aria-hidden="true"></svg>
@@ -34,13 +38,49 @@ import { labelColor, statusColor } from "./task-model";
 export class StatusIcon {
   readonly status = input.required<string>();
   readonly statuses = input.required<readonly string[]>();
+  /** The state's icon from the settings, if it has one. */
+  readonly iconName = input<string>();
   readonly size = input(14);
+  protected readonly configured = computed(() => knownIcon(this.iconName()));
   protected readonly index = computed(() => this.statuses().indexOf(this.status()));
   protected readonly color = computed(() => statusColor(this.index(), this.statuses().length));
   protected readonly dash = computed(() => {
     const circumference = 2 * Math.PI * 4;
     return `${(circumference * this.index()) / (this.statuses().length - 1)} ${circumference}`;
   });
+}
+
+/**
+ * A task type's icon in its colour, named for screen readers unless the type
+ * is written next to it; nothing for tasks without a type.
+ */
+@Component({
+  selector: "gd-type-icon",
+  imports: [LucideDynamicIcon],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    style: "display: inline-flex",
+    "[attr.role]": "named() ? 'img' : null",
+    "[attr.aria-label]": "named() ? name() : null",
+    "[attr.title]": "named() ? name() : null",
+  },
+  template: `
+    @if (type()) {
+      <svg [lucideIcon]="iconFor(look().icon)" [size]="size()" [color]="toneColor(look().tone)" aria-hidden="true"></svg>
+    }
+  `,
+})
+export class TypeIcon {
+  readonly type = input.required<string>();
+  readonly size = input(14);
+  /** The type's name is shown next to the icon. */
+  readonly decorative = input(false);
+  protected readonly named = computed(() => !!this.type() && !this.decorative());
+  private readonly session = inject(Session);
+  protected readonly look = computed(() => typeLook(this.type(), this.session.snapshot()?.settings.types ?? []));
+  protected readonly name = computed(() => titleCase(this.type()));
+  protected readonly iconFor = iconFor;
+  protected readonly toneColor = toneColor;
 }
 
 const LEVELS: Readonly<Record<string, number>> = { high: 3, medium: 2, low: 1 };
