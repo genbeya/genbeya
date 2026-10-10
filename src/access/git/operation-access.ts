@@ -18,6 +18,8 @@ import { OPERATION_FILES, parseOperation, parseRebaseCommits, REBASE_FORMAT, typ
 const OPERATION_FILE_LIMIT = 64 * 1024;
 /** Where the todo list and messages of an interactive rebase are prepared, in the git directory. */
 const REBASE_FOLDER = "gitdesk-rebase";
+/** Git's folder for the state of an interactive rebase, in the git directory; it goes when the rebase ends. */
+const REBASE_STATE = "rebase-merge";
 /** Rebases rewriting more commits than this are for the terminal. */
 export const REBASE_LIMIT = 1000;
 
@@ -114,21 +116,41 @@ export class OperationAccess {
 
   /**
    * Runs `git rebase -i` with a prepared todo list: git's sequence editor
-   * copies it over the one git wrote, and new messages come from files, so
-   * no editor ever opens. Both go through git's own sh, on every host.
+   * moves the prepared folder into git's own rebase folder, which git removes
+   * when the rebase ends or is aborted, and copies the list over the one git
+   * wrote. New messages come from files, so no editor ever opens. Everything
+   * goes through git's own sh, on every host.
+   *
+   * A message is amended only when the pick before it made a commit: one
+   * skipped after a conflict, or dropped because it became empty, would
+   * otherwise leave the previous commit to be amended.
    */
   async rebaseInteractive(base: string, { lines, messages }: RebaseTodo, autostash: boolean): Promise<OperationOutcome> {
     const gitDir = await this.gitDir();
-    const folder = `${gitDir}/${REBASE_FOLDER}`;
+    const folder = `${gitDir}/${REBASE_STATE}/${REBASE_FOLDER}`;
     const prepare = (name: string, text: string) => this.host.write(gitDir, `${REBASE_FOLDER}/${name}`, encodeText(text), false);
     for (const [index, message] of messages.entries()) await prepare(`message-${index}`, message);
-    const line = (entry: TodoLine) =>
-      entry.command === "amend"
-        ? `exec git commit --amend --allow-empty --no-verify --quiet --file=${quote(`${folder}/message-${entry.message}`)}`
-        : `${entry.command} ${entry.hash}`;
+    // The pick each amend belongs to; HEAD is recorded before it.
+    const amended = new Set<number>();
+    let picked = -1;
+    lines.forEach((entry, index) => {
+      if (entry.command === "pick") picked = index;
+      else if (entry.command === "amend" && picked >= 0) amended.add(picked);
+    });
+    const before = (index: number) => quote(`${folder}/before-${index}`);
+    picked = -1;
+    const line = (entry: TodoLine, index: number) => {
+      if (entry.command === "pick") picked = index;
+      if (entry.command !== "amend")
+        return (amended.has(index) ? `exec git rev-parse HEAD >${before(index)}\n` : "") + `${entry.command} ${entry.hash}`;
+      const amend = `git commit --amend --allow-empty --no-verify --quiet --file=${quote(`${folder}/message-${entry.message}`)}`;
+      return picked < 0 ? `exec ${amend}` : `exec test "$(git rev-parse HEAD)" = "$(cat ${before(picked)})" || ${amend}`;
+    };
     await prepare("todo", lines.map(line).join("\n") + "\n");
     return this.git.outcome(["rebase", "--interactive", ...(autostash ? ["--autostash"] : []), "--end-of-options", base], this.unfinished, {
-      env: { GIT_SEQUENCE_EDITOR: `cat ${quote(`${folder}/todo`)} >` },
+      env: {
+        GIT_SEQUENCE_EDITOR: `mv ${quote(`${gitDir}/${REBASE_FOLDER}`)} ${quote(folder)} && cat ${quote(`${folder}/todo`)} >`,
+      },
     });
   }
 
