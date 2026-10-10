@@ -132,9 +132,31 @@ describe("WorkspaceManager", () => {
       theme: "dark",
       reopenLast: true,
       autoSyncContent: true,
+      lastSeenVersion: null,
+      tourSeen: false,
+      tourOffered: [],
     });
     await expect(managers.workspace.setPreferences({ theme: "neon" } as never)).rejects.toThrow("theme");
     await expect(managers.workspace.setPreferences({ reopenLast: "yes" } as never)).rejects.toThrow("reopenLast");
+    await expect(managers.workspace.setPreferences({ tourSeen: 1 } as never)).rejects.toThrow("tourSeen");
+    await expect(managers.workspace.setPreferences({ lastSeenVersion: "latest" })).rejects.toThrow("lastSeenVersion");
+    await expect(managers.workspace.setPreferences({ tourOffered: ["local:/a", 3] } as never)).rejects.toThrow("tourOffered");
+    await expect(managers.workspace.setPreferences({ tourOffered: "local:/a" } as never)).rejects.toThrow("tourOffered");
+  });
+
+  it("keeps what the user has seen of the onboarding across restarts", async () => {
+    const data = await temporaryFolder("data-");
+    const first = await createBackend(machine, data);
+    const offered = Array.from({ length: 120 }, (_, i) => `local:/r${i}`);
+    await first.workspace.setPreferences({ lastSeenVersion: "0.3.2", tourSeen: true, tourOffered: offered });
+    await first.dispose();
+    const second = await backend(data);
+    expect(await second.workspace.preferences()).toMatchObject({
+      lastSeenVersion: "0.3.2",
+      tourSeen: true,
+      // Only the repositories offered last are remembered.
+      tourOffered: offered.slice(-100),
+    });
   });
 
   it("clones repositories next to each other and opens them", async () => {

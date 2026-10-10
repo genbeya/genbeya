@@ -10,10 +10,15 @@ import { sha256 } from "../utilities/bytes";
 import { buildFileTree } from "../utilities/file-tree";
 import { requestedLink, requestedLocation } from "../utilities/launch-request";
 import { namesRemoteHelper } from "../utilities/remote-url";
+import { parseVersion } from "../utilities/version";
 import { Workspace, type Engines, type WorkspaceRegistry } from "./workspace";
 
 const THEMES: readonly Theme[] = ["system", "light", "dark"];
 const CLONE_TIMEOUT = 15 * 60_000;
+const TOUR_OFFERS = 100;
+
+const isRepositoryKey = (key: unknown): key is string =>
+  typeof key === "string" && key.length > 0 && key.length < 5000 && !/[\0\r\n]/.test(key);
 
 const remoteUrls = (snapshot: Snapshot) => snapshot.remotes.map((remote) => remote.url);
 
@@ -119,11 +124,21 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       if (!THEMES.includes(value.theme as Theme)) throw new Error("Choose the system, light or dark theme.");
       next.theme = value.theme as Theme;
     }
-    for (const key of ["reopenLast", "autoSyncContent"] as const)
+    for (const key of ["reopenLast", "autoSyncContent", "tourSeen"] as const)
       if (value[key] !== undefined) {
         if (typeof value[key] !== "boolean") throw new Error(`Invalid ${key} preference.`);
         next[key] = value[key];
       }
+    if (value.lastSeenVersion !== undefined) {
+      if (!parseVersion(value.lastSeenVersion)) throw new Error("Invalid lastSeenVersion preference.");
+      next.lastSeenVersion = (value.lastSeenVersion as string).trim();
+    }
+    if (value.tourOffered !== undefined) {
+      const keys = value.tourOffered;
+      if (!Array.isArray(keys) || !keys.every(isRepositoryKey)) throw new Error("Invalid tourOffered preference.");
+      // The repositories opened last are enough to offer the tour once in each.
+      next.tourOffered = keys.slice(-TOUR_OFFERS);
+    }
     this.preferencesStore.setPreferences(next);
     return next;
   }

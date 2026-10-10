@@ -185,6 +185,12 @@ export interface Preferences {
   readonly theme: Theme;
   readonly reopenLast: boolean;
   readonly autoSyncContent: boolean;
+  /** The app version whose news the user has seen ("0.3.2"); null until the first start. */
+  readonly lastSeenVersion: string | null;
+  /** The user finished or ended the guided tour. */
+  readonly tourSeen: boolean;
+  /** The repositories that offered the tour, so each offers it once; see {@link repositoryKey}. */
+  readonly tourOffered: readonly string[];
 }
 
 /** What a terminal printed since the last read (possibly nothing yet), or its exit code once it ended and everything was read. */
@@ -208,3 +214,6 @@ export const describeLocation = (location: Location): string =>
     : location.kind === "wsl"
       ? `${location.distro}:${location.path}`
       : `${location.host}:${location.path}`;
+
+/** Names a repository in preferences: "local:C:\code\app", "wsl:Ubuntu:/home/me/app". */
+export const repositoryKey = (location: Location): string => `${location.kind}:${describeLocation(location)}`;
