@@ -1,5 +1,5 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
-import { ChangeDetectionStrategy, Component, computed, input, output } from "@angular/core";
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, inject, Injector, input, output } from "@angular/core";
 import { LucideFolder } from "@lucide/angular";
 import type { Task } from "../../../../contracts/model";
 import { Avatar } from "../../ui/avatar";
@@ -83,6 +83,7 @@ export class TaskList {
   readonly visibilityChanged = output<{ status: string; visible: boolean }>();
   protected readonly titleCase = titleCase;
   protected readonly displayId = displayId;
+  private readonly injector = inject(Injector);
   /** Configured states always, other states while tasks are in them. */
   protected readonly groups = computed(() =>
     this.columns()
@@ -91,13 +92,12 @@ export class TaskList {
   );
 
   /**
-   * The box shows `hidden`, not the click: the view hides the column at once
-   * and shows it again when saving fails, which then shows here even if the
-   * hidden state never rendered.
+   * The view hides the column at once and shows it again when saving fails,
+   * perhaps before it rendered it hidden; the box then follows `hidden`
+   * anyway, rather than the click.
    */
   protected toggle(status: string, box: HTMLInputElement) {
-    const visible = box.checked;
-    box.checked = !this.hidden().includes(status);
-    this.visibilityChanged.emit({ status, visible });
+    this.visibilityChanged.emit({ status, visible: box.checked });
+    afterNextRender({ write: () => (box.checked = !this.hidden().includes(status)) }, { injector: this.injector });
   }
 }
