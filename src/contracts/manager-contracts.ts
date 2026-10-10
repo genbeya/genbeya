@@ -22,6 +22,8 @@ import type {
   RecentEntry,
   RemoteLocation,
   Scope,
+  SearchOptions,
+  SearchResults,
   Settings,
   Snapshot,
   StorageMode,
@@ -97,6 +99,13 @@ export interface ContentManagerContract {
   agentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFile[]>;
   /** Writes the agent files of `targets` into the checkout, leaving text outside GitDesk's blocks alone. */
   addAgentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFileWrite[]>;
+  /**
+   * Finds `text` inside pages, tasks and code: tracked and untracked files
+   * that .gitignore does not exclude, binary files skipped. Literal and
+   * ignoring case unless `options` say otherwise; bounded in files, matches
+   * per file and line length.
+   */
+  search(workspace: string, text: string, options?: SearchOptions): Promise<SearchResults>;
 }
 
 /** Staging, committing, history, branches and remotes of the checked-out repository. */
@@ -182,6 +191,7 @@ export const MANAGER_METHODS = {
     "syncContent",
     "agentFiles",
     "addAgentFiles",
+    "search",
   ],
   versionControl: [
     "diff",

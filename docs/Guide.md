@@ -6,7 +6,7 @@ How to work with GitDesk day to day.
 
 ## Moving around
 
-Press `Ctrl+K` anywhere to jump to a page, task or file, or to run a command such as switching branch or pushing. `Alt+←` and `Alt+→` (or the mouse's back and forward buttons) walk through where you have been. `?` lists every shortcut — see [[Keyboard shortcuts]]. `` Ctrl+` `` opens a [[Terminal]] in the repository.
+Press `Ctrl+K` anywhere to jump to a page, task or file, or to run a command such as switching branch or pushing. `Ctrl+Shift+F` (or `/` in that palette) finds text inside them — see [[Search]]. `Alt+←` and `Alt+→` (or the mouse's back and forward buttons) walk through where you have been. `?` lists every shortcut — see [[Keyboard shortcuts]]. `` Ctrl+` `` opens a [[Terminal]] in the repository.
 
 ## Sharing
 

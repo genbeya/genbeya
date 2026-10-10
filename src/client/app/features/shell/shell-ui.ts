@@ -7,7 +7,8 @@ import { Dialogs } from "../../core/dialogs";
 import { LinkOpener } from "../../core/link-opener";
 import { Session } from "../../core/session";
 
-export type PaletteMode = "all" | "branches";
+/** `search` opens it searching inside files. */
+export type PaletteMode = "all" | "branches" | "search";
 
 @Injectable({ providedIn: "root" })
 export class ShellUi {
