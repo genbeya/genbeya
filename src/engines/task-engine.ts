@@ -1,7 +1,5 @@
 /**
  * The task file format: one Markdown file per task with YAML frontmatter
-/**
- * The task file format: one Markdown file per task with YAML frontmatter
  * (`id`, `title`, `status`, optional `type`, `priority`, `assignee`, `labels`,
  * and custom fields), the description, then the comments (see
  * task-comments.ts). Updates rewrite known fields in place, so comments and
@@ -16,10 +14,12 @@ import YAML from "yaml";
 import { TASK_KEYS, type FieldValue, type Task, type TaskChange, type TaskInput, type TaskTemplate } from "../contracts/model";
 import { validateRepositoryPath, within } from "../utilities/repository-path";
 import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
+import { TYPE_NAME } from "./settings-engine";
 import { diffTasks, type TaskState } from "./task-activity";
 import { commentBlock, commentHeading, joinComments, protectHeadings, splitComments, timestampOf, type SplitBody } from "./task-comments";
 
-const FRONTMATTER = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
+// The YAML keeps its last line break, which a block scalar such as `|+` counts as content.
+const FRONTMATTER = /^---\r?\n([\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/;
 const DEFAULT_PRIORITY = "none";
 const TEMPLATE_FOLDER = ".templates";
 const LIMITS = {
@@ -36,8 +36,13 @@ const LIMITS = {
   value: 2000,
   comment: 64 * 1024,
 } as const;
-/** Keys a field must not have: GitDesk's own, and names that would reach object prototypes. */
+/** Keys a field must not have, in lower case: GitDesk's own, and names that would reach object prototypes. */
 const NOT_FIELDS: readonly string[] = [...TASK_KEYS, "__proto__", "constructor", "prototype"];
+
+/** A key a custom field may have: one line, not GitDesk's own in any spelling. */
+const isFieldKey = (key: string) =>
+  // eslint-disable-next-line no-control-regex
+  !!key.trim() && key.length <= LIMITS.field && !/[\x00-\x1f\x7f]/.test(key) && !NOT_FIELDS.includes(key.toLowerCase());
 
 /** A version of a task file at `path`; null content when Git did not show it (a move without edits). */
 export interface TaskVersion {
@@ -76,9 +81,7 @@ const isFieldValue = (value: unknown): value is FieldValue =>
 
 /** Frontmatter fields other than GitDesk's own that hold a plain value. */
 const extraFields = (data: Record<string, unknown>): Record<string, FieldValue> =>
-  Object.fromEntries(
-    Object.entries(data).filter((entry): entry is [string, FieldValue] => !NOT_FIELDS.includes(entry[0]) && isFieldValue(entry[1])),
-  );
+  Object.fromEntries(Object.entries(data).filter((entry): entry is [string, FieldValue] => isFieldKey(entry[0]) && isFieldValue(entry[1])));
 
 /**
  * Frontmatter fields in their written order; empty or default optional fields
@@ -139,8 +142,7 @@ export class TaskEngine {
   }
 
   templatePath(taskRoot: string, type: unknown): string {
-    if (typeof type !== "string" || !type.trim() || type.length > LIMITS.type || /[/\\]|^\./.test(type))
-      throw new Error("Invalid task type.");
+    if (typeof type !== "string" || !TYPE_NAME.test(type)) throw new Error("Invalid task type.");
     return `${taskRoot}/${TEMPLATE_FOLDER}/${type}.md`;
   }
 
@@ -206,29 +208,30 @@ export class TaskEngine {
 
   /** Checks and normalises client input against the project's workflow states. */
   validate(input: TaskInput, statuses: readonly string[]): TaskInput {
+    if (typeof input !== "object" || input === null || Array.isArray(input)) throw new Error("Invalid task.");
     const text = (value: unknown, label: string, max: number) => {
       if (typeof value !== "string" || value.length > max) throw new Error(`Invalid ${label}.`);
       return value;
     };
-    const title = text(input.title, "title", LIMITS.title)
-      .replace(/[\r\n]+/g, " ")
-      .trim();
+    // Frontmatter values stay on one line.
+    const line = (value: unknown, label: string, max: number) =>
+      text(value, label, max)
+        .replace(/[\r\n]+/g, " ")
+        .trim();
+    const title = line(input.title, "title", LIMITS.title);
     if (!title) throw new Error("A task needs a title.");
     if (!statuses.includes(input.status)) throw new Error("Choose one of the configured workflow states.");
     if (!Array.isArray(input.labels) || input.labels.length > LIMITS.labels) throw new Error("Use at most 30 labels.");
     return {
       title,
       status: input.status,
-      priority: text(input.priority, "priority", LIMITS.priority).trim() || DEFAULT_PRIORITY,
-      assignee: text(input.assignee, "assignee", LIMITS.assignee).trim(),
-      labels: [...new Set(input.labels.map((label) => text(label, "label", LIMITS.label).trim()).filter(Boolean))],
-      body: protectHeadings(text(input.body, "description", LIMITS.body)),
+      priority: line(input.priority, "priority", LIMITS.priority) || DEFAULT_PRIORITY,
+      assignee: line(input.assignee, "assignee", LIMITS.assignee),
+      labels: [...new Set(input.labels.map((label) => line(label, "label", LIMITS.label)).filter(Boolean))],
+      // Markdown also ends a line at a lone CR, which must not start a comment heading unseen.
+      body: protectHeadings(text(input.body, "description", LIMITS.body).replace(/\r\n?/g, "\n")),
       epic: this.validEpic(input.epic),
-      ...(input.type !== undefined && {
-        type: text(input.type, "type", LIMITS.type)
-          .replace(/[\r\n]+/g, " ")
-          .trim(),
-      }),
+      ...(input.type !== undefined && { type: line(input.type, "type", LIMITS.type) }),
       ...(input.fields !== undefined && { fields: this.validFields(input.fields) }),
     };
   }
@@ -255,7 +258,7 @@ export class TaskEngine {
     if (typeof value !== "object" || value === null || Array.isArray(value) || Object.keys(value).length > LIMITS.fields)
       throw new Error("Invalid fields.");
     for (const [key, field] of Object.entries(value)) {
-      if (!key || key.length > LIMITS.field || NOT_FIELDS.includes(key)) throw new Error(`Invalid field ${key}.`);
+      if (!isFieldKey(key)) throw new Error(`Invalid field ${key}.`);
       if (!isFieldValue(field) || (typeof field === "string" && field.length > LIMITS.value)) throw new Error(`Invalid value of ${key}.`);
     }
     return { ...(value as Record<string, FieldValue>) };

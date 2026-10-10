@@ -19,7 +19,7 @@ const LIMITS = { types: 20, fields: 30, options: 30, option: 60 } as const;
 /** A Lucide icon name, such as "trending-up". */
 const ICON = /^[a-z][a-z0-9-]{0,39}$/;
 /** Type names also name template files, so they stay plain. */
-const TYPE_NAME = /^[A-Za-z0-9][\w -]{0,39}$/;
+export const TYPE_NAME = /^[A-Za-z0-9][\w -]{0,39}$/;
 /** Field names are frontmatter keys that never need quoting. */
 const FIELD_NAME = /^[A-Za-z][\w-]{0,39}$/;
 
@@ -95,6 +95,7 @@ export class SettingsEngine {
   }
 
   validate(value: Settings, windows: boolean): Settings {
+    if (!isRecord(value)) throw new Error("Invalid settings.");
     const text = (input: unknown, label: string, max: number) => {
       if (typeof input !== "string" || !input.trim() || input.length > max)
         throw new Error(`${label} is required (up to ${max} characters).`);

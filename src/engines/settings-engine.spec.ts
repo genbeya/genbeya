@@ -200,6 +200,8 @@ describe("SettingsEngine", () => {
 
   it("validates before serialising", () => {
     expect(() => engine.serialize({ ...defaults, statuses: [] } as Settings, null, false)).toThrow("workflow states");
+    for (const value of [null, "x", []])
+      expect(() => engine.serialize(value as unknown as Settings, null, false)).toThrow("Invalid settings");
   });
 
   it.each(["taskRoot: GIT~1/info\n", "taskRoot: tasks.\n", "wikiRoot: docs:stream\n", "wikiHome: con.md\n"])(

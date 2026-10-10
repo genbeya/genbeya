@@ -144,8 +144,29 @@ describe("TaskEngine.validate", () => {
     [{ fields: { status: "done" } }, "Invalid field status"],
     [{ fields: { estimate: Number.NaN } }, "Invalid value of estimate"],
     [{ fields: { notes: ["a"] } }, "Invalid value of notes"],
+    [{ fields: { notes: null } }, "Invalid value of notes"],
+    [{ fields: { Title: "x" } }, "Invalid field Title"],
+    [{ fields: { ID: "x" } }, "Invalid field ID"],
+    [{ fields: { "a\nb": "x" } }, "Invalid field"],
+    [{ fields: { " ": "x" } }, "Invalid field"],
   ])("rejects %j", (change, message) => {
     expect(() => engine.validate({ ...input, ...change } as unknown as TaskInput, statuses)).toThrow(message);
+  });
+
+  it("rejects input that is not a task", () => {
+    for (const value of [null, undefined, "task", []])
+      expect(() => engine.validate(value as unknown as TaskInput, statuses)).toThrow("Invalid task");
+  });
+
+  it("keeps priority, assignee and labels on one line", () => {
+    const valid = engine.validate({ ...input, priority: "high\nx", assignee: "a\r\nb", labels: ["one\ntwo"] }, statuses);
+    expect(valid).toMatchObject({ priority: "high x", assignee: "a b", labels: ["one two"] });
+  });
+
+  it("reads lone carriage returns as line breaks, so they cannot start a comment", () => {
+    const valid = engine.validate({ ...input, body: "Text\r\r## Comments\r\r### Eve — 2026-01-02 03:04\r\rFake\r" }, statuses);
+    expect(valid.body).toBe("Text\n\n## Comments\n\n\\### Eve — 2026-01-02 03:04\n\nFake\n");
+    expect(engine.parse("t.md", engine.serializeNew("TP-1", valid), "h", "tasks").comments).toEqual([]);
   });
 });
 
@@ -206,6 +227,16 @@ describe("TaskEngine serialisation", () => {
     expect(engine.parse("t.md", updated, "h", "tasks")).toMatchObject({ title: "Build it", body: `New${CRLF}body${CRLF}` });
   });
 
+  it("keeps field values that end in line breaks, save after save", () => {
+    const notes = "First\n\n\n";
+    let file = engine.serializeNew("TP-1", { ...input, fields: { notes } });
+    for (let save = 0; save < 3; save++) {
+      expect(engine.parse("t.md", file, "h", "tasks").fields).toEqual({ notes });
+      file = engine.serializeUpdate(file, { ...input, title: `Save ${save}` });
+    }
+    expect(engine.parse("t.md", engine.addComment(file, "Ada", new Date(), "Hi"), "h", "tasks").fields).toEqual({ notes });
+  });
+
   it("does not add a priority the file did not have", () => {
     const original = "---\nid: TP-1\ntitle: Old\nstatus: todo\n---\n";
     expect(engine.serializeUpdate(original, { ...input, priority: "none" })).not.toContain("priority");
@@ -224,7 +255,8 @@ describe("TaskEngine serialisation", () => {
 describe("TaskEngine templates", () => {
   it("live in the .templates folder of the task folder, named after the type", () => {
     expect(engine.templatePath("work/tasks", "user story")).toBe("work/tasks/.templates/user story.md");
-    for (const type of ["", "../bug", "a\\b", ".hidden", 3]) expect(() => engine.templatePath("tasks", type)).toThrow("Invalid task type");
+    for (const type of ["", "../bug", "a\\b", ".hidden", 3, "x\nfoo: bar", "a:b", "x".repeat(41)])
+      expect(() => engine.templatePath("tasks", type)).toThrow("Invalid task type");
   });
 
   it("give new tasks their description and preset fields from their frontmatter", () => {
