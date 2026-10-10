@@ -1,3 +1,4 @@
+import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from "@angular/core";
 import { LucideColumns2, LucideFileText, LucidePencil, LucidePlus } from "@lucide/angular";
 import { Dialogs } from "../../core/dialogs";
@@ -10,6 +11,7 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { CodeEditor } from "../../editor/code-editor";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { EmptyState } from "../../ui/empty-state";
+import { ShareMenu } from "../share/share-menu";
 import { Breadcrumbs } from "./breadcrumbs";
 import { PageMenu } from "./page-menu";
 import { PageOutline } from "./page-outline";
@@ -23,11 +25,13 @@ const PREVIEW_DELAY = 150;
   selector: "gd-wiki-page",
   imports: [
     Breadcrumbs,
+    CdkContextMenuTrigger,
     CodeEditor,
     EmptyState,
     MarkdownView,
     PageMenu,
     PageOutline,
+    ShareMenu,
     LucideColumns2,
     LucideFileText,
     LucidePencil,
@@ -45,7 +49,12 @@ const PREVIEW_DELAY = 150;
         </button>
       </gd-empty-state>
     } @else {
-      <header class="view-header">
+      <gd-share-menu #share="gdShareMenu" />
+      <header
+        class="view-header"
+        [cdkContextMenuTriggerFor]="share.menu()"
+        [cdkContextMenuTriggerData]="{ $implicit: { kind: 'page', path: path() } }"
+      >
         <gd-breadcrumbs [path]="path()" />
         @if (dirty()) {
           <span class="dirty-dot" title="Unsaved changes" aria-label="Unsaved changes"></span>

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
+import { ContextMenuGuard } from "./core/context-menu-guard";
 import { NavigationGuard } from "./core/navigation-guard";
 import { Session } from "./core/session";
 import { Theme } from "./core/theme";
@@ -45,6 +46,7 @@ export class App {
   constructor() {
     inject(Theme);
     inject(NavigationGuard);
+    inject(ContextMenuGuard);
     void this.session.start();
   }
 }

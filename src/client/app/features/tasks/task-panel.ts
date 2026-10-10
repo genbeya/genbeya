@@ -1,13 +1,15 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { afterRenderEffect, ChangeDetectionStrategy, Component, computed, effect, type ElementRef, inject, input, signal, untracked, viewChild } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideCodeXml, LucideCopy, LucideEllipsis, LucidePencil, LucideTrash2, LucideX } from "@lucide/angular";
+import { LucideCodeXml, LucideCopy, LucideEllipsis, LucideGlobe, LucideLink, LucidePencil, LucideTrash2, LucideX } from "@lucide/angular";
+import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import type { Task, TaskInput } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { Clipboard } from "../../core/clipboard";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Notifications } from "../../core/notifications";
 import { Session } from "../../core/session";
+import { ShareLinks } from "../../core/share-links";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { CodeEditor } from "../../editor/code-editor";
@@ -26,7 +28,22 @@ const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, pr
  */
 @Component({
   selector: "gd-task-panel",
-  imports: [CdkMenu, CdkMenuTrigger, CodeEditor, MarkdownView, MenuItem, TaskProperties, LucideCodeXml, LucideCopy, LucideEllipsis, LucidePencil, LucideTrash2, LucideX],
+  imports: [
+    CdkMenu,
+    CdkMenuTrigger,
+    CodeEditor,
+    MarkdownView,
+    MenuItem,
+    TaskProperties,
+    LucideCodeXml,
+    LucideCopy,
+    LucideEllipsis,
+    LucideGlobe,
+    LucideLink,
+    LucidePencil,
+    LucideTrash2,
+    LucideX,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-panel", role: "dialog", "[attr.aria-label]": "task() ? 'Task ' + task()!.id : 'New task'" },
   template: `
@@ -97,6 +114,12 @@ const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, pr
     <ng-template #actions>
       <div class="menu" cdkMenu>
         <button gd-menu-item (selected)="copyId()"><svg icon lucideCopy [size]="14" aria-hidden="true"></svg>Copy ID</button>
+        <button gd-menu-item [disabled]="!!links.unavailable()" [attr.title]="links.unavailable()" (selected)="links.copyGitdeskLink(link())">
+          <svg icon lucideLink [size]="14" aria-hidden="true"></svg>Copy GitDesk link
+        </button>
+        @if (links.webLink(link())) {
+          <button gd-menu-item (selected)="links.copyWebLink(link())"><svg icon lucideGlobe [size]="14" aria-hidden="true"></svg>Copy web link</button>
+        }
         <button gd-menu-item (selected)="openFile()"><svg icon lucideCodeXml [size]="14" aria-hidden="true"></svg>Open file</button>
         <div class="menu-separator"></div>
         <button gd-menu-item [danger]="true" (selected)="remove()"><svg icon lucideTrash2 [size]="14" aria-hidden="true"></svg>Delete task…</button>
@@ -113,6 +136,7 @@ export class TaskPanel {
   readonly createEpic = input<string>();
 
   protected readonly wiki = inject(WikiActions);
+  protected readonly links = inject(ShareLinks);
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
@@ -125,6 +149,8 @@ export class TaskPanel {
   /** A save's result, until the snapshot catches up with it. */
   private readonly saved = signal<Task | null>(null);
   protected readonly current = computed(() => this.saved() ?? this.task() ?? null);
+  /** The actions menu only exists for a task. */
+  protected readonly link = computed<LinkItem>(() => ({ kind: "task", id: this.current()!.id }));
   private readonly taskVersion = computed(() => this.task()?.hash);
   protected readonly editing = signal(false);
   protected readonly draft = signal<TaskInput>(empty(""));

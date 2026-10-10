@@ -1,15 +1,38 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
-import { ChangeDetectionStrategy, Component, inject, input } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideCodeXml, LucideCopy, LucideEllipsis, LucideFolderInput, LucidePlus, LucideTrash2 } from "@lucide/angular";
+import {
+  LucideCodeXml,
+  LucideCopy,
+  LucideEllipsis,
+  LucideFolderInput,
+  LucideGlobe,
+  LucideLink,
+  LucidePlus,
+  LucideTrash2,
+} from "@lucide/angular";
+import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import { Clipboard } from "../../core/clipboard";
+import { ShareLinks } from "../../core/share-links";
 import { MenuItem } from "../../ui/menu-item";
 import { WikiActions } from "./wiki-actions";
 
-/** Actions on a page: subpage, move, copy path, open as code, delete. */
+/** Actions on a page: subpage, move, copy path or links, open as code, delete. */
 @Component({
   selector: "gd-page-menu",
-  imports: [CdkMenu, CdkMenuTrigger, MenuItem, LucideCodeXml, LucideCopy, LucideEllipsis, LucideFolderInput, LucidePlus, LucideTrash2],
+  imports: [
+    CdkMenu,
+    CdkMenuTrigger,
+    MenuItem,
+    LucideCodeXml,
+    LucideCopy,
+    LucideEllipsis,
+    LucideFolderInput,
+    LucideGlobe,
+    LucideLink,
+    LucidePlus,
+    LucideTrash2,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: contents" },
   template: `
@@ -35,6 +58,19 @@ import { WikiActions } from "./wiki-actions";
           <svg icon lucideFolderInput [size]="14" aria-hidden="true"></svg>Move or rename…
         </button>
         <button gd-menu-item (selected)="copyPath()"><svg icon lucideCopy [size]="14" aria-hidden="true"></svg>Copy path</button>
+        <button
+          gd-menu-item
+          [disabled]="!!links.unavailable()"
+          [attr.title]="links.unavailable()"
+          (selected)="links.copyGitdeskLink(item())"
+        >
+          <svg icon lucideLink [size]="14" aria-hidden="true"></svg>Copy GitDesk link
+        </button>
+        @if (links.webLink(item())) {
+          <button gd-menu-item (selected)="links.copyWebLink(item())">
+            <svg icon lucideGlobe [size]="14" aria-hidden="true"></svg>Copy web link
+          </button>
+        }
         <button gd-menu-item (selected)="openAsCode()">
           <svg icon lucideCodeXml [size]="14" aria-hidden="true"></svg>Open in code editor
         </button>
@@ -51,6 +87,8 @@ export class PageMenu {
   /** The small variant shown in tree rows. */
   readonly compact = input(false);
   protected readonly wiki = inject(WikiActions);
+  protected readonly links = inject(ShareLinks);
+  protected readonly item = computed<LinkItem>(() => ({ kind: "page", path: this.path() }));
   private readonly router = inject(Router);
   private readonly clipboard = inject(Clipboard);
 

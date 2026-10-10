@@ -1,3 +1,4 @@
+import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from "@angular/core";
 import { Router } from "@angular/router";
 import { LucideCodeXml, LucideCopy, LucideGitMerge } from "@lucide/angular";
@@ -8,13 +9,14 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
 import { EmptyState } from "../../ui/empty-state";
 import { DiffPane } from "../diff/diff-pane";
+import { ShareMenu } from "../share/share-menu";
 import { relativeTime } from "./commit-graph";
 import { RefChips } from "./ref-chips";
 
 /** A commit: message, author, files, and the selected file's diff against the (first) parent. */
 @Component({
   selector: "gd-commit-pane",
-  imports: [Avatar, DiffPane, EmptyState, RefChips, LucideCodeXml, LucideCopy, LucideGitMerge],
+  imports: [Avatar, CdkContextMenuTrigger, DiffPane, EmptyState, RefChips, ShareMenu, LucideCodeXml, LucideCopy, LucideGitMerge],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -23,7 +25,12 @@ import { RefChips } from "./ref-chips";
         ><p class="selectable">{{ message }}</p></gd-empty-state
       >
     } @else if (detail(); as detail) {
-      <div class="commit-head">
+      <gd-share-menu #share="gdShareMenu" />
+      <div
+        class="commit-head"
+        [cdkContextMenuTriggerFor]="share.menu()"
+        [cdkContextMenuTriggerData]="{ $implicit: { kind: 'commit', hash: detail.commit.hash } }"
+      >
         <div class="commit-title selectable">
           @if (detail.commit.parents.length > 1) {
             <svg lucideGitMerge [size]="16" class="faint" aria-label="Merge commit"></svg>
