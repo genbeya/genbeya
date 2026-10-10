@@ -234,6 +234,57 @@ export interface Preferences {
 /** What a terminal printed since the last read (possibly nothing yet), or its exit code once it ended and everything was read. */
 export type TerminalOutput = { readonly data: string } | { readonly exit: number };
 
+/** How full-text search reads the query; every flag is off unless given. */
+export interface SearchOptions {
+  readonly caseSensitive?: boolean;
+  /** The query is an extended regular expression (POSIX ERE) instead of literal text. */
+  readonly regex?: boolean;
+  /** Matches only whole words: no letter, digit or underscore right before or after. */
+  readonly wholeWord?: boolean;
+}
+
+/** Characters `start` up to `end` of a line's text. */
+export interface SearchRange {
+  readonly start: number;
+  readonly end: number;
+}
+
+export interface SearchMatch {
+  /** 1-based. */
+  readonly line: number;
+  /** The line, shortened around the match with "…" when it is long. */
+  readonly text: string;
+  /** Where the query matches in `text`; empty when only git could tell. */
+  readonly ranges: readonly SearchRange[];
+  /** The lines around it, shortened likewise; null at the start or end of the file. */
+  readonly before: string | null;
+  readonly after: string | null;
+}
+
+export interface SearchHit {
+  readonly path: string;
+  readonly scope: Scope;
+  /** The page or task title; the file name for code. */
+  readonly title: string;
+  readonly matches: readonly SearchMatch[];
+}
+
+export interface TaskSearchHit extends SearchHit {
+  readonly id: string;
+  readonly status: string;
+}
+
+/** Files whose text matches, by area. */
+export interface SearchResults {
+  readonly wiki: readonly SearchHit[];
+  readonly tasks: readonly TaskSearchHit[];
+  readonly code: readonly SearchHit[];
+  /** More files or matches matched than are listed. */
+  readonly truncated: boolean;
+}
+
+export type SearchArea = Exclude<keyof SearchResults, "truncated">;
+
 /** An open repository: `id` names it in every later call, so calls racing a switch fail cleanly. */
 export interface OpenedWorkspace {
   readonly id: string;
