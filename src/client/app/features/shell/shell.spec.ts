@@ -4,6 +4,7 @@ import { Notifications } from "../../core/notifications";
 import { Terminals } from "../../core/terminals";
 import { openRepository, settle } from "../../testing/component-harness";
 import { Shell, TERMINAL_PANEL } from "./shell";
+import { ShellUi } from "./shell-ui";
 
 @Component({ selector: "gd-terminal-panel", template: "" })
 class PanelStub {
@@ -40,6 +41,13 @@ describe("Shell", () => {
     expect(load).toHaveBeenCalledTimes(2);
     expect(PanelStub.created).toBe(1);
     expect(fixture.nativeElement.querySelector("gd-terminal-panel")).not.toBeNull();
+  });
+
+  it("opens the palette for searching inside files with Ctrl+Shift+F", async () => {
+    await setup();
+    const open = vi.spyOn(TestBed.inject(ShellUi), "openPalette").mockResolvedValue();
+    dispatchEvent(new KeyboardEvent("keydown", { key: "F", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+    expect(open).toHaveBeenCalledWith("search");
   });
 
   it("adds no panel to a shell that closed while the panel loaded", async () => {

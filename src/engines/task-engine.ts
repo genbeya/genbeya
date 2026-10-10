@@ -98,6 +98,15 @@ const yamlText = (document: YAML.Document) => document.toString({ flowCollection
 
 const compose = (frontmatter: string, body: string) => `---\n${frontmatter}---\n\n${body.replace(/^\s*\n/, "").trimEnd()}\n`;
 
+/** Markdown files below the task folder, outside folders whose names start with a dot such as the templates. */
+export const isTaskFile = (path: string, taskRoot: string): boolean =>
+  within(path, taskRoot) &&
+  path.toLowerCase().endsWith(".md") &&
+  !path
+    .slice(taskRoot.length + 1)
+    .split("/")
+    .some((part) => part.startsWith("."));
+
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export class TaskEngine {
@@ -126,14 +135,7 @@ export class TaskEngine {
 
   /** Markdown files below the task folder, outside folders whose names start with a dot. */
   isTaskFile(path: string, taskRoot: string): boolean {
-    return (
-      within(path, taskRoot) &&
-      path.toLowerCase().endsWith(".md") &&
-      !path
-        .slice(taskRoot.length + 1)
-        .split("/")
-        .some((part) => part.startsWith("."))
-    );
+    return isTaskFile(path, taskRoot);
   }
 
   templatePath(taskRoot: string, type: unknown): string {

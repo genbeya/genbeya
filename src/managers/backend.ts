@@ -10,6 +10,7 @@ import { PreferencesStore } from "../access/preferences/preferences-store";
 import { AgentEngine } from "../engines/agent-engine";
 import { LinkEngine } from "../engines/link-engine";
 import { SampleEngine } from "../engines/sample-engine";
+import { SearchEngine } from "../engines/search-engine";
 import { SettingsEngine } from "../engines/settings-engine";
 import { TaskEngine } from "../engines/task-engine";
 import { WikiEngine } from "../engines/wiki-engine";
@@ -33,6 +34,7 @@ export async function createBackend(machine: Machine, dataFolder: string): Promi
     agents: new AgentEngine(),
     links: new LinkEngine(),
     sample: new SampleEngine(),
+    search: new SearchEngine(),
   };
   const registry = new WorkspaceRegistry();
   const preferences = await PreferencesStore.load(machine, dataFolder);

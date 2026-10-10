@@ -22,6 +22,7 @@ import {
   LucideMoon,
   LucidePlus,
   LucideRefreshCw,
+  LucideSearch,
   LucideServer,
   LucideSparkles,
   LucideSquareTerminal,
@@ -56,6 +57,7 @@ import type { PaletteIcon as Icon } from "./palette-items";
     LucideMoon,
     LucidePlus,
     LucideRefreshCw,
+    LucideSearch,
     LucideServer,
     LucideSparkles,
     LucideSquareTerminal,
@@ -165,6 +167,9 @@ import type { PaletteIcon as Icon } from "./palette-items";
       }
       @case ("docs") {
         <svg lucideBookMarked [size]="15" aria-hidden="true"></svg>
+      }
+      @case ("search") {
+        <svg lucideSearch [size]="15" aria-hidden="true"></svg>
       }
     }
   `,
