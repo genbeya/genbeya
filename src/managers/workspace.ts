@@ -3,8 +3,8 @@
  * settings, the queue that runs its operations one at a time, and what has
  * to end with it or with the client using it (terminals).
  */
-import type { Location, Scope, Settings, Task } from "../contracts/model";
-import { ContentStore } from "../access/content/content-store";
+import type { ContentArea, Location, Scope, Settings, Task } from "../contracts/model";
+import { ContentStore, type ContentLocation } from "../access/content/content-store";
 import { FileStore } from "../access/files/file-store";
 import type { RepositoryAccess } from "../access/git/repository-access";
 import { isMissing, type Host } from "../access/hosts/host";
@@ -69,10 +69,26 @@ export class Workspace {
     return values.map((value) => this.path(value));
   }
 
-  async files(scope: Scope): Promise<FileStore> {
+  /** The files `path` is read from and written to in `scope`. */
+  async files(scope: Scope, path: string): Promise<FileStore> {
     if (scope === "repo") return this.checkout;
-    if (scope === "content") return (await this.content.locate()).files;
+    if (scope === "content") return (await this.locateContent(path)).files;
     throw new Error("Invalid scope.");
+  }
+
+  /**
+   * The area a content path belongs to: the settings file, the task folder,
+   * or the wiki, which also takes whatever else pages link to, such as images.
+   */
+  async areaOf(path: string): Promise<ContentArea> {
+    if (path === SETTINGS_FILE) return "settings";
+    const { settings } = await this.settings();
+    return within(path, settings.taskRoot) ? "tasks" : "wiki";
+  }
+
+  /** Where the content file `path` lives: the checkout, or the content branch's worktree. */
+  async locateContent(path: string): Promise<ContentLocation> {
+    return this.content.locate(await this.areaOf(path));
   }
 
   get folderName(): string {
@@ -87,7 +103,7 @@ export class Workspace {
   async settings(fresh = false): Promise<LoadedSettings> {
     if (this.loadedSettings && !fresh) return this.loadedSettings;
     const fallback = this.engines.settings.defaults(this.folderName);
-    const files = (await this.content.locate()).files;
+    const files = (await this.content.locate("settings")).files;
     let file;
     try {
       file = await files.read(SETTINGS_FILE);
@@ -114,7 +130,7 @@ export class Workspace {
   /** Reads every task file below the task folder; problems become `warnings`. */
   async tasks(files: readonly string[], settings: Settings, warnings: string[]): Promise<Task[]> {
     const paths = files.filter((file) => within(file, settings.taskRoot) && file.toLowerCase().endsWith(".md"));
-    const contents = await (await this.content.locate()).files.readMany(paths);
+    const contents = await (await this.content.locate("tasks")).files.readMany(paths);
     const tasks: Task[] = [];
     const owners = new Map<string, string>();
     contents.forEach((file, i) => {

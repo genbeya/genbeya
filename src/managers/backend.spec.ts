@@ -354,10 +354,14 @@ describe("ContentManager", () => {
     );
   });
 
-  it("keeps wiki and tasks on a dedicated branch when asked", async () => {
+  it("keeps every area on the content branch when asked", async () => {
     const { content, id, latest, repository } = await opened();
-    await content.setStorage(id, "branch");
-    expect((await latest()).storage).toEqual({ mode: "branch", branch: "gitdesk", remote: null, ahead: 0, behind: 0 });
+    expect((await latest()).storage).toEqual({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null });
+    for (const area of ["wiki", "tasks", "settings"] as const) await content.setStorage(id, area, "branch");
+    expect((await latest()).storage).toEqual({
+      areas: { wiki: "branch", tasks: "branch", settings: "branch" },
+      branch: { name: "gitdesk", remote: null, ahead: 0, behind: 0 },
+    });
     const task = await content.createTask(id, input);
     const page = await content.read(id, "content", "docs/Home.md");
     await content.write(id, "content", page.path, "# Home\n\nShared.\n", page.hash);
@@ -369,22 +373,44 @@ describe("ContentManager", () => {
       "Edit docs/Home.md",
       "Create TP-1: Build it",
     ]);
-    await expect(content.setStorage(id, "cloud" as never)).rejects.toThrow("Invalid storage mode.");
-    await content.setStorage(id, "worktree");
-    expect((await latest()).storage.mode).toBe("worktree");
+    await expect(content.setStorage(id, "wiki", "cloud" as never)).rejects.toThrow("Invalid storage mode.");
+    await expect(content.setStorage(id, "code" as never, "branch")).rejects.toThrow("Invalid content area.");
+    for (const area of ["wiki", "tasks", "settings"] as const) await content.setStorage(id, area, "checkout");
+    expect((await latest()).storage).toMatchObject({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" } });
+    expect(await repository.exists(task.path)).toBe(true);
+  });
+
+  it("keeps tasks on the content branch and the wiki in the checkout", async () => {
+    const { content, id, latest, repository } = await opened();
+    await repository.write("docs/pixel.png", new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
+    await repository.git("add", "docs/pixel.png");
+    await repository.git("commit", "-q", "-m", "Add an image");
+    await content.setStorage(id, "tasks", "branch");
+    const task = await content.createTask(id, input);
+    await content.createPage(id, "docs/Notes.md");
+
+    const snapshot = await latest();
+    expect(snapshot.storage.areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout" });
+    expect(snapshot.tasks.map((t) => t.id)).toEqual(["TP-1"]);
+    expect(snapshot.wiki.map((node) => node.title)).toContain("Notes");
+    expect(snapshot.changes.map((change) => change.path)).toEqual(["docs/Notes.md"]);
+    expect(await repository.exists(task.path)).toBe(false);
+    expect((await repository.git("log", "-1", "--format=%s", "gitdesk")).trim()).toBe("Create TP-1: Build it");
+    expect((await content.read(id, "content", task.path)).content).toContain("title: Build it");
+    expect(await content.image(id, "content", "docs/pixel.png")).toBe("data:image/png;base64,iVBORw==");
   });
 
   it("syncs the content branch with the remote", async () => {
     const { content, versionControl, id, latest } = await opened();
     await versionControl.setRemote(id, "origin", await createRemote());
-    await content.setStorage(id, "branch");
+    await content.setStorage(id, "tasks", "branch");
     await content.syncContent(id);
-    expect((await latest()).storage).toMatchObject({ remote: "origin" });
+    expect((await latest()).storage.branch).toMatchObject({ remote: "origin" });
   });
 
   it("warns when content edits could not be committed", async () => {
     const { content, id, latest, repository } = await opened();
-    await content.setStorage(id, "branch");
+    await content.setStorage(id, "wiki", "branch");
     await repository.git("config", "user.useConfigOnly", "true");
     await repository.git("config", "user.name", "");
     const page = await content.read(id, "content", "docs/Home.md");

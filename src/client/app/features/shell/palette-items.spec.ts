@@ -1,4 +1,4 @@
-import { snapshot, task } from "../../testing/fake-platform";
+import { contentBranch, snapshot, task } from "../../testing/fake-platform";
 import { allItems, branchItems, linkItem, rank, type PaletteCommands } from "./palette-items";
 
 const calls = new Map<string, ReturnType<typeof vi.fn>>();
@@ -24,6 +24,12 @@ describe("palette items", () => {
     );
     expect(items.some((item) => item.id === "file:docs/Home.md")).toBe(false);
     expect(items.find((item) => item.id === "theme:dark")?.hint).toBe("current");
+    expect(items.some((item) => item.id === "sync-content")).toBe(false);
+  });
+
+  it("lists the checkout's copy of an area on the content branch as files, and offers to sync it", () => {
+    const shared = allItems({ ...repository, storage: contentBranch(["wiki"]) }, [], "dark", { mod: "⌘", ctrl: "⌃" }, commands);
+    expect(shared.map((item) => item.id)).toEqual(expect.arrayContaining(["sync-content", "page:docs/Home.md", "file:docs/Home.md"]));
   });
 
   it("ranks matches with pages and tasks first, and leaves files out without a query", () => {

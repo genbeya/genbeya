@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing";
 import type { Head, Remote, Snapshot } from "../../../contracts/model";
 import { openRepository } from "../testing/component-harness";
-import { task } from "../testing/fake-platform";
+import { contentBranch, task } from "../testing/fake-platform";
 import { Notifications } from "./notifications";
 import { ShareLinks } from "./share-links";
 
@@ -46,15 +46,20 @@ describe("ShareLinks", () => {
     ["the commit when detached", { head: head({ branch: null }) }, "https://github.com/acme/demo/blob/abc1234/tasks/Auth/TP-1.md"],
     [
       "the content branch",
-      { storage: { mode: "branch", branch: "gitdesk", remote: "origin", ahead: 0, behind: 0 }, head: head({ upstream: "origin/main" }) },
+      { storage: contentBranch(["tasks"]), head: head({ upstream: "origin/main" }) },
       "https://github.com/acme/demo/blob/gitdesk/tasks/Auth/TP-1.md",
+    ],
+    [
+      "the code branch while only the wiki is on the content branch",
+      { storage: contentBranch(["wiki"]) },
+      "https://github.com/acme/demo/blob/main/tasks/Auth/TP-1.md",
     ],
   ])("links a task's file on %s", async (_, change, url) => {
     expect((await share({ remotes: [origin], ...change })).webLink({ kind: "task", id: "TP-1" })).toBe(url);
   });
 
   it("links files on the code branch even when wiki and tasks live elsewhere, and commits by hash", async () => {
-    const links = await share({ remotes: [origin], storage: { mode: "branch", branch: "gitdesk", remote: "origin", ahead: 0, behind: 0 } });
+    const links = await share({ remotes: [origin], storage: contentBranch(["wiki", "tasks", "settings"]) });
     expect(links.webLink({ kind: "file", path: "docs/Home.md" })).toBe("https://github.com/acme/demo/blob/main/docs/Home.md");
     expect(links.webLink({ kind: "page", path: "docs/Home.md" })).toBe("https://github.com/acme/demo/blob/gitdesk/docs/Home.md");
     expect(links.webLink({ kind: "commit", hash })).toBe(`https://github.com/acme/demo/commit/${hash}`);

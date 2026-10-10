@@ -82,33 +82,31 @@
 
 <div class="grow"></div>
 
-@if (snapshot().storage; as storage) {
-  @if (storage.mode === "branch") {
-    <div class="content-sync" [title]="'Wiki and tasks are stored on the ' + storage.branch + ' branch'">
-      <svg lucideBookOpen [size]="14" aria-hidden="true"></svg>
-      <span class="grow ellipsis">{{ storage.branch }}</span>
-      @if (storage.ahead) {
-        <span class="sync-count"><svg lucideArrowUp [size]="11" aria-hidden="true"></svg>{{ storage.ahead }}</span>
+@if (contentBranch(); as branch) {
+  <div class="content-sync" [title]="branch.holds">
+    <svg lucideBookOpen [size]="14" aria-hidden="true"></svg>
+    <span class="grow ellipsis">{{ branch.name }}</span>
+    @if (branch.ahead) {
+      <span class="sync-count"><svg lucideArrowUp [size]="11" aria-hidden="true"></svg>{{ branch.ahead }}</span>
+    }
+    @if (branch.behind) {
+      <span class="sync-count"><svg lucideArrowDown [size]="11" aria-hidden="true"></svg>{{ branch.behind }}</span>
+    }
+    <button
+      type="button"
+      class="sync-button"
+      [disabled]="session.busy()"
+      aria-label="Sync the content branch"
+      title="Sync the content branch with the remote"
+      (click)="actions.syncContent()"
+    >
+      @if (session.busy()) {
+        <span class="spinner" aria-label="Syncing"></span>
+      } @else {
+        <svg lucideRefreshCw [size]="13" aria-hidden="true"></svg>
       }
-      @if (storage.behind) {
-        <span class="sync-count"><svg lucideArrowDown [size]="11" aria-hidden="true"></svg>{{ storage.behind }}</span>
-      }
-      <button
-        type="button"
-        class="sync-button"
-        [disabled]="session.busy()"
-        aria-label="Sync wiki and tasks"
-        title="Sync wiki and tasks with the remote"
-        (click)="actions.syncContent()"
-      >
-        @if (session.busy()) {
-          <span class="spinner" aria-label="Syncing"></span>
-        } @else {
-          <svg lucideRefreshCw [size]="13" aria-hidden="true"></svg>
-        }
-      </button>
-    </div>
-  }
+    </button>
+  </div>
 }
 
 <button

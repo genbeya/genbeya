@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import { launchArgument } from "../../../utilities/launch-request";
-import { fakeManagers, fakeShell, providePlatform, snapshot } from "../testing/fake-platform";
+import { contentBranch, fakeManagers, fakeShell, providePlatform, snapshot } from "../testing/fake-platform";
 import { Dialogs } from "./dialogs";
 import { Notifications } from "./notifications";
 import { Session } from "./session";
@@ -128,7 +128,7 @@ describe("Session", () => {
     const { session, managers } = setup();
     managers.workspace.open.mockResolvedValue({
       id: "w1",
-      snapshot: snapshot({ storage: { mode: "branch", branch: "gitdesk", remote: "origin", ahead: 1, behind: 0 } }),
+      snapshot: snapshot({ storage: contentBranch(["tasks"], { ahead: 1 }) }),
     });
     managers.workspace.setPreferences.mockResolvedValue({ theme: "system", reopenLast: true, autoSyncContent: true });
     await session.open({ kind: "local", path: "/repo" });
@@ -137,6 +137,19 @@ describe("Session", () => {
     session.contentChanged();
     await vi.advanceTimersByTimeAsync(3000);
     expect(managers.content.syncContent).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("leaves a content branch that holds no area and nothing to push alone", async () => {
+    vi.useFakeTimers();
+    const { session, managers } = setup();
+    managers.workspace.open.mockResolvedValue({ id: "w1", snapshot: snapshot({ storage: contentBranch([]) }) });
+    managers.workspace.setPreferences.mockResolvedValue({ theme: "system", reopenLast: true, autoSyncContent: true });
+    await session.open({ kind: "local", path: "/repo" });
+    await session.setPreferences({ autoSyncContent: true });
+    session.contentChanged();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(managers.content.syncContent).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 

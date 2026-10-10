@@ -44,6 +44,6 @@ export class RepositoryActions {
   }
 
   syncContent(): Promise<unknown> {
-    return this.session.run(() => this.api.content.syncContent(), "Wiki and tasks are in sync");
+    return this.session.run(() => this.api.content.syncContent(), "The content branch is in sync");
   }
 }

@@ -19,11 +19,12 @@ import {
   LucideSettings,
   LucideX,
 } from "@lucide/angular";
-import { describeLocation, sameLocation } from "../../../../contracts/model";
+import { CONTENT_AREAS, describeLocation, sameLocation, syncsContentBranch } from "../../../../contracts/model";
 import { MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { MenuItem } from "../../ui/menu-item";
+import { AREA_NAMES } from "../settings/content-areas";
 import { RepositoryActions } from "./repository-actions";
 import { HostIcon, initials } from "./repository-mark";
 import { ShellUi } from "./shell-ui";
@@ -81,6 +82,17 @@ export class Sidebar {
     return location.kind === "wsl" ? location.distro : location.kind === "ssh" ? "SSH" : null;
   });
   protected readonly locationText = computed(() => describeLocation(this.snapshot().location));
+  /** The content branch while it has something to sync, and what it holds. */
+  protected readonly contentBranch = computed(() => {
+    const storage = this.snapshot().storage;
+    if (!syncsContentBranch(storage)) return null;
+    const names = CONTENT_AREAS.filter((area) => storage.areas[area] === "branch").map((area) => AREA_NAMES[area]);
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+    const holds = list
+      ? `The ${storage.branch.name} branch holds ${list}`
+      : `The ${storage.branch.name} branch holds no area any more; sync to share that`;
+    return { ...storage.branch, holds };
+  });
   protected readonly openTasks = computed(() => {
     const { tasks, settings } = this.snapshot();
     return tasks.filter((task) => task.status !== settings.statuses.at(-1)).length;

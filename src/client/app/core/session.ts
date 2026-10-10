@@ -5,7 +5,7 @@
  */
 import { computed, DestroyRef, Injectable, inject, signal } from "@angular/core";
 import type { GitdeskLink } from "../../../contracts/gitdesk-link";
-import type { Location, Preferences, Snapshot } from "../../../contracts/model";
+import { syncsContentBranch, type Location, type Preferences, type Snapshot } from "../../../contracts/model";
 import { requestedLink, requestedLocation } from "../../../utilities/launch-request";
 import { MANAGERS, SHELL } from "../platform/platform";
 import { Notifications } from "./notifications";
@@ -129,7 +129,7 @@ export class Session {
   /** Call after wiki or task edits: shares them soon when the content branch syncs automatically. */
   contentChanged(): void {
     const storage = this.snapshot()?.storage;
-    if (!this.preferences().autoSyncContent || storage?.mode !== "branch" || !storage.remote) return;
+    if (!this.preferences().autoSyncContent || !storage || !syncsContentBranch(storage) || !storage.branch.remote) return;
     const id = this.id()!;
     clearTimeout(this.syncTimer);
     this.syncTimer = setTimeout(() => void this.run(() => this.managers.content.syncContent(id)), CONTENT_SYNC_DELAY);

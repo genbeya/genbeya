@@ -1,7 +1,7 @@
 /** What the command palette offers, and how a query ranks it. */
 import type { GitdeskLink } from "../../../../contracts/gitdesk-link";
 import type { RecentEntry, Snapshot, Theme } from "../../../../contracts/model";
-import { sameLocation } from "../../../../contracts/model";
+import { sameLocation, syncsContentBranch } from "../../../../contracts/model";
 import { describeLinkItem, parseGitdeskLink } from "../../../../utilities/gitdesk-link";
 import { parseRemote } from "../../../../utilities/remote-url";
 import { filePaths } from "../../../../utilities/file-tree";
@@ -148,12 +148,12 @@ export function allItems(
           { id: "push", group: "Actions", label: `Push to ${remote}`, icon: "push", run: () => commands.sync("push", remote) },
         ] satisfies PaletteItem[])
       : []),
-    ...(storage.mode === "branch"
+    ...(syncsContentBranch(storage)
       ? [
           {
             id: "sync-content",
             group: "Actions",
-            label: "Sync wiki and tasks",
+            label: "Sync the content branch",
             icon: "sync",
             run: () => commands.syncContent(),
           } satisfies PaletteItem,
@@ -206,7 +206,8 @@ export function allItems(
   }));
   // Pages and tasks have their own entries when they live in the checkout.
   const own = (path: string) =>
-    storage.mode === "worktree" && (path.startsWith(`${settings.wikiRoot}/`) || path.startsWith(`${settings.taskRoot}/`));
+    (storage.areas.wiki === "checkout" && path.startsWith(`${settings.wikiRoot}/`)) ||
+    (storage.areas.tasks === "checkout" && path.startsWith(`${settings.taskRoot}/`));
   const fileItems = filePaths(files)
     .filter((path) => !own(path))
     .map((path): PaletteItem => ({
