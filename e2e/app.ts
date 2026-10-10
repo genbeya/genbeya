@@ -70,13 +70,31 @@ interface Fixtures {
  * process is ended instead.
  */
 async function closeApp(app: ElectronApplication): Promise<void> {
+  // A test may leave unsaved edits. Closing would then ask whether to discard them, in a dialog that
+  // blocks the main process; destroying the windows skips that question.
+  await app
+    .evaluate(({ BrowserWindow }) => {
+      for (const window of BrowserWindow.getAllWindows()) window.destroy();
+    })
+    .catch(() => undefined);
   const closed = app.close().then(
     () => true,
     () => true,
   );
   const timedOut = new Promise<false>((resolve) => setTimeout(() => resolve(false), 10_000));
   // Playwright's close never settles once the window refuses to close, so it is not awaited after the kill.
-  if (!(await Promise.race([closed, timedOut]))) app.process().kill();
+  if (!(await Promise.race([closed, timedOut]))) kill(app.process().pid);
+}
+
+/** Ends the app with all its processes; on Windows, killing the main process leaves its windows open. */
+function kill(pid: number | undefined): void {
+  if (pid === undefined) return;
+  try {
+    if (process.platform === "win32") execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" });
+    else process.kill(pid, "SIGKILL");
+  } catch {
+    // Already gone.
+  }
 }
 
 /** The app's window at the size of a CI runner's screen, so layouts match everywhere. */
