@@ -129,6 +129,7 @@
 
 .palette-item.is-match {
   height: 28px;
+  font-weight: 400;
   font-family: var(--font-mono);
   font-size: 12px;
 }
@@ -141,14 +142,6 @@
   font-family: var(--font-mono);
   font-size: 11px;
   text-align: right;
-}
-
-.palette-item mark,
-.palette-preview mark {
-  border-radius: 2px;
-  background: var(--yellow-soft);
-  color: var(--text);
-  box-shadow: 0 0 0 1px var(--yellow);
 }
 
 .palette-preview {

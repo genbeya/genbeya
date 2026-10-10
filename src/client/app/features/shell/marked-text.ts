@@ -15,6 +15,14 @@ import type { Segment } from "./search-items";
       }
     }
   `,
+  styles: `
+    mark {
+      border-radius: 2px;
+      background: var(--yellow-soft);
+      color: inherit;
+      box-shadow: 0 0 0 1px var(--yellow);
+    }
+  `,
 })
 export class MarkedText {
   readonly segments = input.required<readonly Segment[]>();
