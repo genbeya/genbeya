@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCommitId, LOG_FORMAT, parseLog, parseNameStatus, parseRemotes, parseStatus, parseWorktrees } from "./git-parsers";
+import { isCommitId, LOG_FORMAT, parseFileLog, parseLog, parseNameStatus, parseRemotes, parseStatus, parseWorktrees } from "./git-parsers";
 
 describe("parseStatus", () => {
   it("reads branch state and every kind of change", () => {
@@ -52,6 +52,76 @@ describe("parseNameStatus", () => {
       { status: "R", path: "new.md", oldPath: "old.md" },
       { status: "A", path: "b c.md" },
     ]);
+  });
+});
+
+describe("parseFileLog", () => {
+  const header = (hash: string, subject: string) => `\0${hash.repeat(40)}\0Ada L\x002026-10-10T14:32:00+02:00\0${subject}\n\n`;
+  // `git log --follow -p` of tasks/TP-1.md: moved back without edits, moved to an epic and edited, created.
+  const output =
+    header("a", "Pure move") +
+    'diff --git a/tasks/Auth x/TP-1.md b/tasks/TP-1.md\nsimilarity index 100%\nrename from "tasks/Auth x/T\\"P-1.md"\nrename to tasks/TP-1.md\n' +
+    header("b", "Move") +
+    'diff --git a/tasks/TP-1.md b/tasks/Auth x/TP-1.md\nsimilarity index 71%\nrename from tasks/TP-1.md\nrename to tasks/Auth x/T"P-1.md\n' +
+    "index 5904535..b8ea4a2 100644\n--- a/tasks/TP-1.md\n+++ b/tasks/Auth x/TP-1.md\t\n" +
+    "@@ -1,6 +1,6 @@\n ---\n id: TP-1\n-status: todo\n+status: done\n ---\n \n Text\n\\ No newline at end of file\n" +
+    header("c", "Create TP-1") +
+    "diff --git a/tasks/TP-1.md b/tasks/TP-1.md\nnew file mode 100644\nindex 0000000..5904535\n--- /dev/null\n+++ b/tasks/TP-1.md\n" +
+    "@@ -0,0 +1,6 @@\n+---\n+id: TP-1\n+status: todo\n+---\n+\n+Text\n";
+
+  it("reads each commit's paths and both versions of the file", () => {
+    const meta = { author: "Ada L", date: "2026-10-10T14:32:00+02:00" };
+    expect(parseFileLog(output, "tasks/TP-1.md", true)).toEqual([
+      {
+        ...meta,
+        hash: "a".repeat(40),
+        subject: "Pure move",
+        path: "tasks/TP-1.md",
+        oldPath: 'tasks/Auth x/T"P-1.md',
+        before: null,
+        after: null,
+      },
+      {
+        ...meta,
+        hash: "b".repeat(40),
+        subject: "Move",
+        path: 'tasks/Auth x/T"P-1.md',
+        oldPath: "tasks/TP-1.md",
+        before: "---\nid: TP-1\nstatus: todo\n---\n\nText\n",
+        after: "---\nid: TP-1\nstatus: done\n---\n\nText\n",
+      },
+      {
+        ...meta,
+        hash: "c".repeat(40),
+        subject: "Create TP-1",
+        path: "tasks/TP-1.md",
+        oldPath: null,
+        before: null,
+        after: "---\nid: TP-1\nstatus: todo\n---\n\nText\n",
+      },
+    ]);
+  });
+
+  it("leaves the versions out when the patches do not hold whole files", () => {
+    const revisions = parseFileLog(output, "tasks/TP-1.md", false);
+    expect(revisions.map((revision) => [revision.oldPath, revision.path, revision.before, revision.after])).toEqual([
+      ['tasks/Auth x/T"P-1.md', "tasks/TP-1.md", null, null],
+      ["tasks/TP-1.md", 'tasks/Auth x/T"P-1.md', null, null],
+      [null, "tasks/TP-1.md", null, null],
+    ]);
+  });
+
+  it("skips commits without a patch and binary files' contents", () => {
+    const binary = `${header("d", "Merge")}${header("e", "Binary")}diff --git a/x b/x\nindex 1..2 100644\nBinary files a/x and b/x differ\n`;
+    expect(parseFileLog(binary, "x", true)).toEqual([
+      expect.objectContaining({ subject: "Binary", before: null, after: null, oldPath: "x" }),
+    ]);
+    expect(parseFileLog("", "x", true)).toEqual([]);
+  });
+
+  it("unquotes octal escapes as UTF-8", () => {
+    const quoted = `${header("f", "Rename")}diff --git a/a b/b\nsimilarity index 100%\nrename from "tasks/\\303\\251\\t.md"\nrename to b\n`;
+    expect(parseFileLog(quoted, "b", true)[0]!.oldPath).toBe("tasks/é\t.md");
   });
 });
 
