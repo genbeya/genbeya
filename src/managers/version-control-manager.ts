@@ -82,8 +82,64 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.on(id, async (workspace) => workspace.repository.switchBranch(await this.branchName(workspace, name)));
   }
 
-  createBranch(id: unknown, name: unknown): Promise<void> {
-    return this.on(id, async (workspace) => workspace.repository.createBranch(await this.branchName(workspace, name)));
+  createBranch(id: unknown, name: unknown, start?: unknown, checkout?: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const branch = await this.branchName(workspace, name);
+      const from = start === undefined || start === null ? undefined : await this.revision(workspace, start);
+      await workspace.repository.createBranch(branch, from, checkout !== false);
+    });
+  }
+
+  renameBranch(id: unknown, name: unknown, newName: unknown): Promise<void> {
+    return this.on(id, async (workspace) =>
+      workspace.repository.refs.renameBranch(await this.localBranch(workspace, name), await this.branchName(workspace, newName)),
+    );
+  }
+
+  deleteBranch(id: unknown, name: unknown, force: unknown): Promise<boolean> {
+    return this.on(id, async (workspace) =>
+      workspace.repository.refs.deleteBranch(await this.localBranch(workspace, name), force === true),
+    );
+  }
+
+  deleteRemoteBranch(id: unknown, name: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const { remote, branch } = await this.remoteBranch(workspace, name);
+      await workspace.repository.refs.deleteRemoteBranch(remote, branch);
+    });
+  }
+
+  setUpstream(id: unknown, branch: unknown, upstream: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const local = await this.localBranch(workspace, branch);
+      await this.remoteBranch(workspace, upstream);
+      await workspace.repository.refs.setUpstream(local, upstream as string);
+    });
+  }
+
+  createTag(id: unknown, name: unknown, commit: unknown, message: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const tag = await this.tagName(workspace, name);
+      const target = await this.revision(workspace, commit);
+      if (typeof message !== "string" || message.length > MESSAGE_LIMIT) throw new Error("Invalid tag message.");
+      await workspace.repository.refs.createTag(tag, target, message.trim());
+    });
+  }
+
+  deleteTag(id: unknown, name: unknown): Promise<void> {
+    return this.on(id, async (workspace) => workspace.repository.refs.deleteTag(await this.existingTag(workspace, name)));
+  }
+
+  pushTag(id: unknown, name: unknown, remote: unknown): Promise<void> {
+    return this.on(id, async (workspace) =>
+      workspace.repository.refs.pushTag(await this.existingTag(workspace, name), await this.remoteName(workspace, remote)),
+    );
+  }
+
+  deleteRemoteTag(id: unknown, name: unknown, remote: unknown): Promise<void> {
+    return this.on(id, async (workspace) =>
+      workspace.repository.refs.deleteRemoteTag(await this.tagName(workspace, name), await this.remoteName(workspace, remote)),
+    );
   }
 
   sync(id: unknown, action: unknown, remote: unknown): Promise<void> {
@@ -148,6 +204,44 @@ export class VersionControlManager implements VersionControlManagerContract {
     if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid branch name.");
     if (!(await workspace.repository.isValidBranchName(name))) throw new Error(`"${name}" is not a valid branch name.`);
     return name;
+  }
+
+  private async localBranch(workspace: Workspace, name: unknown): Promise<string> {
+    if (typeof name !== "string" || !(await workspace.repository.refs.names()).branches.includes(name)) throw new Error("Choose a branch.");
+    return name;
+  }
+
+  /** A remote-tracking branch such as `origin/feature`, split into its remote and the branch there. */
+  private async remoteBranch(workspace: Workspace, name: unknown): Promise<{ remote: string; branch: string }> {
+    const repository = workspace.repository;
+    if (typeof name !== "string" || !(await repository.refs.names()).remoteBranches.includes(name))
+      throw new Error("Choose a remote branch.");
+    // Remote names may hold slashes; the longest matching one wins.
+    const remote = (await repository.remoteNames())
+      .filter((candidate) => name.startsWith(`${candidate}/`))
+      .sort((a, b) => b.length - a.length)[0];
+    if (!remote) throw new Error(`No remote is configured for ${name}.`);
+    return { remote, branch: name.slice(remote.length + 1) };
+  }
+
+  private async tagName(workspace: Workspace, name: unknown): Promise<string> {
+    if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid tag name.");
+    if (!(await workspace.repository.refs.isValidTagName(name))) throw new Error(`"${name}" is not a valid tag name.`);
+    return name;
+  }
+
+  private async existingTag(workspace: Workspace, name: unknown): Promise<string> {
+    if (typeof name !== "string" || !(await workspace.repository.refs.names()).tags.includes(name)) throw new Error("Choose a tag.");
+    return name;
+  }
+
+  /** A commit ID, or the name of a branch, remote branch or tag. */
+  private async revision(workspace: Workspace, value: unknown): Promise<string> {
+    const repository = workspace.repository;
+    if (isCommitId(value) && (await repository.git.hasRef(`${value}^{commit}`))) return value;
+    const { branches, remoteBranches, tags } = await repository.refs.names();
+    if (typeof value === "string" && [...branches, ...remoteBranches, ...tags].includes(value)) return value;
+    throw new Error("Choose a branch, tag or commit.");
   }
 
   private async remoteName(workspace: Workspace, name: unknown): Promise<string> {

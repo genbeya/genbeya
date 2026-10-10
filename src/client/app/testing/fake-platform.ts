@@ -44,6 +44,7 @@ export function snapshot(change: Partial<Snapshot> = {}): Snapshot {
     remoteBranches: [],
     remotes: [],
     changes: [],
+    tags: [],
     stashes: [],
     files: [{ name: "docs", path: "docs", children: [{ name: "Home.md", path: "docs/Home.md" }] }],
     wiki: [{ title: "Home", path: "docs/Home.md", folder: null, children: [] }],

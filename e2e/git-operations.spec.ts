@@ -23,4 +23,22 @@ test.describe("stashes, branches, tags, merges and rebases", () => {
     expect(repository.read("src/index.ts")).toBe("export const value = 2;\n");
     expect(repository.git("stash", "list")).toBe("");
   });
+
+  test("creates and deletes a tag from the history", async ({ window, repository }) => {
+    await window.keyboard.press(`${MOD}+5`);
+    const row = window.locator(".history-row").first();
+    await row.click({ button: "right" });
+    await window.getByRole("menuitem", { name: "Create tag here…" }).click();
+    const dialog = window.getByRole("dialog", { name: "Create tag" });
+    await dialog.getByRole("textbox", { name: "Tag name" }).fill("v1.0");
+    await dialog.getByRole("button", { name: "Create" }).click();
+    await expect(row.locator(".ref-tag", { hasText: "v1.0" })).toBeVisible();
+    expect(repository.git("tag").trim()).toBe("v1.0");
+
+    await row.click({ button: "right" });
+    await window.getByRole("menuitem", { name: "Delete tag v1.0…" }).click();
+    await window.getByRole("dialog", { name: "Delete tag" }).getByRole("button", { name: "Delete" }).click();
+    await expect(row.locator(".ref-tag")).toHaveCount(0);
+    expect(repository.git("tag")).toBe("");
+  });
 });

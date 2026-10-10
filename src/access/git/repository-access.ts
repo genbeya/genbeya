@@ -8,6 +8,7 @@ import { splitIntoBatches } from "../../utilities/serial-queue";
 import { isMissing, isTooLarge, type Host } from "../hosts/host";
 import { Git, GitError, NETWORK_TIMEOUT } from "./git";
 import { LOG_FORMAT, parseLog, parseNameStatus, parseRemotes } from "./git-parsers";
+import { RefAccess } from "./ref-access";
 import { StashAccess } from "./stash-access";
 
 export interface RepositoryState {
@@ -17,11 +18,13 @@ export interface RepositoryState {
   readonly branches: string[];
   readonly remoteBranches: string[];
   readonly remotes: Remote[];
+  readonly tags: string[];
   readonly stashes: Stash[];
 }
 
 export class RepositoryAccess {
   readonly git: Git;
+  readonly refs: RefAccess;
   readonly stashes: StashAccess;
 
   constructor(
@@ -29,6 +32,7 @@ export class RepositoryAccess {
     readonly root: string,
   ) {
     this.git = new Git(host, root);
+    this.refs = new RefAccess(this.git);
     this.stashes = new StashAccess(this.git, () => this.conflicted());
   }
 
@@ -49,19 +53,16 @@ export class RepositoryAccess {
   }
 
   async state(): Promise<RepositoryState> {
-    const [files, { head, changes }, refs, remoteText, stashes] = await Promise.all([
+    const [files, { head, changes }, { branches, remoteBranches, tags }, remoteText, stashes] = await Promise.all([
       this.git.files(),
       this.git.status(),
-      this.git.lines(["for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"]),
+      this.refs.names(),
       this.git.text(["remote", "-v"]),
       this.stashes.list(),
     ]);
-    const branches = refs.filter((ref) => ref.startsWith("refs/heads/")).map((ref) => ref.slice(11));
-    const remoteBranches = refs
-      .filter((ref) => ref.startsWith("refs/remotes/") && !ref.endsWith("/HEAD"))
-      .map((ref) => ref.slice(13))
-      .filter((ref) => !branches.includes(ref.slice(ref.indexOf("/") + 1)));
-    return { files, head, changes, branches, remoteBranches, remotes: parseRemotes(remoteText), stashes };
+    // Remote branches with a local counterpart are switched to through that.
+    const remoteOnly = remoteBranches.filter((ref) => !branches.includes(ref.slice(ref.indexOf("/") + 1)));
+    return { files, head, changes, branches, remoteBranches: remoteOnly, remotes: parseRemotes(remoteText), tags, stashes };
   }
 
   async changes(): Promise<Change[]> {
@@ -174,8 +175,10 @@ export class RepositoryAccess {
     await this.git.text(remoteOnly ? ["switch", "--track", name] : ["switch", name]);
   }
 
-  async createBranch(name: string): Promise<void> {
-    await this.git.text(["switch", "--create", name]);
+  /** Creates a branch at `start` (HEAD when omitted), switching to it when `checkout` is set. */
+  async createBranch(name: string, start?: string, checkout = true): Promise<void> {
+    const at = start ? [start] : [];
+    await this.git.text(checkout ? ["switch", "--create", name, ...at] : ["branch", name, ...at]);
   }
 
   async remoteNames(): Promise<string[]> {

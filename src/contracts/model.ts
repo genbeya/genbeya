@@ -224,6 +224,7 @@ export interface Snapshot {
   readonly remoteBranches: readonly string[];
   readonly remotes: readonly Remote[];
   readonly changes: readonly Change[];
+  readonly tags: readonly string[];
   /** Newest first. */
   readonly stashes: readonly Stash[];
   readonly files: readonly FileNode[];

@@ -442,6 +442,14 @@ describe("VersionControlManager", () => {
     ["remote URL", (m: Managers, id: string) => m.versionControl.setRemote(id, "origin", "-u"), "valid remote URL"],
     ["stash message", (m: Managers, id: string) => m.versionControl.stash(id, { message: "a\nb" } as never), "one line"],
     ["stash", (m: Managers, id: string) => m.versionControl.applyStash(id, "stash@{0}", false), "Invalid stash."],
+    ["start point", (m: Managers, id: string) => m.versionControl.createBranch(id, "x", "HEAD~1"), "Choose a branch, tag or commit."],
+    ["start commit", (m: Managers, id: string) => m.versionControl.createBranch(id, "x", "a".repeat(40)), "Choose a branch, tag"],
+    ["branch to delete", (m: Managers, id: string) => m.versionControl.deleteBranch(id, "--all", true), "Choose a branch."],
+    ["remote branch", (m: Managers, id: string) => m.versionControl.deleteRemoteBranch(id, "origin/x"), "Choose a remote branch."],
+    ["upstream", (m: Managers, id: string) => m.versionControl.setUpstream(id, "main", "main"), "Choose a remote branch."],
+    ["tag name", (m: Managers, id: string) => m.versionControl.createTag(id, "bad..tag", "main", ""), "not a valid tag name"],
+    ["tag option", (m: Managers, id: string) => m.versionControl.createTag(id, "-d", "main", ""), "Invalid tag name."],
+    ["tag", (m: Managers, id: string) => m.versionControl.deleteTag(id, "missing"), "Choose a tag."],
   ])("rejects an invalid %s", async (_, call, message) => {
     const { managers, id } = await opened();
     await expect(call(managers, id)).rejects.toThrow(message);
@@ -453,6 +461,20 @@ describe("VersionControlManager", () => {
     expect((await latest()).head.branch).toBe("feature/x");
     await versionControl.switchBranch(id, "main");
     expect((await latest()).branches).toEqual(["feature/x", "main"]);
+  });
+
+  it("manages branches and tags at commits", async () => {
+    const { versionControl, id, latest, repository } = await opened();
+    const [initial] = await versionControl.log(id, 0, 1);
+    await versionControl.createBranch(id, "at-initial", initial!.hash, false);
+    expect((await latest()).head.branch).toBe("main");
+    await versionControl.renameBranch(id, "at-initial", "renamed");
+    await versionControl.createTag(id, "v1", initial!.hash, "First release");
+    expect(await latest()).toMatchObject({ branches: ["main", "renamed"], tags: ["v1"] });
+    expect(await versionControl.deleteBranch(id, "renamed", false)).toBe(true);
+    await versionControl.deleteTag(id, "v1");
+    expect(await latest()).toMatchObject({ branches: ["main"], tags: [] });
+    expect(await repository.git("tag")).toBe("");
   });
 
   it("stashes changes, shows and pops them", async () => {

@@ -84,7 +84,20 @@ export interface VersionControlManagerContract {
   log(workspace: string, skip: number, limit: number): Promise<readonly Commit[]>;
   commitDetail(workspace: string, hash: string): Promise<CommitDetail>;
   switchBranch(workspace: string, name: string): Promise<void>;
-  createBranch(workspace: string, name: string): Promise<void>;
+  /** Starts at `start` (a branch, tag or commit; HEAD when omitted) and switches to it unless `checkout` is false. */
+  createBranch(workspace: string, name: string, start?: string, checkout?: boolean): Promise<void>;
+  renameBranch(workspace: string, name: string, newName: string): Promise<void>;
+  /** Resolves to false, deleting nothing, when the branch is not fully merged and `force` is false. */
+  deleteBranch(workspace: string, name: string, force: boolean): Promise<boolean>;
+  /** Deletes a branch such as `origin/feature` on its remote. */
+  deleteRemoteBranch(workspace: string, name: string): Promise<void>;
+  /** Makes `branch` track the remote branch `upstream`, such as `origin/main`. */
+  setUpstream(workspace: string, branch: string, upstream: string): Promise<void>;
+  /** An annotated tag when `message` is not empty, else a lightweight one. */
+  createTag(workspace: string, name: string, commit: string, message: string): Promise<void>;
+  deleteTag(workspace: string, name: string): Promise<void>;
+  pushTag(workspace: string, name: string, remote: string): Promise<void>;
+  deleteRemoteTag(workspace: string, name: string, remote: string): Promise<void>;
   sync(workspace: string, action: SyncAction, remote: string): Promise<void>;
   setRemote(workspace: string, name: string, url: string): Promise<void>;
   removeRemote(workspace: string, name: string): Promise<void>;
@@ -166,6 +179,14 @@ export const MANAGER_METHODS = {
     "commitDetail",
     "switchBranch",
     "createBranch",
+    "renameBranch",
+    "deleteBranch",
+    "deleteRemoteBranch",
+    "setUpstream",
+    "createTag",
+    "deleteTag",
+    "pushTag",
+    "deleteRemoteTag",
     "sync",
     "setRemote",
     "removeRemote",

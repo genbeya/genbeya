@@ -8,8 +8,8 @@ import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
-import { ShareMenu } from "../share/share-menu";
 import { layoutGraph, relativeTime } from "./commit-graph";
+import { CommitMenu } from "./commit-menu";
 import { CommitPane } from "./commit-pane";
 import { GraphLines, LANE_WIDTH } from "./graph-lines";
 import { RefChips } from "./ref-chips";
@@ -26,13 +26,13 @@ const MAX_LANES = 12;
   selector: "gd-history-view",
   imports: [
     CdkContextMenuTrigger,
+    CommitMenu,
     CommitPane,
     EmptyState,
     GraphLines,
     RefChips,
     Resizable,
     ResizeHandle,
-    ShareMenu,
     LucideGitCommitHorizontal,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,17 +54,18 @@ const MAX_LANES = 12;
     } @else {
       <div class="view-body">
         <aside class="side-panel history-list" gdResizable="history" [initial]="520" [min]="340" [max]="900" #panel="gdResizable">
-          <gd-share-menu #share="gdShareMenu" />
+          <gd-commit-menu #commitMenu="gdCommitMenu" />
           <div class="side-panel-scroll" role="list" aria-label="Commits">
-            @for (row of graph().rows; track row.commit.hash) {
+            <!-- A row whose refs changed is made anew: its context menu keeps the data it first opened with. -->
+            @for (row of graph().rows; track row.commit.hash + row.commit.refs.join()) {
               <button
                 type="button"
                 role="listitem"
                 class="history-row"
                 [class.is-selected]="row.commit.hash === commit()"
                 [attr.aria-current]="row.commit.hash === commit() || null"
-                [cdkContextMenuTriggerFor]="share.menu()"
-                [cdkContextMenuTriggerData]="{ $implicit: { kind: 'commit', hash: row.commit.hash } }"
+                [cdkContextMenuTriggerFor]="commitMenu.menu()"
+                [cdkContextMenuTriggerData]="{ $implicit: row.commit }"
                 (click)="select(row.commit.hash)"
               >
                 <gd-graph-lines [row]="row" [width]="graphWidth()" />
@@ -111,10 +112,10 @@ export class HistoryView {
   private ticket = 0;
   protected readonly graph = computed(() => layoutGraph(this.commits() ?? []));
   protected readonly graphWidth = computed(() => Math.min(this.graph().lanes, MAX_LANES) * LANE_WIDTH + 12);
-  /** Changes when HEAD or any branch moves. */
+  /** Changes when HEAD or any branch moves, and when tags come and go. */
   private readonly refsKey = computed(() => {
     const snapshot = this.session.snapshot()!;
-    return [snapshot.head.commit, ...snapshot.branches, ...snapshot.remoteBranches].join("\n");
+    return [snapshot.head.commit, ...snapshot.branches, ...snapshot.remoteBranches, ...snapshot.tags].join("\n");
   });
 
   constructor() {
