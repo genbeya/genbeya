@@ -28,12 +28,15 @@ function place(...names: string[]) {
 const popover = () => document.querySelector<HTMLElement>(".tour-popover");
 const button = (name: string) => [...popover()!.querySelectorAll("button")].find((element) => element.textContent?.trim() === name)!;
 
-/** Renders the layer, then waits until the popover shows `count` ("2 of 3"). */
+/** Renders the layer, then waits until the popover shows `count` ("2 of 3"). The first wait loads the layer's chunk. */
 async function showing(count: string) {
-  await vi.waitFor(() => {
-    TestBed.inject(ApplicationRef).tick();
-    expect(popover()?.querySelector(".tour-count")?.textContent).toBe(count);
-  });
+  await vi.waitFor(
+    () => {
+      TestBed.inject(ApplicationRef).tick();
+      expect(popover()?.querySelector(".tour-count")?.textContent).toBe(count);
+    },
+    { timeout: 10_000 },
+  );
 }
 
 describe("Tour", () => {
