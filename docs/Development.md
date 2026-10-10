@@ -2,13 +2,22 @@
 
 Requires Node.js 24 and Git. Tauri also needs a Rust toolchain (and `libwebkit2gtk-4.1-dev` on Linux); Deno Desktop comes from npm. The terminal's node-pty ships prebuilt for Windows and macOS; on Linux `npm install` compiles it, which needs Python, `make` and a C++ compiler.
 
+## Run from source
+
+```bash
+npm install
+npm start
+```
+
+`npm start` runs the client with hot reload and the Electron app. Restart it after changing anything outside `src/client/`. Open this folder in GitDesk: its wiki is this documentation and its task board is the real backlog.
+
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
 | `npm start` | Client with hot reload plus the Electron app. Restart it after changing the backend or the shell |
 | `npm run check` | Type-check backend, shells and client |
-| `npm run lint` | ESLint, including the layer rules of the [[Architecture]] |
+| `npm run lint` | ESLint, including the layer rules of the [Architecture](Architecture.md) |
 | `npm run format` | Prettier |
 | `npm test` | Backend and client unit tests |
 | `npm run e2e` | Build, then end-to-end tests against the Electron app |
@@ -71,3 +80,12 @@ The tour's steps are in `src/client/app/features/onboarding/tour-steps.ts`. A st
 - Operations go through `session.run`, which reports errors and refreshes the snapshot afterwards. Apply a save's result before the refresh, so the editor is clean when the snapshot arrives.
 - Styles use the tokens in `src/client/styles/tokens.css`.
 - Line endings are LF (`.gitattributes`); `npm run format` before committing.
+
+## Documentation
+
+`docs/` is GitDesk's own wiki, and **Open the documentation** (in **Settings → Help**, the command palette and on the start screen) opens it on GitHub, so it has to make sense to people who never cloned the repository. Write it as the rest of the wiki: short, concrete, second person, present tense, with the labels the app shows in bold.
+
+- Prefer live examples: `[[GENBEYA-12]]` next to its source shows readers what a reference does. Point them at tasks, pages and files that exist, so nothing renders as missing by accident.
+- Screenshots live in `docs/images/`: the Electron app at its end-to-end window size (1000 × 680), light theme, the sample project as subject, reduced to 256 colours so each stays well under 150 KB. Link them relatively (`../images/search.png`).
+- Announce user-facing changes in What's new as well (see above).
+

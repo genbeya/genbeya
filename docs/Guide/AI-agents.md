@@ -1,6 +1,6 @@
 # AI agents
 
-Coding agents such as Claude Code, Codex, GitHub Copilot, Cursor and Gemini CLI keep their own todo lists and memory files, which nobody else sees. GitDesk teaches them to use the repository's tasks and wiki instead: they plan work as tasks, move them across the board as they go, and write what they learn into the wiki, where the team reads it.
+Coding agents such as Claude Code, Codex, GitHub Copilot, Cursor, Gemini CLI and OpenCode keep their own todo lists and memory files, which nobody else sees. GitDesk teaches them to use the repository's tasks and wiki instead: they plan work as tasks, move them across the board as they go, and write what they learn into the wiki, where the team reads it.
 
 [TOC]
 
@@ -10,23 +10,25 @@ Coding agents such as Claude Code, Codex, GitHub Copilot, Cursor and Gemini CLI 
 
 | File | Holds | Read by |
 | --- | --- | --- |
-| `.claude/skills/gitdesk/SKILL.md` | The GitDesk skill: file formats and workflow | Claude Code; GitHub Copilot and Cursor look here too |
-| `.agents/skills/gitdesk/SKILL.md` | The same skill | Codex, Gemini CLI, Cursor, OpenCode, Copilot in VS Code |
-| `AGENTS.md` | A short GitDesk section that points to the skill | Codex, Copilot, Cursor and most other agents |
+| `.claude/skills/gitdesk/SKILL.md` | The GitDesk skill: file formats and workflow | Claude Code; GitHub Copilot, Cursor and OpenCode read it too |
+| `.agents/skills/gitdesk/SKILL.md` | The same skill | Codex, Gemini CLI, GitHub Copilot, Cursor and OpenCode — not Claude Code |
+| `AGENTS.md` | A short GitDesk section that points to the skill | Codex, GitHub Copilot, Cursor, OpenCode and most other agents; Claude Code only in a repository without CLAUDE.md |
 | `CLAUDE.md` | `@AGENTS.md`, which Claude Code imports; the section itself when AGENTS.md is not added | Claude Code |
 | `.github/copilot-instructions.md` | The section of AGENTS.md | GitHub Copilot. Off by default, since Copilot reads AGENTS.md as well |
 
-The skill follows the open [Agent Skills](https://agentskills.io) format: a folder with a `SKILL.md` whose frontmatter names the skill and says when to use it. Agents keep only the name and description in mind and read the rest when the work calls for it, so the skill costs little context. Agents disagree on where skills live; the two folders above cover the common ones.
+The skill follows the open [Agent Skills](https://agentskills.io) format: a folder with a `SKILL.md` whose frontmatter names the skill and says when to use it. Agents keep only the name and description in mind and read the rest when the work calls for it, so the skill costs little context. Agents disagree on where skills live: Claude Code reads `.claude/skills/` but not `.agents/skills/`, Codex and Gemini CLI the other way round, so GitDesk writes both.
+
+Claude Code reads AGENTS.md by itself only when the repository has no CLAUDE.md, and older versions never do. The one-line CLAUDE.md that imports it works either way, next to any instructions of your own.
 
 > [!TIP]
 > Gemini CLI reads `GEMINI.md` unless told otherwise. Add `"context": { "fileName": ["AGENTS.md", "GEMINI.md"] }` to `.gemini/settings.json` and it reads AGENTS.md too.
 
-GitDesk's own repository has these files as well: [[AGENTS.md]] and [[.agents/skills/gitdesk/SKILL.md]].
+GitDesk's own repository has these files as well: [AGENTS.md](../../AGENTS.md) and [.agents/skills/gitdesk/SKILL.md](../../.agents/skills/gitdesk/SKILL.md).
 
 ## What agents learn
 
 - Use tasks instead of an internal todo list, and the wiki instead of private memory files such as CLAUDE.md memories or `.cursor` notes.
-- Find the settings, wiki and tasks: read `.gitdesk.yml`, and check `git worktree list` for a [[Content branch]].
+- Find the settings, wiki and tasks: read `.gitdesk.yml`, and check `git worktree list` for a [Content branch](../Architecture/Content-branch.md).
 - Create a task: the next free ID across all epics, a file named after it, the frontmatter fields, epics as folders, checklists for subtasks.
 - Move a task through the workflow as the work progresses, and to the last state only when it is done and verified.
 - Reference tasks, pages and files with `[[…]]`, and name the task in commit messages and pull requests.
@@ -46,4 +48,4 @@ The skill files belong to GitDesk entirely, and **Update** replaces them. Keep p
 
 ## With a content branch
 
-When the wiki, the tasks or the settings live on a [[Content branch]], the agent files still go into the checkout, because they belong with the code. They tell agents to look for the worktree inside `.git/gitdesk/`, read its `.gitdesk-content` file to learn which areas live there, and edit and commit those there; the other areas stay in the checkout.
+When the wiki, the tasks or the settings live on a [Content branch](../Architecture/Content-branch.md), the agent files still go into the checkout, because they belong with the code. They tell agents to look for the worktree inside `.git/gitdesk/`, read its `.gitdesk-content` file to learn which areas live there, and edit and commit those there; the other areas stay in the checkout.

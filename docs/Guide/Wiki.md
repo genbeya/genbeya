@@ -1,8 +1,19 @@
 # Wiki
 
-Every page is a Markdown file under the wiki folder (`docs/` by default). Press `E` to edit; the editor shows a live preview next to the source. `Ctrl+S` saves, `Esc` stops editing.
+Every page is a Markdown file in the wiki folder (`docs/` unless **Settings** names another). The **Wiki** view (`Ctrl+1`) lists the pages on the left and shows the open one. Pages with a few sections get an outline, *On this page*, beside them when the window is wide enough.
 
 [TOC]
+
+## Writing
+
+- `E` (or **Edit**) opens the editor, with a live preview next to the source; **Toggle preview** hides and shows it. `Ctrl+S` saves, `Esc` stops editing.
+- `N` (or the button above the page list) creates a page. Write `/` in its name to nest it: `Architecture/Database` becomes a subpage of *Architecture*.
+- Type `[[` to link a task, a page or a file — see [References](References.md).
+- The editor is the same as in **Code**, with find and replace, several cursors and the other keys in [Keyboard shortcuts](Keyboard-shortcuts.md).
+
+A page's file name is its title, with dashes for spaces: `Getting-started.md` is *Getting started*. The home page (`Home.md` unless **Settings** says otherwise) comes first in the list; the others are sorted by title.
+
+Saved pages are ordinary changes: commit them in **Changes**, together with the code they describe. When the wiki lives on the [Content branch](../Architecture/Content-branch.md), every save is committed there right away instead.
 
 ## Pages and subpages
 
@@ -17,30 +28,27 @@ docs/
     └── Tasks.md
 ```
 
-A folder without a matching page still shows up and lists its children. Moving a page moves its subpages along.
+A folder without a matching page still shows up and lists its children. **New subpage** in a page's `…` menu creates a page below it.
 
-**Move or rename…** in a page's menu also offers to update the links that would break: relative links and `[[references]]` to the moved pages from other pages, tasks and Markdown files, and relative links inside the moved pages. The dialog lists them, and they change together with the move, in one commit on a [[Content branch]]. References by title keep working as long as the title stays; code blocks are left alone.
-
-## Links
-
-- Relative Markdown links: `[Tasks](Tasks.md)`, `[Home](../Home.md#start-here)`. The `.md` may be left out.
-- Links into the code open the file in the editor, links to task files open the task, web links open in your browser.
+**Move or rename…** in the same menu moves a page together with its subpages. It also offers to update the links that would break: relative links and `[[references]]` to the moved pages from other pages, tasks and Markdown files, and relative links inside the moved pages. The dialog lists every change, and they happen together with the move — in one commit when the wiki lives on the [Content branch](../Architecture/Content-branch.md). References by title keep working as long as the title stays; code blocks are left alone.
 
 ## References
 
-`[[…]]` points at anything in the repository and shows what it points at, kept up to date:
+`[[…]]` links anything in the repository and shows what it points at, always up to date:
 
-| Write | Shows | Description |
-| --- | --- | --- |
-| `[[GENBEYA-12]]` | [[GENBEYA-12]] | The task: its ID, title and state, in the state's colour |
-| `[[Getting started]]`, `[[Guide/Wiki]]` | [[Getting started]], [[Guide/Wiki]] | The page's title; pages are found by title or by path below the wiki folder |
-| `[[src/client/app/app.ts]]`, `[[src/client/app/app.ts#L10-L20]]` | [[src/client/app/app.ts]], [[src/client/app/app.ts#L10-L20]] | The file and lines; clicking opens the editor with those lines selected |
-| `[[GENBEYA-12\|the login bug]]` | [[GENBEYA-12\|the login bug]] | Any reference with your own text |
-| `![[src/client/app/app.ts#L10-L20]]` on its own line | see next line | Those lines of the file, highlighted, always the current version |
+| Write | Shows |
+| --- | --- |
+| `[[GENBEYA-12]]` | [[GENBEYA-12]] |
+| `[[Getting started]]` | [[Getting started]] |
+| `[[src/client/app/app.ts#L10-L20]]` | [[src/client/app/app.ts#L10-L20]] |
+| `[[GENBEYA-12\|long lists]]` | [[GENBEYA-12\|long lists]] |
 
-![[src/client/app/app.ts#L10-L20]]
+`![[src/client/app/app.ts#L1-L5]]` on its own line embeds those lines of the file. [References](References.md) has the whole story: pages by title or path, line ranges, missing pages, task IDs in plain text, and what happens when things move.
 
-Type `[[` in any editor to pick a task, page or file from a list. A page that does not exist yet shows in red; clicking it creates the page. A file that is not in the repository shows dashed. Task IDs written plainly in text (`GENBEYA-12`) link to the task too, with its title and state as a tooltip.
+## Links
+
+- Relative Markdown links work as on GitHub: `[Tasks](Tasks.md)`, `[Home](../Home.md#start-here)`. The `.md` may be left out.
+- Links into the code open the file in **Code**, links to task files open the task, web links open in your browser.
 
 ## Special blocks
 
@@ -52,21 +60,29 @@ Type `[[` in any editor to pick a task, page or file from a list. A page that do
 | ` ```mermaid ` | A Mermaid diagram |
 | ` ```plantuml ` | A PlantUML diagram |
 | ` ```ts ` (any language) | Syntax highlighting |
+| `- [ ]` and `- [x]` | A checklist |
 
 > [!TIP]
-> PlantUML diagrams render inside GitDesk with [rockuml](https://github.com/h3ll5ur7er/rockuml); no Java, no server, and the diagram source never leaves your machine. A diagram may start with `@startuml` or contain just the body.
+> PlantUML diagrams render inside GitDesk with [rockuml](https://github.com/h3ll5ur7er/rockuml): no Java, no server, and the diagram source never leaves your machine. A diagram may start with `@startuml` or contain just the body.
 
 ## Diagrams
+
+````markdown
+```mermaid
+flowchart LR
+  write[Write Markdown] --> preview[Live preview]
+```
+````
 
 ```mermaid
 flowchart LR
   write[Write Markdown] --> preview[Live preview]
   preview --> save[Save]
-  save --> commit{Storage}
+  save --> commit{Where the wiki lives}
   commit -->|checkout| changes[Commit in Changes]
   commit -->|content branch| auto[Committed automatically]
 ```
 
 ## Images
 
-Images stored in the repository render inline: `![Board](images/board.png)`. They belong to the wiki, so while the wiki lives on the [[Content branch]], GitDesk loads them from there. Remote images are not loaded automatically; they show as a link.
+Images stored in the repository render inline: `![Board](images/task-board.png)`, relative to the page. They belong to the wiki, so while the wiki lives on the [Content branch](../Architecture/Content-branch.md), GitDesk loads them from there. Remote images are not loaded; they show as a link.

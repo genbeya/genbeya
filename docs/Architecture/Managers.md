@@ -5,9 +5,9 @@ Four managers implement everything the client can do with a repository. Their co
 | Manager | Use cases |
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
-| `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [[Content branch]]), full-text [[Search]], and the files that teach [[AI agents]] to use them |
+| `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [Content branch](Content-branch.md)), full-text [Search](../Guide/Search.md), and the files that teach [AI agents](../Guide/AI-agents.md) to use them |
 | `versionControl` | Diffs, staging, commits, stashes, branches, tags, remotes, fetch/pull/push, history, merges, rebases and conflicts |
-| `terminal` | Shells in the repository for the [[Terminal]]: open, input, size, output, close |
+| `terminal` | Shells in the repository for the [Terminal](../Guide/Terminal.md): open, input, size, output, close |
 
 Every call names the workspace it was made for (or a terminal, which belongs to one), so a call racing a repository switch fails instead of touching the new repository. Every argument is validated again in the manager, so managers can sit directly behind IPC.
 
@@ -44,13 +44,13 @@ The client sends every commit after `base` once, in the new order, each with an 
 
 ## Task comments and activity
 
-Comments live at the end of the task file (format in [[Tasks#comments]]); `Task.body` is the description above them and `Task.comments` the comments, oldest first. The task engine splits and joins the two, so `updateTask` keeps the comments as written and the comment calls keep the frontmatter and description as written.
+Comments live at the end of the task file (format in [Tasks](../Guide/Tasks.md#comments)); `Task.body` is the description above them and `Task.comments` the comments, oldest first. The task engine splits and joins the two, so `updateTask` keeps the comments as written and the comment calls keep the frontmatter and description as written.
 
 - `addComment(workspace, path, text)` appends a comment to the file as it is now; it needs no version, since comments only ever go last.
 - `editComment` and `deleteComment` name the comment by its index in the version `expectedHash`, and only change comments signed with the user's name.
 - `commentAuthor(workspace)` is that name: `git var GIT_AUTHOR_IDENT`, which is `user.name` or what Git derives from the system account. Without one, comment calls ask the user to set `user.name`.
 
-`taskActivity(workspace, path)` reads the history of the task file wherever it lives — the checkout, or the worktree of the [[Content branch]] — with one call:
+`taskActivity(workspace, path)` reads the history of the task file wherever it lives — the checkout, or the worktree of the [Content branch](Content-branch.md) — with one call:
 
 ```
 git log --follow --no-merges --max-count=100 --patch --unified=1000000 -- <path>
@@ -70,7 +70,7 @@ The patches carry whole files, so every commit yields both versions, and `rename
 
 `workspace.browse({ kind, distro | host, path })` lists the subfolders of a folder on WSL or SSH, for the folder browser of the open and clone dialogs. An empty path, `~` or `~/…` starts in the home folder. The listing has the folder's absolute path (links resolved), its parent (null at `/`) and up to 2000 subfolders, sorted by name ignoring case with hidden ones last; each says whether it is a Git repository (holds `.git`), and `truncated` says when there were more. Folders on this computer use the system folder dialog instead.
 
-Connection failures name the machine: `Can't connect to <host>: <ssh's reason>`, or `WSL has no distribution named <distro>.` See [[Hosts]] for how one listing travels.
+Connection failures name the machine: `Can't connect to <host>: <ssh's reason>`, or `WSL has no distribution named <distro>.` See [Hosts](Hosts.md) for how one listing travels.
 
 ## Search
 
@@ -81,7 +81,7 @@ It runs `git grep` on the repository's host, so it needs nothing but Git there, 
 1. `git grep -l -z -I --untracked` lists the files with a match: tracked ones and untracked ones that `.gitignore` does not exclude, binary files skipped. The search engine (`src/engines/search-engine.ts`) sorts them into areas — Markdown below the task folder is a task, below the wiki folder a page, everything else code — and keeps 30 per area.
 2. `git grep -n --column -z -C1` on just those files returns the matching lines and one line of context. With `-z`, paths end at a NUL, and only matches carry a column, which tells them from context lines whatever the text holds.
 
-The engine then finds the matches within each line (for highlighting), keeps 10 per file, and shortens lines over 200 characters around the first match. `truncated` says whether anything was left out. With a [[Content branch]], the content worktree supplies pages and tasks and the checkout only code, so stale copies in the checkout are not listed twice.
+The engine then finds the matches within each line (for highlighting), keeps 10 per file, and shortens lines over 200 characters around the first match. `truncated` says whether anything was left out. With a [Content branch](Content-branch.md), the content worktree supplies pages and tasks and the checkout only code, so stale copies in the checkout are not listed twice.
 
 The text travels as the argument of `-e`, after `-F` or `-E`, in an argument list: never through a shell string, never readable as an option. The manager rejects empty or blank text, more than 200 characters, line breaks (git would read several patterns) and options that are not booleans. A search that runs longer than 20 seconds is stopped.
 
@@ -116,7 +116,7 @@ Structured files change only where they must. A task update rewrites the fields 
 
 ## Content areas
 
-The wiki, tasks and settings each live in the checkout or on the [[Content branch]]. File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.gitdesk.yml` belongs to the settings, the task folder to the tasks, and everything else, such as pages and their images, to the wiki. Page, task, comment and settings calls use their own area, and edits are committed right away only when that area is on the content branch. A task's activity is the history of its file where the tasks live. `content.setStorage(workspace, area, mode)` moves one area.
+The wiki, tasks and settings each live in the checkout or on the [Content branch](Content-branch.md). File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.gitdesk.yml` belongs to the settings, the task folder to the tasks, and everything else, such as pages and their images, to the wiki. Page, task, comment and settings calls use their own area, and edits are committed right away only when that area is on the content branch. A task's activity is the history of its file where the tasks live. `content.setStorage(workspace, area, mode)` moves one area.
 
 Inside the backend, `workspace.locateContent(path)` names the location of a content path (its root, files, Git and branch), for reading a file's history wherever it lives.
 
@@ -128,7 +128,7 @@ Inside the backend, `workspace.locateContent(path)` names the location of a cont
 - relative links inside the moved pages that point out of them;
 - `[[references]]` to moved pages by path (`[[Guide/Wiki]]`, `[[docs/Guide/Wiki.md]]`), and by title when the title changes; to files in a moved folder by path.
 
-The engine parses with the same Markdown parser as the client, so code blocks and inline code stay untouched, and resolves references by the rules the client renders them with (`src/utilities/references.ts`). Only destinations and reference targets change, written in the style they had: relative or from the root, title or path, with or without `.md`, percent-encoded or in `<…>`. A new title that another page also has is written as a path. Each rewritten file is written where its area lives. The moves and the rewritten files of one location are committed together, so with the wiki on the [[Content branch]] the move is one commit; tasks on the branch next to a wiki in the checkout get a commit of their own, and files in the checkout stay uncommitted.
+The engine parses with the same Markdown parser as the client, so code blocks and inline code stay untouched, and resolves references by the rules the client renders them with (`src/utilities/references.ts`). Only destinations and reference targets change, written in the style they had: relative or from the root, title or path, with or without `.md`, percent-encoded or in `<…>`. A new title that another page also has is written as a path. Each rewritten file is written where its area lives. The moves and the rewritten files of one location are committed together, so with the wiki on the [Content branch](Content-branch.md) the move is one commit; tasks on the branch next to a wiki in the checkout get a commit of their own, and files in the checkout stay uncommitted.
 
 `content.pageLinks(workspace, from, to)` returns the same changes without making them, per file with line, before and after, for the move dialog.
 

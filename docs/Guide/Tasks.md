@@ -1,6 +1,12 @@
 # Tasks
 
-Each task is one Markdown file in the task folder, named after its ID:
+The **Tasks** view (`Ctrl+2`) shows the project's tasks on a board or in a list. Each task is one Markdown file in the task folder (`tasks/` unless **Settings** names another), named after its ID:
+
+![The task board with one swimlane per epic, and task types as icons on the cards](../images/task-board.png)
+
+[TOC]
+
+## The task file
 
 ```markdown
 ---
@@ -19,22 +25,35 @@ Render only visible rows in the file tree and history.
 - [ ] History
 ```
 
-IDs are `PREFIX-number`; the prefix is set in **Settings**. Extra frontmatter fields and YAML comments survive edits made in GitDesk; configure them as custom fields (below) to edit them in GitDesk too.
+- IDs are `PREFIX-number`; the prefix is set in **Settings** (`taskPrefix`). IDs stay unique across epics.
+- `status` is one of the workflow states, `priority` is `urgent`, `high`, `medium` or `low` (none when left out), `type` one of the task types.
+- Extra frontmatter fields and YAML comments survive edits made in GitDesk; configure them as [custom fields](#custom-fields) to edit them in GitDesk too.
 
-Reference a task anywhere in Markdown with `[[GENBEYA-12]]`: it shows the task's title and current state (see [[Wiki#references]]).
+Write `[[GENBEYA-12]]` in a page, a description or a comment to show the task's title and current status anywhere; a plain `GENBEYA-12` links too. See [References](References.md).
 
-Task files change with the checked-out branch and are committed like code. To see the same board on every branch, keep the tasks on the shared [[Content branch]] (**Settings → Where content lives → Tasks**); every change is then committed there right away, while the wiki can stay with the code.
+Task files change with the checked-out branch and are committed like code. To see the same board on every branch, keep the tasks on the shared [Content branch](../Architecture/Content-branch.md) (**Settings → Where content lives → Tasks**); every change is then committed there right away, while the wiki can stay with the code.
 
 ## The board
 
-- Drag cards between columns to change their status, or switch to the list layout.
-- `C` creates a task. `/` filters by text; the filter button narrows by type, epic, assignee, priority or label.
-- Click a card to open it. Status, type, priority, assignee and labels change right away from the chips under the title. Checkboxes in the description can be ticked directly.
-- `E` edits the title and description, `Ctrl+S` saves, `Esc` closes.
+- Drag cards between columns to change their status. **Board** and **List** switch the layout; the list shows every task, including those in hidden columns.
+- `C` (or **New task**) creates a task, `+` at the top of a column creates one in that column.
+- `/` filters by text; **Filter by** narrows the board and the list to a type, an epic, an assignee, a priority or a label.
+- A card shows the task's type, ID, title, assignee, priority and labels.
+
+## The task panel
+
+Click a card to open the task beside the board.
+
+![A task with its properties, a checklist, references and two comments](../images/task-panel.png)
+
+- Status, type, priority, assignee, epic and labels change right away from the chips under the title; custom fields sit below them.
+- Checkboxes in the description can be ticked without editing.
+- `E` (or **Edit**) edits the title and description, with `[[` completion for [References](References.md). `Ctrl+S` or `Ctrl+Enter` saves, `Esc` cancels, and `Esc` again closes the panel.
+- The `…` menu copies links to the task (see [Sharing](Sharing.md)) and deletes it.
 
 ## Comments
 
-Below the description, **Comments** lists what people wrote about the task. Type in the box and press `Ctrl+Enter` (`Cmd+Enter` on macOS) to add a comment; Markdown and `[[references]]` work as in the description. Your own comments have buttons to edit and delete them.
+Below the description, **Comments** lists what people wrote about the task. Type in the box and press `Ctrl+Enter` (`⌘Enter` on macOS) to add a comment. Markdown and `[[references]]` work as in the description; the box offers no `[[` completion, so type references in full. Your own comments have buttons to edit and delete them.
 
 Comments are signed with your Git name (`git config user.name`, or the name Git takes from your system account) and stored at the end of the task file, so they read well anywhere Markdown is shown:
 
@@ -65,21 +84,21 @@ Agreed, see [[GENBEYA-14]].
 
 ## Activity
 
-**Activity**, next to Comments, shows who changed the task and when, from the Git history of its file: status, type, priority, assignee, title, epic and custom fields with their old and new values, added and removed labels, description edits, and added, edited or deleted comments. It follows the task when it moves between epics, and lists the latest 100 commits; click a commit to open it in [[Version control#history|History]].
+**Activity**, next to Comments, shows who changed the task and when, from the Git history of its file: status, type, priority, assignee, title, epic and custom fields with their old and new values, added and removed labels, description edits, and added, edited or deleted comments. It follows the task when it moves between epics, and lists the latest 100 commits; click a commit to open it in [History](Version-control.md#history).
 
-Changes saved but not committed yet come first, marked *Not committed yet*. When the tasks live on the [[Content branch]], every edit is committed right away, so the activity is always complete.
+Changes saved but not committed yet come first, marked *Not committed yet*. When the tasks live on the [Content branch](../Architecture/Content-branch.md), every edit is committed right away, so the activity is always complete.
 
 ## Epics
 
 An epic is a folder in the task folder: `tasks/Login rework/GENBEYA-14.md` belongs to the epic *Login rework*. Folders can nest (`Auth/Tokens`). IDs stay unique across epics.
 
 - **Epic** under a task's title moves it into another epic, or into a new one; the file moves along.
-- The swimlane button next to the layout switch shows one row per epic on the board. Dragging a card into another row moves it to that epic.
-- The filter menu narrows the board and the list to one epic.
+- **Swimlanes by epic**, next to the layout switch, shows one row per epic on the board. Dragging a card into another row moves it to that epic.
+- **Filter by** narrows the board and the list to one epic.
 
 ## Workflow states
 
-The columns are the `statuses` in `.gitdesk.yml`, in order; the last one counts as done. To keep the board short, untick a state in the list layout: it disappears from the board for everyone (`hiddenColumns` in `.gitdesk.yml`) and stays in the list. Tasks in a state that is no longer configured appear in an extra column so nothing gets lost — move them into a configured state.
+The board's columns are the workflow states, set in **Settings → Workflow** (`statuses` in `.gitdesk.yml`), in order; the last one counts as done. To keep the board short, untick a state in the list layout: it disappears from the board for everyone (`hiddenColumns` in `.gitdesk.yml`) and stays in the list. Tasks in a state that is no longer configured appear in an extra column so nothing gets lost — move them into a configured state.
 
 ### Column icons
 
@@ -96,7 +115,7 @@ statuses:
 
 ## Types
 
-A task can have a type, such as bug or feature: its icon shows on the card, in the list and under the title, where **Type** changes it. The filter menu narrows the board to one type. Without `types` in `.gitdesk.yml`, the types are bug, feature, improvement and chore. Configure your own in **Settings → Task types**, with an icon and an optional colour each:
+A task can have a type, such as bug or feature: its icon shows on the card, in the list and under the title, where **Type** changes it. **Filter by** narrows the board to one type. Without `types` in `.gitdesk.yml`, the types are bug, feature, improvement and chore. Configure your own in **Settings → Task types**, with an icon and an optional colour each:
 
 ```yaml
 types:
@@ -127,7 +146,7 @@ labels: [bug]
 ## Actual
 ```
 
-The template button next to a type in **Settings → Task types** opens its template in **Code**, and creates it first if there is none. Templates live with the tasks: when the tasks are on the [[Content branch]], the button names the file there instead, since **Code** shows the checkout. Folders in the task folder whose names start with a dot hold no tasks, so `.templates` is no epic.
+The template button next to a type in **Settings → Task types** opens its template in **Code**, and creates it first if there is none. Templates live with the tasks: when the tasks are on the [Content branch](../Architecture/Content-branch.md), the button names the file there instead, since **Code** shows the checkout. Folders in the task folder whose names start with a dot hold no tasks, so `.templates` is no epic.
 
 ## Custom fields
 
@@ -145,4 +164,6 @@ fields:
   - name: reviewer    # text, unless a type is given
 ```
 
-They appear under a task's properties and are saved to its frontmatter as you change them; emptying a field removes it from the file. Names start with a letter and use letters, digits, `-` and `_`; GitDesk's own keys (id, title, type, status, priority, assignee, labels, epic) are taken. Other frontmatter fields of a task show below the configured ones, read-only, and are never lost: removing a field from the settings leaves the values in the task files.
+They appear under a task's properties and are saved to its frontmatter as you change them; emptying a field removes it from the file. Names start with a letter and use letters, digits, `-` and `_`; GitDesk's own keys (id, title, type, status, priority, assignee, labels, epic) are taken. Field types are `text`, `number`, `date` and `choice`. Other frontmatter fields of a task show below the configured ones, read-only, and are never lost: removing a field from the settings leaves the values in the task files.
+
+Every key of `.gitdesk.yml` is described in [Settings](Settings.md).
