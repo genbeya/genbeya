@@ -117,5 +117,11 @@ export function tauriProcesses(
 export function tauriMachine(): Machine {
   const agent = navigator.userAgent;
   const os = agent.includes("Windows") ? "windows" : agent.includes("Mac OS") ? "macos" : "linux";
-  return { os, fileSystem: tauriFileSystem(), processes: tauriProcesses(), paths: os === "windows" ? windowsPaths : posixPaths };
+  return {
+    os,
+    fileSystem: tauriFileSystem(),
+    processes: tauriProcesses(),
+    terminals: null,
+    paths: os === "windows" ? windowsPaths : posixPaths,
+  };
 }

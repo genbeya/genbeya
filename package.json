@@ -21,6 +21,9 @@
     "package:deno": "ng build && node scripts/build-backend.mjs deno && deno desktop -A --no-check --no-config --include dist/client/browser -o release-deno/GitDesk dist/deno/main.js",
     "package:tauri": "ng build && cd src/shells/tauri && tauri build"
   },
+  "dependencies": {
+    "node-pty": "^1.1.0"
+  },
   "devDependencies": {
     "@angular/build": "^22.2.2",
     "@angular/cdk": "^22.2.2",
@@ -91,8 +94,14 @@
     "files": [
       "dist/client/**/*",
       "dist/electron/**/*",
-      "package.json"
+      "package.json",
+      "!node_modules/node-pty/{deps,scripts,src,third_party,typings}/**",
+      "!node_modules/node-pty/**/*.pdb"
     ],
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ],
+    "npmRebuild": false,
     "publish": null,
     "mac": {
       "target": "dmg",
@@ -116,6 +125,7 @@
     "@parcel/watcher": false,
     "electron-winstaller": false,
     "lmdb": false,
-    "msgpackr-extract": false
+    "msgpackr-extract": false,
+    "node-pty@1.1.0": true
   }
 }

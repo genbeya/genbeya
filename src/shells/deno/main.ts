@@ -81,7 +81,9 @@ addEventListener("unhandledrejection", (event) => {
   console.error("GitDesk:", event.reason);
 });
 
-const backend = await createBackend(nodeMachine(), dataFolder);
+// node-pty loads under Deno, but opens its Windows pipes with fs calls Deno does not support, and
+// `deno desktop` cannot bundle native modules; the client says the terminal is not available.
+const backend = await createBackend({ ...nodeMachine(), terminals: null }, dataFolder);
 const window = new Deno.BrowserWindow({ title: "GitDesk", width: 1440, height: 920 });
 
 const operations: Record<ShellOperation, (...args: unknown[]) => Promise<unknown>> = {

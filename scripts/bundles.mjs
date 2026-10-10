@@ -1,7 +1,8 @@
 // esbuild options of the shells that run the managers outside the webview,
 // shared by the build (build-backend.mjs) and the dev loop (dev.mjs).
 // The Tauri shell needs no bundle: its managers run in the client (see src/client/app/platform).
-const common = { bundle: true, logLevel: "warning", legalComments: "none", sourcemap: "linked" };
+// node-pty is a native module: it ships next to the bundle (Electron unpacks it from the asar archive).
+const common = { bundle: true, logLevel: "warning", legalComments: "none", sourcemap: "linked", external: ["node-pty"] };
 
 /** Electron main process and preload → dist/electron */
 export const electronBundle = {
@@ -12,7 +13,7 @@ export const electronBundle = {
   platform: "node",
   format: "cjs",
   target: "node22",
-  external: ["electron"],
+  external: [...common.external, "electron"],
 };
 
 /** Deno Desktop shell → dist/deno */

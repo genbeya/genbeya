@@ -75,11 +75,39 @@ export interface ProcessRunner {
   spawn(command: string, args: readonly string[]): ChildProcess;
 }
 
+/** A program on a pseudo-terminal, as in a terminal window: colours, line editing, Ctrl+C. */
+export interface Terminal {
+  write(data: string): void;
+  resize(cols: number, rows: number): void;
+  kill(): void;
+  onData(listener: (data: string) => void): void;
+  /** Called once, when the program ended. */
+  onExit(listener: (code: number) => void): void;
+}
+
+export interface TerminalOptions {
+  /** Omitted, the program starts where GitDesk runs. */
+  readonly cwd?: string;
+  readonly cols: number;
+  readonly rows: number;
+  /** Added to GitDesk's own environment. */
+  readonly env?: Readonly<Record<string, string>>;
+}
+
+export interface TerminalRunner {
+  /** The user's shell: on Windows `pwsh.exe`, `powershell.exe` or COMSPEC; elsewhere $SHELL or /bin/sh. */
+  shell(): Promise<string>;
+  /** Rejects when the program cannot start. */
+  open(command: string, args: readonly string[], options: TerminalOptions): Promise<Terminal>;
+}
+
 /** The machine GitDesk runs on. */
 export interface Machine {
   readonly os: "windows" | "macos" | "linux";
   readonly fileSystem: FileSystem;
   readonly processes: ProcessRunner;
+  /** Null where the runtime has no pseudo-terminals. */
+  readonly terminals: TerminalRunner | null;
   /** Paths of the local file system. */
   readonly paths: PathStyle;
 }
