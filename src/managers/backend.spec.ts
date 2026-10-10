@@ -99,6 +99,27 @@ describe("WorkspaceManager", () => {
     expect(restored?.snapshot.settings.name).toBe("Test Project");
   });
 
+  it("leaves the repository to the client when a launch carries a GitDesk link", async () => {
+    const data = await temporaryFolder("data-");
+    const first = await createBackend(machine, data);
+    await first.workspace.open({ kind: "local", path: (await createRepository()).root });
+    await first.dispose();
+    const managers = await backend(data);
+    expect(await managers.workspace.restore(["app", "gitdesk://open?remote=https://github.com/acme/demo.git&task=TP-1"])).toBeNull();
+  });
+
+  it("remembers the remotes of recent repositories as they change", async () => {
+    const { workspace, versionControl, id, repository } = await opened();
+    const remotes = async () => (await workspace.recent())[0]?.remotes;
+    expect(await remotes()).toEqual([]);
+    await versionControl.setRemote(id, "origin", "https://github.com/acme/demo.git");
+    await workspace.snapshot(id);
+    expect(await remotes()).toEqual(["https://github.com/acme/demo.git"]);
+    await repository.git("remote", "add", "upstream", "git@github.com:other/demo.git");
+    await workspace.open({ kind: "local", path: repository.root });
+    expect(await remotes()).toEqual(["https://github.com/acme/demo.git", "git@github.com:other/demo.git"]);
+  });
+
   it("forgets repositories", async () => {
     const { workspace, repository } = await opened();
     await workspace.forget({ kind: "local", path: repository.root });

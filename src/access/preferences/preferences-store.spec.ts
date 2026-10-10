@@ -29,14 +29,15 @@ describe("PreferencesStore", () => {
     const store = await PreferencesStore.load(machine, folder);
     expect(store.recent).toEqual([]);
     expect(store.preferences).toEqual(DEFAULT_PREFERENCES);
-    store.remember(a, "A", 1);
-    store.remember(b, "B", 2);
-    store.remember(a, "A again", 3);
+    store.remember(a, "A", [], 1);
+    store.remember(b, "B", ["git@github.com:acme/b.git"], 2);
+    store.remember(a, "A again", ["https://github.com/acme/a.git"], 3);
     store.setPreferences({ ...DEFAULT_PREFERENCES, theme: "dark" });
     await store.flush();
 
     const reloaded = await PreferencesStore.load(machine, folder);
     expect(reloaded.recent.map((entry) => entry.name)).toEqual(["A again", "B"]);
+    expect(reloaded.recent.map((entry) => entry.remotes)).toEqual([["https://github.com/acme/a.git"], ["git@github.com:acme/b.git"]]);
     expect(reloaded.preferences.theme).toBe("dark");
     reloaded.forget(b);
     expect(reloaded.recent.map((entry) => entry.name)).toEqual(["A again"]);
@@ -44,7 +45,7 @@ describe("PreferencesStore", () => {
 
   it("keeps at most twenty recent repositories", async () => {
     const store = await PreferencesStore.load(machine, await temporaryFolder("prefs-"));
-    for (let i = 0; i < 25; i++) store.remember({ kind: "local", path: `/r${i}` }, `R${i}`);
+    for (let i = 0; i < 25; i++) store.remember({ kind: "local", path: `/r${i}` }, `R${i}`, []);
     expect(store.recent).toHaveLength(20);
     expect(store.recent[0]!.name).toBe("R24");
     await store.flush();
@@ -57,7 +58,7 @@ describe("PreferencesStore", () => {
     process.on("unhandledRejection", unhandled);
     try {
       const store = await PreferencesStore.load(flaky, folder);
-      store.remember(a, "A", 1);
+      store.remember(a, "A", [], 1);
       await new Promise((resolve) => setTimeout(resolve, 600));
       expect(unhandled).not.toHaveBeenCalled();
       state.failing = false;
@@ -74,15 +75,51 @@ describe("PreferencesStore", () => {
     const writeFile = vi.spyOn(machine.fileSystem, "writeFile");
     onTestFinished(() => void vi.restoreAllMocks());
     const store = await PreferencesStore.load(machine, folder);
-    store.remember(a, "A", 1);
+    store.remember(a, "A", [], 1);
     await store.flush();
-    store.remember(b, "B", 2);
+    store.remember(b, "B", [], 2);
     await store.flush();
     const file = path.join(folder, "state.json");
     expect(writeFile).toHaveBeenLastCalledWith(`${file}.tmp`, expect.anything(), false);
     expect(rename).toHaveBeenLastCalledWith(`${file}.tmp`, file);
     expect(await fs.readdir(folder)).toEqual(["state.json"]);
     expect((await PreferencesStore.load(machine, folder)).recent.map((entry) => entry.name)).toEqual(["B", "A"]);
+  });
+
+  it("reads recent entries saved before remotes were remembered", async () => {
+    const folder = await temporaryFolder("prefs-");
+    const saved = {
+      recent: [
+        { location: a, name: "A", openedAt: 1 },
+        { location: b, name: "B", openedAt: 2, remotes: ["x", 42] },
+      ],
+    };
+    await fs.writeFile(path.join(folder, "state.json"), JSON.stringify(saved));
+    const store = await PreferencesStore.load(machine, folder);
+    expect(store.recent).toEqual([
+      { location: a, name: "A", openedAt: 1, remotes: [] },
+      { location: b, name: "B", openedAt: 2, remotes: ["x"] },
+    ]);
+  });
+
+  it("updates the remotes of a recent repository in place, and only when they changed", async () => {
+    const store = await PreferencesStore.load(machine, await temporaryFolder("prefs-"));
+    store.remember(a, "A", [], 1);
+    store.remember(b, "B", [], 2);
+    await store.flush();
+    const writeFile = vi.spyOn(machine.fileSystem, "writeFile");
+    onTestFinished(() => void vi.restoreAllMocks());
+    store.rememberRemotes(a, []);
+    store.rememberRemotes({ kind: "local", path: "/unknown" }, ["x"]);
+    await store.flush();
+    expect(writeFile).not.toHaveBeenCalled();
+    store.rememberRemotes(a, ["https://github.com/acme/a.git"]);
+    expect(store.recent.map((entry) => [entry.name, entry.remotes])).toEqual([
+      ["B", []],
+      ["A", ["https://github.com/acme/a.git"]],
+    ]);
+    await store.flush();
+    expect(writeFile).toHaveBeenCalledTimes(1);
   });
 
   it("ignores unreadable files and fills in new preferences", async () => {
