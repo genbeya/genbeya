@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { launchArgument, requestedLink, requestedLocation } from "./launch-request";
+import { launchArgument, requestedLink, requestedLocation, withoutLinks } from "./launch-request";
 
 describe("launch requests", () => {
   it("round-trips locations with any characters", () => {
@@ -23,5 +23,10 @@ describe("launch requests", () => {
     });
     expect(requestedLink(["GitDesk.exe"])).toBeUndefined();
     expect(requestedLink(["GitDesk.exe", "gitdesk://open?task=DP-1", 42])).toBeUndefined();
+  });
+
+  it("leaves out the links, for a page that already had them", () => {
+    const flag = launchArgument({ kind: "local", path: "/r" });
+    expect(withoutLinks(["GitDesk.exe", "GitDesk://open?remote=x&task=A", flag, "gitdesk://open?task=B"])).toEqual(["GitDesk.exe", flag]);
   });
 });

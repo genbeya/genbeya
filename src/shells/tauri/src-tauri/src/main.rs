@@ -6,18 +6,35 @@ mod files;
 mod processes;
 mod terminals;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::webview::NewWindowResponse;
-use tauri::{App, AppHandle, Emitter, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{App, AppHandle, Emitter, Manager, RunEvent, State, Url, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;
 
-/// The arguments of this launch, plus the GitDesk link that started it.
-/// Windows and Linux pass links as arguments, so there they appear twice;
-/// the client opens the first. macOS hands them over as an event, which
-/// comes before the page can listen.
+/// Whether a page has had the links of this launch; a reloaded page must not open them again.
+#[derive(Default)]
+struct LinksHandedOver(AtomicBool);
+
+fn is_link(arg: &str) -> bool {
+    arg.get(..8).is_some_and(|scheme| scheme.eq_ignore_ascii_case("gitdesk:"))
+}
+
+/// The launch arguments plus `links`, or without any link once they were handed over.
+fn launch_arguments(args: impl Iterator<Item = String>, links: &[Url], handed_over: bool) -> Vec<String> {
+    if handed_over {
+        return args.filter(|arg| !is_link(arg)).collect();
+    }
+    args.chain(links.iter().map(Url::to_string)).collect()
+}
+
+/// The arguments of this launch, plus the GitDesk link that started it,
+/// which only the first call gets. Windows and Linux pass links as
+/// arguments, so there they appear twice; the client opens the first.
+/// macOS hands them over as an event, which comes before the page can listen.
 #[tauri::command]
-fn launch_args(app: AppHandle) -> Vec<String> {
+fn launch_args(app: AppHandle, handed_over: State<'_, LinksHandedOver>) -> Vec<String> {
     let links = app.deep_link().get_current().ok().flatten().unwrap_or_default();
-    std::env::args().chain(links.iter().map(Url::to_string)).collect()
+    launch_arguments(std::env::args(), &links, handed_over.0.swap(true, Ordering::SeqCst))
 }
 
 /// macOS hands over links that open while the app runs as events; they
@@ -86,6 +103,7 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .manage(processes::Processes::default())
         .manage(terminals::Terminals::default())
+        .manage(LinksHandedOver::default())
         .setup(|app| {
             #[cfg(target_os = "macos")]
             forward_opened_links(app);
@@ -142,5 +160,16 @@ mod tests {
         let dev = url("http://localhost:4200/");
         assert!(is_app_url(&url("http://localhost:4200/wiki"), Some(&dev)));
         assert!(!is_app_url(&url("http://localhost:4201/"), Some(&dev)));
+    }
+
+    #[test]
+    fn hands_launch_links_over_once() {
+        let args = || ["gitdesk.exe", "GitDesk://open?remote=x&task=a", "--flag"].map(String::from).into_iter();
+        let links = [url("gitdesk://open?remote=x&task=a")];
+        assert_eq!(
+            launch_arguments(args(), &links, false),
+            ["gitdesk.exe", "GitDesk://open?remote=x&task=a", "--flag", "gitdesk://open?remote=x&task=a"]
+        );
+        assert_eq!(launch_arguments(args(), &links, true), ["gitdesk.exe", "--flag"]);
     }
 }

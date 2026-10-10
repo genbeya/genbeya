@@ -37,3 +37,6 @@ export function requestedLink(args: readonly unknown[]): GitdeskLink | undefined
   }
   return undefined;
 }
+
+/** The arguments without GitDesk links, valid or not: a page that reloads must not open a launch's link again. */
+export const withoutLinks = (args: readonly string[]): string[] => args.filter((arg) => !/^gitdesk:/i.test(arg));
