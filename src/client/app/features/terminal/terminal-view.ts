@@ -82,7 +82,7 @@ export class TerminalView {
     terminal.onData((data) => this.terminals.write(key, data));
     terminal.onResize(({ cols, rows }) => this.terminals.resize(key, cols, rows));
     if (this.active()) terminal.focus();
-    await this.terminals.connect(key, terminal.cols, terminal.rows, {
+    this.terminals.connect(key, terminal.cols, terminal.rows, {
       write: (data) => terminal.write(data),
       end: (note) => terminal.write(`\r\n\x1b[2m${note}\x1b[22m\r\n`),
     });

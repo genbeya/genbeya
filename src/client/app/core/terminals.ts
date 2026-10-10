@@ -25,7 +25,10 @@ export interface TerminalScreen {
   end(note: string): void;
 }
 
-/** One tab's shell: a loop of reads, and input sent in order without a round trip per keystroke. */
+/**
+ * One tab's shell: a loop of reads, and input sent in order without a round
+ * trip per keystroke. Input typed while the shell starts waits for it.
+ */
 class Connection {
   private pending = "";
   private sending = false;
@@ -33,14 +36,16 @@ class Connection {
 
   constructor(
     private readonly terminal: TerminalManagerContract,
-    private readonly id: string,
+    /** The shell's id once it started; rejects when it could not. */
+    private readonly id: Promise<string>,
   ) {}
 
   /** Copies output to `screen` until the shell ends; resolves to its exit code, or null when it was closed or failed. */
   async pump(screen: TerminalScreen): Promise<number | null> {
     try {
+      const id = await this.id;
       while (!this.closed) {
-        const output = await this.terminal.read(this.id);
+        const output = await this.terminal.read(id);
         if (this.closed) break;
         if ("exit" in output) return output.exit;
         if (output.data) screen.write(output.data);
@@ -57,24 +62,30 @@ class Connection {
   }
 
   resize(cols: number, rows: number): void {
-    if (!this.closed) this.terminal.resize(this.id, cols, rows).catch(() => undefined);
+    this.call((id) => this.terminal.resize(id, cols, rows));
   }
 
   close(): void {
+    this.call((id) => this.terminal.close(id));
     this.closed = true;
-    this.terminal.close(this.id).catch(() => undefined);
+  }
+
+  /** Calls the manager once the shell has started; a shell that never started or ended meanwhile needs nothing. */
+  private call(operation: (id: string) => Promise<void>) {
+    if (!this.closed) this.id.then(operation).catch(() => undefined);
   }
 
   private async send() {
     this.sending = true;
-    while (this.pending && !this.closed) {
+    const id = await this.id.catch(() => null);
+    while (id !== null && this.pending && !this.closed) {
       let end = Math.min(this.pending.length, WRITE_CHUNK);
       // Never split a character made of two UTF-16 units.
       if (end < this.pending.length && /[\ud800-\udbff]/.test(this.pending[end - 1]!)) end--;
       const data = this.pending.slice(0, end);
       this.pending = this.pending.slice(end);
       // A shell that ended refuses input; its view reports the end.
-      await this.terminal.write(this.id, data).catch(() => undefined);
+      await this.terminal.write(id, data).catch(() => undefined);
     }
     this.sending = false;
   }
@@ -134,17 +145,8 @@ export class Terminals {
   }
 
   /** Starts the shell of tab `key` at the view's size; its output goes to `screen` until it ends. */
-  async connect(key: number, cols: number, rows: number, screen: TerminalScreen): Promise<void> {
-    let id: string;
-    try {
-      id = await this.terminal.open(this.session.id()!, cols, rows);
-    } catch (error) {
-      screen.end(messageOf(error));
-      return;
-    }
-    const connection = new Connection(this.terminal, id);
-    // The tab may have closed while the shell started.
-    if (!this.tabs().some((tab) => tab.key === key)) return connection.close();
+  connect(key: number, cols: number, rows: number, screen: TerminalScreen): void {
+    const connection = new Connection(this.terminal, this.terminal.open(this.session.id()!, cols, rows));
     this.connections.set(key, connection);
     void connection.pump(screen).then((exit) => {
       // Like other terminals, a shell left with `exit` takes its tab along; other ends stay readable.

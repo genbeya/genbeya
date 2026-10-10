@@ -54,7 +54,7 @@ describe("Terminals", () => {
     await terminals.toggle();
     const key = terminals.active()!;
     const view = screen();
-    await terminals.connect(key, 100, 30, view);
+    terminals.connect(key, 100, 30, view);
     expect(terminal.open).toHaveBeenCalledWith("w1", 100, 30);
     await output.print({ data: "$ " });
     await output.print({ data: "" });
@@ -70,8 +70,9 @@ describe("Terminals", () => {
     terminal.write.mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
     await terminals.toggle();
     const key = terminals.active()!;
-    await terminals.connect(key, 80, 24, screen());
+    terminals.connect(key, 80, 24, screen());
     terminals.write(key, "l");
+    await settle();
     terminals.write(key, "s");
     terminals.write(key, "\r");
     finish();
@@ -81,7 +82,24 @@ describe("Terminals", () => {
       ["t1", "s\r"],
     ]);
     terminals.resize(key, 120, 40);
+    await settle();
     expect(terminal.resize).toHaveBeenCalledWith("t1", 120, 40);
+  });
+
+  it("keeps what is typed while the shell starts", async () => {
+    const { terminals, terminal } = await setup();
+    shellOutput(terminal.read);
+    let started!: (id: string) => void;
+    terminal.open.mockReset().mockReturnValue(new Promise<string>((resolve) => (started = resolve)));
+    await terminals.toggle();
+    const key = terminals.active()!;
+    terminals.connect(key, 80, 24, screen());
+    terminals.write(key, "git status\r");
+    await settle();
+    expect(terminal.write).not.toHaveBeenCalled();
+    started("t1");
+    await settle();
+    expect(terminal.write).toHaveBeenCalledWith("t1", "git status\r");
   });
 
   it("closes a tab whose shell exited normally, and explains other ends", async () => {
@@ -93,8 +111,8 @@ describe("Terminals", () => {
     const second = terminals.active()!;
     const firstScreen = screen();
     const secondScreen = screen();
-    await terminals.connect(first, 80, 24, firstScreen);
-    await terminals.connect(second, 80, 24, secondScreen);
+    terminals.connect(first, 80, 24, firstScreen);
+    terminals.connect(second, 80, 24, secondScreen);
     await output.print({ exit: 0 });
     expect(terminals.tabs().map((tab) => tab.key)).toEqual([second]);
     expect(terminals.active()).toBe(second);
@@ -108,7 +126,8 @@ describe("Terminals", () => {
     terminal.open.mockReset().mockRejectedValue(new Error("ssh was not found. Install it and add it to PATH."));
     await terminals.toggle();
     const view = screen();
-    await terminals.connect(terminals.active()!, 80, 24, view);
+    terminals.connect(terminals.active()!, 80, 24, view);
+    await settle();
     expect(view.end).toHaveBeenCalledWith("ssh was not found. Install it and add it to PATH.");
   });
 
@@ -117,8 +136,9 @@ describe("Terminals", () => {
     shellOutput(terminal.read);
     await terminals.toggle();
     const key = terminals.active()!;
-    await terminals.connect(key, 80, 24, screen());
+    terminals.connect(key, 80, 24, screen());
     terminals.close(key);
+    await settle();
     expect(terminal.close).toHaveBeenCalledWith("t1");
     expect(terminals.tabs()).toEqual([]);
     expect(terminals.shown()).toBe(false);
@@ -128,9 +148,10 @@ describe("Terminals", () => {
     const { terminals, terminal } = await setup();
     shellOutput(terminal.read);
     await terminals.toggle();
-    await terminals.connect(terminals.active()!, 80, 24, screen());
+    terminals.connect(terminals.active()!, 80, 24, screen());
     terminals.add();
     terminals.closeAll();
+    await settle();
     expect(terminals.tabs()).toEqual([]);
     expect(terminals.shown()).toBe(false);
     expect(terminal.close).toHaveBeenCalledWith("t1");
@@ -140,9 +161,9 @@ describe("Terminals", () => {
     const { terminals, terminal } = await setup();
     await terminals.toggle();
     const key = terminals.active()!;
-    const connecting = terminals.connect(key, 80, 24, screen());
+    terminals.connect(key, 80, 24, screen());
     terminals.close(key);
-    await connecting;
+    await settle();
     expect(terminal.close).toHaveBeenCalledWith("t1");
     expect(terminal.read).not.toHaveBeenCalled();
   });
