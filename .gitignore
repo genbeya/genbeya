@@ -11,3 +11,4 @@ playwright-report/
 *.log
 src/shells/tauri/src-tauri/target/
 src/shells/tauri/src-tauri/gen/
+.claude/worktrees/

@@ -43,7 +43,7 @@ The Angular client is 613 kB of initial JavaScript (120 kB compressed). Mermaid 
 
 **Deno Desktop**
 - Labelled experimental. No folder dialog (the shell calls PowerShell, `osascript` or `zenity`), no theme override, no shell-level navigation guard, no single-instance or jump list support. It is packaged with all permissions (`-A`).
-- Writes its WebView2 profile next to the executable, which fails in a read-only install location such as `Program Files`.
+- Would write its WebView2 profile next to the executable; the packaged app moves it to `%LOCALAPPDATA%\GitDesk Deno` with an environment file read at start (`src/shells/deno/desktop.env`).
 - Ships its own runtime, so the size win is small, and it uses the most memory of the three.
 
 ## Trying the builds
@@ -58,4 +58,4 @@ Every push to `main` publishes one GitHub release with all variants for all plat
 
 The builds are unsigned: on Windows choose *More info → Run anyway*; on macOS open the app once with right-click → *Open*; on Linux `chmod +x` the AppImage.
 
-The Electron build installs as "GitDesk". Tauri installs as "GitDesk Tauri" with its own settings (`dev.gitdesk.tauri`), and Deno Desktop as "GitDesk Deno" with its own settings folder, so all three can be used side by side. The Deno `.msi` installs for all users into `Program Files`, where its WebView2 profile cannot be written (see above). To build locally, see [[Development]].
+The Electron build installs as "GitDesk". Tauri installs as "GitDesk Tauri" with its own settings (`dev.gitdesk.tauri`), and Deno Desktop as "GitDesk Deno" with its own settings folder, so all three can be used side by side. To build locally, see [[Development]].

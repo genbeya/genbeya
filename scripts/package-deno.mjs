@@ -35,6 +35,8 @@ for (const format of formats) {
     "-A",
     "--no-check",
     "--no-config",
+    // Settings the runtime needs before any code runs (the WebView2 profile folder on Windows).
+    "--env-file=src/shells/deno/desktop.env",
     ...icon,
     "--include",
     "dist/client/browser",
