@@ -37,6 +37,16 @@ describe("RepositoryAccess", () => {
     expect(files.some((f) => f.startsWith("build/"))).toBe(false);
   });
 
+  it("tells which paths .gitignore excludes, counting tracked files as kept", async () => {
+    const repository = await createRepository();
+    await repository.write(".gitignore", ".claude/\nsrc/\n");
+    const access = await open(repository.root);
+    expect(await access.ignored([".claude/skills/x/SKILL.md", "AGENTS.md", "src/code.ts", "src/new.ts"])).toEqual(
+      new Set([".claude/skills/x/SKILL.md", "src/new.ts"]),
+    );
+    expect(await access.ignored(["AGENTS.md"])).toEqual(new Set());
+  });
+
   it("stages literally, unstages renames and discards edits and untracked files", async () => {
     const repository = await createRepository();
     const repo = await open(repository.root);

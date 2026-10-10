@@ -1,7 +1,20 @@
-/** Everything that edits files: repository files, wiki pages, tasks and settings. */
+/** Everything that edits files: repository files, wiki pages, tasks, settings and the files that teach coding agents to use them. */
 import type { ContentManagerContract } from "../contracts/manager-contracts";
-import type { FileContent, Scope, Settings, StorageMode, Task, TaskInput } from "../contracts/model";
+import {
+  AGENT_TARGETS,
+  type AgentFile,
+  type AgentFileWrite,
+  type AgentTarget,
+  type FileContent,
+  type Scope,
+  type Settings,
+  type StorageMode,
+  type Task,
+  type TaskInput,
+} from "../contracts/model";
 import { IMAGE_LIMIT } from "../access/files/file-store";
+import { isMissing } from "../access/hosts/host";
+import type { AgentEngine } from "../engines/agent-engine";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
@@ -24,7 +37,12 @@ const STORAGE_MODES: readonly StorageMode[] = ["worktree", "branch"];
 export class ContentManager implements ContentManagerContract {
   constructor(
     private readonly registry: WorkspaceRegistry,
-    private readonly engines: { readonly settings: SettingsEngine; readonly tasks: TaskEngine; readonly wiki: WikiEngine },
+    private readonly engines: {
+      readonly settings: SettingsEngine;
+      readonly tasks: TaskEngine;
+      readonly wiki: WikiEngine;
+      readonly agents: AgentEngine;
+    },
   ) {}
 
   /** Runs an operation on the workspace named by `id`, after its earlier operations. */
@@ -185,6 +203,56 @@ export class ContentManager implements ContentManagerContract {
       await workspace.content.sync();
       workspace.forgetSettings();
     });
+  }
+
+  agentFiles(id: unknown, targets: unknown): Promise<AgentFile[]> {
+    return this.on(id, async (workspace) => {
+      const planned = await this.planAgentFiles(workspace, targets);
+      const ignored = await workspace.repository.ignored(planned.map(({ file }) => file.path));
+      return planned.map(({ file, existing }) => ({
+        target: file.target,
+        path: file.path,
+        text: file.text,
+        state: this.engines.agents.stateOf(file, existing?.content ?? null),
+        ignored: ignored.has(file.path),
+      }));
+    });
+  }
+
+  addAgentFiles(id: unknown, targets: unknown): Promise<AgentFileWrite[]> {
+    return this.on(id, async (workspace) => {
+      const planned = (await this.planAgentFiles(workspace, targets)).filter(({ file }) => (targets as unknown[]).includes(file.target));
+      if (!planned.length) throw new Error("Choose the files to add.");
+      // Every file is merged before the first is written, so broken markers leave all of them alone.
+      const merged = planned.map(({ file, existing }) => ({
+        file,
+        existing,
+        content: this.engines.agents.merge(file, existing?.content ?? null),
+      }));
+      const written: AgentFileWrite[] = [];
+      for (const { file, existing, content } of merged) {
+        const result = content === existing?.content ? "unchanged" : existing ? "updated" : "created";
+        if (result !== "unchanged") await workspace.checkout.write(file.path, content, existing?.hash ?? null);
+        written.push({ path: file.path, result });
+      }
+      return written;
+    });
+  }
+
+  /** Every agent file with what the checkout has of it; they are code, so they never live on the content branch. */
+  private async planAgentFiles(workspace: Workspace, targets: unknown) {
+    if (!Array.isArray(targets) || targets.some((target) => !AGENT_TARGETS.includes(target as AgentTarget)))
+      throw new Error("Unknown agent file.");
+    const { settings } = await workspace.settings();
+    return Promise.all(
+      this.engines.agents.files(settings, targets as AgentTarget[]).map(async (file) => ({
+        file,
+        existing: await workspace.checkout.read(file.path).catch((error: unknown) => {
+          if (isMissing(error)) return null;
+          throw error;
+        }),
+      })),
+    );
   }
 
   private version(value: unknown): string | null {

@@ -68,6 +68,7 @@ export function fakeManagers(): MockedManagers {
   managers.workspace.distributions.mockResolvedValue([]);
   managers.workspace.snapshot.mockResolvedValue(null);
   managers.workspace.open.mockResolvedValue({ id: "w1", snapshot: snapshot() });
+  managers.content.agentFiles.mockResolvedValue([]);
   return managers;
 }
 

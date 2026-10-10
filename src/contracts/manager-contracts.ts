@@ -4,6 +4,9 @@
  * every argument is validated by the manager, never trusted.
  */
 import type {
+  AgentFile,
+  AgentFileWrite,
+  AgentTarget,
   CommitDetail,
   Commit,
   Diff,
@@ -47,7 +50,7 @@ export interface WorkspaceManagerContract {
   browse(location: RemoteLocation): Promise<FolderListing>;
 }
 
-/** Everything that edits files: repository files, wiki pages, tasks and settings. */
+/** Everything that edits files: repository files, wiki pages, tasks, settings and the files that teach coding agents to use them. */
 export interface ContentManagerContract {
   read(workspace: string, scope: Scope, path: string): Promise<FileContent>;
   /** An image as a data URL, for showing inside pages. */
@@ -67,6 +70,10 @@ export interface ContentManagerContract {
   setStorage(workspace: string, mode: StorageMode): Promise<void>;
   /** Exchanges wiki and task edits on the dedicated branch with its remote. */
   syncContent(workspace: string): Promise<void>;
+  /** Every agent file and whether the checkout has it, generated as if `targets` were added (they refer to each other). */
+  agentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFile[]>;
+  /** Writes the agent files of `targets` into the checkout, leaving text outside GitDesk's blocks alone. */
+  addAgentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFileWrite[]>;
 }
 
 /** Staging, committing, history, branches and remotes of the checked-out repository. */
@@ -143,6 +150,8 @@ export const MANAGER_METHODS = {
     "saveSettings",
     "setStorage",
     "syncContent",
+    "agentFiles",
+    "addAgentFiles",
   ],
   versionControl: [
     "diff",
