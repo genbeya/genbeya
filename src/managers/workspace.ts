@@ -1,7 +1,7 @@
 /**
  * One open repository, shared by the managers: its host, access objects,
  * settings, the queue that runs its operations one at a time, and what has
- * to end with it (terminals).
+ * to end with it or with the client using it (terminals).
  */
 import type { Location, Scope, Settings, Task } from "../contracts/model";
 import { ContentStore } from "../access/content/content-store";
@@ -36,7 +36,7 @@ export class Workspace {
   private readonly queue = new SerialQueue();
   private loadedSettings: LoadedSettings | null = null;
   private closed = false;
-  private readonly closeListeners = new Set<() => void>();
+  private readonly releaseListeners = new Set<() => void>();
 
   constructor(
     readonly location: Location,
@@ -140,11 +140,20 @@ export class Workspace {
     return tasks;
   }
 
-  /** Calls `listener` once the repository closes (at once if it has); the returned function cancels that. */
-  onClose(listener: () => void): () => void {
+  /**
+   * Calls `listener` once the client using the repository lets go of it: the
+   * repository closes (at once if it has), or a reloaded client takes it
+   * over. The returned function cancels that.
+   */
+  onRelease(listener: () => void): () => void {
     if (this.closed) listener();
-    else this.closeListeners.add(listener);
-    return () => this.closeListeners.delete(listener);
+    else this.releaseListeners.add(listener);
+    return () => this.releaseListeners.delete(listener);
+  }
+
+  /** A new client takes the repository over; what the previous one started ends. */
+  handOver(): void {
+    this.release();
   }
 
   /**
@@ -165,8 +174,12 @@ export class Workspace {
 
   private markClosed() {
     this.closed = true;
-    for (const listener of this.closeListeners) listener();
-    this.closeListeners.clear();
+    this.release();
+  }
+
+  private release() {
+    for (const listener of this.releaseListeners) listener();
+    this.releaseListeners.clear();
   }
 }
 
@@ -193,10 +206,18 @@ export class WorkspaceRegistry {
     return workspace;
   }
 
-  /** Registers `workspace` under a new id, closing every other one. */
+  /**
+   * Registers `workspace` under a new id, closing every other one. An open
+   * workspace is handed over: its old id stops working, and so do the
+   * terminals the previous client left behind.
+   */
   activate(workspace: Workspace): string {
     for (const [id, other] of this.open) if (other !== workspace) void this.close(id);
-    for (const [id, other] of this.open) if (other === workspace) this.open.delete(id);
+    for (const [id, other] of this.open)
+      if (other === workspace) {
+        this.open.delete(id);
+        workspace.handOver();
+      }
     const id = crypto.randomUUID();
     this.open.set(id, workspace);
     return id;

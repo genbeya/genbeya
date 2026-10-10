@@ -61,6 +61,28 @@ describe("TaskPanel", () => {
     expect(element.querySelector("h1")!.textContent).toBe("Renamed");
   });
 
+  it("saves an edit where the task moved meanwhile, keeping its new epic", async () => {
+    const { button, managers, fixture, element } = await render({ task: first });
+    const moved = { ...first, path: "tasks/Auth/TP-1.md", epic: "Auth" };
+    managers.content.updateTask.mockResolvedValue({ ...moved, title: "Renamed", hash: "h2" });
+    button("Edit").click();
+    await settle(fixture);
+    const title = element.querySelector<HTMLTextAreaElement>("textarea[aria-label='Task title']")!;
+    title.value = "Renamed";
+    title.dispatchEvent(new Event("input"));
+    // Another window moves the task to an epic; its file keeps its content.
+    fixture.componentRef.setInput("task", moved);
+    await settle(fixture);
+    button("Save").click();
+    await settle(fixture);
+    expect(managers.content.updateTask).toHaveBeenCalledWith(
+      "w1",
+      "tasks/Auth/TP-1.md",
+      expect.objectContaining({ title: "Renamed", epic: "Auth" }),
+      "hash-TP-1",
+    );
+  });
+
   it("asks before discarding an edited task", async () => {
     const { button, fixture, element, dialogs } = await render({ task: first });
     button("Edit").click();

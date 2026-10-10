@@ -150,7 +150,8 @@
 
   @if (selected() || create()) {
     <div class="task-scrim" aria-hidden="true" (click)="closePanel()"></div>
-    @for (key of [selected()?.path ?? "new"]; track key) {
+    <!-- A task keeps its panel while it moves to another epic, which changes its path. -->
+    @for (key of [selected()?.id ?? "new"]; track key) {
       <gd-task-panel [task]="selected()" [createStatus]="create()" [createEpic]="epic()" />
     }
   }

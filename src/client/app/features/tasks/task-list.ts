@@ -1,5 +1,5 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
-import { ChangeDetectionStrategy, Component, computed, input, output } from "@angular/core";
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, inject, Injector, input, output } from "@angular/core";
 import { LucideFolder } from "@lucide/angular";
 import type { Task } from "../../../../contracts/model";
 import { Avatar } from "../../ui/avatar";
@@ -29,7 +29,7 @@ import { displayId, titleCase } from "./task-model";
               [checked]="!hidden().includes(group.status)"
               [attr.aria-label]="'Show ' + titleCase(group.status) + ' on the board'"
               [title]="hidden().includes(group.status) ? 'Hidden on the board' : 'Shown on the board'"
-              (change)="visibilityChanged.emit({ status: group.status, visible: $any($event.target).checked })"
+              (change)="toggle(group.status, $any($event.target))"
             />
           } @else {
             <span class="column-toggle"></span>
@@ -85,10 +85,21 @@ export class TaskList {
   readonly visibilityChanged = output<{ status: string; visible: boolean }>();
   protected readonly titleCase = titleCase;
   protected readonly displayId = displayId;
+  private readonly injector = inject(Injector);
   /** Configured states always, other states while tasks are in them. */
   protected readonly groups = computed(() =>
     this.columns()
       .map((status) => ({ status, tasks: this.tasks().filter((task) => task.status === status) }))
       .filter((group) => group.tasks.length || this.statuses().includes(group.status)),
   );
+
+  /**
+   * The view hides the column at once and shows it again when saving fails,
+   * perhaps before it rendered it hidden; the box then follows `hidden`
+   * anyway, rather than the click.
+   */
+  protected toggle(status: string, box: HTMLInputElement) {
+    this.visibilityChanged.emit({ status, visible: box.checked });
+    afterNextRender({ write: () => (box.checked = !this.hidden().includes(status)) }, { injector: this.injector });
+  }
 }

@@ -87,19 +87,31 @@ describe("Hotkeys", () => {
   it("matches the backquote key by position on layouts without it", () => {
     // Ctrl+` on a US layout is Ctrl+§ on a Swiss one, and a dead key on a German one.
     const toggle = vi.fn();
-    hotkeys.register("mod+`", toggle);
-    press("`", mod);
-    press("§", { ...mod, code: "Backquote" });
-    press("Dead", { ...mod, code: "Equal" });
+    hotkeys.register("ctrl+`", toggle);
+    press("`", { ctrlKey: true });
+    press("§", { ctrlKey: true, code: "Backquote" });
+    press("Dead", { ctrlKey: true, code: "Equal" });
     expect(toggle).toHaveBeenCalledTimes(2);
   });
 
   it("tells whether an event is a shortcut, for widgets that let some keys through", () => {
     const textarea = document.body.appendChild(document.createElement("textarea"));
-    expect(matchesHotkey("mod+`", new KeyboardEvent("keydown", { key: "`", ...mod }))).toBe(true);
-    expect(matchesHotkey("mod+`", new KeyboardEvent("keydown", { key: "`" }))).toBe(false);
+    expect(matchesHotkey("mod+k", new KeyboardEvent("keydown", { key: "k", ...mod }))).toBe(true);
+    expect(matchesHotkey("mod+k", new KeyboardEvent("keydown", { key: "k" }))).toBe(false);
     expect(isTyping(textarea)).toBe(true);
     textarea.remove();
+  });
+
+  it("reads mod as Cmd on macOS and Ctrl elsewhere, and ctrl as Ctrl everywhere", () => {
+    const key = (init: KeyboardEventInit) => new KeyboardEvent("keydown", { key: "`", ...init });
+    // Cmd+` cycles windows on macOS, so the terminal takes Ctrl+` there too.
+    expect(matchesHotkey("ctrl+`", key({ ctrlKey: true }), true)).toBe(true);
+    expect(matchesHotkey("ctrl+`", key({ metaKey: true }), true)).toBe(false);
+    expect(matchesHotkey("ctrl+`", key({ ctrlKey: true, metaKey: true }), true)).toBe(false);
+    expect(matchesHotkey("ctrl+`", key({ ctrlKey: true }), false)).toBe(true);
+    expect(matchesHotkey("mod+`", key({ metaKey: true }), true)).toBe(true);
+    expect(matchesHotkey("mod+`", key({ ctrlKey: true }), true)).toBe(false);
+    expect(matchesHotkey("mod+`", key({ ctrlKey: true }), false)).toBe(true);
   });
 
   it("stays out of the way of open dialogs and menus", () => {

@@ -70,7 +70,7 @@ interface Cell extends Placement {
                 class="icon-btn"
                 [attr.aria-label]="'New task in ' + epicName(epic)"
                 [title]="'New task in ' + epicName(epic)"
-                (click)="create.emit({ status: statuses()[0]!, epic })"
+                (click)="create.emit({ status: laneStatus(), epic })"
               >
                 <svg lucidePlus [size]="14" aria-hidden="true"></svg>
               </button>
@@ -139,6 +139,8 @@ export class TaskBoard {
   protected readonly over = signal<Cell | null>(null);
   /** Collapsed swimlanes. */
   protected readonly folded = signal<ReadonlySet<string>>(new Set());
+  /** Where a swimlane's new task starts: the first state the board shows, so the card appears. */
+  protected readonly laneStatus = computed(() => this.columns().find((status) => this.statuses().includes(status)) ?? this.statuses()[0]!);
 
   /** Cells by status and lane, so drop list data stays the same object between renders. */
   private readonly cells = computed(() => {

@@ -1,5 +1,6 @@
 /**
- * Keyboard shortcuts. "mod" is Ctrl, or Cmd on macOS. Single-key shortcuts
+ * Keyboard shortcuts. "mod" is Ctrl, or Cmd on macOS; "ctrl" is Ctrl
+ * everywhere, for keys macOS keeps for itself with Cmd. Single-key shortcuts
  * ("e", "c", "/") never fire while the user types; Escape always does. The
  * most recent registration wins, so an open panel's Escape beats the page's.
  * While a dialog or menu is open, it owns the keyboard.
@@ -10,6 +11,7 @@ import { DestroyRef, Injectable, inject, type Signal } from "@angular/core";
 interface Combo {
   readonly key: string;
   readonly mod: boolean;
+  readonly ctrl: boolean;
   readonly alt: boolean;
   readonly shift: boolean;
 }
@@ -22,10 +24,17 @@ interface Registration {
 
 export const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
 export const MOD_KEY = isMac ? "⌘" : "Ctrl";
+export const CTRL_KEY = isMac ? "⌃" : "Ctrl";
 
 function parse(text: string): Combo {
   const parts = text.toLowerCase().split("+");
-  return { key: parts.at(-1)!, mod: parts.includes("mod"), alt: parts.includes("alt"), shift: parts.includes("shift") };
+  return {
+    key: parts.at(-1)!,
+    mod: parts.includes("mod"),
+    ctrl: parts.includes("ctrl"),
+    alt: parts.includes("alt"),
+    shift: parts.includes("shift"),
+  };
 }
 
 /** True when keys typed at `target` belong to a field or an editor. */
@@ -35,17 +44,19 @@ export const isTyping = (target: EventTarget | null): boolean =>
 /** Keys also matched by their position on a US keyboard: "`" is "§" on Swiss layouts and a dead key on German ones. */
 const BY_POSITION: Readonly<Record<string, string>> = { Backquote: "`" };
 
-function matches(combo: Combo, event: KeyboardEvent): boolean {
-  if (combo.mod !== (isMac ? event.metaKey : event.ctrlKey) || combo.alt !== event.altKey) return false;
+function matches(combo: Combo, event: KeyboardEvent, mac: boolean): boolean {
+  // Off macOS the Windows or Super key is not looked at; the system keeps it.
+  if ((combo.ctrl || (combo.mod && !mac)) !== event.ctrlKey || (mac && combo.mod !== event.metaKey) || combo.alt !== event.altKey)
+    return false;
   if (combo.key !== event.key.toLowerCase() && combo.key !== BY_POSITION[event.code]) return false;
   // Letters, digits and named keys match Shift exactly. Symbols take whatever Shift the layout needs ("/" is Shift+7 in Switzerland).
   const exactShift = combo.key.length > 1 || /^[a-z0-9]$/.test(combo.key);
   if (exactShift && combo.shift !== event.shiftKey) return false;
-  return combo.mod || combo.alt || combo.key === "escape" || !isTyping(event.target);
+  return combo.mod || combo.ctrl || combo.alt || combo.key === "escape" || !isTyping(event.target);
 }
 
-/** True when `event` is the shortcut `combo`; for widgets that hand some keys to the app, such as the terminal. */
-export const matchesHotkey = (combo: string, event: KeyboardEvent): boolean => matches(parse(combo), event);
+/** True when `event` is the shortcut `combo` (on macOS when `mac`); for widgets that hand some keys to the app, such as the terminal. */
+export const matchesHotkey = (combo: string, event: KeyboardEvent, mac = isMac): boolean => matches(parse(combo), event, mac);
 
 @Injectable({ providedIn: "root" })
 export class Hotkeys {
@@ -73,7 +84,7 @@ export class Hotkeys {
     if ((event.target as HTMLElement | null)?.closest?.(".cdk-overlay-container")) return;
     for (let i = this.registrations.length - 1; i >= 0; i--) {
       const registration = this.registrations[i]!;
-      if (!registration.enabled() || !registration.combos.some((combo) => matches(combo, event))) continue;
+      if (!registration.enabled() || !registration.combos.some((combo) => matches(combo, event, isMac))) continue;
       event.preventDefault();
       registration.handler(event);
       return;

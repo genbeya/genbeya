@@ -80,18 +80,49 @@ describe("TerminalPanel", () => {
     await settle(fixture);
     expect([...element.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent?.trim())).toEqual(["Terminal 1", "Terminal 2"]);
     expect(element.querySelectorAll("gd-terminal-view:not([hidden])")).toHaveLength(1);
-    button("Close Terminal 1").click();
+    element.querySelector<HTMLElement>("#terminal-tab-1 .terminal-tab-close")!.click();
     await settle(fixture);
     expect(terminal.close).toHaveBeenCalledWith("t1");
     expect(terminals.tabs().map((tab) => tab.title)).toEqual(["Terminal 2"]);
+  });
+
+  it("is a tab list: one tab in the tab order, arrows move between tabs, Delete closes one", async () => {
+    const { terminals, element, button, fixture } = await setup();
+    button("New terminal").click();
+    button("New terminal").click();
+    await settle(fixture);
+    const tabs = () => [...element.querySelectorAll<HTMLElement>('[role="tablist"] > [role="tab"]')];
+    const press = async (key: string) => {
+      document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+      await settle(fixture);
+    };
+    expect(tabs().map((tab) => tab.tabIndex)).toEqual([-1, -1, 0]);
+    const panel = element.querySelector(`#${tabs()[0]!.getAttribute("aria-controls")}`)!;
+    expect(panel.getAttribute("role")).toBe("tabpanel");
+    expect(panel.getAttribute("aria-labelledby")).toBe(tabs()[0]!.id);
+
+    tabs()[2]!.focus();
+    await press("ArrowRight");
+    expect(document.activeElement).toBe(tabs()[0]);
+    await press("End");
+    expect(document.activeElement).toBe(tabs()[2]);
+    await press("ArrowLeft");
+    await press("Home");
+    expect(document.activeElement).toBe(tabs()[0]);
+    // Moving the focus does not switch terminals; Enter or a click does.
+    expect(terminals.active()).toBe(3);
+
+    await press("ArrowRight");
+    await press("Delete");
+    expect(terminals.tabs().map((tab) => tab.title)).toEqual(["Terminal 1", "Terminal 3"]);
+    expect(document.activeElement).toBe(tabs()[1]);
   });
 
   it("hands its own shortcut, and copying and pasting, to the app", async () => {
     await setup();
     const xterm = FakeXterm.created[0]!;
     const key = (key: string, init: KeyboardEventInit = {}) => xterm.keys(new KeyboardEvent("keydown", { key, ...init }));
-    const mod = isMac ? { metaKey: true } : { ctrlKey: true };
-    expect(key("`", mod)).toBe(false);
+    expect(key("`", { ctrlKey: true })).toBe(false);
     expect(key("a")).toBe(true);
     if (isMac) return;
     expect(key("c", { ctrlKey: true })).toBe(true);

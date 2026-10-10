@@ -15,7 +15,10 @@ const element = (tag: string, attributes: Record<string, string> = {}) => {
 
 describe("ContextMenuGuard", () => {
   beforeEach(() => TestBed.inject(ContextMenuGuard));
-  afterEach(() => document.body.replaceChildren());
+  afterEach(() => {
+    getSelection()!.removeAllRanges();
+    document.body.replaceChildren();
+  });
 
   it("keeps the webview's own menu off the app", () => {
     expect(rightClick(element("p"))).toBe(true);
@@ -28,5 +31,33 @@ describe("ContextMenuGuard", () => {
     ["editable content", () => element("div", { contenteditable: "true" }).appendChild(document.createElement("span"))],
   ])("keeps copy and paste in %s", (_, field) => {
     expect(rightClick(field())).toBe(false);
+  });
+
+  it("keeps copy for selected text, such as a rendered page or a commit message", () => {
+    const page = element("article");
+    const selected = page.appendChild(document.createElement("p"));
+    selected.textContent = "Selected words";
+    const other = page.appendChild(document.createElement("p"));
+    other.textContent = "Other words";
+    getSelection()!.selectAllChildren(selected);
+    expect(rightClick(selected)).toBe(false);
+    expect(rightClick(other)).toBe(true);
+    getSelection()!.collapseToStart();
+    expect(rightClick(selected)).toBe(true);
+  });
+
+  it("leaves items with their own menu to that menu, even within a selection", () => {
+    // Like CDK's context menu trigger, which opens its menu instead.
+    const item = element("div");
+    item.textContent = "A task";
+    item.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    getSelection()!.selectAllChildren(item);
+    const event = new MouseEvent("contextmenu", { button: 2, cancelable: true, bubbles: true });
+    const preventDefault = vi.spyOn(event, "preventDefault");
+    item.dispatchEvent(event);
+    expect(preventDefault).toHaveBeenCalledOnce();
   });
 });
