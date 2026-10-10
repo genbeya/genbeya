@@ -8,7 +8,9 @@ A desktop workspace for a Git repository: wiki, task board, code editor and vers
 - **Local, WSL and SSH** repositories. Git runs where the repository is.
 - **Dedicated content branch** (optional): keep wiki and tasks on a shared `gitdesk` branch so they look the same on every code branch.
 - **Terminal** (`` Ctrl+` ``) in the repository, on the machine it lives on.
+- **AI agents**: a skill and an `AGENTS.md` section teach Claude Code, Codex, Copilot, Cursor and others to track their work as tasks and keep project knowledge in the wiki ([AI agents](docs/Guide/AI-agents.md)).
 - Command palette (`Ctrl+K`), back/forward (`Alt+←/→`, mouse buttons), recent repositories, dark and light themes.
+- **Getting started** inside the app: a sample project, a guided tour, and what's new after each update.
 
 ## Run
 

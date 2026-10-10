@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from "@angular/core";
-import { CTRL_KEY, isMac, MOD_KEY } from "../../core/hotkeys";
+import { CTRL_KEY, isMac, MOD_KEY, SHIFT_KEY } from "../../core/hotkeys";
 import { DialogFrame } from "../../ui/dialog-frame";
 
 const GROUPS: readonly (readonly [string, readonly (readonly [readonly string[], string])[]])[] = [
@@ -7,6 +7,7 @@ const GROUPS: readonly (readonly [string, readonly (readonly [readonly string[],
     "Everywhere",
     [
       [[`${MOD_KEY} K`], "Search and commands"],
+      [[`${MOD_KEY} ${SHIFT_KEY} F`], "Search inside files (or type / in the palette)"],
       [[`${MOD_KEY} 1–5`], "Wiki, Tasks, Code, Changes, History"],
       [["Alt ←", "Alt →"], "Back / forward (also mouse buttons)"],
       [[`${MOD_KEY} O`], "Open a folder"],

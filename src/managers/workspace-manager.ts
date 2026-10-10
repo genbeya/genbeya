@@ -1,21 +1,38 @@
 /** Opening, closing and observing repositories; the recent list, preferences, and folders on remote machines. */
 import type { WorkspaceManagerContract } from "../contracts/manager-contracts";
 import type { FolderListing, OpenedWorkspace, Preferences, Snapshot, Storage, Theme } from "../contracts/model";
+import { Git } from "../access/git/git";
 import { RepositoryAccess } from "../access/git/repository-access";
+import type { Host } from "../access/hosts/host";
 import { validateFolderLocation, validateLocation, type HostFactory } from "../access/hosts/host-factory";
 import type { RemoteFolders } from "../access/hosts/remote-folders";
 import type { PreferencesStore } from "../access/preferences/preferences-store";
+import type { SampleEngine } from "../engines/sample-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
-import { sha256 } from "../utilities/bytes";
+import { encodeText, sha256 } from "../utilities/bytes";
 import { buildFileTree } from "../utilities/file-tree";
 import { requestedLink, requestedLocation } from "../utilities/launch-request";
 import { namesRemoteHelper } from "../utilities/remote-url";
+import { parseVersion } from "../utilities/version";
 import { Workspace, type Engines, type WorkspaceRegistry } from "./workspace";
 
 const THEMES: readonly Theme[] = ["system", "light", "dark"];
 const CLONE_TIMEOUT = 15 * 60_000;
+const TOUR_OFFERS = 100;
+
+const isRepositoryKey = (key: unknown): key is string =>
+  typeof key === "string" && key.length > 0 && key.length < 5000 && !/[\0\r\n]/.test(key);
 
 const remoteUrls = (snapshot: Snapshot) => snapshot.remotes.map((remote) => remote.url);
+
+/** `name`, or `name-2`, `name-3`, …: the first that does not exist in `folder` yet. */
+async function freeFolder(host: Host, folder: string, name: string): Promise<string> {
+  for (let i = 1; i <= 100; i++) {
+    const candidate = i === 1 ? name : `${name}-${i}`;
+    if (!(await host.kind(folder, candidate))) return candidate;
+  }
+  throw new Error(`${folder} already has a hundred ${name} folders.`);
+}
 
 export class WorkspaceManager implements WorkspaceManagerContract {
   constructor(
@@ -23,7 +40,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     private readonly hosts: HostFactory,
     private readonly folders: RemoteFolders,
     private readonly preferencesStore: PreferencesStore,
-    private readonly engines: Engines & { readonly wiki: WikiEngine },
+    private readonly engines: Engines & { readonly wiki: WikiEngine; readonly sample: SampleEngine },
   ) {}
 
   async open(location: unknown): Promise<OpenedWorkspace> {
@@ -87,6 +104,39 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     }
   }
 
+  async createSample(parent: unknown): Promise<OpenedWorkspace> {
+    const where = validateLocation(parent);
+    const host = this.hosts.connect(where);
+    let path: string;
+    try {
+      const name = await freeFolder(host, where.path, this.engines.sample.folderName);
+      const init = await host.run("git", ["init", "--quiet", "--initial-branch=main", "--", name], { cwd: where.path });
+      if (init.code !== 0) throw new Error(init.stderr.replace(/^fatal: /gm, "").trim() || "Could not create the sample repository.");
+      path = host.paths.join(where.path, name);
+      const git = new Git(host, path);
+      for (const step of this.engines.sample.steps()) {
+        for (const file of step.files) await host.write(path, file.path, encodeText(file.content), false);
+        if (!step.message) continue;
+        await git.text(["add", "--all"]);
+        // GitDesk wrote these commits, not the user, whose identity may not even be set up yet.
+        await git.text([
+          "-c",
+          "user.name=GitDesk",
+          "-c",
+          "user.email=sample@gitdesk.invalid",
+          "commit",
+          "--quiet",
+          "--no-gpg-sign",
+          "-m",
+          step.message,
+        ]);
+      }
+    } finally {
+      host.dispose();
+    }
+    return this.open({ ...where, path });
+  }
+
   /** Resolves right away; operations already running finish before the repository disconnects. */
   async close(id: unknown): Promise<void> {
     if (typeof id === "string") void this.registry.close(id);
@@ -119,11 +169,21 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       if (!THEMES.includes(value.theme as Theme)) throw new Error("Choose the system, light or dark theme.");
       next.theme = value.theme as Theme;
     }
-    for (const key of ["reopenLast", "autoSyncContent", "minimap"] as const)
+    for (const key of ["reopenLast", "autoSyncContent", "minimap", "tourSeen"] as const)
       if (value[key] !== undefined) {
         if (typeof value[key] !== "boolean") throw new Error(`Invalid ${key} preference.`);
         next[key] = value[key];
       }
+    if (value.lastSeenVersion !== undefined) {
+      if (!parseVersion(value.lastSeenVersion)) throw new Error("Invalid lastSeenVersion preference.");
+      next.lastSeenVersion = (value.lastSeenVersion as string).trim();
+    }
+    if (value.tourOffered !== undefined) {
+      const keys = value.tourOffered;
+      if (!Array.isArray(keys) || !keys.every(isRepositoryKey)) throw new Error("Invalid tourOffered preference.");
+      // The repositories opened last are enough to offer the tour once in each.
+      next.tourOffered = keys.slice(-TOUR_OFFERS);
+    }
     this.preferencesStore.setPreferences(next);
     return next;
   }

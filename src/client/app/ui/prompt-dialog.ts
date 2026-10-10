@@ -13,6 +13,14 @@ export interface PromptOptions {
   readonly validate?: (value: string) => string | null;
 }
 
+/** Focuses a path field and selects the name, not the folder or extension, like file managers do. */
+export function selectName(input: HTMLInputElement): void {
+  const slash = input.value.lastIndexOf("/");
+  const dot = input.value.lastIndexOf(".");
+  input.focus();
+  input.setSelectionRange(slash + 1, dot > slash ? dot : input.value.length);
+}
+
 /** Asks for one line of text; closes with the trimmed text, or nothing when cancelled. */
 @Component({
   selector: "gd-prompt-dialog",
@@ -54,14 +62,7 @@ export class PromptDialog {
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>("field");
 
   constructor() {
-    // Select the name, not the folder or extension, like file managers do.
-    afterNextRender(() => {
-      const input = this.field().nativeElement;
-      const slash = input.value.lastIndexOf("/");
-      const dot = input.value.lastIndexOf(".");
-      input.focus();
-      input.setSelectionRange(slash + 1, dot > slash ? dot : input.value.length);
-    });
+    afterNextRender(() => selectName(this.field().nativeElement));
   }
 
   protected edit(value: string) {

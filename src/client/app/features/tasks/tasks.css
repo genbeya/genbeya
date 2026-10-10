@@ -471,6 +471,117 @@
   color: var(--text-2);
 }
 
+/* While viewing, the comments and activity follow the description. */
+.task-description.is-viewing {
+  flex: none;
+}
+
+.task-discussion {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 0 auto;
+  padding: 18px 0 28px;
+  border-top: 1px solid var(--line);
+}
+
+.task-discussion .segmented {
+  align-self: flex-start;
+}
+
+.task-comments,
+.task-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.task-comments.is-hidden {
+  display: none;
+}
+
+.task-comment,
+.task-activity-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-comment-header,
+.task-activity-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  font-size: 12.5px;
+}
+
+.task-comment-author,
+.task-activity-author {
+  font-weight: 600;
+}
+
+.task-comment-body,
+.task-activity-changes,
+.task-activity-commit {
+  margin-left: 28px;
+}
+
+.task-comment-body {
+  font-size: 14px;
+}
+
+.task-comment-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.task-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-activity-changes {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.task-activity-pending {
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: var(--yellow-soft);
+  color: var(--yellow);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.task-activity-commit {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: left;
+}
+
+.task-activity-commit:hover {
+  color: var(--text-2);
+}
+
+.task-activity-note {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
 .task-missing {
   position: absolute;
   bottom: 16px;

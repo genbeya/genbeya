@@ -4,7 +4,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { temporaryFolder } from "../../testing/temp";
 import { FileSystemError, type FileSystem, type Machine } from "../ports";
-import { DEFAULT_PREFERENCES, PreferencesStore } from "./preferences-store";
+import { DEFAULT_PREFERENCES, PreferencesStore, UNKNOWN_VERSION } from "./preferences-store";
 
 const machine = nodeMachine();
 const a = { kind: "local", path: "/a" } as const;
@@ -47,7 +47,7 @@ describe("PreferencesStore", () => {
     const folder = await temporaryFolder("prefs-");
     await fs.writeFile(path.join(folder, "state.json"), JSON.stringify({ recent: [], preferences: { theme: "light", reopenLast: false } }));
     const store = await PreferencesStore.load(machine, folder);
-    expect(store.preferences).toEqual({ ...DEFAULT_PREFERENCES, theme: "light", reopenLast: false });
+    expect(store.preferences).toMatchObject({ theme: "light", reopenLast: false, autoSyncContent: false });
     expect(store.preferences.minimap).toBe(true);
   });
 
@@ -152,7 +152,27 @@ describe("PreferencesStore", () => {
     const folder = await temporaryFolder("prefs-");
     await fs.writeFile(path.join(folder, "state.json"), "{ broken");
     expect((await PreferencesStore.load(machine, folder)).recent).toEqual([]);
-    await fs.writeFile(path.join(folder, "state.json"), JSON.stringify({ preferences: { theme: "light" } }));
+    await fs.writeFile(path.join(folder, "state.json"), JSON.stringify({ preferences: { theme: "light", lastSeenVersion: null } }));
     expect((await PreferencesStore.load(machine, folder)).preferences).toEqual({ ...DEFAULT_PREFERENCES, theme: "light" });
+  });
+
+  it("keeps what the user has seen of the onboarding", async () => {
+    const folder = await temporaryFolder("prefs-");
+    const store = await PreferencesStore.load(machine, folder);
+    expect(store.preferences).toMatchObject({ lastSeenVersion: null, tourSeen: false, tourOffered: [] });
+    const seen = { ...DEFAULT_PREFERENCES, lastSeenVersion: "0.3.2", tourSeen: true, tourOffered: ["local:/a"] };
+    store.setPreferences(seen);
+    await store.flush();
+    expect((await PreferencesStore.load(machine, folder)).preferences).toEqual(seen);
+  });
+
+  it("treats state saved before versions were remembered as an update from an unknown version", async () => {
+    const folder = await temporaryFolder("prefs-");
+    await fs.writeFile(path.join(folder, "state.json"), JSON.stringify({ recent: [], preferences: { theme: "dark", reopenLast: true } }));
+    expect((await PreferencesStore.load(machine, folder)).preferences).toMatchObject({
+      theme: "dark",
+      lastSeenVersion: UNKNOWN_VERSION,
+      tourSeen: false,
+    });
   });
 });

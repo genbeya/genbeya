@@ -56,6 +56,25 @@ export interface WikiNode {
   readonly children: readonly WikiNode[];
 }
 
+/** A link that moving a page rewrites: its line, and its target before and after. */
+export interface LinkChange {
+  readonly line: number;
+  readonly before: string;
+  readonly after: string;
+}
+
+/** The links of one Markdown file that moving a page rewrites; `path` is where the file is before the move. */
+export interface LinkUpdate {
+  readonly path: string;
+  readonly changes: readonly LinkChange[];
+}
+
+/** Options of moving a page. */
+export interface PageMove {
+  /** Rewrites the links to the moved pages, and the relative links inside them, in the same commit. */
+  readonly updateLinks?: boolean;
+}
+
 export interface Task {
   readonly id: string;
   readonly path: string;
@@ -64,14 +83,49 @@ export interface Task {
   readonly priority: string;
   readonly assignee: string;
   readonly labels: readonly string[];
+  /** The description: the Markdown above the comments. */
   readonly body: string;
   /** The folder below the task folder that holds the task ("Auth/Tokens"); "" for none. */
   readonly epic: string;
   /** Version of the file the task was read from; updates must name it. */
   readonly hash: string;
+  /** Oldest first, as they appear at the end of the file. */
+  readonly comments: readonly TaskComment[];
 }
 
 export type TaskInput = Pick<Task, "title" | "status" | "priority" | "assignee" | "labels" | "body" | "epic">;
+
+export interface TaskComment {
+  readonly author: string;
+  /** ISO 8601, to the minute, with the writer's UTC offset when the file has it. */
+  readonly date: string;
+  /** Markdown. */
+  readonly body: string;
+}
+
+/** A property whose change the activity of a task names with its old and new value. */
+export type TaskField = "title" | "status" | "priority" | "assignee" | "epic";
+
+/** One thing a commit changed about a task, derived from its file before and after. */
+export type TaskChange =
+  | { readonly kind: "created" }
+  | { readonly kind: "field"; readonly field: TaskField; readonly from: string; readonly to: string }
+  | { readonly kind: "labels"; readonly added: readonly string[]; readonly removed: readonly string[] }
+  | { readonly kind: "description" }
+  | { readonly kind: "comments"; readonly added: number; readonly edited: number; readonly removed: number }
+  /** Frontmatter fields GitDesk has no words for. */
+  | { readonly kind: "other"; readonly fields: readonly string[] };
+
+/** A commit that changed a task, or its edits not committed yet. */
+export interface TaskActivity {
+  /** Null for edits not committed yet. */
+  readonly commit: string | null;
+  readonly author: string;
+  /** ISO 8601; null for edits not committed yet. */
+  readonly date: string | null;
+  readonly subject: string;
+  readonly changes: readonly TaskChange[];
+}
 
 export interface Change {
   readonly path: string;
@@ -171,6 +225,31 @@ export interface CommitDetail {
 
 export type SyncAction = "fetch" | "pull" | "push";
 
+/**
+ * Files that teach coding agents to use GitDesk's tasks and wiki: the skill
+ * where Claude Code and where other agents look for it, and the instruction
+ * files AGENTS.md, CLAUDE.md and Copilot's.
+ */
+export const AGENT_TARGETS = ["claudeSkill", "agentsSkill", "agents", "claude", "copilot"] as const;
+export type AgentTarget = (typeof AGENT_TARGETS)[number];
+
+export interface AgentFile {
+  readonly target: AgentTarget;
+  /** In the checkout. */
+  readonly path: string;
+  /** What GitDesk writes: the whole file, or its marked block in a file it shares with other text. */
+  readonly text: string;
+  /** `missing` also when the file exists without GitDesk's block. */
+  readonly state: "missing" | "current" | "outdated";
+  /** Excluded by `.gitignore`, so it would not be committed. */
+  readonly ignored: boolean;
+}
+
+export interface AgentFileWrite {
+  readonly path: string;
+  readonly result: "created" | "updated" | "unchanged";
+}
+
 export interface RecentEntry {
   readonly location: Location;
   readonly name: string;
@@ -187,10 +266,67 @@ export interface Preferences {
   readonly autoSyncContent: boolean;
   /** A minimap beside code in the editor. */
   readonly minimap: boolean;
+  /** The app version whose news the user has seen ("0.3.2"); null until the first start. */
+  readonly lastSeenVersion: string | null;
+  /** The user finished or ended the guided tour. */
+  readonly tourSeen: boolean;
+  /** The repositories that offered the tour, so each offers it once; see {@link repositoryKey}. */
+  readonly tourOffered: readonly string[];
 }
 
 /** What a terminal printed since the last read (possibly nothing yet), or its exit code once it ended and everything was read. */
 export type TerminalOutput = { readonly data: string } | { readonly exit: number };
+
+/** How full-text search reads the query; every flag is off unless given. */
+export interface SearchOptions {
+  readonly caseSensitive?: boolean;
+  /** The query is an extended regular expression (POSIX ERE) instead of literal text. */
+  readonly regex?: boolean;
+  /** Matches only whole words: no letter, digit or underscore right before or after. */
+  readonly wholeWord?: boolean;
+}
+
+/** Characters `start` up to `end` of a line's text. */
+export interface SearchRange {
+  readonly start: number;
+  readonly end: number;
+}
+
+export interface SearchMatch {
+  /** 1-based. */
+  readonly line: number;
+  /** The line, shortened around the match with "…" when it is long. */
+  readonly text: string;
+  /** Where the query matches in `text`; empty when only git could tell. */
+  readonly ranges: readonly SearchRange[];
+  /** The lines around it, shortened likewise; null at the start or end of the file. */
+  readonly before: string | null;
+  readonly after: string | null;
+}
+
+export interface SearchHit {
+  readonly path: string;
+  readonly scope: Scope;
+  /** The page or task title; the file name for code. */
+  readonly title: string;
+  readonly matches: readonly SearchMatch[];
+}
+
+export interface TaskSearchHit extends SearchHit {
+  readonly id: string;
+  readonly status: string;
+}
+
+/** Files whose text matches, by area. */
+export interface SearchResults {
+  readonly wiki: readonly SearchHit[];
+  readonly tasks: readonly TaskSearchHit[];
+  readonly code: readonly SearchHit[];
+  /** More files or matches matched than are listed. */
+  readonly truncated: boolean;
+}
+
+export type SearchArea = Exclude<keyof SearchResults, "truncated">;
 
 /** An open repository: `id` names it in every later call, so calls racing a switch fail cleanly. */
 export interface OpenedWorkspace {
@@ -210,3 +346,6 @@ export const describeLocation = (location: Location): string =>
     : location.kind === "wsl"
       ? `${location.distro}:${location.path}`
       : `${location.host}:${location.path}`;
+
+/** Names a repository in preferences: "local:C:\code\app", "wsl:Ubuntu:/home/me/app". */
+export const repositoryKey = (location: Location): string => `${location.kind}:${describeLocation(location)}`;

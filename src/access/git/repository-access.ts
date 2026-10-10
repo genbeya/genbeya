@@ -153,6 +153,13 @@ export class RepositoryAccess {
     return { commit, body: body.trim(), files: parseNameStatus(files) };
   }
 
+  /** Which of `paths` (plain names, which git prints unquoted) .gitignore excludes; files Git already tracks never are. */
+  async ignored(paths: readonly string[]): Promise<Set<string>> {
+    // Exit code 1 means none is.
+    const output = await this.git.attempt(["check-ignore", "--", ...paths]);
+    return new Set(output?.split("\n").filter(Boolean));
+  }
+
   async isValidBranchName(name: string): Promise<boolean> {
     return (await this.git.attempt(["check-ref-format", "--branch", name])) !== null;
   }

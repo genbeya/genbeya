@@ -13,7 +13,8 @@ import { WikiPage } from "./wiki-page";
 
 /**
  * The wiki: page tree and the open page or folder. Query parameters name
- * them (`?page=`, `?folder=`, `?anchor=`); without either, the home page opens.
+ * them (`?page=`, `?folder=`; `?anchor=` or `?line=` within the page);
+ * without either, the home page opens.
  * The feature's styles are global but namespaced, so its sub-components share them.
  */
 @Component({
@@ -25,14 +26,14 @@ import { WikiPage } from "./wiki-page";
   host: { class: "view" },
   template: `
     <div class="view-body">
-      <aside class="side-panel" gdResizable="wiki-tree" [initial]="256" #panel="gdResizable">
+      <aside class="side-panel" gdResizable="wiki-tree" [initial]="256" #panel="gdResizable" data-tour="wiki-tree">
         <gd-page-tree [selected]="page() ?? (folder() ? 'folder:' + folder() : null)" />
       </aside>
       <div [gdResizeHandle]="panel"></div>
       <section class="main-pane">
         @if (page(); as path) {
           @for (key of [path]; track key) {
-            <gd-wiki-page [path]="path" [anchor]="anchor()" />
+            <gd-wiki-page [path]="path" [anchor]="anchor()" [line]="line()" />
           }
         } @else if (folder(); as path) {
           <gd-folder-page [path]="path" />
@@ -53,6 +54,8 @@ export class WikiView {
   readonly page = input<string>();
   readonly folder = input<string>();
   readonly anchor = input<string>();
+  /** A line of the page file, as search results name it. */
+  readonly line = input<string>();
 
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);

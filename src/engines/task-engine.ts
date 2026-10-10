@@ -1,17 +1,37 @@
 /**
  * The task file format: one Markdown file per task with YAML frontmatter
- * (`id`, `title`, `status`, optional `priority`, `assignee`, `labels`).
+ * (`id`, `title`, `status`, optional `priority`, `assignee`, `labels`), the
+ * description, then the comments (see task-comments.ts).
  * Updates rewrite known fields in place, so comments and fields other tools
  * added survive, and keep the file's byte order mark and line endings.
  */
 import YAML from "yaml";
-import type { Task, TaskInput } from "../contracts/model";
+import type { Task, TaskChange, TaskInput } from "../contracts/model";
 import { validateRepositoryPath, within } from "../utilities/repository-path";
 import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
+import { diffTasks, type TaskState } from "./task-activity";
+import { commentBlock, commentHeading, joinComments, protectHeadings, splitComments, timestampOf, type SplitBody } from "./task-comments";
 
 const FRONTMATTER = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
 const DEFAULT_PRIORITY = "none";
-const LIMITS = { title: 300, priority: 40, assignee: 120, label: 60, labels: 30, body: 1024 * 1024, epic: 120 } as const;
+const LIMITS = {
+  title: 300,
+  priority: 40,
+  assignee: 120,
+  label: 60,
+  labels: 30,
+  body: 1024 * 1024,
+  epic: 120,
+  comment: 64 * 1024,
+} as const;
+/** Frontmatter fields the activity names; others are reported by name. */
+const KNOWN_FIELDS = new Set(["id", "title", "status", "priority", "assignee", "labels"]);
+
+/** A version of a task file at `path`; null content when Git did not show it (a move without edits). */
+export interface TaskVersion {
+  readonly path: string;
+  readonly content: string | null;
+}
 
 interface Frontmatter {
   readonly document: YAML.Document;
@@ -58,6 +78,7 @@ export class TaskEngine {
     const { data, body } = splitFrontmatter(content);
     if (data["id"] == null || data["title"] == null || data["status"] == null)
       throw new Error("A task needs id, title and status in its frontmatter.");
+    const { description, blocks } = splitComments(body.replace(/^\r?\n/, ""));
     return {
       id: String(data["id"]),
       path,
@@ -66,9 +87,10 @@ export class TaskEngine {
       priority: String(data["priority"] ?? DEFAULT_PRIORITY),
       assignee: String(data["assignee"] ?? ""),
       labels: toList(data["labels"]),
-      body: body.replace(/^\r?\n/, ""),
+      body: description,
       epic: this.epicOf(path, taskRoot),
       hash,
+      comments: blocks.map((block) => block.comment),
     };
   }
 
@@ -122,7 +144,7 @@ export class TaskEngine {
       priority: text(input.priority, "priority", LIMITS.priority).trim() || DEFAULT_PRIORITY,
       assignee: text(input.assignee, "assignee", LIMITS.assignee).trim(),
       labels: [...new Set(input.labels.map((label) => text(label, "label", LIMITS.label).trim()).filter(Boolean))],
-      body: text(input.body, "description", LIMITS.body),
+      body: protectHeadings(text(input.body, "description", LIMITS.body)),
       epic: this.validEpic(input.epic),
     };
   }
@@ -147,13 +169,100 @@ export class TaskEngine {
     return applyTextStyle(compose(new YAML.Document({ id, ...fieldsOf(input) }).toString(), input.body), LF_STYLE);
   }
 
+  /** `original` with the fields and description of `input`; its comments stay as they are. */
   serializeUpdate(original: string, input: TaskInput): string {
-    const { document } = splitFrontmatter(original);
+    const { document, body } = splitFrontmatter(original);
     for (const [key, value] of Object.entries(fieldsOf(input))) {
       if (value === undefined) document.delete(key);
       else document.set(key, value);
     }
-    return applyTextStyle(compose(document.toString(), input.body), textStyleOf(original));
+    const comments = splitComments(body.replace(/^\r?\n/, "")).blocks.map((block) => block.text);
+    return applyTextStyle(compose(document.toString(), joinComments(input.body, comments)), textStyleOf(original));
+  }
+
+  /** A comment's text, checked and normalised. */
+  validComment(value: unknown): string {
+    if (typeof value !== "string" || value.length > LIMITS.comment) throw new Error("Invalid comment.");
+    const text = value.replace(/\r\n?/g, "\n").trim();
+    if (!text) throw new Error("Write a comment first.");
+    return protectHeadings(text);
+  }
+
+  /** A person's name as comments are signed with it: one line, bounded. */
+  commentAuthor(name: string): string {
+    return name.replace(/\s+/g, " ").trim().slice(0, LIMITS.assignee);
+  }
+
+  /** `original` with a comment by `author`, written at `date`, after the others. */
+  addComment(original: string, author: string, date: Date, text: string): string {
+    const heading = commentHeading(this.commentAuthor(author), timestampOf(date));
+    return this.withComments(original, ({ blocks }) => [...blocks.map((block) => block.text), commentBlock(heading, text)]);
+  }
+
+  /** `original` with the text of comment `index` replaced; its author and date stay. */
+  editComment(original: string, index: number, text: string): string {
+    return this.withComments(
+      original,
+      ({ blocks }) => blocks.map((block, i) => (i === index ? commentBlock(block.heading, text) : block.text)),
+      index,
+    );
+  }
+
+  removeComment(original: string, index: number): string {
+    return this.withComments(original, ({ blocks }) => blocks.filter((_, i) => i !== index).map((block) => block.text), index);
+  }
+
+  /**
+   * `original` with the comment texts `change` makes of its comments; the
+   * frontmatter and description stay as written. `index` must name a comment.
+   */
+  private withComments(original: string, change: (body: SplitBody) => string[], index?: number): string {
+    const raw = withoutByteOrderMark(original);
+    const frontmatter = FRONTMATTER.exec(raw);
+    if (!frontmatter) throw new Error("A task needs id, title and status in its frontmatter.");
+    const body = splitComments(raw.slice(frontmatter[0].length).replace(/^\r?\n/, ""));
+    if (index !== undefined && !body.blocks[index])
+      throw new Error("This comment no longer exists. Reopen the task to see the latest version.");
+    const text = joinComments(body.description, change(body));
+    return applyTextStyle(`${frontmatter[0].trimEnd()}\n${text && `\n${text}`}`, textStyleOf(original));
+  }
+
+  /** What changed about a task from `before` (null: it did not exist) to `after`. */
+  changesBetween(before: TaskVersion | null, after: TaskVersion, taskRoot: string): TaskChange[] {
+    if (before?.content == null || after.content === null) {
+      if (!before) return [{ kind: "created" }];
+      const [from, to] = [this.epicOf(before.path, taskRoot), this.epicOf(after.path, taskRoot)];
+      return from === to ? [] : [{ kind: "field", field: "epic", from, to }];
+    }
+    return diffTasks(this.stateOf(before.path, before.content, taskRoot), this.stateOf(after.path, after.content, taskRoot));
+  }
+
+  /** A version of a task as its activity sees it; broken frontmatter reads as empty. */
+  private stateOf(path: string, content: string, taskRoot: string): TaskState {
+    let data: Record<string, unknown> = {};
+    let body = content;
+    try {
+      ({ data, body } = splitFrontmatter(content));
+    } catch {
+      // Old versions may be broken; their body still counts.
+    }
+    const { description, blocks } = splitComments(body.replace(/^\r?\n/, ""));
+    const text = (key: string, fallback = "") => String(data[key] ?? fallback);
+    return {
+      title: text("title"),
+      status: text("status"),
+      priority: text("priority", DEFAULT_PRIORITY),
+      assignee: text("assignee"),
+      epic: this.epicOf(path, taskRoot),
+      labels: toList(data["labels"]),
+      description,
+      comments: blocks.map((block) => block.comment),
+      other: Object.fromEntries(
+        Object.entries(data)
+          .filter(([key]) => !KNOWN_FIELDS.has(key))
+          .map(([key, value]) => [key, JSON.stringify(value)]),
+      ),
+    };
   }
 
   /**

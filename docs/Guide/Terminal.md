@@ -1,6 +1,6 @@
 # Terminal
 
-Press `` Ctrl+` `` (also on macOS, where `` ⌘+` `` switches windows), or choose **Toggle terminal** in the command palette, to open a terminal at the bottom of the window. It starts in the repository's root folder, on the machine the repository lives on, and stays open while you switch views. On layouts without a `` ` `` key, use the key left of `1` (`Ctrl+§` on a Swiss keyboard).
+Press `` Ctrl+` `` (also on macOS, where `` ⌘+` `` switches windows), click **Terminal** in the sidebar, or choose **Toggle terminal** in the command palette, to open a terminal at the bottom of the window. It starts in the repository's root folder, on the machine the repository lives on, and stays open while you switch views. On layouts without a `` ` `` key, use the key left of `1` (`Ctrl+§` on a Swiss keyboard).
 
 | Repository | Shell |
 | --- | --- |
@@ -16,4 +16,4 @@ Press `` Ctrl+` `` (also on macOS, where `` ⌘+` `` switches windows), or choos
 - Closing the repository ends its terminals.
 
 > [!NOTE]
-> The Deno Desktop build has no terminal: Deno cannot run the native pseudo-terminal module GitDesk uses. Electron and Tauri builds have one.
+> The Deno Desktop build has no terminal (and no **Terminal** button): Deno cannot run the native pseudo-terminal module GitDesk uses. Electron and Tauri builds have one.
