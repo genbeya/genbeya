@@ -28,6 +28,16 @@ const STASH_MESSAGE_LIMIT = 500;
 const HISTORY_PAGE_LIMIT = 1000;
 const REMOTE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
+/**
+ * `name`, unless it or one of its parts starts with "-": Git could read it
+ * as an option, and switching to a remote branch `origin/-x` names the new
+ * local branch `-x`. Git allows such refs, and a clone may bring them.
+ */
+function plainRef(name: string): string {
+  if (/(^|\/)-/.test(name)) throw new Error(`"${name}" looks like an option to Git. Rename or delete it in a terminal.`);
+  return name;
+}
+
 export class VersionControlManager implements VersionControlManagerContract {
   constructor(
     private readonly registry: WorkspaceRegistry,
@@ -326,12 +336,12 @@ export class VersionControlManager implements VersionControlManagerContract {
   private async branchName(workspace: Workspace, name: unknown): Promise<string> {
     if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid branch name.");
     if (!(await workspace.repository.isValidBranchName(name))) throw new Error(`"${name}" is not a valid branch name.`);
-    return name;
+    return plainRef(name);
   }
 
   private async localBranch(workspace: Workspace, name: unknown): Promise<string> {
     if (typeof name !== "string" || !(await workspace.repository.refs.names()).branches.includes(name)) throw new Error("Choose a branch.");
-    return name;
+    return plainRef(name);
   }
 
   /** A remote-tracking branch such as `origin/feature`, split into its remote and the branch there. */
@@ -339,6 +349,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     const repository = workspace.repository;
     if (typeof name !== "string" || !(await repository.refs.names()).remoteBranches.includes(name))
       throw new Error("Choose a remote branch.");
+    plainRef(name);
     // Remote names may hold slashes; the longest matching one wins.
     const remote = (await repository.remoteNames())
       .filter((candidate) => name.startsWith(`${candidate}/`))
@@ -350,12 +361,12 @@ export class VersionControlManager implements VersionControlManagerContract {
   private async tagName(workspace: Workspace, name: unknown): Promise<string> {
     if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid tag name.");
     if (!(await workspace.repository.refs.isValidTagName(name))) throw new Error(`"${name}" is not a valid tag name.`);
-    return name;
+    return plainRef(name);
   }
 
   private async existingTag(workspace: Workspace, name: unknown): Promise<string> {
     if (typeof name !== "string" || !(await workspace.repository.refs.names()).tags.includes(name)) throw new Error("Choose a tag.");
-    return name;
+    return plainRef(name);
   }
 
   /** A commit ID, or the name of a branch, remote branch or tag. */
@@ -363,7 +374,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     const repository = workspace.repository;
     if (isCommitId(value) && (await repository.git.hasRef(`${value}^{commit}`))) return value;
     const { branches, remoteBranches, tags } = await repository.refs.names();
-    if (typeof value === "string" && [...branches, ...remoteBranches, ...tags].includes(value)) return value;
+    if (typeof value === "string" && [...branches, ...remoteBranches, ...tags].includes(value)) return plainRef(value);
     throw new Error("Choose a branch, tag or commit.");
   }
 

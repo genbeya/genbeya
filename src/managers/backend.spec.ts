@@ -6,7 +6,7 @@ import type { Location, Snapshot, TaskInput } from "../contracts/model";
 import { connectManagers, dispatch } from "../contracts/rpc";
 import { nodeMachine } from "../platforms/node/node-machine";
 import { HostFactory } from "../access/hosts/host-factory";
-import { createRemote, createRepository, DEFAULT_FILES, onTestFinished } from "../testing/repository";
+import { cloneRepository, createRemote, createRepository, DEFAULT_FILES, onTestFinished } from "../testing/repository";
 import { temporaryFolder } from "../testing/temp";
 import { launchArgument } from "../utilities/launch-request";
 import { createBackend } from "./backend";
@@ -877,6 +877,38 @@ describe("VersionControlManager", () => {
   ])("rejects an invalid %s", async (_, call, message) => {
     const { managers, id } = await opened();
     await expect(call(managers, id)).rejects.toThrow(message);
+  });
+
+  it("refuses refs a clone brought whose names look like options", async () => {
+    const origin = await createRepository();
+    const evil = "--exec=touch${IFS}PWNED";
+    await origin.git("update-ref", `refs/tags/${evil}`, "HEAD");
+    await origin.git("update-ref", `refs/heads/${evil}`, "HEAD");
+    await origin.git("update-ref", `refs/heads/feature/-f`, "HEAD");
+    const repository = await cloneRepository(origin.root);
+    await repository.write("local.md", "local");
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Local");
+    const { workspace, versionControl } = await backend();
+    const { id } = await workspace.open({ kind: "local", path: repository.root });
+    const refused = "looks like an option";
+    await expect(versionControl.rebase(id, evil, false)).rejects.toThrow(refused);
+    await expect(versionControl.merge(id, `origin/${evil}`, { noFastForward: false, message: "" })).rejects.toThrow(refused);
+    await expect(versionControl.rebasePlan(id, evil)).rejects.toThrow(refused);
+    await expect(versionControl.createBranch(id, "copy", evil)).rejects.toThrow(refused);
+    await expect(versionControl.createTag(id, "copy", evil, "")).rejects.toThrow(refused);
+    await expect(versionControl.deleteTag(id, evil)).rejects.toThrow(refused);
+    await expect(versionControl.pushTag(id, evil, "origin")).rejects.toThrow(refused);
+    // Switching to a remote-only branch creates a local branch named after its last part.
+    await expect(versionControl.switchBranch(id, `origin/${evil}`)).rejects.toThrow(refused);
+    await expect(versionControl.switchBranch(id, "origin/feature/-f")).rejects.toThrow(refused);
+    await expect(versionControl.deleteRemoteBranch(id, `origin/${evil}`)).rejects.toThrow(refused);
+    await expect(versionControl.setUpstream(id, "main", `origin/${evil}`)).rejects.toThrow(refused);
+    await repository.git("branch", "--end-of-options", "feature/-f", "HEAD");
+    await expect(versionControl.deleteBranch(id, "feature/-f", true)).rejects.toThrow(refused);
+    await expect(versionControl.renameBranch(id, "feature/-f", "fine")).rejects.toThrow(refused);
+    expect(await repository.exists("PWNED")).toBe(false);
+    expect(await versionControl.rebase(id, "origin/main", false)).toBe("done");
   });
 
   it("creates and switches branches", async () => {

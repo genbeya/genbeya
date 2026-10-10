@@ -1,7 +1,9 @@
 /**
  * Operations that can stop for conflicts — merges, rebases, cherry-picks
  * and reverts — what is in progress, and resolving conflicted files.
- * Callers validate refs, commits and paths.
+ * Callers validate refs, commits and paths; refs and commits still follow
+ * `--end-of-options`, so a name a clone brought that starts with "-" is
+ * never read as an option.
  */
 import type { ConflictFile, ConflictResolution, MergeOptions, Operation, OperationOutcome, RebasePlan } from "../../contracts/model";
 import type { RebaseTodo, TodoLine } from "../../contracts/rebase-todo";
@@ -79,7 +81,7 @@ export class OperationAccess {
 
   merge(ref: string, { noFastForward, message }: MergeOptions): Promise<OperationOutcome> {
     return this.git.outcome(
-      ["merge", "--no-edit", ...(noFastForward ? ["--no-ff"] : []), ...(message ? ["--message", message] : []), ref],
+      ["merge", "--no-edit", ...(noFastForward ? ["--no-ff"] : []), ...(message ? ["--message", message] : []), "--end-of-options", ref],
       this.unfinished,
     );
   }
@@ -89,7 +91,7 @@ export class OperationAccess {
    * not), oldest first, and the remote branches that already have some.
    */
   async plan(base: string): Promise<RebasePlan> {
-    const hash = (await this.git.text(["rev-parse", "--verify", `${base}^{commit}`])).trim();
+    const hash = (await this.git.text(["rev-parse", "--verify", "--end-of-options", `${base}^{commit}`])).trim();
     const count = Number(await this.git.text(["rev-list", "--count", `${hash}..HEAD`]));
     if (count > REBASE_LIMIT) throw new GitError(`That rewrites ${count} commits; GitDesk rebases up to ${REBASE_LIMIT} at a time.`);
     const commits = parseRebaseCommits(await this.git.text(["log", "--reverse", `--format=${REBASE_FORMAT}`, `${hash}..HEAD`]));
@@ -103,11 +105,11 @@ export class OperationAccess {
   }
 
   async isAncestorOfHead(commit: string): Promise<boolean> {
-    return (await this.git.run(["merge-base", "--is-ancestor", commit, "HEAD"])).code === 0;
+    return (await this.git.run(["merge-base", "--is-ancestor", "--end-of-options", commit, "HEAD"])).code === 0;
   }
 
   rebase(onto: string, autostash: boolean): Promise<OperationOutcome> {
-    return this.git.outcome(["rebase", ...(autostash ? ["--autostash"] : []), onto], this.unfinished);
+    return this.git.outcome(["rebase", ...(autostash ? ["--autostash"] : []), "--end-of-options", onto], this.unfinished);
   }
 
   /**
@@ -125,18 +127,18 @@ export class OperationAccess {
         ? `exec git commit --amend --allow-empty --no-verify --quiet --file=${quote(`${folder}/message-${entry.message}`)}`
         : `${entry.command} ${entry.hash}`;
     await prepare("todo", lines.map(line).join("\n") + "\n");
-    return this.git.outcome(["rebase", "--interactive", ...(autostash ? ["--autostash"] : []), base], this.unfinished, {
+    return this.git.outcome(["rebase", "--interactive", ...(autostash ? ["--autostash"] : []), "--end-of-options", base], this.unfinished, {
       env: { GIT_SEQUENCE_EDITOR: `cat ${quote(`${folder}/todo`)} >` },
     });
   }
 
   /** Merge commits are left out: which parent to follow is a question for the terminal. */
   cherryPick(commit: string): Promise<OperationOutcome> {
-    return this.git.outcome(["cherry-pick", commit], this.unfinished);
+    return this.git.outcome(["cherry-pick", "--end-of-options", commit], this.unfinished);
   }
 
   revert(commit: string): Promise<OperationOutcome> {
-    return this.git.outcome(["revert", "--no-edit", commit], this.unfinished);
+    return this.git.outcome(["revert", "--no-edit", "--end-of-options", commit], this.unfinished);
   }
 
   /** Continues once the conflicts are resolved; "stopped" when the next commit conflicts. */

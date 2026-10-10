@@ -56,15 +56,15 @@ export class StashAccess {
 
   /** Conflicts leave the stash in the list, also when popping. */
   apply(stash: Stash, pop: boolean): Promise<OperationOutcome> {
-    return this.git.outcome(["stash", pop ? "pop" : "apply", "--quiet", ref(stash)], this.conflicted);
+    return this.git.outcome(["stash", pop ? "pop" : "apply", "--quiet", "--end-of-options", ref(stash)], this.conflicted);
   }
 
   async drop(stash: Stash): Promise<void> {
-    await this.git.text(["stash", "drop", "--quiet", ref(stash)]);
+    await this.git.text(["stash", "drop", "--quiet", "--end-of-options", ref(stash)]);
   }
 
   async branch(stash: Stash, name: string): Promise<void> {
-    await this.git.text(["stash", "branch", name, ref(stash)]);
+    await this.git.text(["stash", "branch", "--end-of-options", name, ref(stash)]);
   }
 }
 
