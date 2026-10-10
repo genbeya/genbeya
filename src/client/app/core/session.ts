@@ -58,8 +58,9 @@ export class Session {
 
   /**
    * Loads preferences and reopens the repository the launch or the last
-   * session asks for. A launch with a GitDesk link restores nothing; the link
-   * waits in {@link requestedLink}.
+   * session asks for. A GitDesk link among the launch arguments waits in
+   * {@link requestedLink}; the managers then reopen nothing, since the link
+   * decides the repository.
    */
   async start(): Promise<void> {
     try {

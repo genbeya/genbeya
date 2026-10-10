@@ -36,7 +36,7 @@ if (primary && app.isPackaged) app.setAsDefaultProtocolClient("gitdesk");
 
 /** Links from `open-url`, which comes before the window exists on a cold start; the page reads them with the launch arguments. */
 const openedLinks: string[] = [];
-/** Passes later links and second launches to the page, once it listens. */
+/** Passes later links and second launches to the page, once the window exists. */
 let handOver: ((args: readonly string[]) => void) | null = null;
 app.on("open-url", (event, url) => {
   event.preventDefault();
