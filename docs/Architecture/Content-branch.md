@@ -90,4 +90,4 @@ Sync rebases. If two people changed the same lines of the same page, the rebase 
 
 ## In the code
 
-`ContentStore` (`src/access/content/content-store.ts`) hides all of this: `layout()` says where each area lives, `locate(area)` gives the location (root, files, Git, branch) of one area, `record(area, …)` commits only when that area is on the branch, and `setStorage(area, mode, path)` moves one. `Workspace.locateContent(path)` names the location of any content path, for reading its files or its history.
+`ContentStore` (`src/access/content/content-store.ts`) hides all of this: `layout()` says where each area lives, `locate(area)` gives the location (root, files, Git, branch) of one area, `record(area, …)` commits only when that area is on the branch, `history(area, …)` reads a file's commits where its area lives (for a task's activity), and `setStorage(area, mode, path)` moves one. `Workspace.locateContent(path)` names the location of any content path, for reading its files or its history.

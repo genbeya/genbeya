@@ -22,8 +22,8 @@ export class Git {
    */
   private args(args: readonly string[]): string[] {
     return [
-      // Paths are never globs.
-      "--literal-pathspecs",
+      // Paths are never globs. check-ignore takes plain paths and refuses the flag.
+      ...(args[0] === "check-ignore" ? [] : ["--literal-pathspecs"]),
       "-c",
       "core.quotepath=false",
       "-c",

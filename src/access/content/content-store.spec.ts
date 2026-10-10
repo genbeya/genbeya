@@ -46,6 +46,76 @@ describe("ContentStore in the checkout", () => {
   });
 });
 
+describe("ContentStore history", () => {
+  const task = (status: string) => `---\nid: TP-1\ntitle: T\nstatus: ${status}\n---\n\nText\n`;
+
+  it("follows a file across moves, with both versions of every commit", async () => {
+    const repository = await createRepository({ "tasks/TP-1.md": task("todo") });
+    const rename = async (from: string, to: string, content: string, message: string) => {
+      await repository.write(to, content);
+      await repository.git("rm", "-q", from);
+      await repository.git("add", "-A");
+      await repository.git("commit", "-q", "-m", message);
+    };
+    await rename("tasks/TP-1.md", "tasks/Auth/TP-1.md", task("done"), "Move TP-1 to Auth");
+    await rename("tasks/Auth/TP-1.md", "tasks/Billing/TP-1.md", task("done"), "Move TP-1 to Billing");
+    const store = storeFor(repository.root);
+    const revisions = await store.history("tasks", "tasks/Billing/TP-1.md", 100, true);
+    expect(revisions.map((revision) => [revision.subject, revision.oldPath, revision.path, revision.author])).toEqual([
+      ["Move TP-1 to Billing", "tasks/Auth/TP-1.md", "tasks/Billing/TP-1.md", "Test"],
+      ["Move TP-1 to Auth", "tasks/TP-1.md", "tasks/Auth/TP-1.md", "Test"],
+      ["Initial commit", null, "tasks/TP-1.md", "Test"],
+    ]);
+    expect(revisions[1]).toMatchObject({ before: task("todo"), after: task("done") });
+    expect(revisions[2]).toMatchObject({ before: null, after: task("todo") });
+    expect((await store.history("tasks", "tasks/Billing/TP-1.md", 1, false)).map((revision) => [revision.oldPath, revision.after])).toEqual(
+      [["tasks/Auth/TP-1.md", null]],
+    );
+  });
+
+  it("reads the committed version and committed files", async () => {
+    const repository = await createRepository({ "tasks/TP-1.md": task("todo"), "tasks/A/TP-2.md": task("todo") });
+    await repository.write("tasks/TP-1.md", task("done"));
+    const store = storeFor(repository.root);
+    expect(await store.committed("tasks", "tasks/TP-1.md")).toBe(task("todo"));
+    expect(await store.committed("tasks", "tasks/TP-3.md")).toBeNull();
+    expect((await store.committedFiles("tasks", "tasks")).sort()).toEqual(["tasks/A/TP-2.md", "tasks/TP-1.md"]);
+  });
+
+  it("has no history before the first commit", async () => {
+    const repository = await createRepository({ "tasks/TP-1.md": task("todo") }, false);
+    const store = storeFor(repository.root);
+    expect(await store.history("tasks", "tasks/TP-1.md", 100, true)).toEqual([]);
+    expect(await store.committed("tasks", "tasks/TP-1.md")).toBeNull();
+    expect(await store.committedFiles("tasks", "tasks")).toEqual([]);
+  });
+
+  it("reads the history where the area lives", async () => {
+    const repository = await createRepository();
+    const store = storeFor(repository.root);
+    await move(store, ["tasks"], "branch");
+    await edit(store, "tasks", "tasks/TP-1.md", task("todo"), "Create TP-1");
+    await edit(store, "tasks", "tasks/TP-1.md", task("done"), "Update TP-1");
+    await edit(store, "wiki", "docs/Home.md", "# Home\n\nLocal.\n");
+    expect((await store.history("tasks", "tasks/TP-1.md", 100, true)).map((revision) => revision.subject)).toEqual([
+      "Update TP-1",
+      "Create TP-1",
+    ]);
+    expect(await store.committed("tasks", "tasks/TP-1.md")).toBe(task("done"));
+    expect((await store.history("wiki", "docs/Home.md", 100, false)).map((revision) => revision.subject)).toEqual(["Initial commit"]);
+    expect(await store.committed("wiki", "docs/Home.md")).toBe("# Home\n");
+  });
+
+  it("names the author Git signs commits with", async () => {
+    const repository = await createRepository();
+    await repository.git("config", "user.name", "Ada Lovelace");
+    expect(await storeFor(repository.root).author()).toBe("Ada Lovelace");
+    await repository.git("config", "user.useConfigOnly", "true");
+    await repository.git("config", "user.name", "");
+    expect(await storeFor(repository.root).author()).toBeNull();
+  });
+});
+
 describe("ContentStore with every area on the content branch", () => {
   it("copies the committed content into a new branch worktree and commits every edit", async () => {
     const repository = await createRepository();

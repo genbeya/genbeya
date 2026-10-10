@@ -4,6 +4,9 @@
  * every argument is validated by the manager, never trusted.
  */
 import type {
+  AgentFile,
+  AgentFileWrite,
+  AgentTarget,
   CommitDetail,
   Commit,
   ContentArea,
@@ -11,8 +14,10 @@ import type {
   DiffSource,
   FileContent,
   FolderListing,
+  LinkUpdate,
   Location,
   OpenedWorkspace,
+  PageMove,
   Preferences,
   RecentEntry,
   RemoteLocation,
@@ -22,6 +27,7 @@ import type {
   StorageMode,
   SyncAction,
   Task,
+  TaskActivity,
   TaskInput,
   TerminalOutput,
 } from "./model";
@@ -48,7 +54,7 @@ export interface WorkspaceManagerContract {
   browse(location: RemoteLocation): Promise<FolderListing>;
 }
 
-/** Everything that edits files: repository files, wiki pages, tasks and settings. */
+/** Everything that edits files: repository files, wiki pages, tasks, settings and the files that teach coding agents to use them. */
 export interface ContentManagerContract {
   read(workspace: string, scope: Scope, path: string): Promise<FileContent>;
   /** An image as a data URL, for showing inside pages. */
@@ -57,12 +63,26 @@ export interface ContentManagerContract {
   write(workspace: string, scope: Scope, path: string, content: string, expectedHash: string | null): Promise<FileContent>;
   remove(workspace: string, scope: Scope, path: string): Promise<void>;
   createPage(workspace: string, path: string): Promise<FileContent>;
-  /** Moves a page together with its subpages; resolves to the new path. */
-  movePage(workspace: string, from: string, to: string): Promise<string>;
+  /** The links that moving a page with its subpages would rewrite. */
+  pageLinks(workspace: string, from: string, to: string): Promise<readonly LinkUpdate[]>;
+  /** Moves a page together with its subpages, in one commit with the link updates if asked; resolves to the new path. */
+  movePage(workspace: string, from: string, to: string, options?: PageMove): Promise<string>;
   deletePage(workspace: string, path: string): Promise<void>;
   createTask(workspace: string, input: TaskInput): Promise<Task>;
   updateTask(workspace: string, path: string, input: TaskInput, expectedHash: string): Promise<Task>;
   deleteTask(workspace: string, path: string): Promise<void>;
+  /**
+   * Who changed the task and how, newest first, from the Git history of its
+   * file, following moves between epics. Edits not committed yet come first.
+   */
+  taskActivity(workspace: string, path: string): Promise<readonly TaskActivity[]>;
+  /** The name new comments are signed with: Git's user name in the repository. */
+  commentAuthor(workspace: string): Promise<string>;
+  /** Appends a comment to the task's file, whatever else changed in it meanwhile. */
+  addComment(workspace: string, path: string, text: string): Promise<Task>;
+  /** Changes one of the user's own comments; `index` counts the comments of the version `expectedHash`. */
+  editComment(workspace: string, path: string, index: number, text: string, expectedHash: string): Promise<Task>;
+  deleteComment(workspace: string, path: string, index: number, expectedHash: string): Promise<Task>;
   saveSettings(workspace: string, settings: Settings, expectedHash: string | null): Promise<void>;
   /**
    * Keeps one area (wiki, tasks or settings) in the checkout, or on the
@@ -71,6 +91,10 @@ export interface ContentManagerContract {
   setStorage(workspace: string, area: ContentArea, mode: StorageMode): Promise<void>;
   /** Exchanges the edits on the content branch with its remote. */
   syncContent(workspace: string): Promise<void>;
+  /** Every agent file and whether the checkout has it, generated as if `targets` were added (they refer to each other). */
+  agentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFile[]>;
+  /** Writes the agent files of `targets` into the checkout, leaving text outside GitDesk's blocks alone. */
+  addAgentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFileWrite[]>;
 }
 
 /** Staging, committing, history, branches and remotes of the checked-out repository. */
@@ -139,14 +163,22 @@ export const MANAGER_METHODS = {
     "write",
     "remove",
     "createPage",
+    "pageLinks",
     "movePage",
     "deletePage",
     "createTask",
     "updateTask",
     "deleteTask",
+    "taskActivity",
+    "commentAuthor",
+    "addComment",
+    "editComment",
+    "deleteComment",
     "saveSettings",
     "setStorage",
     "syncContent",
+    "agentFiles",
+    "addAgentFiles",
   ],
   versionControl: [
     "diff",

@@ -1,3 +1,5 @@
+import { resolveLinkPath } from "../../../utilities/repository-path";
+
 /** Where a Markdown link points, resolved against the file that contains it. */
 export type LinkTarget =
   | { readonly kind: "anchor"; readonly id: string }
@@ -21,12 +23,5 @@ export function resolveHref(from: string, href: string): LinkTarget {
   if (href.startsWith(MISSING_PAGE)) return { kind: "missing", title: decode(href.slice(MISSING_PAGE.length)) };
   if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) return { kind: "external", url: href };
   const [target = "", anchor] = href.split("#");
-  const decoded = decode(target);
-  // Absolute links start at the repository root; nothing climbs above it.
-  const segments = decoded.startsWith("/") ? [] : from.split("/").slice(0, -1);
-  for (const part of decoded.split("/")) {
-    if (part === "..") segments.pop();
-    else if (part && part !== ".") segments.push(part);
-  }
-  return { kind: "file", path: segments.join("/"), anchor: anchor ? decode(anchor) : undefined };
+  return { kind: "file", path: resolveLinkPath(from, decode(target)), anchor: anchor ? decode(anchor) : undefined };
 }

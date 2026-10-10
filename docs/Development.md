@@ -29,10 +29,12 @@ Code is written test first. Specs sit next to the code they test.
 
 `.github/workflows/build.yml` runs on every push and pull request to `main` and on pushes to `experiment/**` branches. On Windows, macOS and Linux it runs lint, unit and end-to-end tests (`.github/actions/verify`) and the Tauri shell's Rust tests, then packages Electron, Tauri and Deno Desktop.
 
-- `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `GitDesk-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `GitDesk-0.2.0-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
+- `scripts/version.mjs stamp <run>` sets the patch number of the version to the run number before anything is built, so every build has a higher version than the one before (`0.3.0` in `package.json` becomes `0.3.57`) and installers upgrade an installed older version instead of refusing or installing next to it. `package.json` holds the major and minor version: raise the minor version for a release with new features.
+- Deno Desktop's MSIs take their version from a generated `dist/deno/deno.json`; `scripts/msi-major-upgrade.ps1` adds the upgrade rules they lack.
+- `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `GitDesk-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `GitDesk-0.3.57-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
 - `scripts/report-sizes.mjs` lists their sizes in the job summary.
 - Each run uploads one artifact per variant and platform, such as `GitDesk-tauri-macOS`.
-- Pushes to `main` also publish all installers as one GitHub release tagged `v<version>-build.<run>`, with the text of `.github/release-notes.md` above the generated notes.
+- Pushes to `main` also publish all installers as one GitHub release tagged `v<version>`, with the text of `.github/release-notes.md` above the generated notes.
 
 macOS builds Electron for Apple silicon and Intel; Tauri and Deno Desktop only for the runner's Apple silicon.
 

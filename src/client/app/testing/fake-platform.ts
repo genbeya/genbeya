@@ -37,6 +37,7 @@ export function task(id: string, change: Partial<Task> = {}): Task {
     body: "",
     epic: "",
     hash: `hash-${id}`,
+    comments: [],
     ...change,
   };
 }
@@ -77,6 +78,7 @@ export function fakeManagers(): MockedManagers {
   managers.workspace.distributions.mockResolvedValue([]);
   managers.workspace.snapshot.mockResolvedValue(null);
   managers.workspace.open.mockResolvedValue({ id: "w1", snapshot: snapshot() });
+  managers.content.agentFiles.mockResolvedValue([]);
   return managers;
 }
 
