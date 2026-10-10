@@ -97,7 +97,10 @@ describe("TerminalManager", () => {
     expect(fake().kill).toHaveBeenCalled();
   });
 
-  it.each([
+  // Long strings are named by their length: a megabyte in a test name takes many minutes to print on Windows runners.
+  const label = (args: readonly unknown[]) =>
+    JSON.stringify(args, (_, value: unknown) => (typeof value === "string" && value.length > 40 ? `<${value.length} characters>` : value));
+  const invalid = [
     ["open", ["w", 80, 24]],
     ["open", ["ID", 0, 24]],
     ["open", ["ID", 80, 1.5]],
@@ -109,7 +112,8 @@ describe("TerminalManager", () => {
     ["resize", ["T", -1, 24]],
     ["resize", [{}, 80, 24]],
     ["read", [null]],
-  ] as const)("validates %s%j", async (method, args) => {
+  ] as const;
+  it.each(invalid.map(([method, args]) => ({ method, args, label: label(args) })))("validates $method $label", async ({ method, args }) => {
     const { terminal, id, terminalId, fake } = await withTerminal();
     const resolved = args.map((arg) => (arg === "ID" ? id : arg === "T" ? terminalId : arg));
     const call = (terminal as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>)[method]!(...resolved);
