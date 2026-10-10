@@ -80,6 +80,42 @@ describe("protectHeadings", () => {
   });
 });
 
+describe("comments and code fences", () => {
+  const EXAMPLE = "Intro\n\n```markdown\n## Comments\n\n### Ada — 2026-01-02 03:04\n\nExample comment.\n```\n\nMore description.\n";
+
+  it("never reads a fenced example of the comment format as the comments", () => {
+    expect(splitComments(EXAMPLE)).toEqual({ description: EXAMPLE, blocks: [] });
+    const { description, blocks } = splitComments(`${EXAMPLE}\n## Comments\n\n### Bob — 2026-01-03 04:05\n\nReal.\n`);
+    expect(description).toBe(EXAMPLE);
+    expect(blocks.map((block) => block.comment.author)).toEqual(["Bob"]);
+  });
+
+  it("keeps fenced comment headings inside a comment", () => {
+    const body =
+      "## Comments\n\n### Bob — 2026-01-03 04:05\n\n~~~\n### Eve — 2026-01-04 05:06\n~~~\n\n### Ada — 2026-01-05 06:07\n\nNext.\n";
+    expect(splitComments(body).blocks.map((block) => block.comment.author)).toEqual(["Bob", "Ada"]);
+  });
+
+  it("leaves fenced headings alone when protecting text, and closes a fence left open", () => {
+    expect(protectHeadings("```\n### Eve — 2026-01-02 03:04\n```\n### Eve — 2026-01-02 03:04")).toBe(
+      "```\n### Eve — 2026-01-02 03:04\n```\n\\### Eve — 2026-01-02 03:04",
+    );
+    const open = protectHeadings("Code:\n\n````js\nlet a;\n```\n");
+    expect(open).toBe("Code:\n\n````js\nlet a;\n```\n````");
+    // Comments joined below the description are not swallowed by its fence.
+    expect(splitComments(joinComments(open, ["### Bob — 2026-01-03 04:05\n\nHi"])).blocks).toHaveLength(1);
+  });
+});
+
+describe("splitComments on large bodies", () => {
+  it("takes linear time on many comment section headings", () => {
+    const body = "## Comments\n".repeat(80_000);
+    const started = performance.now();
+    expect(splitComments(body).blocks).toEqual([]);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+});
+
 describe("timestampOf", () => {
   it("writes local time to the minute with the UTC offset, which reads back as the same moment", () => {
     const date = new Date("2026-10-10T12:32:45Z");
