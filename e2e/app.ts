@@ -100,7 +100,8 @@ export const test = base.extend<Fixtures>({
     const profile = mkdtempSync(path.join(tmpdir(), "gitdesk-profile-"));
     if (preferences) writeFileSync(path.join(profile, "state.json"), JSON.stringify({ preferences }));
     await use(profile);
-    rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    // After a launch that had to be ended, its helper processes may hold the profile for a few seconds.
+    rmSync(profile, { recursive: true, force: true, maxRetries: 50, retryDelay: 200 });
   },
   repository: async ({ files }, use) => {
     const repository = createRepository(files);
