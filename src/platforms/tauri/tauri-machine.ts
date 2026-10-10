@@ -1,6 +1,6 @@
 /**
  * The machine ports inside the Tauri webview, over the Rust commands in
- * src/shells/tauri/src-tauri/src (files.rs, processes.rs).
+ * src/shells/tauri/src-tauri/src (files.rs, processes.rs, terminals.rs).
  */
 import { Channel, invoke } from "@tauri-apps/api/core";
 import {
@@ -11,6 +11,7 @@ import {
   type FileSystemErrorCode,
   type Machine,
   type ProcessRunner,
+  type TerminalRunner,
 } from "../../access/ports";
 import { encodeText } from "../../utilities/bytes";
 import { posixPaths, windowsPaths } from "../../utilities/native-path";
@@ -114,6 +115,45 @@ export function tauriProcesses(
   };
 }
 
+export function tauriTerminals(
+  run: Invoke = invoke,
+  createChannel: () => Channel<ArrayBuffer> = () => new Channel<ArrayBuffer>(),
+): TerminalRunner {
+  return {
+    shell: () => call<string>(run, "term_shell"),
+
+    async open(command, args, { cwd, cols, rows, env = {} }) {
+      const listeners = { data: [] as ((data: string) => void)[], exit: [] as ((code: number) => void)[] };
+      // Output arrives as bytes; a character may be split between two messages.
+      const decoder = new TextDecoder();
+      let exited = false;
+      const events = createChannel();
+      events.onmessage = (message) => {
+        const bytes = new Uint8Array(message);
+        if (bytes[0] === STDOUT) {
+          const data = decoder.decode(bytes.subarray(1), { stream: true });
+          for (const listener of listeners.data) listener(data);
+        } else if (bytes[0] === EXIT) {
+          exited = true;
+          for (const listener of listeners.exit) listener(new DataView(message).getInt32(1, true));
+        }
+      };
+      const id = await call<number>(run, "term_open", { command, args, cwd: cwd ?? null, cols, rows, env, events });
+      // A terminal that ended meanwhile refuses; there is nothing to report then.
+      const request = (name: string, values: Record<string, unknown>) => call(run, name, { id, ...values }).catch(() => undefined);
+      // Writes are chained, so they reach the shell in order.
+      let writes: Promise<unknown> = Promise.resolve();
+      return {
+        write: (data) => void (writes = writes.then(() => request("term_write", { data }))),
+        resize: (columns, lines) => void request("term_resize", { cols: columns, rows: lines }),
+        kill: () => void (exited || request("term_kill", {})),
+        onData: (listener) => void listeners.data.push(listener),
+        onExit: (listener) => void listeners.exit.push(listener),
+      };
+    },
+  };
+}
+
 export function tauriMachine(): Machine {
   const agent = navigator.userAgent;
   const os = agent.includes("Windows") ? "windows" : agent.includes("Mac OS") ? "macos" : "linux";
@@ -121,7 +161,7 @@ export function tauriMachine(): Machine {
     os,
     fileSystem: tauriFileSystem(),
     processes: tauriProcesses(),
-    terminals: null,
+    terminals: tauriTerminals(),
     paths: os === "windows" ? windowsPaths : posixPaths,
   };
 }

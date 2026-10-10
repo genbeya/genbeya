@@ -2,7 +2,7 @@ import type { Channel } from "@tauri-apps/api/core";
 import { describe, expect, it } from "vitest";
 import { FileSystemError } from "../../access/ports";
 import { decodeLenient, encodeText } from "../../utilities/bytes";
-import { tauriFileSystem, tauriProcesses } from "./tauri-machine";
+import { tauriFileSystem, tauriProcesses, tauriTerminals } from "./tauri-machine";
 
 interface Call {
   command: string;
@@ -100,5 +100,53 @@ describe("tauriProcesses", () => {
     const { run } = fakeInvoke(() => Promise.reject({ code: "EINVAL", message: "sh was not found." }));
     const child = tauriProcesses(run, () => ({ onmessage: () => undefined }) as unknown as Channel<ArrayBuffer>).spawn("sh", []);
     expect(await new Promise((resolve) => child.onExit((code, error) => resolve([code, error])))).toEqual([127, "sh was not found."]);
+  });
+});
+
+describe("tauriTerminals", () => {
+  const exitMessage = (code: number) => {
+    const message = new ArrayBuffer(5);
+    new DataView(message).setUint8(0, 2);
+    new DataView(message).setInt32(1, code, true);
+    return message;
+  };
+
+  it("opens a terminal, streams text split anywhere, and writes in order", async () => {
+    let channel: { onmessage: (message: ArrayBuffer) => void } | undefined;
+    const { run, calls } = fakeInvoke(async (call) => (call.command === "term_open" ? 4 : null));
+    const terminals = tauriTerminals(run, () => (channel = { onmessage: () => undefined }) as unknown as Channel<ArrayBuffer>);
+    const terminal = await terminals.open("ssh", ["-t", "host"], { cols: 80, rows: 24, env: { TERM: "xterm-256color" } });
+    expect(calls[0]).toMatchObject({
+      command: "term_open",
+      args: { command: "ssh", args: ["-t", "host"], cwd: null, cols: 80, rows: 24, env: { TERM: "xterm-256color" } },
+    });
+    const output: string[] = [];
+    const exit = new Promise<number>((resolve) => terminal.onExit(resolve));
+    terminal.onData((data) => output.push(data));
+    const umlaut = encodeText("ü");
+    channel!.onmessage(Uint8Array.from([0, ...encodeText("gr"), umlaut[0]!]).buffer);
+    channel!.onmessage(Uint8Array.from([0, umlaut[1]!, ...encodeText("n")]).buffer);
+    channel!.onmessage(exitMessage(130));
+    expect(await exit).toBe(130);
+    expect(output.join("")).toBe("grün");
+
+    terminal.write("a");
+    terminal.write("b");
+    terminal.resize(100, 30);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(calls.filter((c) => c.command === "term_write").map((c) => c.args)).toEqual([
+      { id: 4, data: "a" },
+      { id: 4, data: "b" },
+    ]);
+    expect(calls.find((c) => c.command === "term_resize")?.args).toEqual({ id: 4, cols: 100, rows: 30 });
+  });
+
+  it("asks Rust for the user's shell and rejects programs that cannot start", async () => {
+    const { run } = fakeInvoke((call) =>
+      call.command === "term_shell" ? "pwsh.exe" : Promise.reject({ code: "EINVAL", message: "GitDesk does not open terminals with git." }),
+    );
+    const terminals = tauriTerminals(run, () => ({ onmessage: () => undefined }) as unknown as Channel<ArrayBuffer>);
+    expect(await terminals.shell()).toBe("pwsh.exe");
+    await expect(terminals.open("git", [], { cols: 80, rows: 24 })).rejects.toThrow("GitDesk does not open terminals with git.");
   });
 });

@@ -4,6 +4,7 @@
 
 mod files;
 mod processes;
+mod terminals;
 
 use tauri::webview::NewWindowResponse;
 use tauri::{App, Emitter, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
@@ -51,6 +52,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(processes::Processes::default())
+        .manage(terminals::Terminals::default())
         .setup(|app| Ok(create_main_window(app)?))
         .invoke_handler(tauri::generate_handler![
             launch_args,
@@ -65,12 +67,18 @@ fn main() {
             processes::proc_spawn,
             processes::proc_write,
             processes::proc_kill,
+            terminals::term_shell,
+            terminals::term_open,
+            terminals::term_write,
+            terminals::term_resize,
+            terminals::term_kill,
         ])
         .build(tauri::generate_context!())
         .expect("GitDesk failed to start")
         .run(|app, event| {
             if let RunEvent::Exit = event {
                 app.state::<processes::Processes>().kill_all();
+                app.state::<terminals::Terminals>().kill_all();
             }
         });
 }
