@@ -33,6 +33,19 @@ fn forward_opened_links(app: &App) {
     });
 }
 
+/// Installers register gitdesk:// links; an AppImage registers itself when it
+/// runs. That needs desktop tools the system may lack, which is no reason not
+/// to start.
+#[cfg(target_os = "linux")]
+fn register_links(app: &App) {
+    if app.env().appimage.is_none() {
+        return;
+    }
+    if let Err(error) = app.deep_link().register_all() {
+        eprintln!("GitDesk could not register gitdesk:// links: {error}");
+    }
+}
+
 /// The app's own pages: `tauri://localhost`, or `http(s)://tauri.localhost`
 /// where the webview cannot load custom schemes (Windows, Android), plus the
 /// dev server while developing.
@@ -76,9 +89,8 @@ fn main() {
         .setup(|app| {
             #[cfg(target_os = "macos")]
             forward_opened_links(app);
-            // Installers register gitdesk:// links; an AppImage registers itself when it runs.
             #[cfg(target_os = "linux")]
-            app.deep_link().register_all()?;
+            register_links(app);
             Ok(create_main_window(app)?)
         })
         .invoke_handler(tauri::generate_handler![
