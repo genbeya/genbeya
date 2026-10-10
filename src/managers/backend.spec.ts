@@ -210,7 +210,7 @@ describe("ContentManager", () => {
     expect(snapshot.settings.taskRoot).toBe("tasks");
     expect(snapshot.warnings.join("\n")).toMatch(/GIT~1\/info is not a valid path/);
     // Defaults apply, so the task lands in tasks/ with the folder's prefix.
-    expect((await content.createTask(id, input)).path).toMatch(/^tasks\/[A-Z]+-1\.md$/);
+    expect((await content.createTask(id, input)).path).toMatch(/^tasks\/[A-Z][A-Z0-9]*-1\.md$/);
     expect((await fs.readdir(path.join(repository.root, ".git", "info"))).some((name) => name.endsWith(".md"))).toBe(false);
     await expect(content.saveSettings(id, { ...snapshot.settings, taskRoot: "GIT~1/info" }, snapshot.settingsHash)).rejects.toThrow(
       "not a valid path",

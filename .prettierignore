@@ -11,3 +11,4 @@ src/shells/tauri/src-tauri/gen/
 src/shells/tauri/src-tauri/Cargo.lock
 docs/
 tasks/
+.claude/
