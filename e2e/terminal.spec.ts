@@ -26,7 +26,8 @@ test.describe("terminal", () => {
     await window.keyboard.type("exit");
     await window.keyboard.press("Enter");
     await expect(panel.getByRole("tab")).toHaveCount(1, { timeout: 20_000 });
-    await panel.getByRole("button", { name: "Close Terminal 1" }).click();
+    // The keyboard closes the focused tab.
+    await panel.getByRole("tab", { name: "Terminal 1" }).press("Delete");
     await expect(panel).toBeHidden();
   });
 });
