@@ -141,6 +141,24 @@ describe("tauriTerminals", () => {
     expect(calls.find((c) => c.command === "term_resize")?.args).toEqual({ id: 4, cols: 100, rows: 30 });
   });
 
+  it("keeps output and the exit that arrive before anyone listens", async () => {
+    let channel: { onmessage: (message: ArrayBuffer) => void } | undefined;
+    // The shell writes and ends before term_open has even replied.
+    const { run } = fakeInvoke(async (call) => {
+      if (call.command !== "term_open") return null;
+      channel!.onmessage(Uint8Array.from([0, ...encodeText("\x1b[6n")]).buffer);
+      channel!.onmessage(exitMessage(1));
+      return 4;
+    });
+    const terminals = tauriTerminals(run, () => (channel = { onmessage: () => undefined }) as unknown as Channel<ArrayBuffer>);
+    const terminal = await terminals.open("pwsh.exe", [], { cols: 80, rows: 24 });
+    const output: string[] = [];
+    terminal.onData((data) => output.push(data));
+    const exit = await new Promise<number>((resolve) => terminal.onExit(resolve));
+    expect(output).toEqual(["\x1b[6n"]);
+    expect(exit).toBe(1);
+  });
+
   it("asks Rust for the user's shell and rejects programs that cannot start", async () => {
     const { run } = fakeInvoke((call) =>
       call.command === "term_shell" ? "pwsh.exe" : Promise.reject({ code: "EINVAL", message: "GitDesk does not open terminals with git." }),

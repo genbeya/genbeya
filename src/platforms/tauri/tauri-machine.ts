@@ -126,16 +126,21 @@ export function tauriTerminals(
       const listeners = { data: [] as ((data: string) => void)[], exit: [] as ((code: number) => void)[] };
       // Output arrives as bytes; a character may be split between two messages.
       const decoder = new TextDecoder();
-      let exited = false;
+      // The shell starts before term_open replies, so before anyone listens (ConPTY's first
+      // message is a question xterm.js must answer): output waits for the first data listener,
+      // and the exit is told to exit listeners that come later.
+      let early: string[] | null = [];
+      let exitCode: number | null = null;
       const events = createChannel();
       events.onmessage = (message) => {
         const bytes = new Uint8Array(message);
         if (bytes[0] === STDOUT) {
           const data = decoder.decode(bytes.subarray(1), { stream: true });
-          for (const listener of listeners.data) listener(data);
+          if (early) early.push(data);
+          else for (const listener of listeners.data) listener(data);
         } else if (bytes[0] === EXIT) {
-          exited = true;
-          for (const listener of listeners.exit) listener(new DataView(message).getInt32(1, true));
+          exitCode = new DataView(message).getInt32(1, true);
+          for (const listener of listeners.exit) listener(exitCode);
         }
       };
       const id = await call<number>(run, "term_open", { command, args, cwd: cwd ?? null, cols, rows, env, events });
@@ -146,9 +151,17 @@ export function tauriTerminals(
       return {
         write: (data) => void (writes = writes.then(() => request("term_write", { data }))),
         resize: (columns, lines) => void request("term_resize", { cols: columns, rows: lines }),
-        kill: () => void (exited || request("term_kill", {})),
-        onData: (listener) => void listeners.data.push(listener),
-        onExit: (listener) => void listeners.exit.push(listener),
+        kill: () => void (exitCode !== null || request("term_kill", {})),
+        onData(listener) {
+          listeners.data.push(listener);
+          const output = early;
+          early = null;
+          for (const data of output ?? []) listener(data);
+        },
+        onExit(listener) {
+          listeners.exit.push(listener);
+          if (exitCode !== null) listener(exitCode);
+        },
       };
     },
   };
