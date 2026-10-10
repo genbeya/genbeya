@@ -35,7 +35,8 @@ test.describe("code editor", () => {
     await window.keyboard.press(`${MOD}+f`);
     const widget = window.getByRole("search", { name: "Find and replace" });
     await widget.getByRole("textbox", { name: "Find" }).fill("value");
-    await expect(widget.getByRole("status")).toHaveText("1 of 3");
+    await expect(widget.locator(".cm-find-count")).toHaveText("1 of 3");
+    await expect(widget.getByRole("status")).toHaveText("3 results");
     await window.keyboard.press("Escape");
     await expect(editor).toBeFocused();
     await window.keyboard.press(`${MOD}+d`);
@@ -53,9 +54,9 @@ test.describe("code editor", () => {
     await widget.getByRole("button", { name: /^Use regular expression/ }).click();
     await widget.getByRole("textbox", { name: "Find" }).fill("'(\\w+)'");
     await widget.getByRole("textbox", { name: "Replace" }).fill('"$1"');
-    await expect(widget.getByRole("status")).toHaveText(/of 2$/);
+    await expect(widget.locator(".cm-find-count")).toHaveText(/of 2$/);
     await widget.getByRole("button", { name: /^Replace all/ }).click();
-    await expect(widget.getByRole("status")).toHaveText("No results");
+    await expect(widget.locator(".cm-find-count")).toHaveText("No results");
     await window.keyboard.press(`${MOD}+s`);
     await expect(window.getByLabel("Unsaved changes")).toBeHidden();
     expect(repository.read("src/greet.ts")).toContain(`export const users = ["ada", "bob"];`);
