@@ -1,12 +1,15 @@
 /** Opening, closing and observing repositories; the recent list, preferences, and folders on remote machines. */
 import type { WorkspaceManagerContract } from "../contracts/manager-contracts";
 import type { FolderListing, OpenedWorkspace, Preferences, Snapshot, Storage, Theme } from "../contracts/model";
+import { Git } from "../access/git/git";
 import { RepositoryAccess } from "../access/git/repository-access";
+import type { Host } from "../access/hosts/host";
 import { validateFolderLocation, validateLocation, type HostFactory } from "../access/hosts/host-factory";
 import type { RemoteFolders } from "../access/hosts/remote-folders";
 import type { PreferencesStore } from "../access/preferences/preferences-store";
+import type { SampleEngine } from "../engines/sample-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
-import { sha256 } from "../utilities/bytes";
+import { encodeText, sha256 } from "../utilities/bytes";
 import { buildFileTree } from "../utilities/file-tree";
 import { requestedLink, requestedLocation } from "../utilities/launch-request";
 import { namesRemoteHelper } from "../utilities/remote-url";
@@ -22,13 +25,22 @@ const isRepositoryKey = (key: unknown): key is string =>
 
 const remoteUrls = (snapshot: Snapshot) => snapshot.remotes.map((remote) => remote.url);
 
+/** `name`, or `name-2`, `name-3`, …: the first that does not exist in `folder` yet. */
+async function freeFolder(host: Host, folder: string, name: string): Promise<string> {
+  for (let i = 1; i <= 100; i++) {
+    const candidate = i === 1 ? name : `${name}-${i}`;
+    if (!(await host.kind(folder, candidate))) return candidate;
+  }
+  throw new Error(`${folder} already has a hundred ${name} folders.`);
+}
+
 export class WorkspaceManager implements WorkspaceManagerContract {
   constructor(
     private readonly registry: WorkspaceRegistry,
     private readonly hosts: HostFactory,
     private readonly folders: RemoteFolders,
     private readonly preferencesStore: PreferencesStore,
-    private readonly engines: Engines & { readonly wiki: WikiEngine },
+    private readonly engines: Engines & { readonly wiki: WikiEngine; readonly sample: SampleEngine },
   ) {}
 
   async open(location: unknown): Promise<OpenedWorkspace> {
@@ -90,6 +102,39 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     } finally {
       host.dispose();
     }
+  }
+
+  async createSample(parent: unknown): Promise<OpenedWorkspace> {
+    const where = validateLocation(parent);
+    const host = this.hosts.connect(where);
+    let path: string;
+    try {
+      const name = await freeFolder(host, where.path, this.engines.sample.folderName);
+      const init = await host.run("git", ["init", "--quiet", "--initial-branch=main", "--", name], { cwd: where.path });
+      if (init.code !== 0) throw new Error(init.stderr.replace(/^fatal: /gm, "").trim() || "Could not create the sample repository.");
+      path = host.paths.join(where.path, name);
+      const git = new Git(host, path);
+      for (const step of this.engines.sample.steps()) {
+        for (const file of step.files) await host.write(path, file.path, encodeText(file.content), false);
+        if (!step.message) continue;
+        await git.text(["add", "--all"]);
+        // GitDesk wrote these commits, not the user, whose identity may not even be set up yet.
+        await git.text([
+          "-c",
+          "user.name=GitDesk",
+          "-c",
+          "user.email=sample@gitdesk.invalid",
+          "commit",
+          "--quiet",
+          "--no-gpg-sign",
+          "-m",
+          step.message,
+        ]);
+      }
+    } finally {
+      host.dispose();
+    }
+    return this.open({ ...where, path });
   }
 
   /** Resolves right away; operations already running finish before the repository disconnects. */

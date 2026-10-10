@@ -170,6 +170,30 @@ describe("WorkspaceManager", () => {
       await expect(managers.workspace.clone(helper, { kind: "local", path: parent })).rejects.toThrow("remote helpers");
   });
 
+  it("creates a sample repository with history and a change to commit, and opens it", async () => {
+    const parent = await temporaryFolder("parent-");
+    const managers = await backend();
+    const { id, snapshot } = await managers.workspace.createSample({ kind: "local", path: parent });
+    expect(snapshot.location).toEqual({ kind: "local", path: path.join(parent, "gitdesk-sample") });
+    expect(snapshot).toMatchObject({ settings: { name: "Pocket Weather" }, head: { branch: "main" }, warnings: [] });
+    expect(snapshot.tasks).toHaveLength(6);
+    expect(snapshot.changes).toEqual([{ path: "src/forecast.ts", index: " ", worktree: "M" }]);
+    const log = await managers.versionControl.log(id, 0, 10);
+    expect(log.map((commit) => [commit.subject, commit.author])).toEqual([
+      ["Plan the first release", "GitDesk"],
+      ["Write the wiki", "GitDesk"],
+      ["Start Pocket Weather", "GitDesk"],
+    ]);
+    expect((await managers.workspace.recent())[0]!.name).toBe("Pocket Weather");
+
+    // A second sample goes next to the first.
+    const second = await managers.workspace.createSample({ kind: "local", path: parent });
+    expect(second.snapshot.location).toEqual({ kind: "local", path: path.join(parent, "gitdesk-sample-2") });
+    await expect(managers.workspace.createSample({ kind: "ssh", host: "-oProxyCommand=x", path: "/x" })).rejects.toThrow(
+      "Invalid repository location.",
+    );
+  });
+
   it("validates folders to browse", async () => {
     const managers = await backend();
     await expect(managers.workspace.browse({ kind: "local", path: "C:\\" } as never)).rejects.toThrow("folder dialog");
