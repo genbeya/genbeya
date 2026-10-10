@@ -1,6 +1,6 @@
 /** Launches GitDesk on a disposable repository and profile for each test. */
 import { _electron as electron, test as base, type ElectronApplication, type Page } from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -76,7 +76,43 @@ async function closeApp(app: ElectronApplication): Promise<void> {
   );
   const timedOut = new Promise<false>((resolve) => setTimeout(() => resolve(false), 10_000));
   // Playwright's close never settles once the window refuses to close, so it is not awaited after the kill.
-  if (!(await Promise.race([closed, timedOut]))) app.process().kill();
+  if (!(await Promise.race([closed, timedOut]))) await endProcess(app.process());
+}
+
+/**
+ * Ends the app's process and waits for it. On Windows its helper processes
+ * (renderer, GPU) outlive a killed main process and keep the profile open,
+ * so the whole process tree goes.
+ */
+async function endProcess(child: ChildProcess): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  if (process.platform === "win32") {
+    try {
+      execFileSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    } catch {
+      /* It ended meanwhile. */
+    }
+  } else child.kill("SIGKILL");
+  await exited;
+}
+
+/**
+ * Removes a test's folder. On Windows, processes that were just ended hold
+ * their files a little longer, and Node gives up on such a folder at once;
+ * a folder that still cannot go is left in the temp folder with a warning,
+ * since cleaning up must not fail the test.
+ */
+async function removeFolder(folder: string): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      rmSync(folder, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (attempt === 50) return console.warn(`Could not remove ${folder}: ${(error as Error).message}`);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
 }
 
 /** The app's window at the size of a CI runner's screen, so layouts match everywhere. */
@@ -100,13 +136,12 @@ export const test = base.extend<Fixtures>({
     const profile = mkdtempSync(path.join(tmpdir(), "gitdesk-profile-"));
     if (preferences) writeFileSync(path.join(profile, "state.json"), JSON.stringify({ preferences }));
     await use(profile);
-    // After a launch that had to be ended, its helper processes may hold the profile for a few seconds.
-    rmSync(profile, { recursive: true, force: true, maxRetries: 50, retryDelay: 200 });
+    await removeFolder(profile);
   },
   repository: async ({ files }, use) => {
     const repository = createRepository(files);
     await use(repository);
-    rmSync(repository.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await removeFolder(repository.root);
   },
   // Needing the repository makes Playwright remove it only after every launch has closed and let go of it.
   launch: async ({ profile, repository: _repository }, use) => {
