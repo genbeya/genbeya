@@ -80,13 +80,18 @@ export class TasksView {
   protected readonly swimlanes = signal(recall(LANES_KEY) === "on");
   protected readonly filters = signal<TaskFilters>(NO_FILTERS);
   private readonly moving = signal<ReadonlyMap<string, Placement>>(new Map());
+  /** Hidden columns as the user left them, while their saves run; null when the snapshot has them. */
+  private readonly hiding = signal<readonly string[] | null>(null);
+  /** Column choices save one after another, each on the newest settings. */
+  private columnSaves: Promise<unknown> = Promise.resolve();
+  private pendingColumnSaves = 0;
   private readonly search = viewChild.required<ElementRef<HTMLInputElement>>("search");
 
   protected readonly snapshot = computed(() => this.session.snapshot()!);
   protected readonly statuses = computed(() => this.snapshot().settings.statuses);
   protected readonly tasks = computed(() => visibleTasks(this.snapshot().tasks, this.filters(), this.moving()));
   protected readonly columns = computed(() => columnsOf(this.statuses(), this.snapshot().tasks));
-  protected readonly hidden = computed(() => this.snapshot().settings.hiddenColumns);
+  protected readonly hidden = computed(() => this.hiding() ?? this.snapshot().settings.hiddenColumns);
   protected readonly boardColumns = computed(() => this.columns().filter((status) => !this.hidden().includes(status)));
   protected readonly epics = computed(() => epicsOf(this.snapshot().tasks));
   protected readonly lanes = computed(() => (this.swimlanes() && this.epics().length ? lanesOf(this.snapshot().tasks) : null));
@@ -121,12 +126,21 @@ export class TasksView {
     remember(LANES_KEY, this.swimlanes() ? "on" : "off");
   }
 
-  /** Board columns are shared: the choice is saved in the project settings. */
-  protected async setColumnVisible({ status, visible }: { status: string; visible: boolean }) {
-    const { settings, settingsHash } = this.snapshot();
-    const hiddenColumns = visible ? settings.hiddenColumns.filter((other) => other !== status) : [...settings.hiddenColumns, status];
-    const saved = await this.session.run(async () => (await this.api.content.saveSettings({ ...settings, hiddenColumns }, settingsHash), true));
-    if (saved) this.session.contentChanged();
+  /**
+   * Board columns are shared: the choice is saved in the project settings.
+   * It shows at once; when its save fails, the column returns.
+   */
+  protected setColumnVisible({ status, visible }: { status: string; visible: boolean }): Promise<unknown> {
+    const apply = (hidden: readonly string[]) => [...hidden.filter((other) => other !== status), ...(visible ? [] : [status])];
+    this.hiding.set(apply(this.hidden()));
+    this.pendingColumnSaves++;
+    return (this.columnSaves = this.columnSaves.then(async () => {
+      const { settings, settingsHash } = this.snapshot();
+      const saved = await this.session.run(async () => (await this.api.content.saveSettings({ ...settings, hiddenColumns: apply(settings.hiddenColumns) }, settingsHash), true));
+      if (saved) this.session.contentChanged();
+      // The last save refreshed the snapshot, which now has every choice that was saved.
+      if (--this.pendingColumnSaves === 0) this.hiding.set(null);
+    }));
   }
 
   protected setQuery(query: string) {

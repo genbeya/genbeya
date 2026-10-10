@@ -29,7 +29,7 @@ import { displayId, titleCase } from "./task-model";
               [checked]="!hidden().includes(group.status)"
               [attr.aria-label]="'Show ' + titleCase(group.status) + ' on the board'"
               [title]="hidden().includes(group.status) ? 'Hidden on the board' : 'Shown on the board'"
-              (change)="visibilityChanged.emit({ status: group.status, visible: $any($event.target).checked })"
+              (change)="toggle(group.status, $any($event.target))"
             />
           } @else {
             <span class="column-toggle"></span>
@@ -89,4 +89,15 @@ export class TaskList {
       .map((status) => ({ status, tasks: this.tasks().filter((task) => task.status === status) }))
       .filter((group) => group.tasks.length || this.statuses().includes(group.status)),
   );
+
+  /**
+   * The box shows `hidden`, not the click: the view hides the column at once
+   * and shows it again when saving fails, which then shows here even if the
+   * hidden state never rendered.
+   */
+  protected toggle(status: string, box: HTMLInputElement) {
+    const visible = box.checked;
+    box.checked = !this.hidden().includes(status);
+    this.visibilityChanged.emit({ status, visible });
+  }
 }
