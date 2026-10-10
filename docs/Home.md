@@ -14,7 +14,7 @@ GitDesk is a desktop workspace for a Git repository: a wiki, a task board, a cod
 | Wiki | Markdown files in `docs/` | [[Wiki]] |
 | Tasks | One Markdown file per task in `tasks/` | [[Tasks]] |
 | Settings | `.gitdesk.yml` | [[Getting started]] |
-| Code and history | The repository itself | [[Version control]] |
+| Code and history | The repository itself | [[Code]], [[Version control]] |
 
 By default wiki pages and tasks change with the branch you have checked out. A team working on many branches can keep them on a [[Content branch|dedicated branch]] instead, so everyone sees the same documentation and board.
 
