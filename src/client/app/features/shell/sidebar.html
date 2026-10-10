@@ -1,6 +1,7 @@
 <button
   type="button"
   class="workspace-switcher"
+  data-tour="repositories"
   [cdkMenuTriggerFor]="switcher"
   #trigger="cdkMenuTriggerFor"
   [class.is-open]="trigger.isOpen()"
@@ -48,13 +49,13 @@
   </div>
 </ng-template>
 
-<button type="button" class="sidebar-search" (click)="ui.openPalette()">
+<button type="button" class="sidebar-search" data-tour="search" (click)="ui.openPalette()">
   <svg lucideSearch [size]="14" aria-hidden="true"></svg>
   <span class="grow">Search</span>
   <kbd class="kbd">{{ mod }} K</kbd>
 </button>
 
-<nav class="sidebar-nav" aria-label="Views">
+<nav class="sidebar-nav" aria-label="Views" data-tour="views">
   <a class="nav-item" routerLink="/wiki" routerLinkActive="is-active" [title]="'Wiki (' + mod + '+1)'">
     <svg lucideBookOpen [size]="16" aria-hidden="true"></svg><span class="grow">Wiki</span>
   </a>
@@ -81,6 +82,8 @@
 </nav>
 
 <div class="grow"></div>
+
+<gd-tour-offer />
 
 @if (snapshot().storage; as storage) {
   @if (storage.mode === "branch") {
@@ -114,6 +117,7 @@
 <button
   type="button"
   class="branch-button"
+  data-tour="branch"
   title="Switch branch"
   [attr.aria-label]="'Switch branch (on ' + (snapshot().head.branch ?? 'no branch') + ')'"
   (click)="ui.openPalette('branches')"
@@ -130,6 +134,20 @@
   }
 </button>
 
-<a class="nav-item" routerLink="/settings" routerLinkActive="is-active" [title]="'Settings (' + mod + '+,)'">
+@if (terminals.available() !== false) {
+  <button
+    type="button"
+    class="nav-item"
+    data-tour="terminal"
+    [class.is-active]="terminals.shown()"
+    [attr.aria-pressed]="terminals.shown()"
+    [title]="'Terminal (' + ctrl + '+`)'"
+    (click)="terminals.toggle()"
+  >
+    <svg lucideSquareTerminal [size]="16" aria-hidden="true"></svg><span class="grow">Terminal</span>
+  </button>
+}
+
+<a class="nav-item" routerLink="/settings" routerLinkActive="is-active" data-tour="settings" [title]="'Settings (' + mod + '+,)'">
   <svg lucideSettings [size]="16" aria-hidden="true"></svg><span class="grow">Settings</span>
 </a>

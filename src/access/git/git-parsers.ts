@@ -171,6 +171,98 @@ export function parseNameStatus(output: string): CommitFile[] {
   return files;
 }
 
+/** A commit that changed a file, with the file before and after it. */
+export interface FileRevision {
+  readonly hash: string;
+  readonly author: string;
+  readonly date: string;
+  readonly subject: string;
+  readonly path: string;
+  /** The path before the commit; null when the commit added the file. */
+  readonly oldPath: string | null;
+  /** The file before and after, when the patch showed them: not for moves without edits, binary files or partial patches. */
+  readonly before: string | null;
+  readonly after: string | null;
+}
+
+/** Hash, author, date, subject; the leading NUL starts every commit's line. */
+export const FILE_LOG_FORMAT = "%x00%H%x00%an%x00%aI%x00%s";
+
+/** A C-quoted path as git writes names with special characters ("tasks/\303\251.md"). */
+function unquotePath(text: string): string {
+  if (!text.startsWith('"') || !text.endsWith('"')) return text;
+  const escapes: Readonly<Record<string, number>> = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13 };
+  const bytes: number[] = [];
+  const encoder = new TextEncoder();
+  const body = text.slice(1, -1);
+  for (let i = 0; i < body.length; i++) {
+    const character = body[i]!;
+    if (character !== "\\") bytes.push(...encoder.encode(character));
+    else if (/[0-7]{3}/.test(body.slice(i + 1, i + 4))) {
+      bytes.push(parseInt(body.slice(i + 1, i + 4), 8));
+      i += 3;
+    } else {
+      const escaped = body[++i] ?? "";
+      bytes.push(escapes[escaped] ?? escaped.charCodeAt(0));
+    }
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+/**
+ * `git log --follow -p --format=FILE_LOG_FORMAT -- <path>`, newest first,
+ * where `path` is the file's path at the newest commit. With `whole`, the
+ * patches have context enough to hold the whole file, so both versions are
+ * read from them. Commits without a patch (merges) are left out.
+ */
+export function parseFileLog(output: string, path: string, whole: boolean): FileRevision[] {
+  const revisions: FileRevision[] = [];
+  let current = path;
+  let commit: string[] | null = null;
+  let diff = { found: false, added: false, from: null as string | null, to: null as string | null, hunks: false };
+  let before: string[] = [];
+  let after: string[] = [];
+  const finish = () => {
+    if (!commit || !diff.found) return;
+    const [, hash, author, date, subject] = commit;
+    const newPath = diff.to ?? current;
+    const oldPath = diff.added ? null : (diff.from ?? newPath);
+    const shown = whole && diff.hunks;
+    revisions.push({
+      hash: hash!,
+      author: author!,
+      date: date!,
+      subject: subject!,
+      path: newPath,
+      oldPath,
+      before: shown && oldPath !== null ? `${before.join("\n")}\n` : null,
+      after: shown ? `${after.join("\n")}\n` : null,
+    });
+    current = oldPath ?? newPath;
+  };
+  for (const line of output.replace(/\n$/, "").split("\n")) {
+    if (line.startsWith("\0")) {
+      finish();
+      commit = line.split("\0");
+      diff = { found: false, added: false, from: null, to: null, hunks: false };
+      before = [];
+      after = [];
+    } else if (diff.hunks) {
+      // Every line of a hunk starts with its kind; "\" notes a missing final newline.
+      if (line.startsWith("@@") || line.startsWith("\\")) continue;
+      const text = line.slice(1);
+      if (line[0] !== "+") before.push(text);
+      if (line[0] !== "-") after.push(text);
+    } else if (line.startsWith("diff --git ")) diff.found = true;
+    else if (line.startsWith("new file mode ")) diff.added = true;
+    else if (line.startsWith("rename from ")) diff.from = unquotePath(line.slice(12));
+    else if (line.startsWith("rename to ")) diff.to = unquotePath(line.slice(10));
+    else if (line.startsWith("@@")) diff.hunks = true;
+  }
+  finish();
+  return revisions;
+}
+
 /** `git worktree list --porcelain` → branch ref → path, leaving out stale (prunable) entries. */
 export function parseWorktrees(output: string): Map<string, string> {
   const worktrees = new Map<string, string>();

@@ -53,7 +53,15 @@ const MAX_LANES = 12;
       </gd-empty-state>
     } @else {
       <div class="view-body">
-        <aside class="side-panel history-list" gdResizable="history" [initial]="520" [min]="340" [max]="900" #panel="gdResizable">
+        <aside
+          class="side-panel history-list"
+          gdResizable="history"
+          [initial]="520"
+          [min]="340"
+          [max]="900"
+          #panel="gdResizable"
+          data-tour="history"
+        >
           <gd-commit-menu #commitMenu="gdCommitMenu" />
           <div class="side-panel-scroll" role="list" aria-label="Commits">
             <!-- A row whose refs changed is made anew: its context menu keeps the data it first opened with. -->

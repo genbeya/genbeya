@@ -133,6 +133,15 @@
       </div>
     </section>
 
+    <section class="settings-section" aria-labelledby="agents-heading">
+      <h2 id="agents-heading">AI agents</h2>
+      <p class="settings-note">
+        Teach coding agents such as Claude Code, Codex, Copilot, Cursor and Gemini CLI to plan their work as tasks and to keep project
+        knowledge in the wiki, instead of private todo lists and memory files.
+      </p>
+      <gd-agent-files />
+    </section>
+
     <section class="settings-section" aria-labelledby="remotes-heading">
       <h2 id="remotes-heading">Remotes</h2>
       <p class="settings-note">Credentials come from your Git credential manager and SSH agent.</p>
@@ -202,6 +211,33 @@
               [checked]="session.preferences().reopenLast"
               (change)="session.setPreferences({ reopenLast: reopen.checked })"
             />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-section" aria-labelledby="help-heading" data-tour="help">
+      <h2 id="help-heading">Help</h2>
+      <p class="settings-note">You are using GitDesk {{ version }}.</p>
+      <div class="settings-card">
+        <div class="setting-row">
+          <div class="setting-label"><span>Guided tour</span><small>A short walk through GitDesk.</small></div>
+          <div class="setting-control">
+            <button type="button" class="btn btn-default btn-m" (click)="onboarding.startTour()"><span>Start the tour</span></button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><span>What's new</span><small>The changes of each version.</small></div>
+          <div class="setting-control">
+            <button type="button" class="btn btn-default btn-m" (click)="onboarding.showWhatsNew()"><span>Show what's new</span></button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label"><span>Documentation</span><small>Guides and reference, on GitHub.</small></div>
+          <div class="setting-control">
+            <button type="button" class="btn btn-default btn-m" (click)="onboarding.openDocs()">
+              <svg lucideExternalLink [size]="13" aria-hidden="true"></svg><span>Open the documentation</span>
+            </button>
           </div>
         </div>
       </div>

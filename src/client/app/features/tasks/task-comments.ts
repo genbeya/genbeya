@@ -1,0 +1,200 @@
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from "@angular/core";
+import { LucidePencil, LucideTrash2 } from "@lucide/angular";
+import type { Task } from "../../../../contracts/model";
+import { Dialogs } from "../../core/dialogs";
+import { MOD_KEY, matchesHotkey } from "../../core/hotkeys";
+import { Session } from "../../core/session";
+import { trackUnsaved } from "../../core/unsaved-changes";
+import { WorkspaceApi } from "../../core/workspace-api";
+import { MarkdownView } from "../../markdown/markdown-view";
+import { Avatar } from "../../ui/avatar";
+import { relativeTime } from "../history/commit-graph";
+import { WikiActions } from "../wiki/wiki-actions";
+
+/**
+ * The comments at the end of a task's file, and a composer for new ones.
+ * The user's own comments (signed with their Git name) can be edited and deleted.
+ */
+@Component({
+  selector: "gd-task-comments",
+  imports: [Avatar, MarkdownView, LucidePencil, LucideTrash2],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: "task-comments" },
+  template: `
+    @for (comment of task().comments; track $index) {
+      <article class="task-comment" [attr.aria-label]="'Comment by ' + comment.author">
+        <header class="task-comment-header">
+          <gd-avatar [name]="comment.author" [size]="20" />
+          <span class="task-comment-author">{{ comment.author }}</span>
+          <time class="faint" [attr.datetime]="comment.date" [title]="localTime(comment.date)">{{ relativeTime(comment.date) }}</time>
+          <span class="grow"></span>
+          @if (comment.author === author() && editing() === null) {
+            <button type="button" class="icon-btn" aria-label="Edit comment" title="Edit comment" (click)="startEditing($index)">
+              <svg lucidePencil [size]="13" aria-hidden="true"></svg>
+            </button>
+            <button type="button" class="icon-btn" aria-label="Delete comment" title="Delete comment" (click)="remove($index)">
+              <svg lucideTrash2 [size]="13" aria-hidden="true"></svg>
+            </button>
+          }
+        </header>
+        @if (editing() === $index) {
+          <textarea
+            #field
+            class="textarea"
+            aria-label="Edit comment"
+            [value]="edited()"
+            (input)="edited.set(field.value)"
+            (keydown)="editKey($event)"
+          ></textarea>
+          <div class="task-comment-actions">
+            <button type="button" class="btn btn-ghost btn-s" (click)="editing.set(null)">Cancel</button>
+            <button type="button" class="btn btn-primary btn-s" [disabled]="!edited().trim()" (click)="saveEdit()">Save</button>
+          </div>
+        } @else {
+          <gd-markdown
+            class="task-comment-body"
+            [source]="comment.body"
+            [path]="task().path"
+            [links]="wiki.linkTargets()"
+            (linkClicked)="wiki.followLink($event)"
+          />
+        }
+      </article>
+    }
+    <div class="task-composer">
+      <textarea
+        #composer
+        class="textarea"
+        aria-label="New comment"
+        placeholder="Add a comment… Markdown and [[references]] work."
+        [value]="draft()"
+        (input)="draft.set(composer.value)"
+        (keydown)="composeKey($event, composer)"
+      ></textarea>
+      <div class="task-comment-actions">
+        <button type="button" class="btn btn-primary btn-s" [disabled]="!draft().trim() || sending()" (click)="send()">
+          <span>Comment</span><kbd class="kbd">{{ mod }} ↵</kbd>
+        </button>
+      </div>
+    </div>
+  `,
+})
+export class TaskComments {
+  readonly task = input.required<Task>();
+  /** The task as saved after a comment changed. */
+  readonly changed = output<Task>();
+
+  protected readonly wiki = inject(WikiActions);
+  private readonly api = inject(WorkspaceApi);
+  private readonly session = inject(Session);
+  private readonly dialogs = inject(Dialogs);
+  protected readonly mod = MOD_KEY;
+  protected readonly relativeTime = relativeTime;
+
+  private readonly taskId = computed(() => this.task().id);
+  /** The name the user's comments are signed with; null until known. */
+  protected readonly author = signal<string | null>(null);
+  protected readonly draft = signal("");
+  protected readonly sending = signal(false);
+  /** The comment being edited, by index, and its new text. */
+  protected readonly editing = signal<number | null>(null);
+  protected readonly edited = signal("");
+  /** A comment written or edited but not saved. */
+  readonly dirty = computed(() => {
+    const index = this.editing();
+    return !!this.draft().trim() || (index !== null && this.edited() !== this.task().comments[index]?.body);
+  });
+
+  constructor() {
+    effect(() => {
+      // Once per repository.
+      if (this.session.id()) untracked(() => void this.loadAuthor());
+    });
+    effect(() => {
+      // Another task starts without a draft (a move to another epic keeps the ID).
+      this.taskId();
+      untracked(() => {
+        this.draft.set("");
+        this.editing.set(null);
+      });
+    });
+    trackUnsaved(this.dirty);
+  }
+
+  private async loadAuthor() {
+    this.author.set(await this.api.content.commentAuthor().catch(() => null));
+  }
+
+  protected localTime(iso: string): string {
+    return new Date(iso).toLocaleString();
+  }
+
+  /** Ctrl+Enter sends; Escape keeps an unsent comment instead of closing the task. */
+  protected composeKey(event: KeyboardEvent, field: HTMLTextAreaElement) {
+    if (matchesHotkey("mod+enter", event)) {
+      event.preventDefault();
+      void this.send();
+    } else if (event.key === "Escape" && this.draft().trim()) {
+      event.stopPropagation();
+      field.blur();
+    }
+  }
+
+  protected editKey(event: KeyboardEvent) {
+    if (matchesHotkey("mod+enter", event)) {
+      event.preventDefault();
+      void this.saveEdit();
+    } else if (event.key === "Escape") {
+      event.stopPropagation();
+      this.editing.set(null);
+    }
+  }
+
+  protected async send() {
+    const text = this.draft();
+    if (!text.trim() || this.sending()) return;
+    this.sending.set(true);
+    try {
+      const saved = await this.session.run(() => this.api.content.addComment(this.task().path, text));
+      if (!saved) return;
+      this.draft.set("");
+      this.report(saved);
+    } finally {
+      this.sending.set(false);
+    }
+  }
+
+  protected startEditing(index: number) {
+    this.edited.set(this.task().comments[index]!.body);
+    this.editing.set(index);
+  }
+
+  protected async saveEdit() {
+    const index = this.editing();
+    const text = this.edited();
+    if (index === null || !text.trim()) return;
+    const task = this.task();
+    const saved = await this.session.run(() => this.api.content.editComment(task.path, index, text, task.hash));
+    if (!saved) return;
+    this.editing.set(null);
+    this.report(saved);
+  }
+
+  protected async remove(index: number) {
+    const confirmed = await this.dialogs.confirm({
+      title: "Delete comment",
+      message: "Delete this comment? Git history keeps it.",
+      confirm: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
+    const task = this.task();
+    const saved = await this.session.run(() => this.api.content.deleteComment(task.path, index, task.hash));
+    if (saved) this.report(saved);
+  }
+
+  private report(saved: Task) {
+    this.changed.emit(saved);
+    this.session.contentChanged();
+  }
+}

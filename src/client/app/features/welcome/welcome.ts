@@ -1,9 +1,19 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from "@angular/core";
-import { LucideArrowRight, LucideCloudDownload, LucideFolderOpen, LucideServer, LucideX } from "@lucide/angular";
+import {
+  LucideArrowRight,
+  LucideCloudDownload,
+  LucideExternalLink,
+  LucideFlaskConical,
+  LucideFolderOpen,
+  LucideServer,
+  LucideX,
+} from "@lucide/angular";
 import { describeLocation, type Location } from "../../../../contracts/model";
+import { APP_VERSION } from "../../core/app-version";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
+import { Onboarding } from "../onboarding/onboarding";
 import { HostIcon, initials } from "../shell/repository-mark";
 import { ShellUi } from "../shell/shell-ui";
 
@@ -20,7 +30,16 @@ export function ago(time: number, now = Date.now()): string {
 
 @Component({
   selector: "gd-welcome",
-  imports: [HostIcon, LucideArrowRight, LucideCloudDownload, LucideFolderOpen, LucideServer, LucideX],
+  imports: [
+    HostIcon,
+    LucideArrowRight,
+    LucideCloudDownload,
+    LucideExternalLink,
+    LucideFlaskConical,
+    LucideFolderOpen,
+    LucideServer,
+    LucideX,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./welcome.css",
   host: { class: "welcome" },
@@ -36,6 +55,19 @@ export function ago(time: number, now = Date.now()): string {
         </svg>
         <h1>GitDesk</h1>
       </div>
+
+      @if (onboarding.introduce()) {
+        <section class="welcome-intro" aria-labelledby="intro-heading">
+          <h2 id="intro-heading">Welcome to GitDesk</h2>
+          <p>
+            A wiki, a task board, a code editor and version control for a Git repository, all kept as plain files in it. Open a repository
+            below for a short tour of it, or try GitDesk on a sample project first.
+          </p>
+          <button type="button" class="btn btn-primary btn-m" [disabled]="busy()" (click)="onboarding.createSample()">
+            <svg lucideFlaskConical [size]="14" aria-hidden="true"></svg><span>Try GitDesk with a sample project</span>
+          </button>
+        </section>
+      }
 
       <div class="welcome-actions">
         <button type="button" class="welcome-action" [disabled]="busy()" (click)="session.pick()">
@@ -85,14 +117,24 @@ export function ago(time: number, now = Date.now()): string {
       @if (busy()) {
         <div class="welcome-busy"><span class="spinner"></span> Opening…</div>
       }
+
+      <footer class="welcome-footer">
+        <span>GitDesk {{ version }}</span>
+        <button type="button" class="btn btn-ghost btn-s" (click)="onboarding.showWhatsNew()"><span>What's new</span></button>
+        <button type="button" class="btn btn-ghost btn-s" (click)="onboarding.openDocs()">
+          <span>Documentation</span><svg lucideExternalLink [size]="12" aria-hidden="true"></svg>
+        </button>
+      </footer>
     </div>
   `,
 })
 export class Welcome {
   protected readonly session = inject(Session);
   protected readonly ui = inject(ShellUi);
+  protected readonly onboarding = inject(Onboarding);
   private readonly repositories = inject(Repositories);
   protected readonly mod = MOD_KEY;
+  protected readonly version = APP_VERSION;
   protected readonly recent = this.repositories.recent;
   protected readonly busy = computed(() => this.session.phase() === "opening");
   protected readonly initials = initials;

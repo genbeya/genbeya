@@ -1,5 +1,5 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from "@angular/core";
 import { LucideColumns2, LucideFileText, LucidePencil, LucidePlus } from "@lucide/angular";
 import { Dialogs } from "../../core/dialogs";
 import { fileResource, stripFrontmatter } from "../../core/file-resource";
@@ -9,6 +9,7 @@ import { trackUnsaved } from "../../core/unsaved-changes";
 import { debounced, sameJson } from "../../core/signals";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { CodeEditor } from "../../editor/code-editor";
+import { headingAt } from "../../markdown/headings";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { EmptyState } from "../../ui/empty-state";
 import { ShareMenu } from "../share/share-menu";
@@ -52,6 +53,7 @@ const PREVIEW_DELAY = 150;
       <gd-share-menu #share="gdShareMenu" />
       <header
         class="view-header"
+        data-tour="page-header"
         [cdkContextMenuTriggerFor]="share.menu()"
         [cdkContextMenuTriggerData]="{ $implicit: { kind: 'page', path: path() } }"
       >
@@ -77,7 +79,7 @@ const PREVIEW_DELAY = 150;
             <span>Save</span><kbd class="kbd">{{ mod }} S</kbd>
           </button>
         } @else {
-          <button type="button" class="btn btn-default btn-m" [disabled]="!resource.file()" (click)="edit()">
+          <button type="button" class="btn btn-default btn-m" data-tour="wiki-edit" [disabled]="!resource.file()" (click)="edit()">
             <svg lucidePencil [size]="13" aria-hidden="true"></svg><span>Edit</span><kbd class="kbd">E</kbd>
           </button>
           <gd-page-menu [path]="path()" />
@@ -132,6 +134,8 @@ export class WikiPage {
   readonly path = input.required<string>();
   /** A heading to scroll to once the page is shown. */
   readonly anchor = input<string>();
+  /** Without an anchor, a line of the file whose section to scroll to. */
+  readonly line = input<string>();
 
   protected readonly wiki = inject(WikiActions);
   private readonly session = inject(Session);
@@ -169,6 +173,16 @@ export class WikiPage {
     );
     hotkey("mod+s", () => void this.save(false), this.editing);
     hotkey("escape", () => void this.cancel(), this.editing);
+    // Scrolls to the requested heading or line once it is rendered, and again when another one is requested.
+    effect(() => {
+      const element = this.rendered()?.element;
+      const anchor = this.anchor();
+      const target = anchor ?? (this.line() ? `line ${this.line()}` : undefined);
+      if (!element || !target || target === this.scrolledTo) return;
+      this.scrolledTo = target;
+      const id = anchor ?? untracked(() => this.headingAtLine());
+      if (id) element.querySelector(`#${CSS.escape(id)}`)?.scrollIntoView({ block: "start" });
+    });
   }
 
   protected edit() {
@@ -213,13 +227,17 @@ export class WikiPage {
     await this.resource.reload();
   }
 
-  /** Scrolls to the requested heading once, after the first render. */
   protected shown(element: HTMLElement) {
     this.rendered.set({ element });
-    const anchor = this.anchor();
-    if (anchor && anchor !== this.scrolledTo) {
-      this.scrolledTo = anchor;
-      element.querySelector(`#${CSS.escape(anchor)}`)?.scrollIntoView({ block: "start" });
-    }
+  }
+
+  /** The heading above `line`, which counts the frontmatter that is not rendered. */
+  private headingAtLine(): string | null {
+    const content = this.resource.file()?.content;
+    const line = Number(this.line());
+    if (!content || !(line > 0)) return null;
+    const source = stripFrontmatter(content);
+    const hidden = content.split("\n").length - source.split("\n").length;
+    return headingAt(source, line - hidden);
   }
 }

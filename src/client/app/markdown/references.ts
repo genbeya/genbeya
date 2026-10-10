@@ -1,29 +1,37 @@
 /**
- * What a `[[reference]]` in Markdown points to: a task by ID, a wiki page by
- * title or path, or a repository file, optionally with lines (`#L10-L20`).
+ * What a `[[reference]]` in Markdown points to, with what the client shows:
+ * a task's state, a page's title, a file's lines. The rules are shared with
+ * the link engine, in `utilities/references`.
  */
-import { validateRepositoryPath } from "../../../utilities/repository-path";
+import {
+  findReference,
+  normalizeTitle,
+  parseLines,
+  referenceIndex,
+  type ReferenceIndex,
+  type ReferenceSources as Sources,
+} from "../../../utilities/references";
 import type { LineRange } from "../editor/code-editor";
 import type { ReferenceCandidate } from "../editor/reference-completion";
 import { statusTone, type StatusTone } from "../ui/status-tone";
 
-export interface ReferenceSources {
-  readonly wikiRoot: string;
-  readonly pages: readonly { readonly title: string; readonly path: string }[];
-  readonly tasks: readonly { readonly id: string; readonly path: string; readonly title: string; readonly status: string }[];
+export { normalizeTitle, parseLines };
+
+interface ReferenceTask {
+  readonly id: string;
+  readonly path: string;
+  readonly title: string;
+  readonly status: string;
+}
+
+export interface ReferenceSources extends Sources<ReferenceTask> {
   /** Workflow states in order, for the colour of a task's state. */
   readonly statuses: readonly string[];
-  /** Every file of the repository. */
-  readonly files: readonly string[];
 }
 
 /** {@link ReferenceSources} indexed for lookups; build once per render. */
-export interface ReferenceTargets {
+export interface ReferenceTargets extends ReferenceIndex<ReferenceTask> {
   readonly sources: ReferenceSources;
-  readonly tasks: ReadonlyMap<string, ReferenceSources["tasks"][number]>;
-  readonly pagesByTitle: ReadonlyMap<string, ReferenceSources["pages"][number]>;
-  readonly pagesByPath: ReadonlyMap<string, ReferenceSources["pages"][number]>;
-  readonly files: ReadonlySet<string>;
 }
 
 export type Reference =
@@ -39,64 +47,26 @@ export type Reference =
   | { readonly kind: "file"; readonly path: string; readonly lines: LineRange | null; readonly exists: boolean }
   | { readonly kind: "missing-page"; readonly title: string };
 
-/** Titles match regardless of case, dashes and underscores. */
-export const normalizeTitle = (title: string): string =>
-  title
-    .toLowerCase()
-    .replace(/[-_\s]+/g, " ")
-    .trim();
-
-const LINES = /^L(\d+)(?:-L?(\d+))?$/i;
-/** Something with a folder or an extension is meant as a path. */
-const PATH_LIKE = /[/\\]|\.[A-Za-z0-9]+$/;
-
 export function referenceTargets(sources: ReferenceSources): ReferenceTargets {
-  return {
-    sources,
-    tasks: new Map(sources.tasks.map((task) => [task.id.toUpperCase(), task])),
-    pagesByTitle: new Map(sources.pages.map((page) => [normalizeTitle(page.title), page])),
-    pagesByPath: new Map(sources.pages.map((page) => [page.path.toLowerCase(), page])),
-    files: new Set(sources.files),
-  };
+  return { ...referenceIndex(sources), sources };
 }
 
-/** `L10`, `L10-L20` or `L10-20`, in either order; null for anything else. */
-export function parseLines(fragment: string | undefined): LineRange | null {
-  const match = fragment ? LINES.exec(fragment) : null;
-  if (!match) return null;
-  const [a, b] = [Number(match[1]), Number(match[2] ?? match[1])];
-  return a > 0 && b > 0 ? { from: Math.min(a, b), to: Math.max(a, b) } : null;
-}
-
-const repositoryPath = (value: string): string | null => {
-  try {
-    return validateRepositoryPath(value.replace(/^\/+/, ""), false);
-  } catch {
-    return null;
-  }
-};
-
-/** Tasks first, then pages, then files: a task ID or a page title never turns into a file. */
 export function resolveReference(target: string, targets: ReferenceTargets): Reference {
-  const [name = "", fragment] = target.trim().split("#", 2);
-  const task = targets.tasks.get(name.toUpperCase());
-  if (task) {
-    const index = targets.sources.statuses.indexOf(task.status);
-    return { ...task, kind: "task", tone: statusTone(index, targets.sources.statuses.length) };
+  const found = findReference(target, targets);
+  switch (found.kind) {
+    case "task": {
+      const { statuses } = targets.sources;
+      return { ...found.task, kind: "task", tone: statusTone(statuses.indexOf(found.task.status), statuses.length) };
+    }
+    case "page": {
+      const anchor = found.anchor ? { anchor: found.anchor } : {};
+      return { kind: "page", path: found.page.path, title: found.page.title, ...anchor };
+    }
+    case "file":
+      return found;
+    case "missing":
+      return { kind: "missing-page", title: target.trim() };
   }
-  const anchor = fragment ? { anchor: fragment } : {};
-  const byTitle = targets.pagesByTitle.get(normalizeTitle(name));
-  if (byTitle) return { kind: "page", path: byTitle.path, title: byTitle.title, ...anchor };
-  const path = repositoryPath(name);
-  if (!path) return { kind: "missing-page", title: target.trim() };
-  const { wikiRoot } = targets.sources;
-  for (const candidate of [path, `${path}.md`, `${wikiRoot}/${path}`, `${wikiRoot}/${path}.md`]) {
-    const page = targets.pagesByPath.get(candidate.toLowerCase());
-    if (page) return { kind: "page", path: page.path, title: page.title, ...anchor };
-  }
-  if (targets.files.has(path) || PATH_LIKE.test(name))
-    return { kind: "file", path, lines: parseLines(fragment), exists: targets.files.has(path) };
-  return { kind: "missing-page", title: target.trim() };
 }
 
 /**

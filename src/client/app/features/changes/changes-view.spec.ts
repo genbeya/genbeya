@@ -94,7 +94,8 @@ describe("ChangesView", () => {
     dialogs.open.mockResolvedValue(options);
     element.querySelector<HTMLButtonElement>("[aria-label='Stash changes']")!.click();
     await settle(fixture);
-    expect(managers.versionControl.stash).toHaveBeenCalledWith("w1", options);
+    // The dialog loads lazily.
+    await vi.waitFor(() => expect(managers.versionControl.stash).toHaveBeenCalledWith("w1", options));
   });
 
   it("lists stashes and shows the selected one with its files", async () => {

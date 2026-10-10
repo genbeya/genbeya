@@ -2,8 +2,9 @@
 import { type Provider } from "@angular/core";
 import type { Mock } from "vitest";
 import { MANAGER_METHODS, type Managers } from "../../../contracts/manager-contracts";
-import type { Settings, Snapshot, Task } from "../../../contracts/model";
+import type { Preferences, Settings, Snapshot, Task } from "../../../contracts/model";
 import type { ShellContract } from "../../../contracts/shell";
+import { APP_VERSION } from "../core/app-version";
 import { MANAGERS, SHELL } from "../platform/platform";
 
 export const SETTINGS: Settings = {
@@ -14,6 +15,16 @@ export const SETTINGS: Settings = {
   taskPrefix: "TP",
   statuses: ["backlog", "todo", "in-progress", "review", "done"],
   hiddenColumns: [],
+};
+
+/** A user who has seen the tour and the news of this version. */
+export const PREFERENCES: Preferences = {
+  theme: "system",
+  reopenLast: true,
+  autoSyncContent: false,
+  lastSeenVersion: APP_VERSION,
+  tourSeen: true,
+  tourOffered: [],
 };
 
 export function task(id: string, change: Partial<Task> = {}): Task {
@@ -28,6 +39,7 @@ export function task(id: string, change: Partial<Task> = {}): Task {
     body: "",
     epic: "",
     hash: `hash-${id}`,
+    comments: [],
     ...change,
   };
 }
@@ -65,12 +77,13 @@ export function fakeManagers(): MockedManagers {
       Object.fromEntries(methods.map((method) => [method, vi.fn(async () => undefined)])),
     ]),
   ) as unknown as MockedManagers;
-  managers.workspace.preferences.mockResolvedValue({ theme: "system", reopenLast: true, autoSyncContent: false });
+  managers.workspace.preferences.mockResolvedValue(PREFERENCES);
   managers.workspace.restore.mockResolvedValue(null);
   managers.workspace.recent.mockResolvedValue([]);
   managers.workspace.distributions.mockResolvedValue([]);
   managers.workspace.snapshot.mockResolvedValue(null);
   managers.workspace.open.mockResolvedValue({ id: "w1", snapshot: snapshot() });
+  managers.content.agentFiles.mockResolvedValue([]);
   return managers;
 }
 

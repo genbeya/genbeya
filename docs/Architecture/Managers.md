@@ -4,9 +4,9 @@ Four managers implement everything the client can do with a repository. Their co
 
 | Manager | Use cases |
 | --- | --- |
-| `workspace` | Open, clone, restore and close repositories; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
-| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, and the [[Content branch]] |
-| `versionControl` | Diffs, staging, commits, stashes, branches, tags, remotes, fetch/pull/push, history, merges and conflicts |
+| `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
+| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, the [[Content branch]], full-text [[Search]], and the files that teach [[AI agents]] to use them |
+| `versionControl` | Diffs, staging, commits, stashes, branches, tags, remotes, fetch/pull/push, history, merges, rebases and conflicts |
 | `terminal` | Shells in the repository for the [[Terminal]]: open, input, size, output, close |
 
 Every call names the workspace it was made for (or a terminal, which belongs to one), so a call racing a repository switch fails instead of touching the new repository. Every argument is validated again in the manager, so managers can sit directly behind IPC.
@@ -42,11 +42,48 @@ Rewriting history needs a clean working tree: `rebase`, `pullRebase` and `rebase
 
 The client sends every commit after `base` once, in the new order, each with an action and, for reword and squash, a message. `src/engines/rebase-engine.ts` checks the steps against the commits and turns them into a todo list that needs no editor: squashes become `fixup`, and a commit whose message changes is followed by `exec git commit --amend --file=<message>`. Git access writes the todo list and the messages into `gitdesk-rebase/` in the git directory and runs `git rebase -i` with `GIT_SEQUENCE_EDITOR="cat '<todo>' >"`: Git runs editors and `exec` lines through its own `sh`, so the same commands work on Windows (Git for Windows' sh), WSL and SSH hosts. Shell hosts pass environment variables by exporting them in the request's subshell.
 
+## Task comments and activity
+
+Comments live at the end of the task file (format in [[Tasks#comments]]); `Task.body` is the description above them and `Task.comments` the comments, oldest first. The task engine splits and joins the two, so `updateTask` keeps the comments as written and the comment calls keep the frontmatter and description as written.
+
+- `addComment(workspace, path, text)` appends a comment to the file as it is now; it needs no version, since comments only ever go last.
+- `editComment` and `deleteComment` name the comment by its index in the version `expectedHash`, and only change comments signed with the user's name.
+- `commentAuthor(workspace)` is that name: `git var GIT_AUTHOR_IDENT`, which is `user.name` or what Git derives from the system account. Without one, comment calls ask the user to set `user.name`.
+
+`taskActivity(workspace, path)` reads the history of the task file wherever it lives — the checkout, or the worktree of the [[Content branch]] — with one call:
+
+```
+git log --follow --no-merges --max-count=100 --patch --unified=1000000 -- <path>
+```
+
+The patches carry whole files, so every commit yields both versions, and `rename from`/`rename to` lines give the path before and after; the task engine compares the two versions (status, priority, assignee, title, epic, labels, description, comments, other frontmatter fields). Task files over 256 KiB are listed without patch context, so the output stays small. Edits not committed yet come first, as an entry without commit; a task moved to another epic since the last commit is found under its committed path by its file name.
+
+## Preferences
+
+`workspace.preferences()` and `setPreferences(change)` keep the user's preferences in `state.json` in the app's data folder, next to the recent repositories, so they survive reinstalling the same variant. Besides theme and startup they remember the onboarding: the version whose news the user has seen (`null` before the first start; state saved by versions that did not remember it counts as `0.0.0`, so its user sees all news), whether the tour was taken, and the repositories that offered it.
+
+## Sample repository
+
+`workspace.createSample(parent)` creates `gitdesk-sample` (or `gitdesk-sample-2`, …) below `parent` on its host, so it works locally, on WSL and over SSH, and opens it. The sample engine (`src/engines/sample-engine.ts`) holds the files and the commits that create them; the last step stays uncommitted, so **Changes** has something to show. The commits are made as *GitDesk*, without signing: the user's identity may not be set up yet.
+
 ## Remote folders
 
 `workspace.browse({ kind, distro | host, path })` lists the subfolders of a folder on WSL or SSH, for the folder browser of the open and clone dialogs. An empty path, `~` or `~/…` starts in the home folder. The listing has the folder's absolute path (links resolved), its parent (null at `/`) and up to 2000 subfolders, sorted by name ignoring case with hidden ones last; each says whether it is a Git repository (holds `.git`), and `truncated` says when there were more. Folders on this computer use the system folder dialog instead.
 
 Connection failures name the machine: `Can't connect to <host>: <ssh's reason>`, or `WSL has no distribution named <distro>.` See [[Hosts]] for how one listing travels.
+
+## Search
+
+`content.search(workspace, text, { caseSensitive, wholeWord, regex })` finds text in pages, tasks and code and answers `{ wiki, tasks, code, truncated }`: per file its path, scope and title (a task also its ID and status), and per match the line number, the line, where the text matches in it, and the lines before and after. Text is literal and case is ignored unless the options say otherwise; regular expressions are POSIX extended ones.
+
+It runs `git grep` on the repository's host, so it needs nothing but Git there, in two calls per working tree:
+
+1. `git grep -l -z -I --untracked` lists the files with a match: tracked ones and untracked ones that `.gitignore` does not exclude, binary files skipped. The search engine (`src/engines/search-engine.ts`) sorts them into areas — Markdown below the task folder is a task, below the wiki folder a page, everything else code — and keeps 30 per area.
+2. `git grep -n --column -z -C1` on just those files returns the matching lines and one line of context. With `-z`, paths end at a NUL, and only matches carry a column, which tells them from context lines whatever the text holds.
+
+The engine then finds the matches within each line (for highlighting), keeps 10 per file, and shortens lines over 200 characters around the first match. `truncated` says whether anything was left out. With a [[Content branch]], the content worktree supplies pages and tasks and the checkout only code, so stale copies in the checkout are not listed twice.
+
+The text travels as the argument of `-e`, after `-F` or `-E`, in an argument list: never through a shell string, never readable as an option. The manager rejects empty or blank text, more than 200 characters, line breaks (git would read several patterns) and options that are not booleans. A search that runs longer than 20 seconds is stopped.
 
 ## Terminals
 
@@ -74,6 +111,18 @@ sequenceDiagram
 ## Writes
 
 Saves carry the hash of the content they were based on. If the file changed on disk since, the save is rejected and the editor keeps the draft. Line endings and a byte order mark are kept as they were. All operations on one workspace run one at a time.
+
+## Moving pages
+
+`content.movePage(workspace, from, to, { updateLinks })` moves a page with its subpage folder. With `updateLinks`, it reads every Markdown file of the content location (in the checkout, that includes `README.md` and other documentation) in one batch, and the link engine (`src/engines/link-engine.ts`) rewrites what the move would break:
+
+- relative Markdown links and definitions (`[x](../Guide/Wiki.md#part)`, `[x]: Guide.md`) and images that point into the moved pages, from anywhere;
+- relative links inside the moved pages that point out of them;
+- `[[references]]` to moved pages by path (`[[Guide/Wiki]]`, `[[docs/Guide/Wiki.md]]`), and by title when the title changes; to files in a moved folder by path.
+
+The engine parses with the same Markdown parser as the client, so code blocks and inline code stay untouched, and resolves references by the rules the client renders them with (`src/utilities/references.ts`). Only destinations and reference targets change, written in the style they had: relative or from the root, title or path, with or without `.md`, percent-encoded or in `<…>`. A new title that another page also has is written as a path. The moves and the rewritten files are committed together, so on a [[Content branch]] the move is one commit.
+
+`content.pageLinks(workspace, from, to)` returns the same changes without making them, per file with line, before and after, for the move dialog.
 
 ## Paths
 

@@ -13,7 +13,14 @@ import { UnsavedChanges } from "./unsaved-changes";
 
 export const POLL_INTERVAL = 4000;
 export const CONTENT_SYNC_DELAY = 2500;
-const DEFAULT_PREFERENCES: Preferences = { theme: "system", reopenLast: true, autoSyncContent: false };
+const DEFAULT_PREFERENCES: Preferences = {
+  theme: "system",
+  reopenLast: true,
+  autoSyncContent: false,
+  lastSeenVersion: null,
+  tourSeen: false,
+  tourOffered: [],
+};
 
 interface Open {
   readonly id: string;
@@ -87,6 +94,11 @@ export class Session {
 
   clone(url: string, parent: Location): Promise<void> {
     return this.switchTo(() => this.managers.workspace.clone(url, parent));
+  }
+
+  /** Creates the sample repository in a new folder below `parent`, and opens it. */
+  createSample(parent: Location): Promise<void> {
+    return this.switchTo(() => this.managers.workspace.createSample(parent));
   }
 
   async close(): Promise<void> {

@@ -63,6 +63,7 @@ export class Shell {
     void router.navigate(["/wiki"]);
 
     hotkey(["mod+k", "mod+p"], () => void ui.openPalette());
+    hotkey("mod+shift+f", () => void ui.openPalette("search"));
     hotkey("mod+o", () => void this.session.pick());
     hotkey("?", () => void ui.showHelp());
     hotkey("alt+arrowleft", () => history.back());

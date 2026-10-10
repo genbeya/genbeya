@@ -1,0 +1,120 @@
+/* The guided tour: above the app and its toasts, below dialogs and menus (the overlay container is at 1000).
+   Only the popover takes clicks; everything else stays usable to try things out. */
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+}
+
+.tour-dim {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.4);
+}
+
+.tour-spotlight {
+  position: fixed;
+  border-radius: var(--radius);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 0 100vmax rgb(0 0 0 / 0.4);
+  transition:
+    left 180ms ease-out,
+    top 180ms ease-out,
+    width 180ms ease-out,
+    height 180ms ease-out;
+}
+
+.tour-popover {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  padding: 10px 14px 14px 18px;
+  border-radius: var(--radius-l);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+  animation: tour-in 160ms ease-out;
+  transition:
+    left 180ms ease-out,
+    top 180ms ease-out;
+}
+
+/* While the next step's element loads, the old popover would point at nothing. */
+.tour-layer.is-moving .tour-popover {
+  visibility: hidden;
+}
+
+.tour-popover header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tour-count {
+  color: var(--text-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tour-popover h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tour-body.markdown {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.tour-body.markdown p {
+  margin: 0 0 0.5em;
+}
+
+.tour-try {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 12.5px;
+}
+
+.tour-try svg {
+  flex: none;
+}
+
+.tour-popover footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.tour-popover footer .btn-ghost {
+  margin-left: -10px;
+}
+
+@keyframes tour-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-spotlight,
+  .tour-popover {
+    animation: none;
+    transition: none;
+  }
+}

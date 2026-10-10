@@ -1,6 +1,6 @@
 {
   "name": "gitdesk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "A desktop workspace for Git repositories: wiki, tasks, code and version control",
   "author": "Emanuel Knecht",

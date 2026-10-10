@@ -4,7 +4,16 @@ import { decodeLenient, encodeText } from "../../utilities/bytes";
 import { withoutCredentials } from "../../utilities/remote-url";
 import type { Machine } from "../ports";
 
-export const DEFAULT_PREFERENCES: Preferences = { theme: "system", reopenLast: true, autoSyncContent: false };
+export const DEFAULT_PREFERENCES: Preferences = {
+  theme: "system",
+  reopenLast: true,
+  autoSyncContent: false,
+  lastSeenVersion: null,
+  tourSeen: false,
+  tourOffered: [],
+};
+/** The last seen version of state saved before versions were remembered: all news is new to its user. */
+export const UNKNOWN_VERSION = "0.0.0";
 const RECENT_LIMIT = 20;
 const SAVE_DELAY = 300;
 
@@ -44,7 +53,10 @@ export class PreferencesStore {
     try {
       const saved = JSON.parse(decodeLenient(await machine.fileSystem.readFile(store.file))) as Partial<State>;
       const recent = Array.isArray(saved.recent) ? saved.recent.slice(0, RECENT_LIMIT) : [];
-      store.state = { recent: recent.map(withRemotes), preferences: { ...DEFAULT_PREFERENCES, ...saved.preferences } };
+      store.state = {
+        recent: recent.map(withRemotes),
+        preferences: { ...DEFAULT_PREFERENCES, lastSeenVersion: UNKNOWN_VERSION, ...saved.preferences },
+      };
       // A file with credentials in it is written again without them.
       const remotes = (entries: readonly RecentEntry[]) => JSON.stringify(entries.map(savedRemotes));
       if (remotes(recent) !== remotes(store.state.recent)) store.update({});
