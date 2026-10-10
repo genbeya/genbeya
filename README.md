@@ -10,6 +10,7 @@ A desktop workspace for a Git repository: wiki, task board, code editor and vers
 - **Terminal** (`` Ctrl+` ``) in the repository, on the machine it lives on.
 - **AI agents**: a skill and an `AGENTS.md` section teach Claude Code, Codex, Copilot, Cursor and others to track their work as tasks and keep project knowledge in the wiki ([AI agents](docs/Guide/AI-agents.md)).
 - Command palette (`Ctrl+K`), back/forward (`Alt+←/→`, mouse buttons), recent repositories, dark and light themes.
+- **Getting started** inside the app: a sample project, a guided tour, and what's new after each update.
 
 ## Run
 

@@ -33,6 +33,14 @@ describe("Session", () => {
     expect(session.snapshot()).toBeNull();
   });
 
+  it("creates the sample repository and opens it", async () => {
+    const { session, managers } = setup();
+    managers.workspace.createSample.mockResolvedValue({ id: "w2", snapshot: snapshot() });
+    await session.createSample({ kind: "local", path: "/projects" });
+    expect(managers.workspace.createSample).toHaveBeenCalledWith({ kind: "local", path: "/projects" });
+    expect(session.id()).toBe("w2");
+  });
+
   it("opens a picked folder", async () => {
     const { session, managers, shell } = setup();
     shell.pickFolder.mockResolvedValue({ kind: "local", path: "/repo" });

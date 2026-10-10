@@ -26,6 +26,26 @@
   letter-spacing: -0.02em;
 }
 
+.welcome-intro {
+  margin-bottom: 20px;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--bg-panel);
+}
+
+.welcome-intro h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.welcome-intro p {
+  margin: 0 0 14px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
 .welcome-actions {
   display: flex;
   flex-direction: column;
@@ -167,6 +187,24 @@
 .recent-forget:hover {
   background: var(--bg-active);
   color: var(--text);
+}
+
+.welcome-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 40px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.welcome-footer > span {
+  margin-right: 6px;
+}
+
+.welcome-footer .btn {
+  color: var(--text-3);
+  font-size: 12px;
 }
 
 .welcome-busy {

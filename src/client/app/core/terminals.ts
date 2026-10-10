@@ -111,9 +111,14 @@ export class Terminals {
 
   /** Shows the panel, with a first terminal if there is none. */
   async show(): Promise<void> {
-    if (this.available() === null) this.available.set(await this.terminal.available().catch(() => false));
-    if (this.available() && !this.tabs().length) this.add();
+    if ((await this.detect()) && !this.tabs().length) this.add();
     this.shown.set(true);
+  }
+
+  /** Finds out whether this build has terminals, once; {@link available} says it then. */
+  async detect(): Promise<boolean> {
+    if (this.available() === null) this.available.set(await this.terminal.available().catch(() => false));
+    return this.available()!;
   }
 
   add(): void {

@@ -17,13 +17,16 @@ import {
   LucideSearch,
   LucideServer,
   LucideSettings,
+  LucideSquareTerminal,
   LucideX,
 } from "@lucide/angular";
 import { CONTENT_AREAS, describeLocation, sameLocation, syncsContentBranch } from "../../../../contracts/model";
-import { MOD_KEY } from "../../core/hotkeys";
+import { CTRL_KEY, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
+import { Terminals } from "../../core/terminals";
 import { MenuItem } from "../../ui/menu-item";
+import { TourOffer } from "../onboarding/tour-offer";
 import { AREA_NAMES } from "../settings/content-areas";
 import { RepositoryActions } from "./repository-actions";
 import { HostIcon, initials } from "./repository-mark";
@@ -41,6 +44,7 @@ export type View = (typeof VIEWS)[number];
     RouterLinkActive,
     MenuItem,
     HostIcon,
+    TourOffer,
     LucideArrowDown,
     LucideArrowUp,
     LucideBookOpen,
@@ -56,6 +60,7 @@ export type View = (typeof VIEWS)[number];
     LucideSearch,
     LucideServer,
     LucideSettings,
+    LucideSquareTerminal,
     LucideX,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -67,7 +72,9 @@ export class Sidebar {
   protected readonly session = inject(Session);
   protected readonly ui = inject(ShellUi);
   protected readonly actions = inject(RepositoryActions);
+  protected readonly terminals = inject(Terminals);
   protected readonly mod = MOD_KEY;
+  protected readonly ctrl = CTRL_KEY;
   protected readonly snapshot = computed(() => this.session.snapshot()!);
   protected readonly mark = computed(() => initials(this.snapshot().settings.name));
   protected readonly folderName = computed(
@@ -103,4 +110,9 @@ export class Sidebar {
       .filter((entry) => !sameLocation(entry.location, this.snapshot().location))
       .slice(0, 8),
   );
+
+  constructor() {
+    // Builds without terminals have no terminal button.
+    void this.terminals.detect();
+  }
 }

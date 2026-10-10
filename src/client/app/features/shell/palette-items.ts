@@ -38,7 +38,10 @@ export type PaletteIcon =
   | "changes"
   | "history"
   | "terminal"
-  | "link";
+  | "link"
+  | "tour"
+  | "news"
+  | "docs";
 
 export interface PaletteItem {
   readonly id: string;
@@ -74,6 +77,9 @@ export interface PaletteCommands {
   showHelp(): void;
   toggleTerminal(): void;
   openLink(link: GitdeskLink): void;
+  startTour(): void;
+  showWhatsNew(): void;
+  openDocs(): void;
 }
 
 const GROUP_WEIGHT: Readonly<Record<string, number>> = { Pages: 40, Tasks: 30, "Go to": 20, Actions: 10 };
@@ -186,6 +192,18 @@ export function allItems(
     })),
     { id: "help", group: "Preferences", label: "Keyboard shortcuts", icon: "keyboard", hint: "?", run: () => commands.showHelp() },
   ];
+  const help: PaletteItem[] = [
+    { id: "tour", group: "Help", label: "Start the tour", icon: "tour", keywords: "onboarding guide", run: () => commands.startTour() },
+    {
+      id: "news",
+      group: "Help",
+      label: "Show what's new",
+      icon: "news",
+      keywords: "changelog release notes",
+      run: () => commands.showWhatsNew(),
+    },
+    { id: "docs", group: "Help", label: "Open the documentation", icon: "docs", keywords: "help manual", run: () => commands.openDocs() },
+  ];
   const pages = flattenPages(wiki).map((page): PaletteItem => ({
     id: `page:${page.path}`,
     group: "Pages",
@@ -219,7 +237,7 @@ export function allItems(
       keywords: path,
       run: () => commands.openFile(path),
     }));
-  return [...go, ...actions, ...repository, ...preferences, ...pages, ...taskItems, ...fileItems];
+  return [...go, ...actions, ...repository, ...preferences, ...help, ...pages, ...taskItems, ...fileItems];
 }
 
 /** "Open link" when the query is a GitDesk link, as pasted from a coworker; it replaces every other result. */
