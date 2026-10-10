@@ -11,7 +11,7 @@ import type { LinkTarget } from "../../markdown/link-target";
 import { parseLines, referenceCandidates } from "../../markdown/references";
 import type { GitdeskOptions } from "../../markdown/markdown-pipeline";
 import { filePaths } from "../../../../utilities/file-tree";
-import { MovePageDialog, type MovePageOptions, type PageMoveChoice } from "./move-page-dialog";
+import type { MovePageOptions, PageMoveChoice } from "./move-page-dialog";
 import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
 
 @Injectable({ providedIn: "root" })
@@ -78,6 +78,7 @@ export class WikiActions {
 
   /** Asks for a new name and moves the page with its subpages, updating the links to them if wanted. */
   async movePage(path: string): Promise<void> {
+    const { MovePageDialog } = await import("./move-page-dialog");
     const choice = await this.dialogs.open<PageMoveChoice, MovePageOptions>(MovePageDialog, { path });
     if (!choice) return;
     const moved = await this.session.run(

@@ -37,8 +37,11 @@ export const TERMINAL_PANEL = new InjectionToken<() => Promise<Type<unknown>>>("
   template: `
     <gd-sidebar />
     <div class="workspace">
+      <!-- A separate chunk: most repositories are rarely in the middle of a merge or rebase. -->
       @if (session.snapshot()?.operation) {
-        <gd-operation-banner />
+        @defer {
+          <gd-operation-banner />
+        }
       }
       <main class="main" [attr.aria-busy]="session.phase() === 'opening'">
         <router-outlet />
