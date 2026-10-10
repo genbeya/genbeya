@@ -16,6 +16,8 @@ export interface Settings {
   readonly taskRoot: string;
   readonly taskPrefix: string;
   readonly statuses: readonly string[];
+  /** Workflow states the board leaves out (the list still shows them). */
+  readonly hiddenColumns: readonly string[];
 }
 
 export interface FileNode {
@@ -42,11 +44,13 @@ export interface Task {
   readonly assignee: string;
   readonly labels: readonly string[];
   readonly body: string;
+  /** The folder below the task folder that holds the task ("Auth/Tokens"); "" for none. */
+  readonly epic: string;
   /** Version of the file the task was read from; updates must name it. */
   readonly hash: string;
 }
 
-export type TaskInput = Pick<Task, "title" | "status" | "priority" | "assignee" | "labels" | "body">;
+export type TaskInput = Pick<Task, "title" | "status" | "priority" | "assignee" | "labels" | "body" | "epic">;
 
 export interface Change {
   readonly path: string;

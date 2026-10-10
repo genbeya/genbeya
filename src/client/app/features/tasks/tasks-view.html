@@ -22,6 +22,19 @@
   >
     <svg lucideListFilter [size]="15" aria-hidden="true"></svg>
   </button>
+  @if (layout() === "board" && epics().length) {
+    <button
+      type="button"
+      class="icon-btn"
+      aria-label="Swimlanes by epic"
+      title="Swimlanes by epic"
+      [attr.aria-pressed]="swimlanes()"
+      [class.is-active]="swimlanes()"
+      (click)="toggleSwimlanes()"
+    >
+      <svg lucideRows3 [size]="15" aria-hidden="true"></svg>
+    </button>
+  }
   <div class="segmented" role="radiogroup" aria-label="Layout">
     <button type="button" role="radio" aria-label="Board" [attr.aria-checked]="layout() === 'board'" [class.is-active]="layout() === 'board'" (click)="setLayout('board')">
       <svg lucideColumns3 [size]="14" aria-hidden="true"></svg>
@@ -37,6 +50,17 @@
 
 <ng-template #filterMenu>
   <div class="menu" cdkMenu [style.width.px]="230">
+    @if (epics().length) {
+      <div class="menu-heading">Epic</div>
+      @for (epic of epics(); track epic) {
+        <button gd-menu-item [checked]="filters().epic === epic" (selected)="toggleFilter('epic', epic)">
+          <svg icon lucideFolder [size]="13" aria-hidden="true"></svg>{{ epic }}
+        </button>
+      }
+      <button gd-menu-item [checked]="filters().epic === ''" (selected)="toggleFilter('epic', '')">
+        <svg icon lucideFolder [size]="13" aria-hidden="true"></svg>No epic
+      </button>
+    }
     <div class="menu-heading">Assignee</div>
     <button gd-menu-item [checked]="filters().assignee === unassigned" (selected)="toggleFilter('assignee', unassigned)">
       <svg icon lucideUser [size]="14" aria-hidden="true"></svg>Unassigned
@@ -71,15 +95,40 @@
       <button type="button" class="btn btn-primary btn-m" (click)="startTask()"><svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create the first task</span></button>
     </gd-empty-state>
   } @else if (layout() === "board") {
-    <gd-task-board [columns]="columns()" [statuses]="statuses()" [tasks]="tasks()" [selected]="task()" (open)="open($event)" (move)="move($event)" (create)="startTask($event)" />
+    @if (boardColumns().length) {
+      <gd-task-board
+        [columns]="boardColumns()"
+        [statuses]="statuses()"
+        [tasks]="tasks()"
+        [lanes]="lanes()"
+        [selected]="task()"
+        (open)="open($event)"
+        (move)="move($event)"
+        (create)="startTask($event.status, $event.epic)"
+      />
+    } @else {
+      <gd-empty-state title="Every column is hidden">
+        <svg icon lucideColumns3 [size]="20" aria-hidden="true"></svg>
+        <p>Choose the columns the board shows with the checkboxes in the list.</p>
+        <button type="button" class="btn btn-default btn-m" (click)="setLayout('list')"><span>Show the list</span></button>
+      </gd-empty-state>
+    }
   } @else {
-    <gd-task-list [columns]="columns()" [statuses]="statuses()" [tasks]="tasks()" [selected]="task()" (open)="open($event)" />
+    <gd-task-list
+      [columns]="columns()"
+      [statuses]="statuses()"
+      [hidden]="hidden()"
+      [tasks]="tasks()"
+      [selected]="task()"
+      (open)="open($event)"
+      (visibilityChanged)="setColumnVisible($event)"
+    />
   }
 
   @if (selected() || create()) {
     <div class="task-scrim" aria-hidden="true" (click)="closePanel()"></div>
     @for (key of [selected()?.path ?? "new"]; track key) {
-      <gd-task-panel [task]="selected()" [createStatus]="create()" />
+      <gd-task-panel [task]="selected()" [createStatus]="create()" [createEpic]="epic()" />
     }
   }
   @if (task() && !selected() && snapshot().tasks.length) {

@@ -13,6 +13,7 @@ export const SETTINGS: Settings = {
   taskRoot: "tasks",
   taskPrefix: "TP",
   statuses: ["backlog", "todo", "in-progress", "review", "done"],
+  hiddenColumns: [],
 };
 
 export function task(id: string, change: Partial<Task> = {}): Task {
@@ -25,6 +26,7 @@ export function task(id: string, change: Partial<Task> = {}): Task {
     assignee: "",
     labels: [],
     body: "",
+    epic: "",
     hash: `hash-${id}`,
     ...change,
   };

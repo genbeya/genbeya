@@ -18,7 +18,7 @@ import { WikiActions } from "../wiki/wiki-actions";
 import { displayId, inputOf } from "./task-model";
 import { TaskProperties } from "./task-properties";
 
-const empty = (status: string): TaskInput => ({ title: "", status, priority: "none", assignee: "", labels: [], body: "" });
+const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, priority: "none", assignee: "", labels: [], body: "", epic });
 
 /**
  * The task drawer. Viewing renders the description and saves property
@@ -109,6 +109,8 @@ export class TaskPanel {
   readonly task = input<Task>();
   /** The state a new task starts in. */
   readonly createStatus = input<string>();
+  /** The epic a new task starts in. */
+  readonly createEpic = input<string>();
 
   protected readonly wiki = inject(WikiActions);
   private readonly session = inject(Session);
@@ -144,7 +146,8 @@ export class TaskPanel {
     });
     effect(() => {
       // Creating starts in edit mode with an empty draft.
-      if (!this.task()) untracked(() => this.begin(empty(this.createStatus() ?? this.session.snapshot()!.settings.statuses[0]!)));
+      if (!this.task())
+        untracked(() => this.begin(empty(this.createStatus() ?? this.session.snapshot()!.settings.statuses[0]!, this.createEpic())));
     });
     // A new task starts with its title; an edit starts in the description.
     afterRenderEffect(() => {

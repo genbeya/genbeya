@@ -126,7 +126,7 @@ export class Workspace {
         return;
       }
       try {
-        const task = this.engines.tasks.parse(path, file.content, file.hash);
+        const task = this.engines.tasks.parse(path, file.content, file.hash, settings.taskRoot);
         const owner = owners.get(task.id);
         if (owner) warnings.push(`${path}: task ID ${task.id} is also used by ${owner}.`);
         else owners.set(task.id, path);

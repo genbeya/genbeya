@@ -1,18 +1,18 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
-import { LucidePlus, LucideTag, LucideUser } from "@lucide/angular";
+import { LucideFolder, LucidePlus, LucideTag, LucideUser } from "@lucide/angular";
 import { PRIORITIES, type TaskInput } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { Session } from "../../core/session";
 import { Avatar } from "../../ui/avatar";
 import { MenuItem } from "../../ui/menu-item";
 import { LabelChip, PriorityIcon, StatusIcon } from "./task-icons";
-import { labelsOf, peopleOf, titleCase } from "./task-model";
+import { epicName, epicsOf, labelsOf, peopleOf, titleCase } from "./task-model";
 
-/** Status, priority, assignee and labels as compact menu buttons. */
+/** Status, priority, assignee, labels and epic as compact menu buttons. */
 @Component({
   selector: "gd-task-properties",
-  imports: [CdkMenu, CdkMenuTrigger, MenuItem, Avatar, LabelChip, PriorityIcon, StatusIcon, LucidePlus, LucideTag, LucideUser],
+  imports: [CdkMenu, CdkMenuTrigger, MenuItem, Avatar, LabelChip, PriorityIcon, StatusIcon, LucideFolder, LucidePlus, LucideTag, LucideUser],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-properties" },
   template: `
@@ -28,6 +28,9 @@ import { labelsOf, peopleOf, titleCase } from "./task-model";
       } @else {
         <svg lucideUser [size]="14" aria-hidden="true"></svg>Unassigned
       }
+    </button>
+    <button type="button" class="property" aria-label="Epic" [cdkMenuTriggerFor]="epicMenu">
+      <svg lucideFolder [size]="13" aria-hidden="true"></svg>{{ epicName(value().epic) }}
     </button>
     <button type="button" class="property" aria-label="Labels" [cdkMenuTriggerFor]="labelMenu">
       @for (label of value().labels; track label) {
@@ -67,6 +70,18 @@ import { labelsOf, peopleOf, titleCase } from "./task-model";
         <button gd-menu-item (selected)="assignSomeoneElse()"><svg icon lucidePlus [size]="14" aria-hidden="true"></svg>Someone else…</button>
       </div>
     </ng-template>
+    <ng-template #epicMenu>
+      <div class="menu" cdkMenu>
+        <button gd-menu-item [checked]="!value().epic" (selected)="changed.emit({ epic: '' })"><svg icon lucideFolder [size]="13" aria-hidden="true"></svg>No epic</button>
+        @for (epic of epics(); track epic) {
+          <button gd-menu-item [checked]="epic === value().epic" (selected)="changed.emit({ epic })">
+            <svg icon lucideFolder [size]="13" aria-hidden="true"></svg>{{ epic }}
+          </button>
+        }
+        <div class="menu-separator"></div>
+        <button gd-menu-item (selected)="newEpic()"><svg icon lucidePlus [size]="14" aria-hidden="true"></svg>New epic…</button>
+      </div>
+    </ng-template>
     <ng-template #labelMenu>
       <div class="menu" cdkMenu>
         @for (label of labels(); track label) {
@@ -91,6 +106,9 @@ export class TaskProperties {
   protected readonly titleCase = titleCase;
   protected readonly statuses = computed(() => this.session.snapshot()!.settings.statuses);
   protected readonly people = computed(() => peopleOf(this.session.snapshot()!.tasks));
+  protected readonly epicName = epicName;
+  /** Epics of other tasks, and this one's even while it is the only task in it. */
+  protected readonly epics = computed(() => [...new Set([...epicsOf(this.session.snapshot()!.tasks), ...(this.value().epic ? [this.value().epic] : [])])].sort());
   protected readonly labels = computed(() => [...new Set([...labelsOf(this.session.snapshot()!.tasks), ...this.value().labels])].sort());
 
   protected priorityName(priority: string): string {
@@ -105,6 +123,18 @@ export class TaskProperties {
   protected async assignSomeoneElse() {
     const name = await this.dialogs.prompt({ title: "Assign", label: "Name", placeholder: "alice", confirm: "Assign" });
     if (name) this.changed.emit({ assignee: name });
+  }
+
+  /** Epics are folders below the task folder; "/" nests them. */
+  protected async newEpic() {
+    const epic = await this.dialogs.prompt({
+      title: "New epic",
+      label: "Epic name",
+      placeholder: "Login rework",
+      confirm: "Move here",
+      hint: "The task moves into a folder of this name. Use / to nest epics.",
+    });
+    if (epic?.trim()) this.changed.emit({ epic: epic.trim() });
   }
 
   protected async addLabel() {

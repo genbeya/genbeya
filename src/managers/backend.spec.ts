@@ -20,6 +20,7 @@ const input: TaskInput = {
   assignee: "alice",
   labels: ["backend"],
   body: "Useful work.\n\n- [ ] Done\n",
+  epic: "",
 };
 
 /** Managers behind the same serialising transport the shells use. */
@@ -234,6 +235,34 @@ describe("ContentManager", () => {
     expect((await latest()).tasks.map((task) => task.id)).toEqual(["TP-1"]);
     await expect(content.createTask(id, { ...input, status: "nope" })).rejects.toThrow("workflow states");
     await expect(content.updateTask(id, "docs/Home.md", input, "x")).rejects.toThrow("inside tasks/");
+  });
+
+  it("keeps tasks of an epic in its folder and moves them between epics", async () => {
+    const { content, id, latest, repository } = await opened();
+    const first = await content.createTask(id, { ...input, epic: "Login rework" });
+    const second = await content.createTask(id, { ...input, title: "Second" });
+    // IDs are unique across epics.
+    expect([first.path, first.epic, second.id]).toEqual(["tasks/Login rework/TP-1.md", "Login rework", "TP-2"]);
+    const moved = await content.updateTask(id, first.path, { ...input, epic: "Billing/Invoices", status: "done" }, first.hash);
+    expect(moved).toMatchObject({ id: "TP-1", path: "tasks/Billing/Invoices/TP-1.md", epic: "Billing/Invoices", status: "done" });
+    expect(await repository.exists("tasks/Login rework/TP-1.md")).toBe(false);
+    const back = await content.updateTask(id, moved.path, { ...input, epic: "" }, moved.hash);
+    expect(back.path).toBe("tasks/TP-1.md");
+    expect((await latest()).tasks.map((task) => [task.id, task.epic])).toEqual(
+      expect.arrayContaining([
+        ["TP-1", ""],
+        ["TP-2", ""],
+      ]),
+    );
+    // Another task already has the ID's file name in the target epic.
+    await repository.write("tasks/Billing/TP-2.md", "not a task");
+    await expect(content.updateTask(id, second.path, { ...input, epic: "Billing" }, second.hash)).rejects.toThrow("already exists");
+    await expect(content.createTask(id, { ...input, epic: "../outside" })).rejects.toThrow("epic");
+  });
+
+  it("skips task IDs whose files exist in any epic", async () => {
+    const { content, id } = await opened({ ".gitdesk.yml": "name: T\ntaskPrefix: TP\n", "tasks/Old/TP-1.md": "not a task" });
+    expect((await content.createTask(id, input)).id).toBe("TP-2");
   });
 
   it("skips task IDs whose files exist without a task", async () => {

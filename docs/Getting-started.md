@@ -43,6 +43,8 @@ statuses:            # board columns; the last one means done
   - in-progress
   - review
   - done
+hiddenColumns:       # states the board leaves out
+  - backlog
 ```
 
 Edit them in **Settings**; unknown keys and comments in the file are preserved.

@@ -29,6 +29,7 @@ export class SettingsEngine {
       taskRoot: "tasks",
       taskPrefix: prefixFor(name),
       statuses: [...DEFAULT_STATUSES],
+      hiddenColumns: [],
     };
   }
 
@@ -56,7 +57,10 @@ export class SettingsEngine {
       statuses.some((s) => !s || s.length > 40)
     )
       throw new Error("Use 1–12 unique workflow states.");
-    return { name, wikiRoot, wikiHome, taskRoot, taskPrefix, statuses };
+    if (!Array.isArray(value.hiddenColumns)) throw new Error("List the hidden columns as workflow states.");
+    // States that were renamed or removed are forgotten.
+    const hiddenColumns = statuses.filter((status) => (value.hiddenColumns as unknown[]).includes(status));
+    return { name, wikiRoot, wikiHome, taskRoot, taskPrefix, statuses, hiddenColumns };
   }
 
   /** Reads a settings file over `fallback`; unknown keys are ignored here and kept by {@link serialize}. */
@@ -76,7 +80,11 @@ export class SettingsEngine {
       const parsed = YAML.parseDocument(withoutByteOrderMark(previous));
       if (!parsed.errors.length && YAML.isMap(parsed.contents)) document = parsed;
     }
-    for (const [key, value] of Object.entries(valid)) document.set(key, value);
+    for (const [key, value] of Object.entries(valid)) {
+      // Optional lists stay out of the file while empty.
+      if (Array.isArray(value) && !value.length && key === "hiddenColumns") document.delete(key);
+      else document.set(key, value);
+    }
     return applyTextStyle(document.toString(), previous === null ? LF_STYLE : textStyleOf(previous));
   }
 }

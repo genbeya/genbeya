@@ -13,11 +13,12 @@ const input: TaskInput = {
   assignee: "alice",
   labels: ["backend"],
   body: "Useful work.\n\n- [ ] Done\n",
+  epic: "",
 };
 
 describe("TaskEngine.parse", () => {
   it("reads the frontmatter fields and the body", () => {
-    const task = engine.parse("tasks/TP-1.md", "---\nid: TP-1\ntitle: One\nstatus: todo\nlabels: [a, b]\n---\n\nBody\n", "h");
+    const task = engine.parse("tasks/TP-1.md", "---\nid: TP-1\ntitle: One\nstatus: todo\nlabels: [a, b]\n---\n\nBody\n", "h", "tasks");
     expect(task).toEqual({
       id: "TP-1",
       path: "tasks/TP-1.md",
@@ -27,12 +28,13 @@ describe("TaskEngine.parse", () => {
       assignee: "",
       labels: ["a", "b"],
       body: "Body\n",
+      epic: "",
       hash: "h",
     });
   });
 
   it("accepts comma-separated labels and CRLF files", () => {
-    const task = engine.parse("t.md", "---\r\nid: 7\r\ntitle: T\r\nstatus: done\r\nlabels: a, b\r\n---\r\n", "h");
+    const task = engine.parse("t.md", "---\r\nid: 7\r\ntitle: T\r\nstatus: done\r\nlabels: a, b\r\n---\r\n", "h", "tasks");
     expect(task.id).toBe("7");
     expect(task.labels).toEqual(["a", "b"]);
   });
@@ -48,6 +50,7 @@ status: done
 ---
 `,
         "h",
+        "tasks",
       ).id,
     ).toBe("7");
   });
@@ -58,7 +61,21 @@ status: done
     ["broken YAML", "---\nid: [broken\n---\n", "Invalid YAML frontmatter"],
     ["a list", "---\n- a\n---\n", "YAML mapping"],
   ])("rejects %s", (_, content, message) => {
-    expect(() => engine.parse("t.md", content, "h")).toThrow(message);
+    expect(() => engine.parse("t.md", content, "h", "tasks")).toThrow(message);
+  });
+});
+
+describe("TaskEngine epics", () => {
+  it("are the folders tasks live in below the task folder", () => {
+    const content = "---\nid: TP-1\ntitle: One\nstatus: todo\n---\n";
+    expect(engine.parse("tasks/TP-1.md", content, "h", "tasks").epic).toBe("");
+    expect(engine.parse("tasks/Login rework/TP-1.md", content, "h", "tasks").epic).toBe("Login rework");
+    expect(engine.parse("work/tasks/Auth/Tokens/TP-1.md", content, "h", "work/tasks").epic).toBe("Auth/Tokens");
+  });
+
+  it("place a task's file", () => {
+    expect(engine.pathOf("tasks", "", "TP-1")).toBe("tasks/TP-1.md");
+    expect(engine.pathOf("tasks", "Auth/Tokens", "TP-1")).toBe("tasks/Auth/Tokens/TP-1.md");
   });
 });
 
@@ -70,6 +87,7 @@ describe("TaskEngine.validate", () => {
       priority: "none",
       labels: ["x"],
     });
+    expect(engine.validate({ ...input, epic: " Auth / Tokens/ " }, statuses).epic).toBe("Auth/Tokens");
   });
 
   it.each([
@@ -78,6 +96,10 @@ describe("TaskEngine.validate", () => {
     [{ labels: Array.from({ length: 31 }, (_, i) => `l${i}`) }, "at most 30 labels"],
     [{ assignee: 5 }, "Invalid assignee"],
     [{ labels: "a" }, "at most 30 labels"],
+    [{ epic: "../outside" }, "epic"],
+    [{ epic: ".git" }, "epic"],
+    [{ epic: "x".repeat(121) }, "epic"],
+    [{ epic: 3 }, "epic"],
   ])("rejects %j", (change, message) => {
     expect(() => engine.validate({ ...input, ...change } as unknown as TaskInput, statuses)).toThrow(message);
   });
@@ -91,7 +113,7 @@ describe("TaskEngine serialisation", () => {
   });
 
   it("round-trips through parse", () => {
-    const task = engine.parse("tasks/TP-1.md", engine.serializeNew("TP-1", input), "h");
+    const task = engine.parse("tasks/TP-1.md", engine.serializeNew("TP-1", input), "h", "tasks");
     expect({ ...task, hash: undefined, id: undefined, path: undefined }).toEqual({
       ...input,
       hash: undefined,
@@ -116,7 +138,7 @@ describe("TaskEngine serialisation", () => {
     expect(updated.startsWith(`${BOM}---${CRLF}id: TP-1${CRLF}`)).toBe(true);
     expect(updated.endsWith(`New${CRLF}body${CRLF}`)).toBe(true);
     expect(updated.split(CRLF).join("")).not.toContain("\n");
-    expect(engine.parse("t.md", updated, "h")).toMatchObject({ title: "Build it", body: `New${CRLF}body${CRLF}` });
+    expect(engine.parse("t.md", updated, "h", "tasks")).toMatchObject({ title: "Build it", body: `New${CRLF}body${CRLF}` });
   });
 
   it("does not add a priority the file did not have", () => {

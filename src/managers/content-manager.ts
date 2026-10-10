@@ -110,16 +110,17 @@ export class ContentManager implements ContentManagerContract {
       const valid = this.engines.tasks.validate(input as TaskInput, settings.statuses);
       const files = await workspace.content.files();
       const existing = await workspace.tasks(files, settings, []);
-      // A free ID may still name a file, e.g. a task renamed on another branch.
+      // A free ID may still name a file in some epic, e.g. a task renamed on another branch.
+      const fileNames = new Set(files.filter((file) => within(file, settings.taskRoot)).map(baseName));
       const taskId = this.engines.tasks.nextId(
         settings.taskPrefix,
         existing.map((task) => task.id),
-        (candidate) => files.includes(`${settings.taskRoot}/${candidate}.md`),
+        (candidate) => fileNames.has(`${candidate}.md`),
       );
-      const path = workspace.path(`${settings.taskRoot}/${taskId}.md`);
+      const path = workspace.path(this.engines.tasks.pathOf(settings.taskRoot, valid.epic, taskId));
       const file = await (await workspace.content.locate()).files.write(path, this.engines.tasks.serializeNew(taskId, valid), null);
       await workspace.content.record([path], `Create ${taskId}: ${valid.title}`);
-      return this.engines.tasks.parse(path, file.content, file.hash);
+      return this.engines.tasks.parse(path, file.content, file.hash, settings.taskRoot);
     });
   }
 
@@ -130,21 +131,27 @@ export class ContentManager implements ContentManagerContract {
       const { files } = await workspace.content.locate();
       const original = await files.read(relative);
       if (original.hash !== expectedHash) throw new Error("This task changed on disk. Reopen it to see the latest version.");
-      const task = this.engines.tasks.parse(relative, original.content, original.hash);
-      const file = await files.write(relative, this.engines.tasks.serializeUpdate(original.content, valid), original.hash);
-      await workspace.content.record([relative], `Update ${task.id}: ${valid.title}`);
-      return this.engines.tasks.parse(relative, file.content, file.hash);
+      const task = this.engines.tasks.parse(relative, original.content, original.hash, settings.taskRoot);
+      // Another epic is another folder; the file keeps its name.
+      const target =
+        valid.epic === task.epic
+          ? relative
+          : workspace.path(this.engines.tasks.pathOf(settings.taskRoot, valid.epic, baseName(relative).slice(0, -3)));
+      if (target !== relative) await files.moveAll([[relative, target]]);
+      const file = await files.write(target, this.engines.tasks.serializeUpdate(original.content, valid), original.hash);
+      await workspace.content.record([...new Set([relative, target])], `Update ${task.id}: ${valid.title}`);
+      return this.engines.tasks.parse(target, file.content, file.hash, settings.taskRoot);
     });
   }
 
   deleteTask(id: unknown, path: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
-      const { relative } = await this.taskPath(workspace, path);
+      const { relative, settings } = await this.taskPath(workspace, path);
       const { files } = await workspace.content.locate();
       const original = await files.read(relative);
       let taskId = baseName(relative).slice(0, -3);
       try {
-        taskId = this.engines.tasks.parse(relative, original.content, original.hash).id;
+        taskId = this.engines.tasks.parse(relative, original.content, original.hash, settings.taskRoot).id;
       } catch {
         /* Unreadable task files can be deleted too. */
       }

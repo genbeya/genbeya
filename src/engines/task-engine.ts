@@ -6,11 +6,12 @@
  */
 import YAML from "yaml";
 import type { Task, TaskInput } from "../contracts/model";
+import { validateRepositoryPath, within } from "../utilities/repository-path";
 import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
 
 const FRONTMATTER = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
 const DEFAULT_PRIORITY = "none";
-const LIMITS = { title: 300, priority: 40, assignee: 120, label: 60, labels: 30, body: 1024 * 1024 } as const;
+const LIMITS = { title: 300, priority: 40, assignee: 120, label: 60, labels: 30, body: 1024 * 1024, epic: 120 } as const;
 
 interface Frontmatter {
   readonly document: YAML.Document;
@@ -52,7 +53,8 @@ const compose = (frontmatter: string, body: string) => `---\n${frontmatter}---\n
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export class TaskEngine {
-  parse(path: string, content: string, hash: string): Task {
+  /** `path` is the task file below `taskRoot`; its folder there is the task's epic. */
+  parse(path: string, content: string, hash: string, taskRoot: string): Task {
     const { data, body } = splitFrontmatter(content);
     if (data["id"] == null || data["title"] == null || data["status"] == null)
       throw new Error("A task needs id, title and status in its frontmatter.");
@@ -65,8 +67,20 @@ export class TaskEngine {
       assignee: String(data["assignee"] ?? ""),
       labels: toList(data["labels"]),
       body: body.replace(/^\r?\n/, ""),
+      epic: this.epicOf(path, taskRoot),
       hash,
     };
+  }
+
+  epicOf(path: string, taskRoot: string): string {
+    if (!within(path, taskRoot)) return "";
+    const below = path.slice(taskRoot.length + 1);
+    return below.includes("/") ? below.slice(0, below.lastIndexOf("/")) : "";
+  }
+
+  /** Where the task `id` of `epic` lives. */
+  pathOf(taskRoot: string, epic: string, id: string): string {
+    return [taskRoot, ...(epic ? [epic] : []), `${id}.md`].join("/");
   }
 
   /** Checks and normalises client input against the project's workflow states. */
@@ -88,7 +102,24 @@ export class TaskEngine {
       assignee: text(input.assignee, "assignee", LIMITS.assignee).trim(),
       labels: [...new Set(input.labels.map((label) => text(label, "label", LIMITS.label).trim()).filter(Boolean))],
       body: text(input.body, "description", LIMITS.body),
+      epic: this.validEpic(input.epic),
     };
+  }
+
+  /** "" or a folder path such as "Auth/Tokens"; spaces around the slashes are dropped. */
+  private validEpic(value: unknown): string {
+    if (typeof value !== "string" || value.length > LIMITS.epic) throw new Error("Invalid epic.");
+    const epic = value
+      .split("/")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join("/");
+    if (!epic) return "";
+    try {
+      return validateRepositoryPath(epic, false);
+    } catch {
+      throw new Error(`"${epic}" is not a valid epic name.`);
+    }
   }
 
   serializeNew(id: string, input: TaskInput): string {

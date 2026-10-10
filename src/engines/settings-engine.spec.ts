@@ -23,7 +23,21 @@ describe("SettingsEngine", () => {
       taskRoot: "tasks",
       taskPrefix: "TP",
       statuses: ["backlog", "todo", "in-progress", "review", "done"],
+      hiddenColumns: [],
     });
+  });
+
+  it("hides configured columns from the board, forgetting states that no longer exist", () => {
+    const settings = engine.parse("hiddenColumns: [backlog, gone, backlog]", defaults, false);
+    expect(settings.hiddenColumns).toEqual(["backlog"]);
+    expect(() => engine.parse("hiddenColumns: backlog", defaults, false)).toThrow("hidden columns");
+  });
+
+  it("writes hidden columns only while there are some", () => {
+    expect(engine.serialize(defaults, null, false)).not.toContain("hiddenColumns");
+    const hidden = engine.serialize({ ...defaults, hiddenColumns: ["done"] }, null, false);
+    expect(engine.parse(hidden, defaults, false).hiddenColumns).toEqual(["done"]);
+    expect(engine.serialize(defaults, hidden, false)).not.toContain("hiddenColumns");
   });
 
   it("parses partial files over the defaults", () => {
