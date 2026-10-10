@@ -94,6 +94,14 @@
       "package.json"
     ],
     "publish": null,
+    "protocols": [
+      {
+        "name": "GitDesk link",
+        "schemes": [
+          "gitdesk"
+        ]
+      }
+    ],
     "mac": {
       "target": {
         "target": "dmg",

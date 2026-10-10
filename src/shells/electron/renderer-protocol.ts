@@ -1,6 +1,8 @@
 /**
  * Serves the built client from `gitdesk://app/`, with a strict content
- * security policy. Only files below the client folder are served.
+ * security policy. Only files below the client folder are served, and only
+ * for the host `app`: GitDesk links (`gitdesk://open?…`) share the scheme but
+ * reach the app as launch arguments, never as requests.
  */
 import path from "node:path";
 
