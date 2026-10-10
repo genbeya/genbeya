@@ -1,4 +1,4 @@
-import { expect, FILES, test } from "./app";
+import { expect, FILES, MOD, test } from "./app";
 
 test.use({
   files: {
@@ -29,17 +29,18 @@ test.describe("references", () => {
   });
 
   test("are offered while typing [[ in the editor", async ({ window, repository }) => {
+    await expect(window.locator(".document-article").getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
     await window.keyboard.press("e");
     const editor = window.getByRole("textbox", { name: "Page source" });
     await expect(editor).toBeFocused();
-    await window.keyboard.press("Control+End");
+    await window.keyboard.press(`${MOD}+End`);
     await window.keyboard.type("\nNext: [[First");
     await expect(window.getByRole("option", { name: /DP-1 First task/ })).toBeVisible();
     // CodeMirror ignores keys for a moment after the list opens, so a quick Enter cannot pick by accident.
     await window.waitForTimeout(150);
     await window.keyboard.press("Enter");
     await expect(editor).toContainText("Next: [[DP-1]]");
-    await window.keyboard.press("Control+s");
+    await window.keyboard.press(`${MOD}+s`);
     await expect.poll(() => repository.read("docs/Home.md")).toContain("Next: [[DP-1]]");
   });
 });

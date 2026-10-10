@@ -1,5 +1,5 @@
 import { TestBed } from "@angular/core/testing";
-import { ContextMenuGuard } from "./context-menu-guard";
+import { ContextMenuGuard, openMenuFromKeyboard } from "./context-menu-guard";
 
 const rightClick = (target: EventTarget) => {
   const event = new MouseEvent("contextmenu", { button: 2, cancelable: true, bubbles: true });
@@ -59,5 +59,18 @@ describe("ContextMenuGuard", () => {
     const preventDefault = vi.spyOn(event, "preventDefault");
     item.dispatchEvent(event);
     expect(preventDefault).toHaveBeenCalledOnce();
+  });
+
+  it("opens an item's menu from Shift+F10 or the menu key, where the browser does not", () => {
+    const item = element("div", { tabindex: "0" });
+    const opened: MouseEvent[] = [];
+    item.addEventListener("contextmenu", (event) => (opened.push(event), event.preventDefault()));
+    const press = (key: string, shiftKey = false) =>
+      openMenuFromKeyboard(new KeyboardEvent("keydown", { key, shiftKey, cancelable: true }), item);
+    expect(press("F10", true)).toBe(true);
+    expect(press("ContextMenu")).toBe(true);
+    expect(press("F10")).toBe(false);
+    expect(opened).toHaveLength(2);
+    expect(opened[0]!.button).toBe(2);
   });
 });
