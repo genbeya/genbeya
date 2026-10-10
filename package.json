@@ -8,6 +8,7 @@
   "main": "dist/electron/main.cjs",
   "type": "module",
   "scripts": {
+    "postinstall": "node scripts/fix-node-pty.mjs",
     "start": "node scripts/dev.mjs",
     "build": "ng build && node scripts/build-backend.mjs",
     "check": "tsc -p tsconfig.backend.json && ng build --configuration development",
