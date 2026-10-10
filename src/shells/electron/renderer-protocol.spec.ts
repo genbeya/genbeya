@@ -14,6 +14,8 @@ describe("resolveAsset", () => {
 
   it.each([
     "gitdesk://other/index.html",
+    "gitdesk://open?remote=https://github.com/acme/demo.git&task=DP-1",
+    "gitdesk://open/index.html",
     "https://app/index.html",
     "gitdesk://app/%2e%2e%2fsecret",
     "gitdesk://app/..%2f..%2fsecret",

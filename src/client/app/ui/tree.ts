@@ -1,3 +1,4 @@
+import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { NgTemplateOutlet } from "@angular/common";
 import { ChangeDetectionStrategy, Component, computed, contentChild, input, output, signal, TemplateRef } from "@angular/core";
 import { LucideChevronRight } from "@lucide/angular";
@@ -29,7 +30,7 @@ export function filterTree<T>(items: readonly TreeItem<T>[], query: string): Tre
  */
 @Component({
   selector: "gd-tree",
-  imports: [NgTemplateOutlet, LucideChevronRight],
+  imports: [CdkContextMenuTrigger, NgTemplateOutlet, LucideChevronRight],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "tree", role: "tree", "[attr.aria-label]": "label()" },
   template: `
@@ -37,6 +38,7 @@ export function filterTree<T>(items: readonly TreeItem<T>[], query: string): Tre
       @for (item of items; track item.key) {
         @let open = isOpen(item);
         @let parent = !!item.children?.length;
+        @let menuData = rowMenuData()(item);
         <div
           role="treeitem"
           class="tree-row"
@@ -45,6 +47,9 @@ export function filterTree<T>(items: readonly TreeItem<T>[], query: string): Tre
           [attr.aria-expanded]="parent ? open : null"
           [attr.tabindex]="item.key === selected() || (!selected() && $first && depth === 0) ? 0 : -1"
           [style.padding-left.px]="6 + depth * 14"
+          [cdkContextMenuTriggerFor]="rowMenu()"
+          [cdkContextMenuTriggerData]="{ $implicit: menuData }"
+          [cdkContextMenuDisabled]="!rowMenu() || menuData === null"
           (click)="click($event, item)"
           (keydown)="key($event, item, open)"
         >
@@ -72,6 +77,10 @@ export class Tree<T> {
   readonly label = input.required<string>();
   /** Opens matching items initially, e.g. the folders of the current page. */
   readonly initiallyOpen = input<(item: TreeItem<T>) => boolean>(() => false);
+  /** The context menu of rows (right-click, the context-menu key or Shift+F10), given `rowMenuData(item)` as `$implicit`. */
+  readonly rowMenu = input<TemplateRef<unknown> | null>(null);
+  /** The menu's data for a row; null for rows without a menu. */
+  readonly rowMenuData = input<(item: TreeItem<T>) => unknown>(() => null);
   readonly selectItem = output<TreeItem<T>>();
   protected readonly row = contentChild.required(TemplateRef);
   private readonly toggled = signal<ReadonlyMap<string, boolean>>(new Map());

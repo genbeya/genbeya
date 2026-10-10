@@ -30,6 +30,20 @@ const RECENT_CHANGES = new Set(["open", "restore", "clone", "forget"]);
 const primary = app.requestSingleInstanceLock();
 if (!primary) app.exit(0);
 
+// The installed app opens gitdesk://open links (the renderer's own gitdesk://app is not one): Windows and
+// Linux start it with the link as an argument, macOS hands it over with `open-url`.
+if (primary && app.isPackaged) app.setAsDefaultProtocolClient("gitdesk");
+
+/** Links from `open-url`, which comes before the window exists on a cold start; the page reads them with the launch arguments. */
+const openedLinks: string[] = [];
+/** Passes later links and second launches to the page, once the window exists. */
+let handOver: ((args: readonly string[]) => void) | null = null;
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  if (handOver) handOver([url]);
+  else openedLinks.push(url);
+});
+
 function serveClient() {
   protocol.handle("gitdesk", async (request) => {
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
@@ -149,7 +163,7 @@ function connect(window: BrowserWindow, backend: Backend) {
       if (THEMES.includes(theme as Theme)) nativeTheme.themeSource = theme as Theme;
     },
     async launchArgs() {
-      return process.argv;
+      return [...process.argv, ...openedLinks];
     },
   };
   ipcMain.handle("gitdesk:shell", (event, operation: unknown, args: unknown) => {
@@ -169,11 +183,12 @@ async function start() {
   const window = createWindow(state);
   connect(window, backend);
   updateJumpList(await backend.workspace.recent());
-  app.on("second-instance", (_event, argv) => {
+  handOver = (args) => {
     if (window.isMinimized()) window.restore();
     window.focus();
-    window.webContents.send("gitdesk:second-launch", argv);
-  });
+    window.webContents.send("gitdesk:second-launch", args);
+  };
+  app.on("second-instance", (_event, argv) => handOver?.(argv));
   // Once the window has closed (the page may still veto that), quitting waits for repositories to close and state to be written.
   // Then it exits: on macOS a second app.quit() after a prevented will-quit does nothing.
   app.once("will-quit", (event) => {

@@ -1,4 +1,4 @@
-import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
+import { CdkContextMenuTrigger, CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from "@angular/core";
 import { Router } from "@angular/router";
 import {
@@ -8,45 +8,55 @@ import {
   LucideEye,
   LucideFile,
   LucideFileDiff,
+  LucideGlobe,
+  LucideLink,
   LucidePencil,
   LucideTrash2,
 } from "@lucide/angular";
+import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import { Dialogs } from "../../core/dialogs";
 import { Clipboard } from "../../core/clipboard";
 import { fileResource } from "../../core/file-resource";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
+import { ShareLinks } from "../../core/share-links";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { CodeEditor } from "../../editor/code-editor";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { EmptyState } from "../../ui/empty-state";
 import { MenuItem } from "../../ui/menu-item";
+import { ShareMenu } from "../share/share-menu";
 import { WikiActions } from "../wiki/wiki-actions";
 
 /** One repository file in the editor; Markdown can also be previewed. */
 @Component({
   selector: "gd-file-editor",
   imports: [
+    CdkContextMenuTrigger,
     CdkMenu,
     CdkMenuTrigger,
     CodeEditor,
     EmptyState,
     MarkdownView,
     MenuItem,
+    ShareMenu,
     LucideChevronRight,
     LucideCopy,
     LucideEllipsis,
     LucideEye,
     LucideFile,
     LucideFileDiff,
+    LucideGlobe,
+    LucideLink,
     LucidePencil,
     LucideTrash2,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
-    <header class="view-header">
+    <gd-share-menu #share="gdShareMenu" />
+    <header class="view-header" [cdkContextMenuTriggerFor]="share.menu()" [cdkContextMenuTriggerData]="{ $implicit: link() }">
       <div class="view-title code-path" [attr.aria-label]="path()">
         @for (segment of folders(); track $index) {
           <span class="row crumb-row"
@@ -95,6 +105,19 @@ import { WikiActions } from "../wiki/wiki-actions";
     <ng-template #actions>
       <div class="menu" cdkMenu>
         <button gd-menu-item (selected)="copyPath()"><svg icon lucideCopy [size]="14" aria-hidden="true"></svg>Copy path</button>
+        <button
+          gd-menu-item
+          [disabled]="!!links.unavailable()"
+          [attr.title]="links.unavailable()"
+          (selected)="links.copyGitdeskLink(link())"
+        >
+          <svg icon lucideLink [size]="14" aria-hidden="true"></svg>Copy GitDesk link
+        </button>
+        @if (links.webLink(link())) {
+          <button gd-menu-item (selected)="links.copyWebLink(link())">
+            <svg icon lucideGlobe [size]="14" aria-hidden="true"></svg>Copy web link
+          </button>
+        }
         <button gd-menu-item [disabled]="!changed()" (selected)="showChanges()">
           <svg icon lucideFileDiff [size]="14" aria-hidden="true"></svg>Show changes
         </button>
@@ -162,6 +185,8 @@ export class FileEditor {
   readonly changed = input(false);
 
   protected readonly wiki = inject(WikiActions);
+  protected readonly links = inject(ShareLinks);
+  protected readonly link = computed<LinkItem>(() => ({ kind: "file", path: this.path() }));
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);

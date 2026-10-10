@@ -148,6 +148,23 @@ describe("Session", () => {
     await vi.waitFor(() => expect(managers.workspace.open).toHaveBeenCalledWith({ kind: "local", path: "/other" }));
   });
 
+  it("holds GitDesk links that launches carry until they are taken", async () => {
+    const { session, managers, shell } = setup();
+    const link = "gitdesk://open?remote=https://github.com/acme/demo.git&task=TP-1";
+    const expected = { remote: "https://github.com/acme/demo.git", item: { kind: "task", id: "TP-1" } };
+    shell.launchArgs.mockResolvedValue(["app", link]);
+    await session.start();
+    expect(managers.workspace.restore).toHaveBeenCalledWith(["app", link]);
+    expect(session.requestedLink()).toEqual(expected);
+    expect(session.takeRequestedLink()).toEqual(expected);
+    expect(session.requestedLink()).toBeNull();
+
+    const secondLaunch = shell.onSecondLaunch.mock.calls[0]![0] as (args: string[]) => void;
+    secondLaunch(["app", link.replace("task=TP-1", "page=docs/Home.md")]);
+    expect(session.takeRequestedLink()?.item).toEqual({ kind: "page", path: "docs/Home.md" });
+    expect(managers.workspace.open).not.toHaveBeenCalled();
+  });
+
   it("guards closing the window with unsaved changes", () => {
     const { shell } = setup();
     const unsaved = TestBed.inject(UnsavedChanges);

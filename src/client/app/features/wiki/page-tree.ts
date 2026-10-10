@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, type ElementRef, inject, input, signal, viewChild } from "@angular/core";
 import { LucideFilePlus2, LucideFileText, LucideFolder, LucidePlus, LucideSearch } from "@lucide/angular";
+import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import type { WikiNode } from "../../../../contracts/model";
 import { hotkey } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { filterTree, Tree, type TreeItem } from "../../ui/tree";
+import { ShareMenu } from "../share/share-menu";
 import { PageMenu } from "./page-menu";
 import { WikiActions } from "./wiki-actions";
 import { nodeKey } from "./wiki-pages";
@@ -11,7 +13,7 @@ import { nodeKey } from "./wiki-pages";
 /** The page tree with its filter; `/` focuses the filter. */
 @Component({
   selector: "gd-page-tree",
-  imports: [Tree, PageMenu, LucideFilePlus2, LucideFileText, LucideFolder, LucidePlus, LucideSearch],
+  imports: [Tree, PageMenu, ShareMenu, LucideFilePlus2, LucideFileText, LucideFolder, LucidePlus, LucideSearch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: contents" },
   template: `
@@ -32,12 +34,15 @@ import { nodeKey } from "./wiki-pages";
       </button>
     </div>
     <div class="side-panel-scroll">
+      <gd-share-menu #share="gdShareMenu" />
       <gd-tree
         label="Pages"
         [items]="shown()"
         [selected]="selected()"
         [expandAll]="!!query()"
         [initiallyOpen]="topLevel"
+        [rowMenu]="share.menu()"
+        [rowMenuData]="pageLink"
         (selectItem)="open($event)"
       >
         <ng-template let-item>
@@ -93,6 +98,9 @@ export class PageTree {
       .slice(root.length + 1)
       .includes("/");
   };
+
+  /** Pages can be shared; folders without a page cannot. */
+  protected readonly pageLink = ({ data }: TreeItem<WikiNode>): LinkItem | null => (data.path ? { kind: "page", path: data.path } : null);
 
   constructor() {
     hotkey("/", () => this.filter().nativeElement.focus());

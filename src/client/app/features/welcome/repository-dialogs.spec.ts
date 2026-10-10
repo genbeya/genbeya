@@ -1,4 +1,4 @@
-import { DialogRef } from "@angular/cdk/dialog";
+import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
 import { TestBed } from "@angular/core/testing";
 import type { Type } from "@angular/core";
 import { Dialogs } from "../../core/dialogs";
@@ -13,7 +13,12 @@ async function render(component: Type<unknown>, choice: FolderChoice | undefined
   const dialogs = { open: vi.fn(async () => choice) };
   const close = vi.fn();
   TestBed.configureTestingModule({
-    providers: [...providePlatform(managers), { provide: Dialogs, useValue: dialogs }, { provide: DialogRef, useValue: { close } }],
+    providers: [
+      ...providePlatform(managers),
+      { provide: Dialogs, useValue: dialogs },
+      { provide: DialogRef, useValue: { close } },
+      { provide: DIALOG_DATA, useValue: undefined },
+    ],
   });
   const fixture = TestBed.createComponent(component);
   await settle(fixture);

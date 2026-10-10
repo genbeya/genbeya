@@ -4,8 +4,9 @@
  * user's preferences.
  */
 import { computed, DestroyRef, Injectable, inject, signal } from "@angular/core";
+import type { GitdeskLink } from "../../../contracts/gitdesk-link";
 import type { Location, Preferences, Snapshot } from "../../../contracts/model";
-import { requestedLocation } from "../../../utilities/launch-request";
+import { requestedLink, requestedLocation } from "../../../utilities/launch-request";
 import { MANAGERS, SHELL } from "../platform/platform";
 import { Notifications } from "./notifications";
 import { UnsavedChanges } from "./unsaved-changes";
@@ -27,6 +28,7 @@ export class Session {
   private readonly unsaved = inject(UnsavedChanges);
   private readonly current = signal<Open | null>(null);
   private readonly pending = signal(0);
+  private readonly link = signal<GitdeskLink | null>(null);
   private syncTimer: ReturnType<typeof setTimeout> | undefined;
   private refreshes = 0;
 
@@ -36,6 +38,8 @@ export class Session {
   readonly id = computed(() => this.current()?.id ?? null);
   readonly snapshot = computed(() => this.current()?.snapshot ?? null);
   readonly busy = computed(() => this.pending() > 0);
+  /** A GitDesk link a launch asked to open, until whoever opens it takes it. */
+  readonly requestedLink = this.link.asReadonly();
 
   constructor() {
     const timer = setInterval(() => void this.poll(), POLL_INTERVAL);
@@ -52,11 +56,18 @@ export class Session {
     });
   }
 
-  /** Loads preferences and reopens the repository the launch or the last session asks for. */
+  /**
+   * Loads preferences and reopens the repository the launch or the last
+   * session asks for. A GitDesk link among the launch arguments waits in
+   * {@link requestedLink}; the managers then reopen nothing, since the link
+   * decides the repository.
+   */
   async start(): Promise<void> {
     try {
       this.preferences.set(await this.managers.workspace.preferences());
-      this.accept(await this.managers.workspace.restore(await this.shell.launchArgs()));
+      const args = await this.shell.launchArgs();
+      this.accept(await this.managers.workspace.restore(args));
+      this.link.set(requestedLink(args) ?? null);
     } catch (error) {
       this.notifications.error(error);
     } finally {
@@ -132,12 +143,21 @@ export class Session {
     }
   }
 
+  /** The link a launch asked to open, which the caller now opens; null when there is none. */
+  takeRequestedLink(): GitdeskLink | null {
+    const link = this.link();
+    this.link.set(null);
+    return link;
+  }
+
   private async poll() {
     if (!document.hidden) await this.refresh().catch(() => undefined);
   }
 
-  /** A second launch (the jump list) asks to open a repository; the manager validates it. */
+  /** A second launch asks to open a GitDesk link, or a repository (the jump list) that the manager validates. */
   private async openRequested(args: readonly string[]) {
+    const link = requestedLink(args);
+    if (link) return this.link.set(link);
     const location = requestedLocation(args);
     if (location !== undefined) await this.open(location as Location);
   }

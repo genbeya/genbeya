@@ -175,6 +175,8 @@ export interface RecentEntry {
   readonly location: Location;
   readonly name: string;
   readonly openedAt: number;
+  /** The repository's remote URLs when it was last seen, so GitDesk links find it. */
+  readonly remotes: readonly string[];
 }
 
 export type Theme = "system" | "light" | "dark";

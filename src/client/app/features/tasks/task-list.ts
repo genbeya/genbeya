@@ -1,7 +1,9 @@
+import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, input, output } from "@angular/core";
 import { LucideFolder } from "@lucide/angular";
 import type { Task } from "../../../../contracts/model";
 import { Avatar } from "../../ui/avatar";
+import { ShareMenu } from "../share/share-menu";
 import { LabelChip, PriorityIcon, StatusIcon } from "./task-icons";
 import { displayId, titleCase } from "./task-model";
 
@@ -11,10 +13,11 @@ import { displayId, titleCase } from "./task-model";
  */
 @Component({
   selector: "gd-task-list",
-  imports: [Avatar, LabelChip, PriorityIcon, StatusIcon, LucideFolder],
+  imports: [Avatar, CdkContextMenuTrigger, LabelChip, PriorityIcon, ShareMenu, StatusIcon, LucideFolder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-list" },
   template: `
+    <gd-share-menu #share="gdShareMenu" />
     @for (group of groups(); track group.status) {
       @let configured = statuses().includes(group.status);
       <section [attr.aria-label]="titleCase(group.status)">
@@ -41,6 +44,8 @@ import { displayId, titleCase } from "./task-model";
             role="button"
             tabindex="0"
             [class.is-selected]="task.id === selected()"
+            [cdkContextMenuTriggerFor]="share.menu()"
+            [cdkContextMenuTriggerData]="{ $implicit: { kind: 'task', id: task.id } }"
             (click)="open.emit(task)"
             (keydown.enter)="open.emit(task)"
             (keydown.space)="$event.preventDefault(); open.emit(task)"

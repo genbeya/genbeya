@@ -1,7 +1,10 @@
-/** Opens the shell's overlays from anywhere: the command palette, shortcut help, and the repository dialogs. */
+/** Opens the shell's overlays from anywhere: the command palette, shortcut help, the repository dialogs and GitDesk links. */
 import { Injectable, inject } from "@angular/core";
+import type { GitdeskLink } from "../../../../contracts/gitdesk-link";
 import type { Location } from "../../../../contracts/model";
+import { describeLinkItem } from "../../../../utilities/gitdesk-link";
 import { Dialogs } from "../../core/dialogs";
+import { LinkOpener } from "../../core/link-opener";
 import { Session } from "../../core/session";
 
 export type PaletteMode = "all" | "branches";
@@ -10,6 +13,7 @@ export type PaletteMode = "all" | "branches";
 export class ShellUi {
   private readonly dialogs = inject(Dialogs);
   private readonly session = inject(Session);
+  private readonly links = inject(LinkOpener);
 
   async openPalette(mode: PaletteMode = "all"): Promise<void> {
     const { Palette } = await import("./palette");
@@ -27,9 +31,25 @@ export class ShellUi {
     if (location) await this.session.open(location);
   }
 
-  async openClone(): Promise<void> {
+  /** Asks for a URL, starting with `url`, and where to clone it. Resolves to false when cancelled. */
+  async openClone(url = ""): Promise<boolean> {
     const { CloneDialog } = await import("../welcome/repository-dialogs");
-    const request = await this.dialogs.open<{ url: string; parent: Location }>(CloneDialog);
-    if (request) await this.session.clone(request.url, request.parent);
+    const request = await this.dialogs.open<{ url: string; parent: Location }>(CloneDialog, url);
+    if (!request) return false;
+    await this.session.clone(request.url, request.parent);
+    return true;
+  }
+
+  /** Shows the item a GitDesk link names; without a known clone of its repository, offers to clone it. */
+  async openLink(link: GitdeskLink): Promise<void> {
+    if (await this.links.open(link)) return;
+    const clone = await this.dialogs.confirm({
+      title: "Repository not cloned here",
+      message:
+        `None of your recent repositories has the remote ${link.remote}. Clone it to open ${describeLinkItem(link.item)}, ` +
+        "or open your existing clone once so GitDesk knows it.",
+      confirm: "Clone…",
+    });
+    if (clone && (await this.openClone(link.remote))) await this.links.open(link);
   }
 }

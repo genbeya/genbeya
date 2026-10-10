@@ -1,3 +1,4 @@
+import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked, ViewEncapsulation } from "@angular/core";
 import { Router } from "@angular/router";
 import { LucideGitCommitHorizontal } from "@lucide/angular";
@@ -7,6 +8,7 @@ import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
+import { ShareMenu } from "../share/share-menu";
 import { layoutGraph, relativeTime } from "./commit-graph";
 import { CommitPane } from "./commit-pane";
 import { GraphLines, LANE_WIDTH } from "./graph-lines";
@@ -22,7 +24,17 @@ const MAX_LANES = 12;
  */
 @Component({
   selector: "gd-history-view",
-  imports: [CommitPane, EmptyState, GraphLines, RefChips, Resizable, ResizeHandle, LucideGitCommitHorizontal],
+  imports: [
+    CdkContextMenuTrigger,
+    CommitPane,
+    EmptyState,
+    GraphLines,
+    RefChips,
+    Resizable,
+    ResizeHandle,
+    ShareMenu,
+    LucideGitCommitHorizontal,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./history.css",
@@ -42,6 +54,7 @@ const MAX_LANES = 12;
     } @else {
       <div class="view-body">
         <aside class="side-panel history-list" gdResizable="history" [initial]="520" [min]="340" [max]="900" #panel="gdResizable">
+          <gd-share-menu #share="gdShareMenu" />
           <div class="side-panel-scroll" role="list" aria-label="Commits">
             @for (row of graph().rows; track row.commit.hash) {
               <button
@@ -50,6 +63,8 @@ const MAX_LANES = 12;
                 class="history-row"
                 [class.is-selected]="row.commit.hash === commit()"
                 [attr.aria-current]="row.commit.hash === commit() || null"
+                [cdkContextMenuTriggerFor]="share.menu()"
+                [cdkContextMenuTriggerData]="{ $implicit: { kind: 'commit', hash: row.commit.hash } }"
                 (click)="select(row.commit.hash)"
               >
                 <gd-graph-lines [row]="row" [width]="graphWidth()" />

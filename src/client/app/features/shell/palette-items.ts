@@ -1,6 +1,9 @@
 /** What the command palette offers, and how a query ranks it. */
+import type { GitdeskLink } from "../../../../contracts/gitdesk-link";
 import type { FileNode, RecentEntry, Snapshot, Theme } from "../../../../contracts/model";
 import { sameLocation } from "../../../../contracts/model";
+import { describeLinkItem, parseGitdeskLink } from "../../../../utilities/gitdesk-link";
+import { parseRemote } from "../../../../utilities/remote-url";
 import { flattenPages } from "../wiki/wiki-pages";
 import { fuzzyScore } from "./fuzzy";
 
@@ -33,7 +36,8 @@ export type PaletteIcon =
   | "code"
   | "changes"
   | "history"
-  | "terminal";
+  | "terminal"
+  | "link";
 
 export interface PaletteItem {
   readonly id: string;
@@ -68,6 +72,7 @@ export interface PaletteCommands {
   setTheme(theme: Theme): void;
   showHelp(): void;
   toggleTerminal(): void;
+  openLink(link: GitdeskLink): void;
 }
 
 const GROUP_WEIGHT: Readonly<Record<string, number>> = { Pages: 40, Tasks: 30, "Go to": 20, Actions: 10 };
@@ -214,6 +219,21 @@ export function allItems(
       run: () => commands.openFile(path),
     }));
   return [...go, ...actions, ...repository, ...preferences, ...pages, ...taskItems, ...fileItems];
+}
+
+/** "Open link" when the query is a GitDesk link, as pasted from a coworker; it replaces every other result. */
+export function linkItem(query: string, commands: PaletteCommands): PaletteItem | null {
+  const link = parseGitdeskLink(query);
+  const repository = link && parseRemote(link.remote);
+  if (!link || !repository) return null;
+  return {
+    id: "open-link",
+    group: "GitDesk link",
+    label: "Open link",
+    detail: `${describeLinkItem(link.item)} in ${repository.host}/${repository.path}`,
+    icon: "link",
+    run: () => commands.openLink(link),
+  };
 }
 
 /** Ranks items for a query; groups appear in the order of their best match, each capped. */

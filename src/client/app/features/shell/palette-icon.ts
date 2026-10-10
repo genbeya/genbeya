@@ -15,6 +15,7 @@ import {
   LucideHistory,
   LucideKeyboard,
   LucideLayoutGrid,
+  LucideLink,
   LucideMonitor,
   LucideMoon,
   LucidePlus,
@@ -45,6 +46,7 @@ import type { PaletteIcon as Icon } from "./palette-items";
     LucideHistory,
     LucideKeyboard,
     LucideLayoutGrid,
+    LucideLink,
     LucideMonitor,
     LucideMoon,
     LucidePlus,
@@ -145,6 +147,9 @@ import type { PaletteIcon as Icon } from "./palette-items";
       }
       @case ("terminal") {
         <svg lucideSquareTerminal [size]="15" aria-hidden="true"></svg>
+      }
+      @case ("link") {
+        <svg lucideLink [size]="15" aria-hidden="true"></svg>
       }
     }
   `,

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, type ElementRef, inject, input, signal, viewChild } from "@angular/core";
 import { Router } from "@angular/router";
 import { LucideCodeXml, LucideFile, LucideFilePlus2, LucideFolder, LucideSearch } from "@lucide/angular";
+import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import type { FileNode } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
@@ -9,12 +10,25 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { filterTree, Tree, type TreeItem } from "../../ui/tree";
+import { ShareMenu } from "../share/share-menu";
 import { FileEditor } from "./file-editor";
 
 /** The repository's files: a tree with change markers, and the open file (`?file=`). */
 @Component({
   selector: "gd-code-view",
-  imports: [EmptyState, FileEditor, Resizable, ResizeHandle, Tree, LucideCodeXml, LucideFile, LucideFilePlus2, LucideFolder, LucideSearch],
+  imports: [
+    EmptyState,
+    FileEditor,
+    Resizable,
+    ResizeHandle,
+    ShareMenu,
+    Tree,
+    LucideCodeXml,
+    LucideFile,
+    LucideFilePlus2,
+    LucideFolder,
+    LucideSearch,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -37,7 +51,16 @@ import { FileEditor } from "./file-editor";
           </button>
         </div>
         <div class="side-panel-scroll code-tree">
-          <gd-tree label="Files" [items]="shown()" [selected]="file() ?? null" [expandAll]="!!query()" (selectItem)="open($event.key)">
+          <gd-share-menu #share="gdShareMenu" />
+          <gd-tree
+            label="Files"
+            [items]="shown()"
+            [selected]="file() ?? null"
+            [expandAll]="!!query()"
+            [rowMenu]="share.menu()"
+            [rowMenuData]="fileLink"
+            (selectItem)="open($event.key)"
+          >
             <ng-template let-item>
               <span class="tree-icon">
                 @if (item.children) {
@@ -109,6 +132,8 @@ export class CodeView {
     return convert(this.session.snapshot()!.files);
   });
   protected readonly shown = computed(() => filterTree(this.items(), this.query()));
+  /** Files can be shared; folders cannot. */
+  protected readonly fileLink = (item: TreeItem<unknown>): LinkItem | null => (item.children ? null : { kind: "file", path: item.key });
 
   constructor() {
     hotkey("/", () => this.filter().nativeElement.focus());

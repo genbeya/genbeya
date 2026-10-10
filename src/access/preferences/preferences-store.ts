@@ -12,6 +12,12 @@ interface State {
   readonly preferences: Preferences;
 }
 
+/** Entries saved before remotes were remembered have none. */
+const withRemotes = (entry: RecentEntry): RecentEntry => ({
+  ...entry,
+  remotes: Array.isArray(entry.remotes) ? entry.remotes.filter((url): url is string => typeof url === "string") : [],
+});
+
 export class PreferencesStore {
   private state: State = { recent: [], preferences: DEFAULT_PREFERENCES };
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -33,7 +39,7 @@ export class PreferencesStore {
     try {
       const saved = JSON.parse(decodeLenient(await machine.fileSystem.readFile(store.file))) as Partial<State>;
       store.state = {
-        recent: Array.isArray(saved.recent) ? saved.recent.slice(0, RECENT_LIMIT) : [],
+        recent: Array.isArray(saved.recent) ? saved.recent.slice(0, RECENT_LIMIT).map(withRemotes) : [],
         preferences: { ...DEFAULT_PREFERENCES, ...saved.preferences },
       };
     } catch {
@@ -50,9 +56,17 @@ export class PreferencesStore {
     return this.state.preferences;
   }
 
-  remember(location: Location, name: string, now = Date.now()): void {
+  remember(location: Location, name: string, remotes: readonly string[], now = Date.now()): void {
     const others = this.state.recent.filter((entry) => !sameLocation(entry.location, location));
-    this.update({ recent: [{ location, name, openedAt: now }, ...others].slice(0, RECENT_LIMIT) });
+    this.update({ recent: [{ location, name, openedAt: now, remotes }, ...others].slice(0, RECENT_LIMIT) });
+  }
+
+  /** Records remotes added or removed since `location` was opened, without moving its entry. */
+  rememberRemotes(location: Location, remotes: readonly string[]): void {
+    const changed = (entry: RecentEntry) =>
+      sameLocation(entry.location, location) && JSON.stringify(entry.remotes) !== JSON.stringify(remotes);
+    if (!this.state.recent.some(changed)) return;
+    this.update({ recent: this.state.recent.map((entry) => (changed(entry) ? { ...entry, remotes } : entry)) });
   }
 
   forget(location: Location): void {

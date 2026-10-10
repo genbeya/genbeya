@@ -19,17 +19,29 @@ const items: TreeItem<string>[] = [
 @Component({
   imports: [Tree],
   template: `
-    <gd-tree label="Files" [items]="items" [selected]="selected()" (selectItem)="chosen.set($event.data)">
+    <gd-tree
+      label="Files"
+      [items]="items"
+      [selected]="selected()"
+      [rowMenu]="menu"
+      [rowMenuData]="menuData"
+      (selectItem)="chosen.set($event.data)"
+    >
       <ng-template let-item
         ><span class="tree-label">{{ item.label }}</span></ng-template
       >
     </gd-tree>
+    <ng-template #menu let-data
+      ><p class="row-menu">Menu of {{ data }}</p></ng-template
+    >
   `,
 })
 class Host {
   readonly items = items;
   readonly selected = signal<string | null>(null);
   readonly chosen = signal<string | null>(null);
+  /** Folders have no menu. */
+  readonly menuData = (item: TreeItem<string>) => (item.children ? null : item.data);
 }
 
 async function render() {
@@ -67,6 +79,21 @@ describe("Tree", () => {
     await fixture.whenStable();
     expect(labels()).toEqual(["docs", "Home", "Guide", "Setup", "README"]);
     expect(fixture.nativeElement.querySelector(".is-selected").textContent.trim()).toBe("Setup");
+  });
+
+  it("opens the row menu with the row's data, also from the keyboard, and none for rows without data", async () => {
+    const { fixture, row } = await render();
+    const menu = () => document.querySelector(".cdk-overlay-container .row-menu")?.textContent;
+    // A context-menu key or Shift+F10 fires contextmenu on the focused row, with the primary button.
+    row("README").dispatchEvent(new MouseEvent("contextmenu", { button: 0, cancelable: true, bubbles: true }));
+    await fixture.whenStable();
+    expect(menu()).toBe("Menu of readme");
+    document.querySelector(".cdk-overlay-container")!.replaceChildren();
+    const folder = new MouseEvent("contextmenu", { button: 2, cancelable: true, bubbles: true });
+    row("docs").dispatchEvent(folder);
+    await fixture.whenStable();
+    expect(folder.defaultPrevented).toBe(false);
+    expect(menu()).toBeUndefined();
   });
 });
 

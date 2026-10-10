@@ -7,11 +7,30 @@ mod processes;
 mod terminals;
 
 use tauri::webview::NewWindowResponse;
-use tauri::{App, Emitter, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{App, AppHandle, Emitter, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_deep_link::DeepLinkExt;
 
+/// The arguments of this launch, plus the GitDesk link that started it.
+/// Windows and Linux pass links as arguments, so there they appear twice;
+/// the client opens the first. macOS hands them over as an event, which
+/// comes before the page can listen.
 #[tauri::command]
-fn launch_args() -> Vec<String> {
-    std::env::args().collect()
+fn launch_args(app: AppHandle) -> Vec<String> {
+    let links = app.deep_link().get_current().ok().flatten().unwrap_or_default();
+    std::env::args().chain(links.iter().map(Url::to_string)).collect()
+}
+
+/// macOS hands over links that open while the app runs as events; they
+/// reach the client like a second launch's arguments. Elsewhere a link
+/// starts a second instance, whose arguments the single-instance plugin
+/// forwards.
+#[cfg(target_os = "macos")]
+fn forward_opened_links(app: &App) {
+    let handle = app.handle().clone();
+    app.deep_link().on_open_url(move |event| {
+        let urls: Vec<String> = event.urls().iter().map(Url::to_string).collect();
+        let _ = handle.emit("open-request", urls);
+    });
 }
 
 /// The app's own pages: `tauri://localhost`, or `http(s)://tauri.localhost`
@@ -49,11 +68,19 @@ fn main() {
             }
             let _ = app.emit("open-request", argv);
         }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(processes::Processes::default())
         .manage(terminals::Terminals::default())
-        .setup(|app| Ok(create_main_window(app)?))
+        .setup(|app| {
+            #[cfg(target_os = "macos")]
+            forward_opened_links(app);
+            // Installers register gitdesk:// links; an AppImage registers itself when it runs.
+            #[cfg(target_os = "linux")]
+            app.deep_link().register_all()?;
+            Ok(create_main_window(app)?)
+        })
         .invoke_handler(tauri::generate_handler![
             launch_args,
             files::fs_stat,

@@ -8,11 +8,13 @@ import type { PreferencesStore } from "../access/preferences/preferences-store";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { sha256 } from "../utilities/bytes";
 import { buildFileTree } from "../utilities/file-tree";
-import { requestedLocation } from "../utilities/launch-request";
+import { requestedLink, requestedLocation } from "../utilities/launch-request";
 import { Workspace, type Engines, type WorkspaceRegistry } from "./workspace";
 
 const THEMES: readonly Theme[] = ["system", "light", "dark"];
 const CLONE_TIMEOUT = 15 * 60_000;
+
+const remoteUrls = (snapshot: Snapshot) => snapshot.remotes.map((remote) => remote.url);
 
 export class WorkspaceManager implements WorkspaceManagerContract {
   constructor(
@@ -41,7 +43,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       throw error;
     }
     const id = this.registry.activate(workspace);
-    this.preferencesStore.remember(trusted, snapshot.settings.name);
+    this.preferencesStore.remember(trusted, snapshot.settings.name, remoteUrls(snapshot));
     return { id, snapshot };
   }
 
@@ -50,7 +52,10 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     // A reloaded client keeps the open repository, under a new id.
     const current = this.registry.current();
     if (current) return { id: this.registry.activate(current), snapshot: await current.exclusive(() => this.compose(current)) };
-    const requested = requestedLocation(Array.isArray(launchArgs) ? launchArgs : []);
+    const args = Array.isArray(launchArgs) ? launchArgs : [];
+    // The client finds the clone a link names; reopening the last repository first would be wasted.
+    if (requestedLink(args)) return null;
+    const requested = requestedLocation(args);
     if (requested !== undefined) return this.open(requested);
     const last = this.preferencesStore.recent[0];
     if (!this.preferencesStore.preferences.reopenLast || !last) return null;
@@ -87,7 +92,9 @@ export class WorkspaceManager implements WorkspaceManagerContract {
   async snapshot(id: unknown, since?: unknown): Promise<Snapshot | null> {
     const workspace = this.registry.get(id);
     const snapshot = await workspace.exclusive(() => this.compose(workspace));
-    return snapshot.version === since ? null : snapshot;
+    if (snapshot.version === since) return null;
+    this.preferencesStore.rememberRemotes(workspace.location, remoteUrls(snapshot));
+    return snapshot;
   }
 
   async recent() {

@@ -1,6 +1,8 @@
 import { CdkDrag, CdkDropList } from "@angular/cdk/drag-drop";
+import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, input, output } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
+import { ShareMenu } from "../share/share-menu";
 import { TaskCard } from "./task-card";
 
 /**
@@ -9,7 +11,7 @@ import { TaskCard } from "./task-card";
  */
 @Component({
   selector: "gd-board-cell",
-  imports: [CdkDrag, TaskCard],
+  imports: [CdkContextMenuTrigger, CdkDrag, ShareMenu, TaskCard],
   hostDirectives: [
     {
       directive: CdkDropList,
@@ -23,10 +25,13 @@ import { TaskCard } from "./task-card";
     @if (!configured()) {
       <p class="column-note">Not a configured state. Move tasks out of it.</p>
     }
+    <gd-share-menu #share="gdShareMenu" />
     @for (task of tasks(); track task.path) {
       <gd-task-card
         cdkDrag
         [cdkDragData]="task"
+        [cdkContextMenuTriggerFor]="share.menu()"
+        [cdkContextMenuTriggerData]="{ $implicit: { kind: 'task', id: task.id } }"
         role="button"
         tabindex="0"
         [task]="task"

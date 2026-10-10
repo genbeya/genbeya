@@ -7,7 +7,7 @@ import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
 import { WikiActions } from "../wiki/wiki-actions";
 import { PaletteIcon } from "./palette-icon";
-import { allItems, branchItems, rank, type PaletteCommands, type PaletteItem } from "./palette-items";
+import { allItems, branchItems, linkItem, rank, type PaletteCommands, type PaletteItem } from "./palette-items";
 import { RepositoryActions } from "./repository-actions";
 import { ShellUi, type PaletteMode } from "./shell-ui";
 
@@ -102,6 +102,7 @@ export class Palette {
     setTheme: (theme) => void this.session.setPreferences({ theme }),
     showHelp: () => void this.ui.showHelp(),
     toggleTerminal: () => void this.terminals.toggle(),
+    openLink: (link) => void this.ui.openLink(link),
   };
 
   private readonly items = computed<PaletteItem[]>(() => {
@@ -110,7 +111,10 @@ export class Palette {
       ? branchItems(snapshot, this.query(), this.commands)
       : allItems(snapshot, this.recent(), this.session.preferences().theme, MOD_KEY, this.commands);
   });
-  protected readonly results = computed(() => rank(this.items(), this.query(), this.mode === "branches"));
+  protected readonly results = computed(() => {
+    const link = this.mode === "all" ? linkItem(this.query(), this.commands) : null;
+    return link ? [link] : rank(this.items(), this.query(), this.mode === "branches");
+  });
 
   constructor() {
     afterRenderEffect(() => {

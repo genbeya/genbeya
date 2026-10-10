@@ -30,7 +30,9 @@
   background: var(--bg-active);
 }
 
-.menu-item:disabled {
+/* CDK menu items are disabled through aria-disabled, so their tooltips still show. */
+.menu-item:disabled,
+.menu-item.cdk-menu-item-disabled {
   opacity: 0.4;
 }
 

@@ -1,5 +1,5 @@
 import { snapshot, task } from "../../testing/fake-platform";
-import { allItems, branchItems, rank, type PaletteCommands } from "./palette-items";
+import { allItems, branchItems, linkItem, rank, type PaletteCommands } from "./palette-items";
 
 const calls = new Map<string, ReturnType<typeof vi.fn>>();
 const commands = new Proxy({}, { get: (_, name: string) => calls.get(name) ?? calls.set(name, vi.fn()).get(name) }) as PaletteCommands;
@@ -40,6 +40,15 @@ describe("palette items", () => {
     expect(toggle.hint).toBe("Ctrl `");
     toggle.run();
     expect(commands.toggleTerminal).toHaveBeenCalled();
+  });
+
+  it("offers to open a pasted GitDesk link, and nothing for other text", () => {
+    const item = linkItem("  gitdesk://open?remote=git@github.com:acme/demo.git&task=DP-1 ", commands)!;
+    expect(item).toMatchObject({ label: "Open link", detail: "task DP-1 in github.com/acme/demo", icon: "link" });
+    item.run();
+    expect(commands.openLink).toHaveBeenCalledWith({ remote: "git@github.com:acme/demo.git", item: { kind: "task", id: "DP-1" } });
+    expect(linkItem("login", commands)).toBeNull();
+    expect(linkItem("gitdesk://open?remote=/srv/demo.git&task=DP-1", commands)).toBeNull();
   });
 
   it("lists local and remote branches with an action to create one", () => {

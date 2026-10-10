@@ -7,6 +7,7 @@ const TAURI_CONNECT_SOURCES = new Set(["ipc:", "http://ipc.localhost"]);
 
 const config = JSON.parse(readFileSync(new URL("src-tauri/tauri.conf.json", import.meta.url), "utf8")) as {
   app: { security: { csp: string } };
+  plugins: { "deep-link": { desktop: { schemes: string[] } } };
 };
 
 /** Directive name to its sorted sources. */
@@ -19,4 +20,8 @@ it("keeps the Tauri CSP in step with the shared policy", () => {
   const tauri = directives(config.app.security.csp);
   tauri["connect-src"] = (tauri["connect-src"] ?? []).filter((source) => !TAURI_CONNECT_SOURCES.has(source));
   expect(tauri).toEqual(directives(CONTENT_SECURITY_POLICY));
+});
+
+it("registers the scheme of GitDesk links, and only that", () => {
+  expect(config.plugins["deep-link"].desktop.schemes).toEqual(["gitdesk"]);
 });
