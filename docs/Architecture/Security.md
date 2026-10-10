@@ -9,16 +9,18 @@ The client displays content from repositories you may not fully trust, so it get
 - **Validated calls**: shells dispatch only the methods listed in `MANAGER_METHODS`, and the managers check every argument again. Repository paths are validated before they reach a host (see [[Managers]]).
 - **Links**: web links open in the system browser, only for `http`, `https` and `mailto`. Dropped files and middle-clicked links never navigate the window.
 - **Git**: commands run without a shell, with hooks and `core.fsmonitor` disabled, terminal prompts off and literal pathspecs. Filters, credential helpers and `core.sshCommand` from the repository's configuration still run on fetch, push and staging, as they would in a terminal.
+- **Terminals**: a [[Terminal]] runs whatever the user types; that is its purpose. What it may start is fixed by the host: the user's own shell (`pwsh.exe`, `powershell.exe` or `COMSPEC` on Windows, `$SHELL` or `/bin/sh` elsewhere), `wsl.exe` or `ssh`. The client chooses none of it — it only names the repository and the terminal's size — and the only variables added to the environment are `TERM` and `COLORTERM`. Terminals end with their repository and when the app quits.
 
 ## Per shell
 
 | | Electron | Deno Desktop | Tauri |
 | --- | --- | --- | --- |
 | Where the managers run | Main process | Deno process | In the webview |
-| Client sandbox | Context isolation, sandbox, no Node integration; the preload exposes two IPC calls | Two bindings | Rust commands for files and processes; processes limited to `git`, `ssh` and `wsl` with a fixed set of environment variables |
+| Client sandbox | Context isolation, sandbox, no Node integration; the preload exposes two IPC calls | Two bindings | Rust commands for files, processes and terminals; processes limited to `git`, `ssh` and `wsl`, terminals to the shells above, each with a fixed set of environment variables |
+| Terminal processes | node-pty in the main process, started by the terminal manager | None: the build has no terminal | portable-pty in the Rust process, started through the `term_*` commands; ended on exit |
 | Calls accepted from | The app's own page only (sender checked) | The window's page | The window's page |
 | Navigation, pop-ups, permissions | Blocked by the shell; only clipboard writes are granted | Blocked by the client only | Navigation outside the app and new windows blocked by the shell |
 | Client served from | `gitdesk://app`, only files of the bundled client | A local static server, only files of the bundled client | Tauri's asset protocol |
 
 > [!IMPORTANT]
-> On Tauri the managers share the webview with the client. A script injected into the page could read and write files anywhere and run Git with arbitrary arguments through the Rust commands. The policy and the Markdown allowlist are what prevents that; Electron and Deno keep a process boundary in addition.
+> On Tauri the managers share the webview with the client. A script injected into the page could read and write files anywhere, run Git with arbitrary arguments and type into a shell through the Rust commands. The policy and the Markdown allowlist are what prevents that; Electron and Deno keep a process boundary in addition. The terminal commands add no new kind of power — Git with arbitrary arguments can already run programs — so their allowlist keeps them to the shells a user would open anyway, and keeps their environment from changing how those start.

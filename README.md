@@ -7,6 +7,7 @@ A desktop workspace for a Git repository: wiki, task board, code editor and vers
 - **Code, changes and history**: CodeMirror editor, staging, commit and amend, fetch/pull/push, branch switching, and a commit graph.
 - **Local, WSL and SSH** repositories. Git runs where the repository is.
 - **Dedicated content branch** (optional): keep wiki and tasks on a shared `gitdesk` branch so they look the same on every code branch.
+- **Terminal** (`` Ctrl+` ``) in the repository, on the machine it lives on.
 - Command palette (`Ctrl+K`), back/forward (`Alt+←/→`, mouse buttons), recent repositories, dark and light themes.
 
 ## Run
@@ -31,7 +32,7 @@ The builds are unsigned. On Windows, choose _More info → Run anyway_; on macOS
 The documentation lives in [`docs/`](docs/Home.md) and is best read in GitDesk itself:
 
 - [Getting started](docs/Getting-started.md)
-- [Guide](docs/Guide.md): [wiki](docs/Guide/Wiki.md), [tasks](docs/Guide/Tasks.md), [version control](docs/Guide/Version-control.md), [shortcuts](docs/Guide/Keyboard-shortcuts.md)
+- [Guide](docs/Guide.md): [wiki](docs/Guide/Wiki.md), [tasks](docs/Guide/Tasks.md), [version control](docs/Guide/Version-control.md), [terminal](docs/Guide/Terminal.md), [shortcuts](docs/Guide/Keyboard-shortcuts.md)
 - [Architecture](docs/Architecture.md): [managers](docs/Architecture/Managers.md), [hosts](docs/Architecture/Hosts.md), [content branch](docs/Architecture/Content-branch.md), [security](docs/Architecture/Security.md), [runtimes](docs/Architecture/Runtimes.md)
 - [Development](docs/Development.md): scripts, tests, conventions
 

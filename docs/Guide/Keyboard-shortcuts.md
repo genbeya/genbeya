@@ -7,6 +7,7 @@ On macOS, use `⌘` where this page says `Ctrl`.
 | `Ctrl+K`, `Ctrl+P` | Search pages, tasks, files and commands |
 | `Ctrl+1` … `Ctrl+5` | Wiki, Tasks, Code, Changes, History |
 | `Ctrl+,` | Settings |
+| `` Ctrl+` `` | Show or hide the [[Terminal]] |
 | `Alt+←` / `Alt+→`, mouse back/forward | Back / forward |
 | `Ctrl+O` | Open a folder |
 | `/` | Focus the filter of the current view |
@@ -17,3 +18,5 @@ On macOS, use `⌘` where this page says `Ctrl`.
 | `Ctrl+S` | Save |
 | `Esc` | Stop editing, close the task panel |
 | `Ctrl+Enter` | Commit (Changes), save (task) |
+
+While a terminal has focus, every key except `` Ctrl+` `` goes to the shell.
