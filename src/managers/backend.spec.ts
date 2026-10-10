@@ -6,7 +6,7 @@ import type { Location, Snapshot, TaskInput } from "../contracts/model";
 import { connectManagers, dispatch } from "../contracts/rpc";
 import { nodeMachine } from "../platforms/node/node-machine";
 import { HostFactory } from "../access/hosts/host-factory";
-import { createRemote, createRepository, onTestFinished } from "../testing/repository";
+import { createRemote, createRepository, DEFAULT_FILES, onTestFinished } from "../testing/repository";
 import { temporaryFolder } from "../testing/temp";
 import { launchArgument } from "../utilities/launch-request";
 import { createBackend } from "./backend";
@@ -247,6 +247,80 @@ describe("ContentManager", () => {
     expect(names).toEqual(expect.arrayContaining(["architecture.md", "architecture"]));
     expect(names).not.toContain("Architecture.md");
     expect(await repository.read("docs/architecture/Backend.md")).toBe("# Backend\n");
+  });
+
+  const LINKED: Record<string, string> = {
+    ...DEFAULT_FILES,
+    "docs/Home.md":
+      "# Home\n\nSee [the backend](Architecture/Backend.md#auth) and [[Architecture]].\n\n```\n[[Architecture/Backend]]\n```\n",
+    "docs/Architecture/Backend.md": "# Backend\n\nUp to [Home](../Home.md), down to [[Architecture/Backend/Auth]].\n",
+    "tasks/TP-1.md": "---\nid: TP-1\ntitle: Document\nstatus: backlog\n---\nRead [[Architecture/Backend]].\n",
+    "docs/Notes.md": "# Notes\n",
+    "README.md": "Docs start at [Home](docs/Home.md).\n",
+  };
+
+  it("previews and updates the links to a moved page", async () => {
+    const { content, id, repository } = await opened(LINKED);
+    expect(await content.pageLinks(id, "docs/Architecture.md", "docs/Design/System.md")).toEqual([
+      {
+        path: "docs/Architecture/Backend.md",
+        changes: [
+          { line: 3, before: "../Home.md", after: "../../Home.md" },
+          { line: 3, before: "Architecture/Backend/Auth", after: "Design/System/Backend/Auth" },
+        ],
+      },
+      {
+        path: "docs/Home.md",
+        changes: [
+          { line: 3, before: "Architecture/Backend.md", after: "Design/System/Backend.md" },
+          { line: 3, before: "Architecture", after: "System" },
+        ],
+      },
+      { path: "tasks/TP-1.md", changes: [{ line: 6, before: "Architecture/Backend", after: "Design/System/Backend" }] },
+    ]);
+    expect(await content.pageLinks(id, "docs/Notes.md", "docs/Archive/Notes.md")).toEqual([]);
+
+    await content.movePage(id, "docs/Architecture.md", "docs/Design/System.md", { updateLinks: true });
+    expect(await repository.read("docs/Home.md")).toBe(
+      "# Home\n\nSee [the backend](Design/System/Backend.md#auth) and [[System]].\n\n```\n[[Architecture/Backend]]\n```\n",
+    );
+    expect(await repository.read("docs/Design/System/Backend.md")).toBe(
+      "# Backend\n\nUp to [Home](../../Home.md), down to [[Design/System/Backend/Auth]].\n",
+    );
+    expect(await repository.read("tasks/TP-1.md")).toContain("Read [[Design/System/Backend]].");
+    expect(await repository.read("README.md")).toBe(LINKED["README.md"]);
+  });
+
+  it("leaves links alone unless asked, and validates the options", async () => {
+    const { content, id, repository } = await opened(LINKED);
+    await expect(content.movePage(id, "docs/Architecture.md", "docs/Design.md", "yes" as never)).rejects.toThrow("Invalid move options.");
+    await expect(content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: 1 } as never)).rejects.toThrow(
+      "Invalid move options.",
+    );
+    await expect(content.pageLinks(id, "docs/Architecture.md", "src/Design.md")).rejects.toThrow("inside docs/");
+    await content.movePage(id, "docs/Architecture.md", "docs/Design.md");
+    expect(await repository.read("docs/Home.md")).toBe(LINKED["docs/Home.md"]);
+  });
+
+  it("commits a move and its link updates as one commit on the content branch", async () => {
+    const { content, id, latest, repository } = await opened(LINKED);
+    await content.setStorage(id, "branch");
+    const commits = Number(await repository.git("rev-list", "--count", "gitdesk"));
+    await content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true });
+    expect(Number(await repository.git("rev-list", "--count", "gitdesk"))).toBe(commits + 1);
+    const changed = await repository.git("show", "--name-status", "--format=%B", "gitdesk");
+    expect(changed).toMatch(
+      /^Move page Architecture to docs\/Design\.md\n\nUpdate links in docs\/Design\/Backend\.md, docs\/Home\.md, tasks\/TP-1\.md\.\n/,
+    );
+    expect(changed).toMatch(/^M\tdocs\/Home\.md$/m);
+    expect(changed).toMatch(/^M\ttasks\/TP-1\.md$/m);
+    expect(changed).toMatch(/^R\d+\tdocs\/Architecture\/Backend\/Auth\.md\tdocs\/Design\/Backend\/Auth\.md$/m);
+    expect(await repository.git("show", "gitdesk:docs/Home.md")).toContain("[the backend](Design/Backend.md#auth) and [[Design]]");
+    expect(await repository.git("show", "gitdesk:docs/Design/Backend.md")).toContain("[[Design/Backend/Auth]]");
+    const snapshot = await latest();
+    expect(snapshot.changes).toEqual([]);
+    expect(snapshot.warnings).toEqual([]);
+    expect(await repository.git("-C", path.join(repository.root, ".git", "gitdesk", "gitdesk"), "status", "--porcelain")).toBe("");
   });
 
   it("serves images as data URLs and refuses other files", async () => {

@@ -1,0 +1,38 @@
+.move-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.move-links summary {
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.move-links details > ul {
+  max-height: 180px;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  font-size: 12px;
+}
+
+.move-links details > ul > li + li {
+  margin-top: 6px;
+}
+
+.move-links li ul {
+  margin: 2px 0 0;
+  padding-left: 12px;
+  list-style: none;
+  color: var(--text-2);
+}
+
+.move-line {
+  display: inline-block;
+  min-width: 2.5em;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}

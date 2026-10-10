@@ -1,4 +1,4 @@
-import { expect, MOD, test } from "./app";
+import { expect, FILES, MOD, test } from "./app";
 
 test.describe("wiki", () => {
   test.beforeEach(async ({ window }) => {
@@ -88,5 +88,42 @@ test.describe("wiki", () => {
     await expect(dialog.getByRole("textbox")).toHaveValue("Glossary");
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect.poll(() => repository.read("docs/Glossary.md")).toBe("# Glossary\n\n");
+  });
+});
+
+test.describe("moving pages", () => {
+  test.use({
+    files: {
+      ...FILES,
+      "docs/Home.md": "# Home\n\nRead the [guide](Guide.md), then [[Guide/Setup]].\n",
+      "docs/Guide/Setup.md": "# Setup\n\nBack [home](../Home.md).\n",
+    },
+  });
+
+  test("updates the links to a moved page and inside it", async ({ window, repository }) => {
+    const article = window.locator(".document-article");
+    const pages = window.getByRole("tree", { name: "Pages" });
+    await pages.getByText("Guide", { exact: true }).click();
+    await expect(article.getByRole("heading", { level: 1, name: "Guide" })).toBeVisible();
+    await window.locator("gd-wiki-page").getByRole("button", { name: "Page actions" }).click();
+    await window.getByRole("menuitem", { name: "Move or rename…" }).click();
+    const dialog = window.getByRole("dialog", { name: "Move page" });
+    await dialog.getByRole("textbox", { name: "New name" }).fill("Manual/Guide");
+    const update = dialog.getByRole("checkbox", { name: "Update 3 links in 2 pages" });
+    await expect(update).toBeChecked();
+    await dialog.getByText("Show links").click();
+    await expect(dialog.getByText("docs/Home.md")).toBeVisible();
+    await dialog.getByRole("button", { name: "Move" }).click();
+
+    await expect(window).toHaveURL(/page=docs%2FManual%2FGuide\.md/);
+    expect(repository.read("docs/Home.md")).toBe("# Home\n\nRead the [guide](Manual/Guide.md), then [[Manual/Guide/Setup]].\n");
+    await pages.getByText("Home", { exact: true }).click();
+    await article.getByRole("link", { name: "guide" }).click();
+    await expect(window).toHaveURL(/page=docs%2FManual%2FGuide\.md/);
+    await expect(article.getByRole("heading", { level: 1, name: "Guide" })).toBeVisible();
+    await window.keyboard.press("Alt+ArrowLeft");
+    await article.getByRole("link", { name: "Setup" }).click();
+    await article.getByRole("link", { name: "home" }).click();
+    await expect(article.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
   });
 });

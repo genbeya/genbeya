@@ -13,8 +13,10 @@ import type {
   DiffSource,
   FileContent,
   FolderListing,
+  LinkUpdate,
   Location,
   OpenedWorkspace,
+  PageMove,
   Preferences,
   RecentEntry,
   RemoteLocation,
@@ -59,8 +61,10 @@ export interface ContentManagerContract {
   write(workspace: string, scope: Scope, path: string, content: string, expectedHash: string | null): Promise<FileContent>;
   remove(workspace: string, scope: Scope, path: string): Promise<void>;
   createPage(workspace: string, path: string): Promise<FileContent>;
-  /** Moves a page together with its subpages; resolves to the new path. */
-  movePage(workspace: string, from: string, to: string): Promise<string>;
+  /** The links that moving a page with its subpages would rewrite. */
+  pageLinks(workspace: string, from: string, to: string): Promise<readonly LinkUpdate[]>;
+  /** Moves a page together with its subpages, in one commit with the link updates if asked; resolves to the new path. */
+  movePage(workspace: string, from: string, to: string, options?: PageMove): Promise<string>;
   deletePage(workspace: string, path: string): Promise<void>;
   createTask(workspace: string, input: TaskInput): Promise<Task>;
   updateTask(workspace: string, path: string, input: TaskInput, expectedHash: string): Promise<Task>;
@@ -142,6 +146,7 @@ export const MANAGER_METHODS = {
     "write",
     "remove",
     "createPage",
+    "pageLinks",
     "movePage",
     "deletePage",
     "createTask",

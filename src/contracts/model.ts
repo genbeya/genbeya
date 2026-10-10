@@ -56,6 +56,25 @@ export interface WikiNode {
   readonly children: readonly WikiNode[];
 }
 
+/** A link that moving a page rewrites: its line, and its target before and after. */
+export interface LinkChange {
+  readonly line: number;
+  readonly before: string;
+  readonly after: string;
+}
+
+/** The links of one Markdown file that moving a page rewrites; `path` is where the file is before the move. */
+export interface LinkUpdate {
+  readonly path: string;
+  readonly changes: readonly LinkChange[];
+}
+
+/** Options of moving a page. */
+export interface PageMove {
+  /** Rewrites the links to the moved pages, and the relative links inside them, in the same commit. */
+  readonly updateLinks?: boolean;
+}
+
 export interface Task {
   readonly id: string;
   readonly path: string;

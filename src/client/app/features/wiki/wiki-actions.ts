@@ -11,6 +11,7 @@ import type { LinkTarget } from "../../markdown/link-target";
 import { parseLines, referenceCandidates } from "../../markdown/references";
 import type { GitdeskOptions } from "../../markdown/markdown-pipeline";
 import { filePaths } from "../../../../utilities/file-tree";
+import { MovePageDialog, type MovePageOptions, type PageMoveChoice } from "./move-page-dialog";
 import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
 
 @Injectable({ providedIn: "root" })
@@ -75,18 +76,14 @@ export class WikiActions {
     await this.openPage(created.path);
   }
 
+  /** Asks for a new name and moves the page with its subpages, updating the links to them if wanted. */
   async movePage(path: string): Promise<void> {
-    const root = this.root();
-    const value = await this.dialogs.prompt({
-      title: "Move page",
-      label: "New name",
-      initial: pageName(path, root),
-      confirm: "Move",
-      hint: "Subpages move along. Links to this page are not rewritten.",
-      validate: pageNameProblem,
-    });
-    if (!value) return;
-    const moved = await this.session.run(() => this.api.content.movePage(path, pagePath(root, value)), "Page moved");
+    const choice = await this.dialogs.open<PageMoveChoice, MovePageOptions>(MovePageDialog, { path });
+    if (!choice) return;
+    const moved = await this.session.run(
+      () => this.api.content.movePage(path, choice.to, { updateLinks: choice.updateLinks }),
+      "Page moved",
+    );
     if (!moved) return;
     this.session.contentChanged();
     await this.openPage(moved, { replace: true });
