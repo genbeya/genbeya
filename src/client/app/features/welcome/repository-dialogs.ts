@@ -1,5 +1,5 @@
 /** Dialogs that name a repository elsewhere: on WSL or SSH, or a URL to clone. */
-import { DialogRef } from "@angular/cdk/dialog";
+import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
 import { ChangeDetectionStrategy, Component, computed, inject, input, model, signal } from "@angular/core";
 import { LucideFolderOpen } from "@lucide/angular";
 import { describeLocation, type Location } from "../../../../contracts/model";
@@ -127,6 +127,7 @@ export class RemoteDialog {
   }
 }
 
+/** A URL and where to clone it; the dialog's data is a URL to start with, such as the remote of a GitDesk link. */
 @Component({
   selector: "gd-clone-dialog",
   imports: [DialogFrame, RemoteFields, LucideFolderOpen],
@@ -181,7 +182,7 @@ export class RemoteDialog {
 export class CloneDialog {
   protected readonly dialog = inject<DialogRef<{ url: string; parent: Location }>>(DialogRef);
   private readonly repositories = inject(Repositories);
-  protected readonly url = signal("");
+  protected readonly url = signal(inject<string | undefined>(DIALOG_DATA) ?? "");
   protected readonly remote = signal(false);
   protected readonly folder = signal<Location | null>(null);
   protected readonly kind = signal<Kind>("wsl");

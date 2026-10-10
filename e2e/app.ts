@@ -44,8 +44,18 @@ function createRepository(files: Readonly<Record<string, string>>): Repository {
 interface Fixtures {
   files: Readonly<Record<string, string>>;
   repository: Repository;
+  /** Starts GitDesk with these arguments on the test's profile; every launch closes after the test. */
+  launch: (...args: string[]) => Promise<ElectronApplication>;
   app: ElectronApplication;
   window: Page;
+}
+
+/** The app's window once it shows a repository, at the size of a CI runner's screen, so layouts match everywhere. */
+export async function mainWindow(app: ElectronApplication): Promise<Page> {
+  const window = await app.firstWindow();
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setContentSize(1000, 680));
+  await window.waitForSelector("gd-shell");
+  return window;
 }
 
 export const test = base.extend<Fixtures>({
@@ -55,22 +65,25 @@ export const test = base.extend<Fixtures>({
     await use(repository);
     rmSync(repository.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   },
-  app: async ({ repository }, use) => {
+  // Playwright reads the fixtures a fixture needs from its first parameter; this one needs none.
+  // eslint-disable-next-line no-empty-pattern
+  launch: async ({}, use) => {
     const profile = mkdtempSync(path.join(tmpdir(), "gitdesk-profile-"));
-    const app = await electron.launch({
-      args: [".", `--user-data-dir=${profile}`, launchArgument({ kind: "local", path: repository.root })],
-      cwd: path.resolve("."),
+    const running = new Set<ElectronApplication>();
+    await use(async (...args) => {
+      const app = await electron.launch({ args: [".", `--user-data-dir=${profile}`, ...args], cwd: path.resolve(".") });
+      running.add(app);
+      app.once("close", () => running.delete(app));
+      return app;
     });
-    await use(app);
-    await app.close();
+    for (const app of running) await app.close();
     rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   },
+  app: async ({ launch, repository }, use) => {
+    await use(await launch(launchArgument({ kind: "local", path: repository.root })));
+  },
   window: async ({ app }, use) => {
-    const window = await app.firstWindow();
-    // The size of a CI runner's screen, so layouts match everywhere.
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setContentSize(1000, 680));
-    await window.waitForSelector("gd-shell");
-    await use(window);
+    await use(await mainWindow(app));
   },
 });
 

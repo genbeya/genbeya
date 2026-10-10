@@ -1,13 +1,14 @@
-import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
+import { ChangeDetectionStrategy, Component, effect, inject, untracked } from "@angular/core";
 import { ContextMenuGuard } from "./core/context-menu-guard";
 import { NavigationGuard } from "./core/navigation-guard";
 import { Session } from "./core/session";
 import { Theme } from "./core/theme";
 import { Shell } from "./features/shell/shell";
+import { ShellUi } from "./features/shell/shell-ui";
 import { Welcome } from "./features/welcome/welcome";
 import { Toasts } from "./ui/toasts";
 
-/** Starts the session, then shows the welcome screen or the open repository. */
+/** Starts the session, then shows the welcome screen or the open repository, and opens the GitDesk links launches carry. */
 @Component({
   selector: "gd-root",
   imports: [Shell, Welcome, Toasts],
@@ -48,5 +49,10 @@ export class App {
     inject(NavigationGuard);
     inject(ContextMenuGuard);
     void this.session.start();
+    // The first launch's link, or one a later launch hands over.
+    const ui = inject(ShellUi);
+    effect(() => {
+      if (this.session.requestedLink()) untracked(() => void ui.openLink(this.session.takeRequestedLink()!));
+    });
   }
 }
