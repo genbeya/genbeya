@@ -1,4 +1,4 @@
-import { computed, Directive, effect, input, signal } from "@angular/core";
+import { computed, Directive, effect, ElementRef, inject, input, signal } from "@angular/core";
 import { recall, remember } from "./remembered";
 
 /** The edge the user drags: the right one sets the width, the top one the height. */
@@ -34,6 +34,7 @@ export class Resizable {
   readonly max = input(560);
   readonly size = signal(260);
   readonly dragging = signal(false);
+  private readonly element: HTMLElement = inject(ElementRef).nativeElement;
   private readonly storageKey = computed(() => STORAGE_PREFIX[this.edge()] + this.key());
 
   constructor() {
@@ -45,8 +46,11 @@ export class Resizable {
     // Dragging right widens; dragging the top edge up makes the panel taller.
     const position = (pointer: PointerEvent) => (this.edge() === "top" ? -pointer.clientY : pointer.clientX);
     const origin = position(event);
-    const from = this.size();
-    const clamp = (pointer: PointerEvent) => Math.min(this.max(), Math.max(this.min(), from + position(pointer) - origin));
+    // The layout may keep the panel smaller than its size (a CSS maximum, a small window). Dragging starts from
+    // what shows and stops where the panel stops growing, so the edge follows the pointer without a dead zone.
+    const from = Math.min(this.size(), this.rendered(this.size()) || this.size());
+    const max = Math.min(this.max(), this.rendered(this.max()) || this.max());
+    const clamp = (pointer: PointerEvent) => Math.min(max, Math.max(this.min(), from + position(pointer) - origin));
     this.dragging.set(true);
     const move = (moved: PointerEvent) => this.size.set(clamp(moved));
     const end = (ended: PointerEvent) => {
@@ -61,6 +65,18 @@ export class Resizable {
 
   reset(): void {
     this.size.set(this.initial());
+  }
+
+  /** How large the panel shows at `size`; 0 while it is hidden. */
+  private rendered(size: number): number {
+    const top = this.edge() === "top";
+    const style = this.element.style;
+    const property = top ? "height" : "width";
+    const previous = style[property];
+    style[property] = `${size}px`;
+    const shown = top ? this.element.offsetHeight : this.element.offsetWidth;
+    style[property] = previous;
+    return shown;
   }
 }
 
