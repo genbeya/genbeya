@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRemote, sameRepository, webUrl, withoutCredentials } from "./remote-url";
+import { namesRemoteHelper, parseRemote, sameRepository, webUrl, withoutCredentials } from "./remote-url";
 
 describe("parseRemote", () => {
   it.each([
@@ -47,6 +47,13 @@ describe("parseRemote", () => {
     "https://github.com/acme/de mo",
     "https://github.com/acme/demo\nx",
     `https://github.com/${"a".repeat(2100)}`,
+    // Git runs a remote helper for <transport>::<address>; ext:: runs any command.
+    "ext::calc.exe",
+    "EXT::sh",
+    "fd::3",
+    "foo::https://github.com/acme/demo.git",
+    "git@-oProxyCommand=calc:acme/demo",
+    "ssh://-oProxyCommand=calc/acme/demo",
   ])("refuses %j, which is not a repository on another machine", (url) => {
     expect(parseRemote(url)).toBeNull();
   });
@@ -67,6 +74,19 @@ describe("withoutCredentials", () => {
   ])("turns %s into %s", (url, shared) => {
     expect(withoutCredentials(url)).toBe(shared);
   });
+});
+
+describe("namesRemoteHelper", () => {
+  it.each(["ext::calc.exe", "fd::3", "Foo-1.x+y::anything", "  ext::sh"])("finds the remote helper in %j", (url) => {
+    expect(namesRemoteHelper(url)).toBe(true);
+  });
+
+  it.each(["https://github.com/acme/demo.git", "git@github.com:acme/demo.git", "C:\\repos\\demo", "/srv/a::b", "1x::y"])(
+    "finds none in %j",
+    (url) => {
+      expect(namesRemoteHelper(url)).toBe(false);
+    },
+  );
 });
 
 describe("sameRepository", () => {

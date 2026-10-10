@@ -144,6 +144,8 @@ describe("WorkspaceManager", () => {
     const { snapshot } = await managers.workspace.clone(source.root, { kind: "local", path: parent });
     expect(snapshot.settings.name).toBe("Test Project");
     await expect(managers.workspace.clone("--upload-pack=evil", { kind: "local", path: parent })).rejects.toThrow("Enter a Git URL");
+    for (const helper of ["ext::calc.exe", " fd::3"])
+      await expect(managers.workspace.clone(helper, { kind: "local", path: parent })).rejects.toThrow("remote helpers");
   });
 
   it("validates folders to browse", async () => {
