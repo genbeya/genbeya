@@ -151,14 +151,16 @@ export class TaskPanel {
   protected readonly current = computed(() => this.saved() ?? this.task() ?? null);
   /** The actions menu only exists for a task. */
   protected readonly link = computed<LinkItem>(() => ({ kind: "task", id: this.current()!.id }));
-  private readonly taskVersion = computed(() => this.task()?.hash);
+  /** The file and its version: moving the task to another epic keeps the content, but not the path. */
+  private readonly taskVersion = computed(() => this.task() && `${this.task()!.path}
+${this.task()!.hash}`);
   protected readonly editing = signal(false);
   protected readonly draft = signal<TaskInput>(empty(""));
   private readonly base = signal("");
   protected readonly dirty = computed(() => this.editing() && JSON.stringify(this.draft()) !== this.base());
   protected readonly shown = computed(() => (this.editing() || !this.current() ? this.draft() : inputOf(this.current()!)));
-  /** The version an edit started from: saving fails if the file changed since. */
-  private editBase: string | null = null;
+  /** The task an edit started from: saving fails if the file changed since. */
+  private editBase: Task | null = null;
   private saving = false;
   /** Property changes while viewing save one after another, each on the newest version. */
   private queue: Promise<unknown> = Promise.resolve();
@@ -194,7 +196,7 @@ export class TaskPanel {
   protected startEditing() {
     const task = this.current();
     if (!task) return;
-    this.editBase = task.hash;
+    this.editBase = task;
     this.begin(inputOf(task));
   }
 
@@ -233,9 +235,12 @@ export class TaskPanel {
         await this.router.navigate(["/tasks"], { queryParams: { task: created.id }, replaceUrl: true });
         return;
       }
+      // Moving a task to another epic keeps its file, so it may have moved meanwhile; the edit keeps that unless it moves it too.
+      const draft = this.draft();
+      const input = this.editBase && draft.epic === this.editBase.epic ? { ...draft, epic: task.epic } : draft;
       // The result applies before the snapshot refresh, so the task is clean at once.
       const updated = await this.session.run(async () => {
-        const result = await this.api.content.updateTask(task.path, this.draft(), this.editBase ?? task.hash);
+        const result = await this.api.content.updateTask(task.path, input, this.editBase?.hash ?? task.hash);
         this.saved.set(result);
         this.base.set(JSON.stringify(this.draft()));
         this.editing.set(false);
