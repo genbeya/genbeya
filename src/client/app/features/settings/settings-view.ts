@@ -8,16 +8,17 @@ import { Session } from "../../core/session";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { titleCase } from "../tasks/task-model";
+import { AgentFiles } from "./agent-files";
 import { FieldEditor } from "./field-editor";
 import { StatusEditor } from "./status-editor";
 import { TypeEditor } from "./type-editor";
 
 type TextSetting = "name" | "taskPrefix" | "wikiRoot" | "wikiHome" | "taskRoot";
 
-/** Project settings (shared through .gitdesk.yml), content storage, remotes and personal preferences. */
+/** Project settings (shared through .gitdesk.yml), content storage, agent files, remotes and personal preferences. */
 @Component({
   selector: "gd-settings-view",
-  imports: [FieldEditor, StatusEditor, TypeEditor, LucidePencil, LucidePlus, LucideTrash2],
+  imports: [AgentFiles, FieldEditor, StatusEditor, TypeEditor, LucidePencil, LucidePlus, LucideTrash2],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./settings.css",

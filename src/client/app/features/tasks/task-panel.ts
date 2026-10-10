@@ -29,6 +29,8 @@ import { MarkdownView } from "../../markdown/markdown-view";
 import { toggleCheckboxAt } from "../../markdown/task-checkbox";
 import { MenuItem } from "../../ui/menu-item";
 import { WikiActions } from "../wiki/wiki-actions";
+import { TaskActivity } from "./task-activity";
+import { TaskComments } from "./task-comments";
 import { TaskFields } from "./task-fields";
 import { displayId, inputOf } from "./task-model";
 import { TaskProperties } from "./task-properties";
@@ -57,6 +59,8 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
     CodeEditor,
     MarkdownView,
     MenuItem,
+    TaskActivity,
+    TaskComments,
     TaskFields,
     TaskProperties,
     LucideCodeXml,
@@ -120,7 +124,7 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
       }
       <gd-task-properties [value]="shown()" (changed)="patch($event)" />
       <gd-task-fields [value]="shown()" (changed)="patch($event)" />
-      <div class="task-description">
+      <div class="task-description" [class.is-viewing]="!editing()">
         @if (editing()) {
           <div class="task-body-editor">
             <gd-code-editor
@@ -148,6 +152,38 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
           <button type="button" class="task-empty-body" (click)="startEditing()">Add a description…</button>
         }
       </div>
+      @if (task() && !editing()) {
+        <section class="task-discussion">
+          <div class="segmented" role="tablist" aria-label="Comments and activity">
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="tab() === 'comments'"
+              [class.is-active]="tab() === 'comments'"
+              (click)="tab.set('comments')"
+            >
+              Comments
+              @if (current()!.comments.length) {
+                <span class="faint">{{ current()!.comments.length }}</span>
+              }
+            </button>
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="tab() === 'activity'"
+              [class.is-active]="tab() === 'activity'"
+              (click)="tab.set('activity')"
+            >
+              Activity
+            </button>
+          </div>
+          <!-- Hidden rather than removed, so an unsent comment survives a look at the activity. -->
+          <gd-task-comments [class.is-hidden]="tab() !== 'comments'" [task]="current()!" (changed)="saved.set($event)" />
+          @if (tab() === "activity") {
+            <gd-task-activity [task]="current()!" />
+          }
+        </section>
+      }
     </div>
 
     <ng-template #actions>
@@ -195,7 +231,9 @@ export class TaskPanel {
   protected readonly displayId = displayId;
 
   /** A save's result, until the snapshot catches up with it. */
-  private readonly saved = signal<Task | null>(null);
+  protected readonly saved = signal<Task | null>(null);
+  protected readonly tab = signal<"comments" | "activity">("comments");
+  private readonly comments = viewChild(TaskComments);
   protected readonly current = computed(() => this.saved() ?? this.task() ?? null);
   /** The actions menu only exists for a task. */
   protected readonly link = computed<LinkItem>(() => ({ kind: "task", id: this.current()!.id }));
@@ -273,6 +311,7 @@ ${this.task()!.hash}`,
   }
 
   protected async close() {
+    if (this.comments()?.dirty() && !(await this.dialogs.discardEdits("this comment"))) return;
     await this.router.navigate(["/tasks"]);
   }
 

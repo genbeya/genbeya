@@ -5,6 +5,7 @@
  */
 import type { FileNode, Settings, WikiNode } from "../contracts/model";
 import { buildFileTree, findNode } from "../utilities/file-tree";
+import type { ReferencePage } from "../utilities/references";
 import { baseName, within } from "../utilities/repository-path";
 
 type WikiSettings = Pick<Settings, "wikiRoot" | "wikiHome">;
@@ -36,6 +37,13 @@ export class WikiEngine {
     const root = findNode(buildFileTree(files.filter((file) => within(file, settings.wikiRoot))), settings.wikiRoot);
     const home = `${settings.wikiRoot}/${settings.wikiHome}`;
     return nodes(root?.children ?? []).sort((a, b) => Number(b.path === home) - Number(a.path === home));
+  }
+
+  /** Every page of the tree, parents before their subpages: what references can name. */
+  pages(files: readonly string[], settings: WikiSettings): ReferencePage[] {
+    const walk = (level: readonly WikiNode[]): ReferencePage[] =>
+      level.flatMap((node) => [...(node.path ? [{ title: node.title, path: node.path }] : []), ...walk(node.children)]);
+    return walk(this.tree(files, settings));
   }
 
   isPage(path: string, settings: Pick<Settings, "wikiRoot">): boolean {

@@ -156,6 +156,48 @@ describe("TaskPanel", () => {
     expect(element.querySelector("button[aria-label='Type']")!.textContent).toContain("Bug");
   });
 
+  it("shows comments below the description and loads the activity only when asked", async () => {
+    const { element, managers, fixture } = await render({ task: first });
+    managers.content.taskActivity.mockResolvedValue([]);
+    expect(element.querySelector("textarea[aria-label='New comment']")).not.toBeNull();
+    expect(managers.content.taskActivity).not.toHaveBeenCalled();
+    const activity = [...element.querySelectorAll<HTMLButtonElement>("[role=tab]")].find((tab) => tab.textContent!.trim() === "Activity")!;
+    activity.click();
+    await settle(fixture);
+    expect(managers.content.taskActivity).toHaveBeenCalledWith("w1", "tasks/TP-1.md");
+    expect(activity.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("shows a commented task as saved at once", async () => {
+    const { element, managers, fixture } = await render({ task: first });
+    managers.content.addComment.mockResolvedValue({
+      ...first,
+      hash: "h2",
+      comments: [{ author: "Ada", date: "2026-10-10T14:32+02:00", body: "Done" }],
+    });
+    const composer = element.querySelector<HTMLTextAreaElement>("textarea[aria-label='New comment']")!;
+    composer.value = "Done";
+    composer.dispatchEvent(new Event("input"));
+    await settle(fixture);
+    element.querySelector<HTMLButtonElement>(".task-composer button")!.click();
+    await settle(fixture);
+    expect(element.querySelector(".task-comment")!.textContent).toContain("Done");
+    expect(element.querySelector("[role=tab]")!.textContent).toContain("1");
+  });
+
+  it("asks before closing with an unsent comment", async () => {
+    const { element, dialogs, fixture, router } = await render({ task: first });
+    const navigate = vi.spyOn(router, "navigate").mockResolvedValue(true);
+    const composer = element.querySelector<HTMLTextAreaElement>("textarea[aria-label='New comment']")!;
+    composer.value = "Unsent";
+    composer.dispatchEvent(new Event("input"));
+    dialogs.discardEdits.mockResolvedValue(false);
+    element.querySelector<HTMLButtonElement>("button[aria-label='Close (Esc)']")!.click();
+    await settle(fixture);
+    expect(dialogs.discardEdits).toHaveBeenCalledWith("this comment");
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it("changes properties at once while viewing", async () => {
     const { managers, fixture } = await render({ task: first });
     managers.content.updateTask.mockResolvedValue({ ...first, priority: "low", hash: "h2" });

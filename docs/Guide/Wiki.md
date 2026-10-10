@@ -19,6 +19,8 @@ docs/
 
 A folder without a matching page still shows up and lists its children. Moving a page moves its subpages along.
 
+**Move or rename…** in a page's menu also offers to update the links that would break: relative links and `[[references]]` to the moved pages from other pages, tasks and Markdown files, and relative links inside the moved pages. The dialog lists them, and they change together with the move, in one commit on a [[Content branch]]. References by title keep working as long as the title stays; code blocks are left alone.
+
 ## Links
 
 - Relative Markdown links: `[Tasks](Tasks.md)`, `[Home](../Home.md#start-here)`. The `.md` may be left out.

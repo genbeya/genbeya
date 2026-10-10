@@ -6,7 +6,7 @@ import type { Location, Snapshot, TaskInput } from "../contracts/model";
 import { connectManagers, dispatch } from "../contracts/rpc";
 import { nodeMachine } from "../platforms/node/node-machine";
 import { HostFactory } from "../access/hosts/host-factory";
-import { createRemote, createRepository, onTestFinished } from "../testing/repository";
+import { createRemote, createRepository, DEFAULT_FILES, onTestFinished } from "../testing/repository";
 import { temporaryFolder } from "../testing/temp";
 import { launchArgument } from "../utilities/launch-request";
 import { createBackend } from "./backend";
@@ -249,6 +249,80 @@ describe("ContentManager", () => {
     expect(await repository.read("docs/architecture/Backend.md")).toBe("# Backend\n");
   });
 
+  const LINKED: Record<string, string> = {
+    ...DEFAULT_FILES,
+    "docs/Home.md":
+      "# Home\n\nSee [the backend](Architecture/Backend.md#auth) and [[Architecture]].\n\n```\n[[Architecture/Backend]]\n```\n",
+    "docs/Architecture/Backend.md": "# Backend\n\nUp to [Home](../Home.md), down to [[Architecture/Backend/Auth]].\n",
+    "tasks/TP-1.md": "---\nid: TP-1\ntitle: Document\nstatus: backlog\n---\nRead [[Architecture/Backend]].\n",
+    "docs/Notes.md": "# Notes\n",
+    "README.md": "Docs start at [Home](docs/Home.md).\n",
+  };
+
+  it("previews and updates the links to a moved page", async () => {
+    const { content, id, repository } = await opened(LINKED);
+    expect(await content.pageLinks(id, "docs/Architecture.md", "docs/Design/System.md")).toEqual([
+      {
+        path: "docs/Architecture/Backend.md",
+        changes: [
+          { line: 3, before: "../Home.md", after: "../../Home.md" },
+          { line: 3, before: "Architecture/Backend/Auth", after: "Design/System/Backend/Auth" },
+        ],
+      },
+      {
+        path: "docs/Home.md",
+        changes: [
+          { line: 3, before: "Architecture/Backend.md", after: "Design/System/Backend.md" },
+          { line: 3, before: "Architecture", after: "System" },
+        ],
+      },
+      { path: "tasks/TP-1.md", changes: [{ line: 6, before: "Architecture/Backend", after: "Design/System/Backend" }] },
+    ]);
+    expect(await content.pageLinks(id, "docs/Notes.md", "docs/Archive/Notes.md")).toEqual([]);
+
+    await content.movePage(id, "docs/Architecture.md", "docs/Design/System.md", { updateLinks: true });
+    expect(await repository.read("docs/Home.md")).toBe(
+      "# Home\n\nSee [the backend](Design/System/Backend.md#auth) and [[System]].\n\n```\n[[Architecture/Backend]]\n```\n",
+    );
+    expect(await repository.read("docs/Design/System/Backend.md")).toBe(
+      "# Backend\n\nUp to [Home](../../Home.md), down to [[Design/System/Backend/Auth]].\n",
+    );
+    expect(await repository.read("tasks/TP-1.md")).toContain("Read [[Design/System/Backend]].");
+    expect(await repository.read("README.md")).toBe(LINKED["README.md"]);
+  });
+
+  it("leaves links alone unless asked, and validates the options", async () => {
+    const { content, id, repository } = await opened(LINKED);
+    await expect(content.movePage(id, "docs/Architecture.md", "docs/Design.md", "yes" as never)).rejects.toThrow("Invalid move options.");
+    await expect(content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: 1 } as never)).rejects.toThrow(
+      "Invalid move options.",
+    );
+    await expect(content.pageLinks(id, "docs/Architecture.md", "src/Design.md")).rejects.toThrow("inside docs/");
+    await content.movePage(id, "docs/Architecture.md", "docs/Design.md");
+    expect(await repository.read("docs/Home.md")).toBe(LINKED["docs/Home.md"]);
+  });
+
+  it("commits a move and its link updates as one commit on the content branch", async () => {
+    const { content, id, latest, repository } = await opened(LINKED);
+    await content.setStorage(id, "branch");
+    const commits = Number(await repository.git("rev-list", "--count", "gitdesk"));
+    await content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true });
+    expect(Number(await repository.git("rev-list", "--count", "gitdesk"))).toBe(commits + 1);
+    const changed = await repository.git("show", "--name-status", "--format=%B", "gitdesk");
+    expect(changed).toMatch(
+      /^Move page Architecture to docs\/Design\.md\n\nUpdate links in docs\/Design\/Backend\.md, docs\/Home\.md, tasks\/TP-1\.md\.\n/,
+    );
+    expect(changed).toMatch(/^M\tdocs\/Home\.md$/m);
+    expect(changed).toMatch(/^M\ttasks\/TP-1\.md$/m);
+    expect(changed).toMatch(/^R\d+\tdocs\/Architecture\/Backend\/Auth\.md\tdocs\/Design\/Backend\/Auth\.md$/m);
+    expect(await repository.git("show", "gitdesk:docs/Home.md")).toContain("[the backend](Design/Backend.md#auth) and [[Design]]");
+    expect(await repository.git("show", "gitdesk:docs/Design/Backend.md")).toContain("[[Design/Backend/Auth]]");
+    const snapshot = await latest();
+    expect(snapshot.changes).toEqual([]);
+    expect(snapshot.warnings).toEqual([]);
+    expect(await repository.git("-C", path.join(repository.root, ".git", "gitdesk", "gitdesk"), "status", "--porcelain")).toBe("");
+  });
+
   it("serves images as data URLs and refuses other files", async () => {
     const { content, id, repository } = await opened();
     await repository.write("docs/pixel.png", new Uint8Array([137, 80, 78, 71]));
@@ -336,6 +410,117 @@ describe("ContentManager", () => {
     expect(updated).toMatchObject({ path: "tasks/Auth/TP-1.md", epic: "Auth", status: "done" });
   });
 
+  it("adds comments below the description, signed with the Git user name", async () => {
+    const { content, id, repository } = await opened();
+    await repository.git("config", "user.name", "Ada Lovelace");
+    const task = await content.createTask(id, input);
+    expect(await content.commentAuthor(id)).toBe("Ada Lovelace");
+    const commented = await content.addComment(id, task.path, "  Looks good, see [[TP-2]].\n");
+    expect(commented.body).toBe(input.body);
+    expect(commented.comments).toEqual([
+      { author: "Ada Lovelace", date: expect.stringMatching(/^\d{4}-\d\d-\d\dT\d\d:\d\d/), body: "Looks good, see [[TP-2]]." },
+    ]);
+    expect(await repository.read(task.path)).toMatch(
+      /- \[ \] Done\n\n## Comments\n\n### Ada Lovelace — \d{4}-\d\d-\d\d \d\d:\d\d[+-]\d\d:\d\d\n\nLooks good/,
+    );
+    // Editing the description keeps the comments, and comments are appended to whatever the file holds now.
+    const edited = await content.updateTask(id, task.path, { ...input, body: "Changed.\n" }, commented.hash);
+    expect(edited.comments).toHaveLength(1);
+    const again = await content.addComment(id, task.path, "Second");
+    expect(again.comments.map((comment) => comment.body)).toEqual(["Looks good, see [[TP-2]].", "Second"]);
+    expect(again.body).toBe("Changed.\n");
+    await expect(content.addComment(id, task.path, " ")).rejects.toThrow("Write a comment first.");
+    await expect(content.addComment(id, "docs/Home.md", "x")).rejects.toThrow("inside tasks/");
+  });
+
+  it("edits and deletes only the user's own comments, on the version they saw", async () => {
+    const { content, id, repository } = await opened();
+    const task = await content.createTask(id, input);
+    await repository.git("config", "user.name", "Bob");
+    const theirs = await content.addComment(id, task.path, "From Bob");
+    await repository.git("config", "user.name", "Ada");
+    const mine = await content.addComment(id, task.path, "From Ada");
+    const edited = await content.editComment(id, task.path, 1, "Changed", mine.hash);
+    expect(edited.comments.map((comment) => comment.body)).toEqual(["From Bob", "Changed"]);
+    await expect(content.editComment(id, task.path, 1, "Stale", mine.hash)).rejects.toThrow("changed on disk");
+    await expect(content.deleteComment(id, task.path, 0, edited.hash)).rejects.toThrow("your own comments");
+    await expect(content.deleteComment(id, task.path, 5, edited.hash)).rejects.toThrow("no longer exists");
+    await expect(content.deleteComment(id, task.path, -1, edited.hash)).rejects.toThrow("Invalid comment.");
+    const deleted = await content.deleteComment(id, task.path, 1, edited.hash);
+    expect(deleted.comments).toEqual([theirs.comments[0]]);
+  });
+
+  it("asks for a Git user name before signing comments", async () => {
+    const { content, id, repository } = await opened();
+    const task = await content.createTask(id, input);
+    await repository.git("config", "user.useConfigOnly", "true");
+    await repository.git("config", "user.name", "");
+    await expect(content.addComment(id, task.path, "x")).rejects.toThrow("git config user.name");
+  });
+
+  it("tells who changed a task and how, following moves between epics", async () => {
+    const { content, id, repository } = await opened();
+    const commit = async (message: string) => {
+      await repository.git("add", "-A");
+      await repository.git("commit", "-q", "-m", message);
+    };
+    const task = await content.createTask(id, { ...input, status: "todo" });
+    await commit("Add TP-1");
+    const moved = await content.updateTask(id, task.path, { ...input, status: "in-progress", epic: "Auth" }, task.hash);
+    await commit("Start TP-1");
+    expect(moved.path).toBe("tasks/Auth/TP-1.md");
+    await repository.git("config", "user.name", "Ada");
+    const commented = await content.addComment(id, moved.path, "Hi");
+    // Moved back to no epic and not committed yet: the activity still finds the history.
+    await content.updateTask(id, moved.path, { ...input, status: "in-progress", epic: "" }, commented.hash);
+
+    const activity = await content.taskActivity(id, "tasks/TP-1.md");
+    expect(activity.map((entry) => [entry.commit === null, entry.author, entry.subject])).toEqual([
+      [true, "Ada", ""],
+      [false, "Test", "Start TP-1"],
+      [false, "Test", "Add TP-1"],
+    ]);
+    expect(activity[0]).toMatchObject({ date: null });
+    expect(activity[0]!.changes).toEqual([
+      { kind: "field", field: "epic", from: "Auth", to: "" },
+      { kind: "comments", added: 1, edited: 0, removed: 0 },
+    ]);
+    expect(activity[1]!.changes).toEqual([
+      { kind: "field", field: "status", from: "todo", to: "in-progress" },
+      { kind: "field", field: "epic", from: "", to: "Auth" },
+    ]);
+    expect(activity[2]!.changes).toEqual([{ kind: "created" }]);
+
+    await commit("Comment on TP-1");
+    expect((await content.taskActivity(id, "tasks/TP-1.md")).map((entry) => entry.subject)).toEqual([
+      "Comment on TP-1",
+      "Start TP-1",
+      "Add TP-1",
+    ]);
+  });
+
+  it("shows a task that was never committed as created, not committed yet", async () => {
+    const { content, id } = await opened();
+    const task = await content.createTask(id, input);
+    expect(await content.taskActivity(id, task.path)).toEqual([
+      { commit: null, author: "Test", date: null, subject: "", changes: [{ kind: "created" }] },
+    ]);
+  });
+
+  it("reads the activity from the content branch, where every edit is a commit", async () => {
+    const { content, id } = await opened();
+    await content.setStorage(id, "branch");
+    const task = await content.createTask(id, input);
+    const commented = await content.addComment(id, task.path, "Hi");
+    await content.updateTask(id, task.path, { ...input, priority: "low" }, commented.hash);
+    const activity = await content.taskActivity(id, task.path);
+    expect(activity.map((entry) => [entry.subject, entry.changes])).toEqual([
+      ["Update TP-1: Build it", [{ kind: "field", field: "priority", from: "high", to: "low" }]],
+      ["Comment on TP-1", [{ kind: "comments", added: 1, edited: 0, removed: 0 }]],
+      ["Create TP-1: Build it", [{ kind: "created" }]],
+    ]);
+  });
+
   it("skips task IDs whose files exist in any epic", async () => {
     const { content, id } = await opened({ ".gitdesk.yml": "name: T\ntaskPrefix: TP\n", "tasks/Old/TP-1.md": "not a task" });
     expect((await content.createTask(id, input)).id).toBe("TP-2");
@@ -418,6 +603,91 @@ describe("ContentManager", () => {
     const page = await content.read(id, "content", "docs/Home.md");
     await content.write(id, "content", page.path, "# Offline\n", page.hash);
     expect((await latest()).warnings.join("\n")).toMatch(/not committed to the gitdesk branch/);
+  });
+});
+
+describe("ContentManager: agent files", () => {
+  const ALL = ["claudeSkill", "agentsSkill", "agents", "claude", "copilot"] as const;
+  const states = async (content: Managers["content"], id: string, targets: readonly (typeof ALL)[number][] = ALL) =>
+    Object.fromEntries((await content.agentFiles(id, targets)).map((file) => [file.path, file.state]));
+
+  it("adds the skill and instruction files to the checkout for the project's settings", async () => {
+    const { content, id, repository, latest } = await opened();
+    expect(Object.values(await states(content, id))).toEqual(["missing", "missing", "missing", "missing", "missing"]);
+    const written = await content.addAgentFiles(id, ["claudeSkill", "agentsSkill", "agents", "claude"]);
+    expect(written).toEqual([
+      { path: ".claude/skills/gitdesk/SKILL.md", result: "created" },
+      { path: ".agents/skills/gitdesk/SKILL.md", result: "created" },
+      { path: "AGENTS.md", result: "created" },
+      { path: "CLAUDE.md", result: "created" },
+    ]);
+    expect(await repository.read(".agents/skills/gitdesk/SKILL.md")).toContain("`tasks/TP-12.md`");
+    expect(await repository.read("CLAUDE.md")).toContain("@AGENTS.md");
+    expect(await repository.exists(".github/copilot-instructions.md")).toBe(false);
+    expect((await latest()).changes.map((change) => change.path)).toEqual(
+      expect.arrayContaining([".claude/skills/gitdesk/SKILL.md", "AGENTS.md", "CLAUDE.md"]),
+    );
+    expect(await states(content, id, ["claudeSkill", "agentsSkill", "agents", "claude"])).toEqual({
+      ".claude/skills/gitdesk/SKILL.md": "current",
+      ".agents/skills/gitdesk/SKILL.md": "current",
+      "AGENTS.md": "current",
+      "CLAUDE.md": "current",
+      ".github/copilot-instructions.md": "missing",
+    });
+  });
+
+  it("merges its block into existing instruction files and changes nothing the second time", async () => {
+    const crlf = String.fromCharCode(13, 10);
+    const { content, id, repository } = await opened();
+    await repository.write("AGENTS.md", `# Agents${crlf}${crlf}Run the tests.${crlf}`);
+    await content.addAgentFiles(id, ["agents"]);
+    const agents = await repository.read("AGENTS.md");
+    expect(agents.startsWith(`# Agents${crlf}${crlf}Run the tests.${crlf}${crlf}<!-- gitdesk:begin -->${crlf}`)).toBe(true);
+    expect(agents).not.toMatch(/[^\r]\n/);
+    expect(await content.addAgentFiles(id, ["agents"])).toEqual([{ path: "AGENTS.md", result: "unchanged" }]);
+    expect(await repository.read("AGENTS.md")).toBe(agents);
+  });
+
+  it("updates the files after the settings changed", async () => {
+    const { content, id, repository, latest } = await opened();
+    await content.addAgentFiles(id, ["agentsSkill", "agents"]);
+    const snapshot = await latest();
+    await content.saveSettings(id, { ...snapshot.settings, taskPrefix: "NEW" }, snapshot.settingsHash);
+    expect(await states(content, id, ["agentsSkill", "agents"])).toMatchObject({
+      ".agents/skills/gitdesk/SKILL.md": "outdated",
+      "AGENTS.md": "outdated",
+    });
+    expect(await content.addAgentFiles(id, ["agentsSkill", "agents"])).toEqual([
+      { path: ".agents/skills/gitdesk/SKILL.md", result: "updated" },
+      { path: "AGENTS.md", result: "updated" },
+    ]);
+    expect(await repository.read("AGENTS.md")).toContain("`NEW-12.md`");
+  });
+
+  it("writes to the checkout while wiki and tasks live on the content branch", async () => {
+    const { content, id, repository } = await opened();
+    await content.setStorage(id, "branch");
+    await content.addAgentFiles(id, ["agents"]);
+    expect(await repository.read("AGENTS.md")).toContain("`tasks/`");
+    expect(await repository.git("log", "--format=%s", "-1", "gitdesk")).not.toContain("AGENTS");
+  });
+
+  it("writes nothing when one file has broken markers, and warns about ignored files", async () => {
+    const { content, id, repository } = await opened();
+    await repository.write(".gitignore", ".claude/\n");
+    const ignored = (await content.agentFiles(id, ALL)).filter((file) => file.ignored).map((file) => file.path);
+    expect(ignored).toEqual([".claude/skills/gitdesk/SKILL.md"]);
+    await repository.write("CLAUDE.md", "<!-- gitdesk:begin -->\nUnfinished.\n");
+    await expect(content.agentFiles(id, ALL)).rejects.toThrow("CLAUDE.md has unmatched GitDesk markers");
+    await expect(content.addAgentFiles(id, ["agents", "claude"])).rejects.toThrow("CLAUDE.md has unmatched GitDesk markers");
+    expect(await repository.exists("AGENTS.md")).toBe(false);
+  });
+
+  it("validates the targets", async () => {
+    const { content, id } = await opened();
+    await expect(content.agentFiles(id, ["cursor"] as never)).rejects.toThrow("Unknown agent file");
+    await expect(content.addAgentFiles(id, "agents" as never)).rejects.toThrow("Unknown agent file");
+    await expect(content.addAgentFiles(id, [])).rejects.toThrow("Choose the files to add.");
   });
 });
 

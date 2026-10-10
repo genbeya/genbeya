@@ -9,9 +9,10 @@
  * branch uses it automatically.
  */
 import type { Head, StorageMode } from "../../contracts/model";
-import { FileStore } from "../files/file-store";
+import { FileStore, TEXT_LIMIT } from "../files/file-store";
+import { committedFile, committedFiles, fileHistory } from "../git/file-history";
 import { Git, GitError } from "../git/git";
-import { parseWorktrees } from "../git/git-parsers";
+import { parseWorktrees, type FileRevision } from "../git/git-parsers";
 import type { Host } from "../hosts/host";
 
 export const DEFAULT_CONTENT_BRANCH = "gitdesk";
@@ -102,6 +103,31 @@ export class ContentStore {
   /** Files of the content location. */
   async files(): Promise<string[]> {
     return (await this.locate()).git.files();
+  }
+
+  /**
+   * Commits of the content location's branch that changed `path`, newest
+   * first, following renames; with `contents`, each with the file before and after.
+   */
+  async history(path: string, limit: number, contents: boolean): Promise<FileRevision[]> {
+    return fileHistory((await this.locate()).git, path, limit, contents);
+  }
+
+  /** `path` as last committed on the content location's branch; null when it is not. */
+  async committed(path: string): Promise<string | null> {
+    return committedFile((await this.locate()).git, path, TEXT_LIMIT);
+  }
+
+  /** The files below `folder` last committed on the content location's branch. */
+  async committedFiles(folder: string): Promise<string[]> {
+    return committedFiles((await this.locate()).git, folder);
+  }
+
+  /** The name Git signs commits with: `user.name`, or what Git derives from the system account; null if Git has none. */
+  async author(): Promise<string | null> {
+    // "Ada Lovelace <ada@example.com> 1791669471 +0200"
+    const ident = await this.repository.attempt(["var", "GIT_AUTHOR_IDENT"]);
+    return ident?.split(" <")[0]!.trim() || null;
   }
 
   /** State of the dedicated branch, or null when content lives in the checkout. */

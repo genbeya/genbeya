@@ -51,6 +51,10 @@ jobs:
 
       - run: npm ci
 
+      # Every build gets its own patch number, so installers upgrade older installs.
+      - name: Stamp the version
+        run: node scripts/version.mjs stamp ${{ github.run_number }}
+
       - uses: ./.github/actions/verify
 
       # The Tauri shell embeds the client, which the end-to-end tests have built.
@@ -117,13 +121,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(node -p "require('./package.json').version")
-          tag="v$version-build.$GITHUB_RUN_NUMBER"
+          version=$(node scripts/version.mjs stamp "$GITHUB_RUN_NUMBER")
+          tag="v$version"
           sed "s/{{version}}/$version/g" .github/release-notes.md > out/release-notes.md
           ls -l out/installers
           gh release create "$tag" out/installers/* \
             --target "$GITHUB_SHA" \
-            --title "GitDesk $version (build $GITHUB_RUN_NUMBER)" \
+            --title "GitDesk $version" \
             --notes-file out/release-notes.md \
             --generate-notes \
             --latest

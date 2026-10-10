@@ -108,6 +108,25 @@ export interface WikiNode {
   readonly children: readonly WikiNode[];
 }
 
+/** A link that moving a page rewrites: its line, and its target before and after. */
+export interface LinkChange {
+  readonly line: number;
+  readonly before: string;
+  readonly after: string;
+}
+
+/** The links of one Markdown file that moving a page rewrites; `path` is where the file is before the move. */
+export interface LinkUpdate {
+  readonly path: string;
+  readonly changes: readonly LinkChange[];
+}
+
+/** Options of moving a page. */
+export interface PageMove {
+  /** Rewrites the links to the moved pages, and the relative links inside them, in the same commit. */
+  readonly updateLinks?: boolean;
+}
+
 export interface Task {
   readonly id: string;
   readonly path: string;
@@ -120,11 +139,14 @@ export interface Task {
   readonly type: string;
   /** Other frontmatter fields with a plain value (text, number or true/false), by key. */
   readonly fields: Readonly<Record<string, FieldValue>>;
+  /** The description: the Markdown above the comments. */
   readonly body: string;
   /** The folder below the task folder that holds the task ("Auth/Tokens"); "" for none. */
   readonly epic: string;
   /** Version of the file the task was read from; updates must name it. */
   readonly hash: string;
+  /** Oldest first, as they appear at the end of the file. */
+  readonly comments: readonly TaskComment[];
 }
 
 /**
@@ -133,6 +155,40 @@ export interface Task {
  */
 export type TaskInput = Pick<Task, "title" | "status" | "priority" | "assignee" | "labels" | "body" | "epic"> &
   Partial<Pick<Task, "type" | "fields">>;
+
+export interface TaskComment {
+  readonly author: string;
+  /** ISO 8601, to the minute, with the writer's UTC offset when the file has it. */
+  readonly date: string;
+  /** Markdown. */
+  readonly body: string;
+}
+
+/** A property whose change the activity of a task names with its old and new value. */
+export type TaskField = "title" | "type" | "status" | "priority" | "assignee" | "epic";
+
+/** One thing a commit changed about a task, derived from its file before and after. */
+export type TaskChange =
+  | { readonly kind: "created" }
+  | { readonly kind: "field"; readonly field: TaskField; readonly from: string; readonly to: string }
+  | { readonly kind: "labels"; readonly added: readonly string[]; readonly removed: readonly string[] }
+  | { readonly kind: "description" }
+  | { readonly kind: "comments"; readonly added: number; readonly edited: number; readonly removed: number }
+  /** A custom field with a plain value, written as text; "" where the task did not have it. */
+  | { readonly kind: "custom"; readonly field: string; readonly from: string; readonly to: string }
+  /** Frontmatter fields GitDesk has no words for, such as lists. */
+  | { readonly kind: "other"; readonly fields: readonly string[] };
+
+/** A commit that changed a task, or its edits not committed yet. */
+export interface TaskActivity {
+  /** Null for edits not committed yet. */
+  readonly commit: string | null;
+  readonly author: string;
+  /** ISO 8601; null for edits not committed yet. */
+  readonly date: string | null;
+  readonly subject: string;
+  readonly changes: readonly TaskChange[];
+}
 
 export interface Change {
   readonly path: string;
@@ -231,6 +287,31 @@ export interface CommitDetail {
 }
 
 export type SyncAction = "fetch" | "pull" | "push";
+
+/**
+ * Files that teach coding agents to use GitDesk's tasks and wiki: the skill
+ * where Claude Code and where other agents look for it, and the instruction
+ * files AGENTS.md, CLAUDE.md and Copilot's.
+ */
+export const AGENT_TARGETS = ["claudeSkill", "agentsSkill", "agents", "claude", "copilot"] as const;
+export type AgentTarget = (typeof AGENT_TARGETS)[number];
+
+export interface AgentFile {
+  readonly target: AgentTarget;
+  /** In the checkout. */
+  readonly path: string;
+  /** What GitDesk writes: the whole file, or its marked block in a file it shares with other text. */
+  readonly text: string;
+  /** `missing` also when the file exists without GitDesk's block. */
+  readonly state: "missing" | "current" | "outdated";
+  /** Excluded by `.gitignore`, so it would not be committed. */
+  readonly ignored: boolean;
+}
+
+export interface AgentFileWrite {
+  readonly path: string;
+  readonly result: "created" | "updated" | "unchanged";
+}
 
 export interface RecentEntry {
   readonly location: Location;

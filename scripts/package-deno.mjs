@@ -4,7 +4,7 @@
 // (Windows: msi; macOS: dmg; Linux: AppImage and deb). Expects the client in
 // dist/client/browser (`ng build`).
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { build } from "esbuild";
 import { denoBundle } from "./bundles.mjs";
@@ -21,6 +21,10 @@ const formats = process.argv.length > 2 ? process.argv.slice(2) : DEFAULT_FORMAT
 if (!formats) throw new Error(`No Deno Desktop installer formats for ${process.platform}; pass them as arguments.`);
 
 await build(denoBundle);
+// Installers take their version from the configuration file; without it every MSI is 1.0.0.
+const config = "dist/deno/deno.json";
+const { version } = JSON.parse(readFileSync("package.json", "utf8"));
+writeFileSync(config, JSON.stringify({ version }));
 
 // The deno npm package's launcher runs the binary for this platform.
 const deno = createRequire(import.meta.url).resolve("deno/bin.cjs");
@@ -34,7 +38,8 @@ for (const format of formats) {
     "desktop",
     "-A",
     "--no-check",
-    "--no-config",
+    "--config",
+    config,
     ...icon,
     "--include",
     "dist/client/browser",
@@ -44,6 +49,17 @@ for (const format of formats) {
   ];
   console.log(`Packaging ${output}`);
   const { status, error } = spawnSync(process.execPath, [deno, ...args], { stdio: "inherit" });
+  if (error) throw error;
+  if (status !== 0) process.exit(status ?? 1);
+  if (format === "msi") upgradeOlderVersions(output);
+}
+
+/** Lets the MSI replace an installed older version instead of installing next to it. */
+function upgradeOlderVersions(msi) {
+  const script = "scripts/msi-major-upgrade.ps1";
+  const { status, error } = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, msi], {
+    stdio: "inherit",
+  });
   if (error) throw error;
   if (status !== 0) process.exit(status ?? 1);
 }

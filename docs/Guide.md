@@ -11,3 +11,7 @@ Press `Ctrl+K` anywhere to jump to a page, task or file, or to run a command suc
 ## Sharing
 
 Right-click a page, task, file or commit to copy a link that opens it in a coworker's GitDesk, or on GitHub, GitLab, Bitbucket or Azure DevOps — see [[Sharing]].
+
+## AI agents
+
+Coding agents can plan their work as tasks and record what they learn in the wiki, instead of keeping private todo lists and memory files. **Settings → AI agents** adds a skill and instructions that teach them how — see [[AI agents]].

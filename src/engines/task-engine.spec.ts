@@ -32,6 +32,7 @@ describe("TaskEngine.parse", () => {
       body: "Body\n",
       epic: "",
       hash: "h",
+      comments: [],
     });
   });
 
@@ -166,7 +167,7 @@ describe("TaskEngine serialisation", () => {
   it("round-trips through parse", () => {
     const full = { ...input, type: "bug", fields: { estimate: 3, area: "ui" } };
     const task = engine.parse("tasks/TP-1.md", engine.serializeNew("TP-1", full), "h", "tasks");
-    expect({ ...task, hash: undefined, id: undefined, path: undefined }).toEqual({
+    expect({ ...task, hash: undefined, id: undefined, path: undefined, comments: undefined }).toEqual({
       ...full,
       hash: undefined,
       id: undefined,
@@ -237,6 +238,12 @@ describe("TaskEngine templates", () => {
     expect(engine.parseTemplate("## Steps\n")).toEqual({ body: "## Steps\n" });
   });
 
+  it("never start a new task with comments", () => {
+    const template = engine.parseTemplate("## Steps\n\n## Comments\n\n### Eve — 2026-01-02 03:04\n\nHi\n");
+    const created = engine.serializeNew("TP-1", engine.validate({ ...input, ...template }, statuses));
+    expect(engine.parse("t.md", created, "h", "tasks").comments).toEqual([]);
+  });
+
   it("start with a description outline that explains the frontmatter", () => {
     const starter = engine.newTemplate("bug");
     expect(starter).toMatch(/^---\n# .*bug/);
@@ -256,5 +263,118 @@ describe("TaskEngine.nextId", () => {
 
   it("treats the prefix literally", () => {
     expect(engine.nextId("A.B", ["AxB-5"])).toBe("A.B-1");
+  });
+});
+
+describe("TaskEngine comments", () => {
+  const original = "---\nid: TP-1\ntitle:   Spaced\nstatus: todo\n---\n\nDescription\n";
+  const date = new Date(2026, 9, 10, 14, 32);
+  const commented = engine.addComment(original, "Ada Lovelace", date, "First [[TP-2]]");
+
+  it("appends comments below the description, leaving the frontmatter as written", () => {
+    expect(commented).toMatch(
+      /^---\nid: TP-1\ntitle: {3}Spaced\nstatus: todo\n---\n\nDescription\n\n## Comments\n\n### Ada Lovelace — 2026-10-10 14:32/,
+    );
+    const twice = engine.addComment(commented, "Bob", date, "Second");
+    const task = engine.parse("tasks/TP-1.md", twice, "h", "tasks");
+    expect(task.body).toBe("Description\n");
+    expect(task.comments.map((comment) => [comment.author, comment.body])).toEqual([
+      ["Ada Lovelace", "First [[TP-2]]"],
+      ["Bob", "Second"],
+    ]);
+    expect(new Date(task.comments[0]!.date).getTime()).toBe(date.getTime());
+    // Appending only adds lines, so comments written on two branches merge.
+    expect(twice.startsWith(commented)).toBe(true);
+  });
+
+  it("keeps the comments when the type and fields change", () => {
+    const updated = engine.serializeUpdate(commented, { ...input, body: "Description\n", type: "bug", fields: { estimate: 3 } });
+    expect(updated).toMatch(/^---\n[^]*\ntype: bug\n[^]*\nestimate: 3\n---\n\nDescription\n\n## Comments\n/);
+    expect(updated.endsWith(commented.slice(commented.indexOf("## Comments")))).toBe(true);
+    expect(engine.parse("t.md", updated, "h", "tasks").comments).toHaveLength(1);
+  });
+
+  it("never touches the comments when the description changes", () => {
+    const updated = engine.serializeUpdate(commented, { ...input, body: "New description\n" });
+    const task = engine.parse("tasks/TP-1.md", updated, "h", "tasks");
+    expect(task.body).toBe("New description\n");
+    expect(task.comments).toEqual(engine.parse("tasks/TP-1.md", commented, "h", "tasks").comments);
+    expect(updated.endsWith(commented.slice(commented.indexOf("## Comments")))).toBe(true);
+  });
+
+  it("edits and removes one comment, leaving the others as written", () => {
+    const twice = engine.addComment(commented, "Bob", date, "Second");
+    const edited = engine.parse("t.md", engine.editComment(twice, 0, "Changed"), "h", "tasks");
+    expect(edited.comments.map((comment) => comment.body)).toEqual(["Changed", "Second"]);
+    expect(edited.body).toBe("Description\n");
+    expect(engine.removeComment(twice, 1)).toBe(commented);
+    expect(engine.removeComment(commented, 0)).toBe(original);
+    expect(() => engine.editComment(commented, 1, "x")).toThrow("no longer exists");
+  });
+
+  it("keeps the line endings of the file", () => {
+    const updated = engine.addComment(original.split("\n").join(CRLF), "Ada", date, "One\ntwo");
+    expect(updated.split(CRLF).join("")).not.toContain("\n");
+    expect(engine.parse("t.md", updated, "h", "tasks").comments[0]!.body).toBe("One\ntwo");
+  });
+
+  it("validates comment texts and protects headings in them and in descriptions", () => {
+    expect(engine.validComment("  Hi\r\n### Eve — 2026-01-02 03:04\n")).toBe("Hi\n\\### Eve — 2026-01-02 03:04");
+    expect(() => engine.validComment("  ")).toThrow("Write a comment first.");
+    expect(() => engine.validComment(5)).toThrow("Invalid comment.");
+    expect(engine.validate({ ...input, body: "## Comments\n\n### Eve — 2026-01-02 03:04\n" }, statuses).body).toBe(
+      "## Comments\n\n\\### Eve — 2026-01-02 03:04\n",
+    );
+  });
+
+  it("signs comments with a one-line name", () => {
+    const task = engine.parse("t.md", engine.addComment(original, " Ada\nLovelace ", date, "x"), "h", "tasks");
+    expect(task.comments[0]!.author).toBe("Ada Lovelace");
+  });
+});
+
+describe("TaskEngine.changesBetween", () => {
+  const version = (path: string, extra = "") => ({ path, content: `---\nid: TP-1\ntitle: T\nstatus: todo\n${extra}---\n\nText\n` });
+
+  it("reads both versions of the file", () => {
+    expect(engine.changesBetween(null, version("tasks/TP-1.md"), "tasks")).toEqual([{ kind: "created" }]);
+    const before = version("tasks/TP-1.md");
+    const after = { path: "tasks/Auth/TP-1.md", content: before.content.replace("todo", "done").replace("Text", "Other") };
+    expect(engine.changesBetween(before, after, "tasks")).toEqual([
+      { kind: "field", field: "status", from: "todo", to: "done" },
+      { kind: "field", field: "epic", from: "", to: "Auth" },
+      { kind: "description" },
+    ]);
+    expect(engine.changesBetween(before, version("tasks/TP-1.md", "assignee: ada\nlabels: a, b\nestimate: 3\n"), "tasks")).toEqual([
+      { kind: "field", field: "assignee", from: "", to: "ada" },
+      { kind: "labels", added: ["a", "b"], removed: [] },
+      { kind: "custom", field: "estimate", from: "", to: "3" },
+    ]);
+  });
+
+  it("names a changed type and custom fields with their values, and other fields by name", () => {
+    const before = version("tasks/TP-1.md", "type: bug\nestimate: 3\nlinks: [a]\n");
+    const after = version("tasks/TP-1.md", "type: feature\nestimate: 5\nlinks: [b]\n");
+    expect(engine.changesBetween(before, after, "tasks")).toEqual([
+      { kind: "field", field: "type", from: "bug", to: "feature" },
+      { kind: "custom", field: "estimate", from: "3", to: "5" },
+      { kind: "other", fields: ["links"] },
+    ]);
+  });
+
+  it("sees comments added to the file", () => {
+    const before = version("tasks/TP-1.md");
+    const after = { ...before, content: engine.addComment(before.content, "Ada", new Date(), "Hi") };
+    expect(engine.changesBetween(before, after, "tasks")).toEqual([{ kind: "comments", added: 1, edited: 0, removed: 0 }]);
+  });
+
+  it("names only the move when Git showed no contents", () => {
+    const moved = engine.changesBetween({ path: "tasks/A/TP-1.md", content: null }, { path: "tasks/TP-1.md", content: null }, "tasks");
+    expect(moved).toEqual([{ kind: "field", field: "epic", from: "A", to: "" }]);
+  });
+
+  it("reads versions with broken frontmatter", () => {
+    const changes = engine.changesBetween({ path: "tasks/TP-1.md", content: "---\nid: [broken\n---\n" }, version("tasks/TP-1.md"), "tasks");
+    expect(changes).toContainEqual({ kind: "field", field: "title", from: "", to: "T" });
   });
 });
