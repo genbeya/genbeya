@@ -91,6 +91,35 @@ describe("TaskComments", () => {
     expect(managers.content.deleteComment).toHaveBeenCalledWith("w1", "tasks/TP-1.md", 1, "hash-TP-1");
   });
 
+  it("saves an edit against the version it started from, even after a refresh", async () => {
+    const { element, button, type, managers, fixture } = await render();
+    button("Edit comment").click();
+    await settle(fixture);
+    // Someone else's comment arrives before Ada's while she edits; the server must refuse the save, not edit the wrong one.
+    const [bob, ada] = commented.comments;
+    const eve = { author: "Eve", date: "2026-10-11T09:00+02:00", body: "New" };
+    fixture.componentRef.setInput("task", { ...commented, hash: "newer", comments: [bob!, eve, ada!] });
+    await settle(fixture);
+    const field = element.querySelector<HTMLTextAreaElement>("textarea[aria-label='Edit comment']")!;
+    expect(fixture.componentInstance.dirty()).toBe(false);
+    type(field, "Changed");
+    button("Save").click();
+    await settle(fixture);
+    expect(managers.content.editComment).toHaveBeenCalledWith("w1", "tasks/TP-1.md", 1, "Changed", "hash-TP-1");
+  });
+
+  it("deletes against the version shown when Delete was clicked", async () => {
+    const { button, managers, dialogs, fixture } = await render();
+    let answer!: (yes: boolean) => void;
+    dialogs.confirm.mockReturnValueOnce(new Promise<boolean>((resolve) => (answer = resolve)));
+    button("Delete comment").click();
+    fixture.componentRef.setInput("task", { ...commented, hash: "newer" });
+    await settle(fixture);
+    answer(true);
+    await settle(fixture);
+    expect(managers.content.deleteComment).toHaveBeenCalledWith("w1", "tasks/TP-1.md", 1, "hash-TP-1");
+  });
+
   it("reports an unsent comment as unsaved", async () => {
     const { composer, type, fixture } = await render(task("TP-1"));
     expect(fixture.componentInstance.dirty()).toBe(false);

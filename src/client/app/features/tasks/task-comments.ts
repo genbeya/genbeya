@@ -11,6 +11,13 @@ import { Icon } from "../../ui/icon";
 import { relativeTime } from "../history/commit-graph";
 import { WikiActions } from "../wiki/wiki-actions";
 
+interface CommentVersion {
+  readonly index: number;
+  readonly path: string;
+  readonly hash: string;
+  readonly body: string;
+}
+
 /**
  * The comments at the end of a task's file, and a composer for new ones.
  * The user's own comments (signed with their Git name) can be edited and deleted.
@@ -28,7 +35,7 @@ import { WikiActions } from "../wiki/wiki-actions";
           <span class="task-comment-author">{{ comment.author }}</span>
           <time class="faint" [attr.datetime]="comment.date" [title]="localTime(comment.date)">{{ relativeTime(comment.date) }}</time>
           <span class="grow"></span>
-          @if (comment.author === author() && editing() === null) {
+          @if (comment.author === author() && !editing()) {
             <button type="button" class="icon-btn" aria-label="Edit comment" title="Edit comment" (click)="startEditing($index)">
               <svg gd-icon name="pencil" [size]="13"></svg>
             </button>
@@ -37,7 +44,7 @@ import { WikiActions } from "../wiki/wiki-actions";
             </button>
           }
         </header>
-        @if (editing() === $index) {
+        @if (editing()?.index === $index) {
           <textarea
             #field
             class="textarea"
@@ -96,14 +103,15 @@ export class TaskComments {
   protected readonly author = signal<string | null>(null);
   protected readonly draft = signal("");
   protected readonly sending = signal(false);
-  /** The comment being edited, by index, and its new text. */
-  protected readonly editing = signal<number | null>(null);
+  /**
+   * The comment being edited, by index, with the version of the task and the
+   * text it started from: comments are saved by index, so a save fails rather
+   * than hit another comment when the task changed meanwhile.
+   */
+  protected readonly editing = signal<CommentVersion | null>(null);
   protected readonly edited = signal("");
   /** A comment written or edited but not saved. */
-  readonly dirty = computed(() => {
-    const index = this.editing();
-    return !!this.draft().trim() || (index !== null && this.edited() !== this.task().comments[index]?.body);
-  });
+  readonly dirty = computed(() => !!this.draft().trim() || (!!this.editing() && this.edited() !== this.editing()!.body));
 
   constructor() {
     effect(() => {
@@ -171,22 +179,25 @@ export class TaskComments {
   }
 
   protected startEditing(index: number) {
-    this.edited.set(this.task().comments[index]!.body);
-    this.editing.set(index);
+    const { path, hash, comments } = this.task();
+    const body = comments[index]!.body;
+    this.edited.set(body);
+    this.editing.set({ index, path, hash, body });
   }
 
   protected async saveEdit() {
-    const index = this.editing();
+    const editing = this.editing();
     const text = this.edited();
-    if (index === null || !text.trim()) return;
-    const task = this.task();
-    const saved = await this.session.run(() => this.api.content.editComment(task.path, index, text, task.hash));
+    if (!editing || !text.trim()) return;
+    const saved = await this.session.run(() => this.api.content.editComment(editing.path, editing.index, text, editing.hash));
     if (!saved) return;
     this.editing.set(null);
     this.report(saved);
   }
 
   protected async remove(index: number) {
+    // The version the user saw: a refresh while the dialog is open may move the comments.
+    const { path, hash } = this.task();
     const confirmed = await this.dialogs.confirm({
       title: "Delete comment",
       message: "Delete this comment? Git history keeps it.",
@@ -194,8 +205,7 @@ export class TaskComments {
       danger: true,
     });
     if (!confirmed) return;
-    const task = this.task();
-    const saved = await this.session.run(() => this.api.content.deleteComment(task.path, index, task.hash));
+    const saved = await this.session.run(() => this.api.content.deleteComment(path, index, hash));
     if (saved) this.report(saved);
   }
 
