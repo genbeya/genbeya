@@ -1,8 +1,12 @@
 /**
- * Asks a launch to open a repository: `--open=<base64url JSON location>`.
- * Jump list entries carry it; the receiving side validates the location.
+ * What a launch asks for. `--open=<base64url JSON location>` opens a
+ * repository (jump list entries carry it); a `gitdesk://open?…` link, as the
+ * operating system passes it, opens an item. The receiving side validates
+ * the location; links are validated here.
  */
+import type { GitdeskLink } from "../contracts/gitdesk-link";
 import { encodeText, toBase64 } from "./bytes";
+import { parseGitdeskLink } from "./gitdesk-link";
 
 const FLAG = "--open=";
 
@@ -23,4 +27,13 @@ export function requestedLocation(args: readonly unknown[]): unknown {
   } catch {
     return undefined;
   }
+}
+
+/** The first valid GitDesk link among the arguments, or undefined. */
+export function requestedLink(args: readonly unknown[]): GitdeskLink | undefined {
+  for (const arg of args) {
+    const link = parseGitdeskLink(arg);
+    if (link) return link;
+  }
+  return undefined;
 }
