@@ -69,8 +69,14 @@ describe("withoutCredentials", () => {
     ["https://me:secret@github.com/acme/demo.git", "https://github.com/acme/demo.git"],
     ["http://token@gitlab.local/group/repo.git", "http://gitlab.local/group/repo.git"],
     ["https://github.com/acme/demo.git", "https://github.com/acme/demo.git"],
+    ["https://user:p@ss@github.com/acme/demo.git", "https://github.com/acme/demo.git"],
+    ["https://github.com/acme/demo.git?private_token=abc#readme", "https://github.com/acme/demo.git"],
+    ["ssh://git:secret@gitlab.example.com:2222/group/repo.git", "ssh://gitlab.example.com:2222/group/repo.git"],
+    ["ssh://git@github.com/acme/demo.git", "ssh://github.com/acme/demo.git"],
     ["git@github.com:acme/demo.git", "git@github.com:acme/demo.git"],
-    ["ssh://git@github.com/acme/demo.git", "ssh://git@github.com/acme/demo.git"],
+    ["me:secret@server.example:repo.git", "server.example:repo.git"],
+    ["/srv/git/repo.git", "/srv/git/repo.git"],
+    ["C:\\repos\\me@home", "C:\\repos\\me@home"],
   ])("turns %s into %s", (url, shared) => {
     expect(withoutCredentials(url)).toBe(shared);
   });

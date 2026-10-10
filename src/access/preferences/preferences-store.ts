@@ -1,6 +1,7 @@
 /** The user's recent repositories and preferences, as JSON in the app's data folder. */
 import { sameLocation, type Location, type Preferences, type RecentEntry } from "../../contracts/model";
 import { decodeLenient, encodeText } from "../../utilities/bytes";
+import { withoutCredentials } from "../../utilities/remote-url";
 import type { Machine } from "../ports";
 
 export const DEFAULT_PREFERENCES: Preferences = { theme: "system", reopenLast: true, autoSyncContent: false };
@@ -12,11 +13,15 @@ interface State {
   readonly preferences: Preferences;
 }
 
-/** Entries saved before remotes were remembered have none. */
-const withRemotes = (entry: RecentEntry): RecentEntry => ({
-  ...entry,
-  remotes: Array.isArray(entry.remotes) ? entry.remotes.filter((url): url is string => typeof url === "string") : [],
-});
+/** The remote URLs a saved entry holds; entries saved before remotes were remembered have none. */
+const savedRemotes = (entry: RecentEntry): string[] =>
+  Array.isArray(entry.remotes) ? entry.remotes.filter((url): url is string => typeof url === "string") : [];
+
+/**
+ * Remotes are remembered to find the clone a link names, which needs no
+ * credentials, so none reach the file. Older versions saved them.
+ */
+const withRemotes = (entry: RecentEntry): RecentEntry => ({ ...entry, remotes: savedRemotes(entry).map(withoutCredentials) });
 
 export class PreferencesStore {
   private state: State = { recent: [], preferences: DEFAULT_PREFERENCES };
@@ -38,10 +43,11 @@ export class PreferencesStore {
     const store = new PreferencesStore(machine, folder);
     try {
       const saved = JSON.parse(decodeLenient(await machine.fileSystem.readFile(store.file))) as Partial<State>;
-      store.state = {
-        recent: Array.isArray(saved.recent) ? saved.recent.slice(0, RECENT_LIMIT).map(withRemotes) : [],
-        preferences: { ...DEFAULT_PREFERENCES, ...saved.preferences },
-      };
+      const recent = Array.isArray(saved.recent) ? saved.recent.slice(0, RECENT_LIMIT) : [];
+      store.state = { recent: recent.map(withRemotes), preferences: { ...DEFAULT_PREFERENCES, ...saved.preferences } };
+      // A file with credentials in it is written again without them.
+      const remotes = (entries: readonly RecentEntry[]) => JSON.stringify(entries.map(savedRemotes));
+      if (remotes(recent) !== remotes(store.state.recent)) store.update({});
     } catch {
       /* First run or unreadable state. */
     }
@@ -58,11 +64,14 @@ export class PreferencesStore {
 
   remember(location: Location, name: string, remotes: readonly string[], now = Date.now()): void {
     const others = this.state.recent.filter((entry) => !sameLocation(entry.location, location));
-    this.update({ recent: [{ location, name, openedAt: now, remotes }, ...others].slice(0, RECENT_LIMIT) });
+    this.update({
+      recent: [{ location, name, openedAt: now, remotes: remotes.map(withoutCredentials) }, ...others].slice(0, RECENT_LIMIT),
+    });
   }
 
   /** Records remotes added or removed since `location` was opened, without moving its entry. */
-  rememberRemotes(location: Location, remotes: readonly string[]): void {
+  rememberRemotes(location: Location, urls: readonly string[]): void {
+    const remotes = urls.map(withoutCredentials);
     const changed = (entry: RecentEntry) =>
       sameLocation(entry.location, location) && JSON.stringify(entry.remotes) !== JSON.stringify(remotes);
     if (!this.state.recent.some(changed)) return;
