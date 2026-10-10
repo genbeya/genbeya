@@ -188,9 +188,14 @@ export class TaskEngine {
     return protectHeadings(text);
   }
 
+  /** A person's name as comments are signed with it: one line, bounded. */
+  commentAuthor(name: string): string {
+    return name.replace(/\s+/g, " ").trim().slice(0, LIMITS.assignee);
+  }
+
   /** `original` with a comment by `author`, written at `date`, after the others. */
   addComment(original: string, author: string, date: Date, text: string): string {
-    const heading = commentHeading(author.replace(/\s+/g, " ").trim().slice(0, LIMITS.assignee), timestampOf(date));
+    const heading = commentHeading(this.commentAuthor(author), timestampOf(date));
     return this.withComments(original, ({ blocks }) => [...blocks.map((block) => block.text), commentBlock(heading, text)]);
   }
 

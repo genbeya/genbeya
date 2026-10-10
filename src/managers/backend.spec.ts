@@ -308,6 +308,117 @@ describe("ContentManager", () => {
     expect(updated).toMatchObject({ path: "tasks/Auth/TP-1.md", epic: "Auth", status: "done" });
   });
 
+  it("adds comments below the description, signed with the Git user name", async () => {
+    const { content, id, repository } = await opened();
+    await repository.git("config", "user.name", "Ada Lovelace");
+    const task = await content.createTask(id, input);
+    expect(await content.commentAuthor(id)).toBe("Ada Lovelace");
+    const commented = await content.addComment(id, task.path, "  Looks good, see [[TP-2]].\n");
+    expect(commented.body).toBe(input.body);
+    expect(commented.comments).toEqual([
+      { author: "Ada Lovelace", date: expect.stringMatching(/^\d{4}-\d\d-\d\dT\d\d:\d\d/), body: "Looks good, see [[TP-2]]." },
+    ]);
+    expect(await repository.read(task.path)).toMatch(
+      /- \[ \] Done\n\n## Comments\n\n### Ada Lovelace — \d{4}-\d\d-\d\d \d\d:\d\d[+-]\d\d:\d\d\n\nLooks good/,
+    );
+    // Editing the description keeps the comments, and comments are appended to whatever the file holds now.
+    const edited = await content.updateTask(id, task.path, { ...input, body: "Changed.\n" }, commented.hash);
+    expect(edited.comments).toHaveLength(1);
+    const again = await content.addComment(id, task.path, "Second");
+    expect(again.comments.map((comment) => comment.body)).toEqual(["Looks good, see [[TP-2]].", "Second"]);
+    expect(again.body).toBe("Changed.\n");
+    await expect(content.addComment(id, task.path, " ")).rejects.toThrow("Write a comment first.");
+    await expect(content.addComment(id, "docs/Home.md", "x")).rejects.toThrow("inside tasks/");
+  });
+
+  it("edits and deletes only the user's own comments, on the version they saw", async () => {
+    const { content, id, repository } = await opened();
+    const task = await content.createTask(id, input);
+    await repository.git("config", "user.name", "Bob");
+    const theirs = await content.addComment(id, task.path, "From Bob");
+    await repository.git("config", "user.name", "Ada");
+    const mine = await content.addComment(id, task.path, "From Ada");
+    const edited = await content.editComment(id, task.path, 1, "Changed", mine.hash);
+    expect(edited.comments.map((comment) => comment.body)).toEqual(["From Bob", "Changed"]);
+    await expect(content.editComment(id, task.path, 1, "Stale", mine.hash)).rejects.toThrow("changed on disk");
+    await expect(content.deleteComment(id, task.path, 0, edited.hash)).rejects.toThrow("your own comments");
+    await expect(content.deleteComment(id, task.path, 5, edited.hash)).rejects.toThrow("no longer exists");
+    await expect(content.deleteComment(id, task.path, -1, edited.hash)).rejects.toThrow("Invalid comment.");
+    const deleted = await content.deleteComment(id, task.path, 1, edited.hash);
+    expect(deleted.comments).toEqual([theirs.comments[0]]);
+  });
+
+  it("asks for a Git user name before signing comments", async () => {
+    const { content, id, repository } = await opened();
+    const task = await content.createTask(id, input);
+    await repository.git("config", "user.useConfigOnly", "true");
+    await repository.git("config", "user.name", "");
+    await expect(content.addComment(id, task.path, "x")).rejects.toThrow("git config user.name");
+  });
+
+  it("tells who changed a task and how, following moves between epics", async () => {
+    const { content, id, repository } = await opened();
+    const commit = async (message: string) => {
+      await repository.git("add", "-A");
+      await repository.git("commit", "-q", "-m", message);
+    };
+    const task = await content.createTask(id, { ...input, status: "todo" });
+    await commit("Add TP-1");
+    const moved = await content.updateTask(id, task.path, { ...input, status: "in-progress", epic: "Auth" }, task.hash);
+    await commit("Start TP-1");
+    expect(moved.path).toBe("tasks/Auth/TP-1.md");
+    await repository.git("config", "user.name", "Ada");
+    const commented = await content.addComment(id, moved.path, "Hi");
+    // Moved back to no epic and not committed yet: the activity still finds the history.
+    await content.updateTask(id, moved.path, { ...input, status: "in-progress", epic: "" }, commented.hash);
+
+    const activity = await content.taskActivity(id, "tasks/TP-1.md");
+    expect(activity.map((entry) => [entry.commit === null, entry.author, entry.subject])).toEqual([
+      [true, "Ada", ""],
+      [false, "Test", "Start TP-1"],
+      [false, "Test", "Add TP-1"],
+    ]);
+    expect(activity[0]).toMatchObject({ date: null });
+    expect(activity[0]!.changes).toEqual([
+      { kind: "field", field: "epic", from: "Auth", to: "" },
+      { kind: "comments", added: 1, edited: 0, removed: 0 },
+    ]);
+    expect(activity[1]!.changes).toEqual([
+      { kind: "field", field: "status", from: "todo", to: "in-progress" },
+      { kind: "field", field: "epic", from: "", to: "Auth" },
+    ]);
+    expect(activity[2]!.changes).toEqual([{ kind: "created" }]);
+
+    await commit("Comment on TP-1");
+    expect((await content.taskActivity(id, "tasks/TP-1.md")).map((entry) => entry.subject)).toEqual([
+      "Comment on TP-1",
+      "Start TP-1",
+      "Add TP-1",
+    ]);
+  });
+
+  it("shows a task that was never committed as created, not committed yet", async () => {
+    const { content, id } = await opened();
+    const task = await content.createTask(id, input);
+    expect(await content.taskActivity(id, task.path)).toEqual([
+      { commit: null, author: "Test", date: null, subject: "", changes: [{ kind: "created" }] },
+    ]);
+  });
+
+  it("reads the activity from the content branch, where every edit is a commit", async () => {
+    const { content, id } = await opened();
+    await content.setStorage(id, "branch");
+    const task = await content.createTask(id, input);
+    const commented = await content.addComment(id, task.path, "Hi");
+    await content.updateTask(id, task.path, { ...input, priority: "low" }, commented.hash);
+    const activity = await content.taskActivity(id, task.path);
+    expect(activity.map((entry) => [entry.subject, entry.changes])).toEqual([
+      ["Update TP-1: Build it", [{ kind: "field", field: "priority", from: "high", to: "low" }]],
+      ["Comment on TP-1", [{ kind: "comments", added: 1, edited: 0, removed: 0 }]],
+      ["Create TP-1: Build it", [{ kind: "created" }]],
+    ]);
+  });
+
   it("skips task IDs whose files exist in any epic", async () => {
     const { content, id } = await opened({ ".gitdesk.yml": "name: T\ntaskPrefix: TP\n", "tasks/Old/TP-1.md": "not a task" });
     expect((await content.createTask(id, input)).id).toBe("TP-2");
