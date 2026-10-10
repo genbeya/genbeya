@@ -22,8 +22,21 @@ A folder without a matching page still shows up and lists its children. Moving a
 ## Links
 
 - Relative Markdown links: `[Tasks](Tasks.md)`, `[Home](../Home.md#start-here)`. The `.md` may be left out.
-- Wiki links by title: `[[Tasks]]` or `[[Tasks|the board]]`. A link to a page that does not exist yet shows in red; clicking it creates the page.
 - Links into the code open the file in the editor, links to task files open the task, web links open in your browser.
+
+## References
+
+`[[…]]` points at anything in the repository and shows what it points at, kept up to date:
+
+| Write | Shows |
+| --- | --- |
+| `[[GENBEYA-12]]` | The task: its ID, title and state, in the state's colour |
+| `[[Getting started]]`, `[[Guide/Wiki]]` | The page's title; pages are found by title or by path below the wiki folder |
+| `[[src/app.ts]]`, `[[src/app.ts#L10-L20]]` | The file and lines; clicking opens the editor with those lines selected |
+| `[[GENBEYA-12\|the login bug]]` | Any reference with your own text |
+| `![[src/app.ts#L10-L20]]` on its own line | Those lines of the file, highlighted, always the current version |
+
+Type `[[` in any editor to pick a task, page or file from a list. A page that does not exist yet shows in red; clicking it creates the page. A file that is not in the repository shows dashed. Task IDs written plainly in text (`GENBEYA-12`) link to the task too, with its title and state as a tooltip.
 
 ## Special blocks
 

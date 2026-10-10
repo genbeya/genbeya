@@ -21,10 +21,14 @@ import { displayId, titleCase } from "./task-model";
     @if (task().priority !== "none" || task().labels.length || (showEpic() && task().epic)) {
       <div class="task-card-meta">
         @if (showEpic() && task().epic) {
-          <span class="epic-chip" [title]="'Epic ' + task().epic"><svg lucideFolder [size]="11" aria-hidden="true"></svg>{{ task().epic }}</span>
+          <span class="epic-chip" [title]="'Epic ' + task().epic"
+            ><svg lucideFolder [size]="11" aria-hidden="true"></svg>{{ task().epic }}</span
+          >
         }
         @if (task().priority !== "none") {
-          <span class="priority-chip" [title]="titleCase(task().priority)"><gd-priority-icon [priority]="task().priority" [size]="13" /></span>
+          <span class="priority-chip" [title]="titleCase(task().priority)"
+            ><gd-priority-icon [priority]="task().priority" [size]="13"
+          /></span>
         }
         @for (label of task().labels; track label) {
           <gd-label-chip [name]="label" />

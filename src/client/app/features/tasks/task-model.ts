@@ -1,5 +1,6 @@
 /** How tasks are ordered, filtered, grouped and labelled on the board and list. */
 import { PRIORITIES, type Task, type TaskInput } from "../../../../contracts/model";
+import { statusTone } from "../../ui/status-tone";
 
 export interface TaskFilters {
   readonly query: string;
@@ -22,12 +23,10 @@ export const UNASSIGNED = "-";
 
 export const titleCase = (text: string): string => text.replace(/[-_]+/g, " ").replace(/^\w/, (letter) => letter.toUpperCase());
 
-/** Grey for the first state, green for the last, distinct colours between. */
+/** The CSS colour of a state; see {@link statusTone}. */
 export function statusColor(index: number, count: number): string {
-  if (index < 0) return "var(--text-3)";
-  if (index === count - 1) return "var(--green)";
-  if (index === 0) return "var(--gray)";
-  return ["var(--blue)", "var(--yellow)", "var(--purple)", "var(--orange)"][(index - 1) % 4]!;
+  const tone = statusTone(index, count);
+  return tone === "other" ? "var(--text-3)" : `var(--${tone})`;
 }
 
 const priorityRank = (priority: string): number => {

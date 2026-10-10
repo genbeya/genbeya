@@ -1,5 +1,15 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
-import { ChangeDetectionStrategy, Component, computed, type ElementRef, inject, input, signal, viewChild, ViewEncapsulation } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  type ElementRef,
+  inject,
+  input,
+  signal,
+  viewChild,
+  ViewEncapsulation,
+} from "@angular/core";
 import { Router } from "@angular/router";
 import {
   LucideColumns3,
@@ -45,7 +55,6 @@ type Layout = "board" | "list";
 const LAYOUT_KEY = "tasks:layout";
 const LANES_KEY = "tasks:lanes";
 
-
 /**
  * The task board or list, with filters. `?task=` opens a task in the
  * drawer, `?create=<state>` starts a new one. Styles are global but
@@ -54,8 +63,25 @@ const LANES_KEY = "tasks:lanes";
 @Component({
   selector: "gd-tasks-view",
   imports: [
-    CdkMenu, CdkMenuTrigger, Avatar, EmptyState, MenuItem, PriorityIcon, TaskBoard, TaskList, TaskPanel,
-    LucideColumns3, LucideFolder, LucideLayoutList, LucideListFilter, LucidePlus, LucideRows3, LucideSearch, LucideTag, LucideUser, LucideX,
+    CdkMenu,
+    CdkMenuTrigger,
+    Avatar,
+    EmptyState,
+    MenuItem,
+    PriorityIcon,
+    TaskBoard,
+    TaskList,
+    TaskPanel,
+    LucideColumns3,
+    LucideFolder,
+    LucideLayoutList,
+    LucideListFilter,
+    LucidePlus,
+    LucideRows3,
+    LucideSearch,
+    LucideTag,
+    LucideUser,
+    LucideX,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -75,7 +101,7 @@ export class TasksView {
   protected readonly titleCase = titleCase;
   protected readonly priorities = PRIORITIES;
   protected readonly unassigned = UNASSIGNED;
-  protected readonly layout = signal<Layout>((recall(LAYOUT_KEY) === "list" ? "list" : "board"));
+  protected readonly layout = signal<Layout>(recall(LAYOUT_KEY) === "list" ? "list" : "board");
   /** Swimlanes per epic on the board. */
   protected readonly swimlanes = signal(recall(LANES_KEY) === "on");
   protected readonly filters = signal<TaskFilters>(NO_FILTERS);
@@ -108,7 +134,11 @@ export class TasksView {
   });
 
   constructor() {
-    hotkey("c", () => void this.startTask(), computed(() => !this.task() && !this.create()));
+    hotkey(
+      "c",
+      () => void this.startTask(),
+      computed(() => !this.task() && !this.create()),
+    );
     hotkey("/", () => this.search().nativeElement.focus());
   }
 
@@ -126,7 +156,9 @@ export class TasksView {
   protected async setColumnVisible({ status, visible }: { status: string; visible: boolean }) {
     const { settings, settingsHash } = this.snapshot();
     const hiddenColumns = visible ? settings.hiddenColumns.filter((other) => other !== status) : [...settings.hiddenColumns, status];
-    const saved = await this.session.run(async () => (await this.api.content.saveSettings({ ...settings, hiddenColumns }, settingsHash), true));
+    const saved = await this.session.run(
+      async () => (await this.api.content.saveSettings({ ...settings, hiddenColumns }, settingsHash), true),
+    );
     if (saved) this.session.contentChanged();
   }
 

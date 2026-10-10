@@ -22,7 +22,7 @@ import { Session } from "../../core/session";
 import { ShareLinks } from "../../core/share-links";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
-import { CodeEditor } from "../../editor/code-editor";
+import { CodeEditor, type LineRange } from "../../editor/code-editor";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { EmptyState } from "../../ui/empty-state";
 import { MenuItem } from "../../ui/menu-item";
@@ -158,6 +158,8 @@ import { WikiActions } from "../wiki/wiki-actions";
           [label]="'Contents of ' + path()"
           [path]="path()"
           [value]="value()"
+          [reveal]="lines()"
+          [references]="markdown() ? wiki.referenceCandidates() : null"
           (valueChange)="draft.set($event)"
           (save)="save()"
         />
@@ -183,6 +185,8 @@ export class FileEditor {
   readonly path = input.required<string>();
   /** Whether the file has uncommitted changes. */
   readonly changed = input(false);
+  /** Lines to show, from a link. */
+  readonly lines = input<LineRange | null>(null);
 
   protected readonly wiki = inject(WikiActions);
   protected readonly links = inject(ShareLinks);

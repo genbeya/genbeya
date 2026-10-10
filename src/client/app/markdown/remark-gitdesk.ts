@@ -1,7 +1,8 @@
 import GithubSlugger from "github-slugger";
 import { toString } from "mdast-util-to-string";
 import { SKIP, visit } from "unist-util-visit";
-import type { Blockquote, Heading, List, ListItem, Paragraph, PhrasingContent, Root, Text } from "mdast";
+import type { Blockquote, Heading, Link, List, ListItem, Paragraph, PhrasingContent, Root, Text } from "mdast";
+import { normalizeTitle, referenceTargets, resolveReference, type Reference, type ReferenceSources } from "./references";
 
 export interface PageRef {
   title: string;
@@ -12,11 +13,11 @@ export interface PageRef {
 export interface GitdeskOptions {
   /** Pages below the current one, for `[SUBPAGES]`. */
   subpages?: PageRef[];
-  /** Every wiki page, for `[[Page title]]` links. */
-  pages?: { title: string; path: string }[];
-  /** Task IDs and their files; IDs in text become links. */
-  tasks?: { id: string; path: string }[];
+  /** Tasks, pages and files that `[[references]]` and task IDs in text point to. */
+  references?: ReferenceSources;
 }
+
+const NO_REFERENCES: ReferenceSources = { wikiRoot: "docs", pages: [], tasks: [], statuses: [], files: [] };
 
 interface Entry {
   label: string;
@@ -28,14 +29,62 @@ interface Entry {
 const TOC = /^\[(?:TOC|\[_?TOC_?\])\]$/i;
 const SUBPAGES = /^\[(?:SUBPAGES|\[_?TOSP_?\])\]$/i;
 const WIKILINK = /\[\[([^\]|\n]+)(?:\|([^\]\n]+))?\]\]/g;
+/** `![[path#L1-L9]]` alone in a paragraph embeds those lines of a file. */
+const EMBED = /^!\[\[([^\]|\n]+)\]\]$/;
 const TASK_ID = /\b[A-Z][A-Z0-9]*-\d+\b/g;
 
-/** Titles match regardless of case, dashes and underscores. */
-export const normalizeTitle = (title: string) =>
-  title
-    .toLowerCase()
-    .replace(/[-_\s]+/g, " ")
-    .trim();
+export { normalizeTitle };
+
+const span = (className: string, value: string): PhrasingContent => ({
+  type: "emphasis",
+  data: { hName: "span", hProperties: { className: className.split(" ") } },
+  children: value ? [{ type: "text", value }] : [],
+});
+
+const stateName = (status: string) => status.replace(/[-_]+/g, " ").replace(/^\w/, (letter) => letter.toUpperCase());
+
+/** A reference as a link: tasks show ID, title and state; pages their title; files their path and lines. */
+function referenceLink(reference: Reference, label: string | undefined): PhrasingContent {
+  const link = (url: string, className: string[], children: PhrasingContent[], title?: string): Link => ({
+    type: "link",
+    url,
+    title: title ?? null,
+    data: { hProperties: { className } },
+    children,
+  });
+  switch (reference.kind) {
+    case "task":
+      return link(
+        "/" + reference.path,
+        ["md-ref", "md-ref-task"],
+        [
+          span(`md-ref-dot tone-${reference.tone}`, ""),
+          span("md-ref-id", reference.id),
+          span("md-ref-title", label ?? reference.title),
+          span(`md-ref-state tone-${reference.tone}`, stateName(reference.status)),
+        ],
+        `${reference.id}: ${reference.title} (${stateName(reference.status)})`,
+      );
+    case "page":
+      return link(
+        "/" + reference.path + (reference.anchor ? "#" + reference.anchor : ""),
+        ["md-ref", "md-ref-page"],
+        [{ type: "text", value: label ?? reference.title }],
+      );
+    case "file": {
+      const { from, to } = reference.lines ?? { from: 0, to: 0 };
+      const lines = !reference.lines ? "" : from === to ? `:${from}` : `:${from}–${to}`;
+      return link(
+        "/" + reference.path + (reference.lines ? `#L${from}-L${to}` : ""),
+        ["md-ref", "md-ref-file", ...(reference.exists ? [] : ["md-ref-missing"])],
+        [span("md-ref-path", label ?? reference.path), ...(lines && !label ? [span("md-ref-lines", lines)] : [])],
+        reference.exists ? undefined : `${reference.path} is not in the repository`,
+      );
+    }
+    case "missing-page":
+      return link("gitdesk-missing:" + encodeURIComponent(reference.title), [], [{ type: "text", value: label ?? reference.title }]);
+  }
+}
 const CALLOUT = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*\n?/i;
 
 function list(entries: Entry[], className?: string): List {
@@ -87,11 +136,13 @@ const pageEntries = (pages: PageRef[]): Entry[] =>
  * GitDesk's wiki extensions:
  * - heading ids, and `[TOC]` / `[[_TOC_]]` for a table of contents
  * - `[SUBPAGES]` / `[[_TOSP_]]` for the pages below this one
- * - `[[Page title]]` and `[[Page title|label]]` links
+ * - `[[GENBEYA-12]]`, `[[Page title]]`, `[[path/to/file.ts#L1-L9]]` references, `[[target|label]]`
+ * - `![[path/to/file.ts#L1-L9]]` alone in a paragraph embeds the lines
  * - GitHub-style callouts: `> [!NOTE]`, `[!TIP]`, `[!WARNING]`, ...
  */
 export function remarkGitdesk(options: GitdeskOptions = {}) {
   return (tree: Root) => {
+    const targets = referenceTargets(options.references ?? NO_REFERENCES);
     const slugger = new GithubSlugger();
     const headings: { depth: number; label: string; slug: string }[] = [];
     visit(tree, "heading", (node: Heading) => {
@@ -111,14 +162,30 @@ export function remarkGitdesk(options: GitdeskOptions = {}) {
       } else if (SUBPAGES.test(text)) {
         const entries = pageEntries(options.subpages ?? []);
         replacement = entries.length ? list(entries, "md-subpages") : placeholder("This page has no subpages yet.");
+      } else if (EMBED.test(text)) {
+        const reference = resolveReference(EMBED.exec(text)![1]!, targets);
+        // Only files embed; other references show as links.
+        if (reference.kind === "file")
+          replacement = {
+            type: "paragraph",
+            data: {
+              hName: "div",
+              hProperties: {
+                className: ["md-embed"],
+                dataEmbed: reference.path,
+                dataLines: reference.lines ? `${reference.lines.from}-${reference.lines.to}` : undefined,
+              },
+            },
+            children: [],
+          };
+        else node.children = [{ type: "text", value: text.slice(1) }];
       }
       if (!replacement) return;
       parent.children.splice(index, 1, replacement);
       return [SKIP, index + 1];
     });
 
-    const byTitle = new Map((options.pages ?? []).map((p) => [normalizeTitle(p.title), p.path]));
-    const byId = new Map((options.tasks ?? []).map((t) => [t.id, t.path]));
+    const byId = targets.tasks;
     visit(tree, "text", (node: Text, index, parent) => {
       if (!parent || index === undefined || parent.type === "link") return;
       const parts: PhrasingContent[] = [];
@@ -130,26 +197,25 @@ export function remarkGitdesk(options: GitdeskOptions = {}) {
       };
       const matches = [
         ...[...node.value.matchAll(WIKILINK)].map((m) => ({ m, kind: "page" as const })),
-        ...(byId.size ? [...node.value.matchAll(TASK_ID)].filter((m) => byId.has(m[0])).map((m) => ({ m, kind: "task" as const })) : []),
+        ...(byId.size
+          ? [...node.value.matchAll(TASK_ID)].filter((m) => byId.has(m[0].toUpperCase())).map((m) => ({ m, kind: "task" as const }))
+          : []),
       ].sort((a, b) => a.m.index! - b.m.index!);
       for (const { m, kind } of matches) {
         if (m.index! < last) continue;
         if (kind === "task") {
+          // Task IDs in prose stay short; the tooltip has the rest.
+          const task = byId.get(m[0].toUpperCase())!;
           push(m.index!, m.index! + m[0].length, {
             type: "link",
-            url: "/" + byId.get(m[0]),
+            url: "/" + task.path,
+            title: `${task.title} (${stateName(task.status)})`,
             data: { hProperties: { className: ["md-task-ref"] } },
             children: [{ type: "text", value: m[0] }],
           });
           continue;
         }
-        const title = m[1]!.trim();
-        const path = byTitle.get(normalizeTitle(title));
-        push(m.index!, m.index! + m[0].length, {
-          type: "link",
-          url: path ? "/" + path : "gitdesk-missing:" + encodeURIComponent(title),
-          children: [{ type: "text", value: (m[2] ?? m[1]!).trim() }],
-        });
+        push(m.index!, m.index! + m[0].length, referenceLink(resolveReference(m[1]!, targets), m[2]?.trim()));
       }
       if (!parts.length) return;
       if (last < node.value.length) parts.push({ type: "text", value: node.value.slice(last) });

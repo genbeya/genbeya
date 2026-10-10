@@ -1,17 +1,24 @@
 import { Component, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { EditorView } from "@codemirror/view";
-import { CodeEditor } from "./code-editor";
+import { CodeEditor, type LineRange } from "./code-editor";
 
 const LF = String.fromCharCode(10);
 const CRLF = String.fromCharCode(13, 10);
 
 @Component({
   imports: [CodeEditor],
-  template: `<gd-code-editor path="src/a.ts" [value]="value()" (valueChange)="changes.push($event)" (save)="saves = saves + 1" />`,
+  template: `<gd-code-editor
+    path="src/a.ts"
+    [value]="value()"
+    [reveal]="reveal()"
+    (valueChange)="changes.push($event)"
+    (save)="saves = saves + 1"
+  />`,
 })
 class Host {
   readonly value = signal("");
+  readonly reveal = signal<LineRange | null>(null);
   readonly changes: string[] = [];
   saves = 0;
 }
@@ -55,6 +62,17 @@ describe("CodeEditor", () => {
     expect(view.state.sliceDoc()).toBe("reloaded");
     // A reload is not an edit.
     expect(host.changes).toEqual(["one two"]);
+  });
+
+  it("selects the lines it is asked to reveal, once the text has them", async () => {
+    const { view, fixture } = await render("");
+    fixture.componentInstance.reveal.set({ from: 2, to: 3 });
+    await fixture.whenStable();
+    expect(view.state.selection.main.empty).toBe(true);
+    fixture.componentInstance.value.set(["one", "two", "three", "four"].join(LF));
+    await fixture.whenStable();
+    const { from, to } = view.state.selection.main;
+    expect(view.state.sliceDoc(from, to)).toBe(["two", "three"].join(LF));
   });
 
   it("saves with Ctrl+S inside the editor", async () => {

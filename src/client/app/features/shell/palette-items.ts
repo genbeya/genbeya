@@ -1,9 +1,10 @@
 /** What the command palette offers, and how a query ranks it. */
 import type { GitdeskLink } from "../../../../contracts/gitdesk-link";
-import type { FileNode, RecentEntry, Snapshot, Theme } from "../../../../contracts/model";
+import type { RecentEntry, Snapshot, Theme } from "../../../../contracts/model";
 import { sameLocation } from "../../../../contracts/model";
 import { describeLinkItem, parseGitdeskLink } from "../../../../utilities/gitdesk-link";
 import { parseRemote } from "../../../../utilities/remote-url";
+import { filePaths } from "../../../../utilities/file-tree";
 import { flattenPages } from "../wiki/wiki-pages";
 import { fuzzyScore } from "./fuzzy";
 
@@ -78,9 +79,6 @@ export interface PaletteCommands {
 const GROUP_WEIGHT: Readonly<Record<string, number>> = { Pages: 40, Tasks: 30, "Go to": 20, Actions: 10 };
 const PER_GROUP = 8;
 const WITHOUT_QUERY = 60;
-
-const flatFiles = (nodes: readonly FileNode[]): string[] =>
-  nodes.flatMap((node) => (node.children ? flatFiles(node.children) : [node.path]));
 
 export function branchItems(snapshot: Snapshot, query: string, commands: PaletteCommands): PaletteItem[] {
   const { head, branches, remoteBranches } = snapshot;
@@ -207,7 +205,7 @@ export function allItems(
   // Pages and tasks have their own entries when they live in the checkout.
   const own = (path: string) =>
     storage.mode === "worktree" && (path.startsWith(`${settings.wikiRoot}/`) || path.startsWith(`${settings.taskRoot}/`));
-  const fileItems = flatFiles(files)
+  const fileItems = filePaths(files)
     .filter((path) => !own(path))
     .map((path): PaletteItem => ({
       id: `file:${path}`,

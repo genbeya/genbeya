@@ -17,7 +17,16 @@ import { labelColor, statusColor } from "./task-model";
     } @else {
       <svg [attr.width]="size()" [attr.height]="size()" viewBox="0 0 14 14" aria-hidden="true">
         <circle cx="7" cy="7" r="6" fill="none" [attr.stroke]="color()" stroke-width="1.6" />
-        <circle cx="7" cy="7" r="4" fill="none" [attr.stroke]="color()" stroke-width="8" [attr.stroke-dasharray]="dash()" transform="rotate(-90 7 7)" />
+        <circle
+          cx="7"
+          cy="7"
+          r="4"
+          fill="none"
+          [attr.stroke]="color()"
+          stroke-width="8"
+          [attr.stroke-dasharray]="dash()"
+          transform="rotate(-90 7 7)"
+        />
       </svg>
     }
   `,

@@ -95,6 +95,7 @@ const PREVIEW_DELAY = 150;
             label="Page source"
             [path]="path()"
             [value]="draft()"
+            [references]="wiki.referenceCandidates()"
             [lineNumbers]="false"
             [autofocus]="true"
             (valueChange)="draft.set($event)"

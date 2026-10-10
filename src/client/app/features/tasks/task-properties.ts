@@ -12,7 +12,19 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase } from "./task-model";
 /** Status, priority, assignee, labels and epic as compact menu buttons. */
 @Component({
   selector: "gd-task-properties",
-  imports: [CdkMenu, CdkMenuTrigger, MenuItem, Avatar, LabelChip, PriorityIcon, StatusIcon, LucideFolder, LucidePlus, LucideTag, LucideUser],
+  imports: [
+    CdkMenu,
+    CdkMenuTrigger,
+    MenuItem,
+    Avatar,
+    LabelChip,
+    PriorityIcon,
+    StatusIcon,
+    LucideFolder,
+    LucidePlus,
+    LucideTag,
+    LucideUser,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-properties" },
   template: `
@@ -60,19 +72,25 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase } from "./task-model";
     </ng-template>
     <ng-template #assigneeMenu>
       <div class="menu" cdkMenu>
-        <button gd-menu-item [checked]="!value().assignee" (selected)="changed.emit({ assignee: '' })"><svg icon lucideUser [size]="14" aria-hidden="true"></svg>Unassigned</button>
+        <button gd-menu-item [checked]="!value().assignee" (selected)="changed.emit({ assignee: '' })">
+          <svg icon lucideUser [size]="14" aria-hidden="true"></svg>Unassigned
+        </button>
         @for (person of people(); track person) {
           <button gd-menu-item [checked]="person === value().assignee" (selected)="changed.emit({ assignee: person })">
             <gd-avatar icon [name]="person" [size]="16" />{{ person }}
           </button>
         }
         <div class="menu-separator"></div>
-        <button gd-menu-item (selected)="assignSomeoneElse()"><svg icon lucidePlus [size]="14" aria-hidden="true"></svg>Someone else…</button>
+        <button gd-menu-item (selected)="assignSomeoneElse()">
+          <svg icon lucidePlus [size]="14" aria-hidden="true"></svg>Someone else…
+        </button>
       </div>
     </ng-template>
     <ng-template #epicMenu>
       <div class="menu" cdkMenu>
-        <button gd-menu-item [checked]="!value().epic" (selected)="changed.emit({ epic: '' })"><svg icon lucideFolder [size]="13" aria-hidden="true"></svg>No epic</button>
+        <button gd-menu-item [checked]="!value().epic" (selected)="changed.emit({ epic: '' })">
+          <svg icon lucideFolder [size]="13" aria-hidden="true"></svg>No epic
+        </button>
         @for (epic of epics(); track epic) {
           <button gd-menu-item [checked]="epic === value().epic" (selected)="changed.emit({ epic })">
             <svg icon lucideFolder [size]="13" aria-hidden="true"></svg>{{ epic }}
@@ -108,7 +126,9 @@ export class TaskProperties {
   protected readonly people = computed(() => peopleOf(this.session.snapshot()!.tasks));
   protected readonly epicName = epicName;
   /** Epics of other tasks, and this one's even while it is the only task in it. */
-  protected readonly epics = computed(() => [...new Set([...epicsOf(this.session.snapshot()!.tasks), ...(this.value().epic ? [this.value().epic] : [])])].sort());
+  protected readonly epics = computed(() =>
+    [...new Set([...epicsOf(this.session.snapshot()!.tasks), ...(this.value().epic ? [this.value().epic] : [])])].sort(),
+  );
   protected readonly labels = computed(() => [...new Set([...labelsOf(this.session.snapshot()!.tasks), ...this.value().labels])].sort());
 
   protected priorityName(priority: string): string {

@@ -56,7 +56,9 @@ import { displayId, titleCase } from "./task-model";
             <span class="task-row-title ellipsis">{{ task.title }}</span>
             <span class="grow"></span>
             @if (task.epic) {
-              <span class="epic-chip" [title]="'Epic ' + task.epic"><svg lucideFolder [size]="11" aria-hidden="true"></svg>{{ task.epic }}</span>
+              <span class="epic-chip" [title]="'Epic ' + task.epic"
+                ><svg lucideFolder [size]="11" aria-hidden="true"></svg>{{ task.epic }}</span
+              >
             }
             @for (label of task.labels; track label) {
               <gd-label-chip [name]="label" />

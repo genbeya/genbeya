@@ -7,6 +7,7 @@ import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
+import { parseLines } from "../../markdown/references";
 import { EmptyState } from "../../ui/empty-state";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { filterTree, Tree, type TreeItem } from "../../ui/tree";
@@ -86,7 +87,7 @@ import { FileEditor } from "./file-editor";
       <section class="main-pane">
         @if (file(); as path) {
           @for (key of [path]; track key) {
-            <gd-file-editor [path]="path" [changed]="status().has(path)" />
+            <gd-file-editor [path]="path" [changed]="status().has(path)" [lines]="range()" />
           }
         } @else {
           <gd-empty-state title="Open a file">
@@ -105,6 +106,9 @@ import { FileEditor } from "./file-editor";
 })
 export class CodeView {
   readonly file = input<string>();
+  /** `?lines=10-20` from a link to lines of the file. */
+  readonly lines = input<string>();
+  protected readonly range = computed(() => parseLines(this.lines() ? `L${this.lines()}` : undefined));
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);

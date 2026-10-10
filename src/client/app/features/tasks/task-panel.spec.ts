@@ -12,7 +12,8 @@ async function render(input: { task?: typeof first; createStatus?: string }) {
   if (input.createStatus) fixture.componentRef.setInput("createStatus", input.createStatus);
   await settle(fixture);
   const element = fixture.nativeElement as HTMLElement;
-  const button = (name: string) => [...element.querySelectorAll("button")].find((b) => b.textContent!.trim().startsWith(name) || b.getAttribute("aria-label") === name)!;
+  const button = (name: string) =>
+    [...element.querySelectorAll("button")].find((b) => b.textContent!.trim().startsWith(name) || b.getAttribute("aria-label") === name)!;
   return { ...harness, fixture, element, button };
 }
 
@@ -51,7 +52,12 @@ describe("TaskPanel", () => {
     await settle(fixture);
     button("Save").click();
     await settle(fixture);
-    expect(managers.content.updateTask).toHaveBeenCalledWith("w1", "tasks/TP-1.md", expect.objectContaining({ title: "Renamed" }), "hash-TP-1");
+    expect(managers.content.updateTask).toHaveBeenCalledWith(
+      "w1",
+      "tasks/TP-1.md",
+      expect.objectContaining({ title: "Renamed" }),
+      "hash-TP-1",
+    );
     expect(element.querySelector("h1")!.textContent).toBe("Renamed");
   });
 
@@ -90,6 +96,13 @@ describe("TaskPanel", () => {
     const { managers, fixture } = await render({ task: first });
     managers.content.updateTask.mockResolvedValue({ ...first, priority: "low", hash: "h2" });
     (fixture.componentInstance as unknown as { patch(change: object): void }).patch({ priority: "low" });
-    await vi.waitFor(() => expect(managers.content.updateTask).toHaveBeenCalledWith("w1", "tasks/TP-1.md", expect.objectContaining({ priority: "low", title: "First task" }), "hash-TP-1"));
+    await vi.waitFor(() =>
+      expect(managers.content.updateTask).toHaveBeenCalledWith(
+        "w1",
+        "tasks/TP-1.md",
+        expect.objectContaining({ priority: "low", title: "First task" }),
+        "hash-TP-1",
+      ),
+    );
   });
 });

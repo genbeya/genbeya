@@ -8,7 +8,9 @@ import { sameJson } from "../../core/signals";
 import { WorkspaceApi } from "../../core/workspace-api";
 import type { WikiNode } from "../../../../contracts/model";
 import type { LinkTarget } from "../../markdown/link-target";
+import { parseLines, referenceCandidates } from "../../markdown/references";
 import type { GitdeskOptions } from "../../markdown/markdown-pipeline";
+import { filePaths } from "../../../../utilities/file-tree";
 import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
 
 @Injectable({ providedIn: "root" })
@@ -20,17 +22,25 @@ export class WikiActions {
   private readonly external = inject(ExternalLinks);
   private readonly root = computed(() => this.session.snapshot()?.settings.wikiRoot ?? "docs");
 
-  /** Pages and tasks that Markdown can link to by title or ID. */
+  /** Tasks, pages and files that Markdown can reference by ID, title or path. */
   readonly linkTargets = computed<GitdeskOptions>(
     () => {
       const snapshot = this.session.snapshot();
       return {
-        pages: flattenPages(snapshot?.wiki ?? []).map(({ title, path }) => ({ title, path })),
-        tasks: (snapshot?.tasks ?? []).map(({ id, path }) => ({ id, path })),
+        references: {
+          wikiRoot: this.root(),
+          pages: flattenPages(snapshot?.wiki ?? []).map(({ title, path }) => ({ title, path })),
+          tasks: (snapshot?.tasks ?? []).map(({ id, path, title, status }) => ({ id, path, title, status })),
+          statuses: snapshot?.settings.statuses ?? [],
+          files: filePaths(snapshot?.files ?? []),
+        },
       };
     },
     { equal: sameJson },
   );
+
+  /** What `[[` offers in Markdown editors. */
+  readonly referenceCandidates = computed(() => referenceCandidates(this.linkTargets().references!));
 
   openPage(page: string, options: { anchor?: string; replace?: boolean } = {}): Promise<boolean> {
     return this.router.navigate(["/wiki"], { queryParams: { page, anchor: options.anchor }, replaceUrl: options.replace });
@@ -120,6 +130,7 @@ export class WikiActions {
         return void (await this.openPage(path, { anchor: target.anchor }));
       }
     }
-    await this.router.navigate(["/code"], { queryParams: { file: path } });
+    const lines = parseLines(target.anchor);
+    await this.router.navigate(["/code"], { queryParams: { file: path, lines: lines ? `${lines.from}-${lines.to}` : null } });
   }
 }

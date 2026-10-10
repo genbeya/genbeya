@@ -10,7 +10,8 @@ import { WorkspaceApi } from "../core/workspace-api";
 import { Theme } from "../core/theme";
 import { Diagrams } from "./diagrams";
 import { resolveHref, type LinkTarget } from "./link-target";
-import { icon, renderMarkdownTree, type Diagram, type RepositoryImage } from "./markdown-dom";
+import { embedSource } from "./embeds";
+import { icon, renderMarkdownTree, type Diagram, type Embed, type RenderedMarkdown, type RepositoryImage } from "./markdown-dom";
 import { parseMarkdown, type GitdeskOptions } from "./markdown-pipeline";
 
 const COPIED_FEEDBACK = 1200;
@@ -43,6 +44,8 @@ export class MarkdownView {
   private objectUrls: string[] = [];
   /** Images by path, so re-renders (typing in the preview) do not read them again. Cleared when the repository changes. */
   private images = new Map<string, Promise<string>>();
+  /** Embedded files by path, like images. */
+  private files = new Map<string, Promise<string>>();
   /** Renders count up, so a slow image or diagram never lands in a newer render. */
   private generation = 0;
 
@@ -52,12 +55,13 @@ export class MarkdownView {
       const rendered = renderMarkdownTree(tree, document, { path: this.path(), interactiveCheckboxes: this.checkboxes() });
       // Diagrams follow the theme.
       this.theme.resolved();
-      untracked(() => this.show(rendered.fragment, rendered.images, rendered.diagrams));
+      untracked(() => this.show(rendered));
     });
     const session = inject(Session);
     effect(() => {
       void session.snapshot()?.version;
       this.images = new Map();
+      this.files = new Map();
     });
     inject(DestroyRef).onDestroy(() => {
       // Late images and diagrams must not land after this.
@@ -66,13 +70,57 @@ export class MarkdownView {
     });
   }
 
-  private show(fragment: DocumentFragment, images: readonly RepositoryImage[], diagrams: readonly Diagram[]) {
+  private show({ fragment, images, diagrams, embeds }: RenderedMarkdown) {
     const generation = ++this.generation;
     this.revoke();
     this.host.replaceChildren(fragment);
     this.rendered.emit(this.host);
     for (const image of images) void this.load(image, generation);
     for (const diagram of diagrams) void this.draw(diagram, generation);
+    for (const embed of embeds) void this.embed(embed, generation);
+  }
+
+  /** Lines of a repository file, highlighted like a code block, under a link to the file. */
+  private async embed({ element, path, lines }: Embed, generation: number) {
+    const title = document.createElement("a");
+    title.className = "md-embed-title";
+    title.append(icon(document, "fileCode", 13), document.createTextNode(path));
+    let body: Node;
+    try {
+      const source = embedSource(path, await this.file(path), lines);
+      if (generation !== this.generation) return;
+      title.setAttribute("href", `/${path}#L${source.from}-L${source.to}`);
+      const range = document.createElement("span");
+      range.className = "md-ref-lines";
+      range.textContent = source.from === source.to ? `:${source.from}` : `:${source.from}–${source.to}`;
+      title.append(range);
+      body = renderMarkdownTree(parseMarkdown(source.markdown), document, { path, interactiveCheckboxes: false }).fragment;
+      if (source.cut) {
+        const note = document.createElement("p");
+        note.className = "md-embed-note";
+        note.textContent = "Cut short; open the file for the rest.";
+        body.appendChild(note);
+      }
+    } catch (error) {
+      if (generation !== this.generation) return;
+      title.setAttribute("href", `/${path}`);
+      element.classList.add("is-error");
+      body = document.createElement("p");
+      body.textContent = error instanceof Error ? error.message : String(error);
+    }
+    element.replaceChildren(title, body);
+  }
+
+  /** Code lives in the repository, whichever branch holds the wiki. */
+  private file(path: string): Promise<string> {
+    const files = this.files;
+    let content = files.get(path);
+    if (!content) {
+      content = this.api.content.read("repo", path).then((file) => file.content);
+      content.catch(() => files.delete(path));
+      files.set(path, content);
+    }
+    return content;
   }
 
   private async load(image: RepositoryImage, generation: number) {

@@ -112,7 +112,9 @@
   min-height: 0;
   border-radius: var(--radius-l);
   background: var(--bg-hover);
-  transition: background 100ms, box-shadow 100ms;
+  transition:
+    background 100ms,
+    box-shadow 100ms;
 }
 
 .board-column.is-over {

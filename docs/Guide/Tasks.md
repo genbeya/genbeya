@@ -20,6 +20,8 @@ Render only visible rows in the file tree and history.
 
 IDs are `PREFIX-number`; the prefix is set in **Settings**. Extra frontmatter fields and comments survive edits made in GitDesk.
 
+Reference a task anywhere in Markdown with `[[GENBEYA-12]]`: it shows the task's title and current state (see [[Wiki#references]]).
+
 ## The board
 
 - Drag cards between columns to change their status, or switch to the list layout.

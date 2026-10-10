@@ -51,6 +51,21 @@ interface Fixtures {
 }
 
 /** The app's window once it shows a repository, at the size of a CI runner's screen, so layouts match everywhere. */
+/**
+ * Closes the app. A test that fails mid-edit leaves unsaved changes, and the
+ * "discard them?" dialog would block closing until the fixture times out; the
+ * process is ended instead.
+ */
+async function closeApp(app: ElectronApplication): Promise<void> {
+  const closed = app.close().then(
+    () => true,
+    () => true,
+  );
+  const timedOut = new Promise<false>((resolve) => setTimeout(() => resolve(false), 10_000));
+  // Playwright's close never settles once the window refuses to close, so it is not awaited after the kill.
+  if (!(await Promise.race([closed, timedOut]))) app.process().kill();
+}
+
 export async function mainWindow(app: ElectronApplication): Promise<Page> {
   const window = await app.firstWindow();
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setContentSize(1000, 680));
@@ -75,7 +90,7 @@ export const test = base.extend<Fixtures>({
       app.once("close", () => running.delete(app));
       return app;
     });
-    for (const app of running) await app.close();
+    for (const app of running) await closeApp(app);
     rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   },
   app: async ({ launch, repository }, use) => {

@@ -5,6 +5,7 @@ import {
   afterNextRender,
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   effect,
   ElementRef,
@@ -14,10 +15,17 @@ import {
   untracked,
 } from "@angular/core";
 import { editingSetup, isProse, languageFor } from "./editor-setup";
+import { referenceCompletion, type ReferenceCandidate } from "./reference-completion";
 
 const CRLF = String.fromCharCode(13, 10);
 /** Files keep their line endings: CodeMirror would otherwise turn CRLF into LF. */
 const separatorFor = (value: string): Extension => (value.includes(CRLF) ? EditorState.lineSeparator.of(CRLF) : []);
+/** Lines to select and scroll to, counted from 1. */
+export interface LineRange {
+  readonly from: number;
+  readonly to: number;
+}
+
 /** Marks text replaced from outside, which is not reported as an edit. */
 const reload = Annotation.define<boolean>();
 
@@ -42,6 +50,10 @@ export class CodeEditor {
   readonly lineNumbers = input(true);
   readonly autofocus = input(false);
   readonly label = input("Editor");
+  /** Lines to select and scroll into view once the text has them (a link to `file#L10-L20`). */
+  readonly reveal = input<LineRange | null>(null);
+  /** Offers these after `[[` (Markdown references); null for none. */
+  readonly references = input<readonly ReferenceCandidate[] | null>(null);
   readonly valueChange = output<string>();
   /** Ctrl+S (Cmd+S) inside the editor. */
   readonly save = output();
@@ -49,6 +61,8 @@ export class CodeEditor {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly language = new Compartment();
   private readonly separator = new Compartment();
+  private readonly completion = new Compartment();
+  private readonly offersReferences = computed(() => this.references() !== null);
   private view: EditorView | null = null;
 
   constructor() {
@@ -69,11 +83,33 @@ export class CodeEditor {
         annotations: [reload.of(true), Transaction.addToHistory.of(false)],
       });
     });
+    effect(() => {
+      // The extension reads the candidates when completing, so only switching it on or off reconfigures.
+      const offered = this.offersReferences();
+      untracked(() => this.view?.dispatch({ effects: this.completion.reconfigure(this.completionFor(offered)) }));
+    });
+    let revealed: LineRange | null = null;
+    effect(() => {
+      const range = this.reveal();
+      this.value();
+      const view = this.view;
+      if (!view || !range || range === revealed || range.from > view.state.doc.lines) return;
+      revealed = range;
+      const from = view.state.doc.line(range.from).from;
+      const to = view.state.doc.line(Math.min(range.to, view.state.doc.lines)).to;
+      view.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: "center" }) });
+      // Following a link to lines lands in them, ready for the keyboard.
+      view.focus();
+    });
     // Focus needs the editor in the document.
     afterNextRender(() => {
       if (this.autofocus()) this.view?.focus();
     });
     inject(DestroyRef).onDestroy(() => this.view?.destroy());
+  }
+
+  private completionFor(offered: boolean): Extension {
+    return offered ? referenceCompletion(() => this.references() ?? []) : [];
   }
 
   private create(path: string, numbered: boolean) {
@@ -83,6 +119,7 @@ export class CodeEditor {
       this.separator.of(separatorFor(value)),
       ...editingSetup(numbered),
       this.language.of([]),
+      this.completion.of(this.completionFor(untracked(this.offersReferences))),
       ...(isProse(path) ? [EditorView.lineWrapping] : []),
       EditorView.contentAttributes.of({ "aria-label": this.label(), spellcheck: isProse(path) ? "true" : "false" }),
       keymap.of([{ key: "Mod-s", preventDefault: true, run: () => (this.save.emit(), true) }]),

@@ -1,5 +1,17 @@
 import { task } from "../../testing/fake-platform";
-import { columnsOf, compareTasks, displayId, epicName, labelsOf, lanesOf, NO_FILTERS, peopleOf, statusColor, titleCase, visibleTasks } from "./task-model";
+import {
+  columnsOf,
+  compareTasks,
+  displayId,
+  epicName,
+  labelsOf,
+  lanesOf,
+  NO_FILTERS,
+  peopleOf,
+  statusColor,
+  titleCase,
+  visibleTasks,
+} from "./task-model";
 
 const tasks = [
   task("TP-1", { priority: "low", assignee: "ann", labels: ["ui"] }),

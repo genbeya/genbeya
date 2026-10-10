@@ -9,7 +9,14 @@
   <span class="grow"></span>
   <label class="filter header-filter">
     <svg lucideSearch [size]="13" aria-hidden="true"></svg>
-    <input #search placeholder="Filter" aria-label="Filter tasks" [value]="filters().query" (input)="setQuery(search.value)" (keydown.escape)="clearQuery(search)" />
+    <input
+      #search
+      placeholder="Filter"
+      aria-label="Filter tasks"
+      [value]="filters().query"
+      (input)="setQuery(search.value)"
+      (keydown.escape)="clearQuery(search)"
+    />
   </label>
   <button
     type="button"
@@ -36,10 +43,24 @@
     </button>
   }
   <div class="segmented" role="radiogroup" aria-label="Layout">
-    <button type="button" role="radio" aria-label="Board" [attr.aria-checked]="layout() === 'board'" [class.is-active]="layout() === 'board'" (click)="setLayout('board')">
+    <button
+      type="button"
+      role="radio"
+      aria-label="Board"
+      [attr.aria-checked]="layout() === 'board'"
+      [class.is-active]="layout() === 'board'"
+      (click)="setLayout('board')"
+    >
       <svg lucideColumns3 [size]="14" aria-hidden="true"></svg>
     </button>
-    <button type="button" role="radio" aria-label="List" [attr.aria-checked]="layout() === 'list'" [class.is-active]="layout() === 'list'" (click)="setLayout('list')">
+    <button
+      type="button"
+      role="radio"
+      aria-label="List"
+      [attr.aria-checked]="layout() === 'list'"
+      [class.is-active]="layout() === 'list'"
+      (click)="setLayout('list')"
+    >
       <svg lucideLayoutList [size]="14" aria-hidden="true"></svg>
     </button>
   </div>
@@ -92,7 +113,9 @@
     <gd-empty-state title="No tasks yet">
       <svg icon lucideColumns3 [size]="20" aria-hidden="true"></svg>
       <p>Each task is a Markdown file in {{ snapshot().settings.taskRoot }}/.</p>
-      <button type="button" class="btn btn-primary btn-m" (click)="startTask()"><svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create the first task</span></button>
+      <button type="button" class="btn btn-primary btn-m" (click)="startTask()">
+        <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create the first task</span>
+      </button>
     </gd-empty-state>
   } @else if (layout() === "board") {
     @if (boardColumns().length) {

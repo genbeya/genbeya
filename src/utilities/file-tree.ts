@@ -34,6 +34,10 @@ export function buildFileTree(paths: readonly string[]): FileNode[] {
   return sort(root.children!);
 }
 
+/** The paths of every file in `nodes`, depth first. */
+export const filePaths = (nodes: readonly FileNode[]): string[] =>
+  nodes.flatMap((node) => (node.children ? filePaths(node.children) : [node.path]));
+
 export function findNode(nodes: readonly FileNode[], path: string): FileNode | undefined {
   let level = nodes;
   let found: FileNode | undefined;

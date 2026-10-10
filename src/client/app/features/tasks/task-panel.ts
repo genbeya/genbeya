@@ -1,5 +1,17 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
-import { afterRenderEffect, ChangeDetectionStrategy, Component, computed, effect, type ElementRef, inject, input, signal, untracked, viewChild } from "@angular/core";
+import {
+  afterRenderEffect,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  type ElementRef,
+  inject,
+  input,
+  signal,
+  untracked,
+  viewChild,
+} from "@angular/core";
 import { Router } from "@angular/router";
 import { LucideCodeXml, LucideCopy, LucideEllipsis, LucideGlobe, LucideLink, LucidePencil, LucideTrash2, LucideX } from "@lucide/angular";
 import type { LinkItem } from "../../../../contracts/gitdesk-link";
@@ -55,16 +67,29 @@ const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, pr
       <span class="grow"></span>
       @if (editing()) {
         <button type="button" class="btn btn-ghost btn-m" (click)="cancel()"><span>Cancel</span></button>
-        <button type="button" class="btn btn-primary btn-m" (click)="save()"><span>{{ task() ? "Save" : "Create task" }}</span><kbd class="kbd">{{ mod }} S</kbd></button>
+        <button type="button" class="btn btn-primary btn-m" (click)="save()">
+          <span>{{ task() ? "Save" : "Create task" }}</span
+          ><kbd class="kbd">{{ mod }} S</kbd>
+        </button>
       } @else {
         <button type="button" class="btn btn-default btn-m" (click)="startEditing()">
           <svg lucidePencil [size]="13" aria-hidden="true"></svg><span>Edit</span><kbd class="kbd">E</kbd>
         </button>
-        <button type="button" class="icon-btn" aria-label="Task actions" title="Task actions" [cdkMenuTriggerFor]="actions" #trigger="cdkMenuTriggerFor" [class.is-active]="trigger.isOpen()">
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Task actions"
+          title="Task actions"
+          [cdkMenuTriggerFor]="actions"
+          #trigger="cdkMenuTriggerFor"
+          [class.is-active]="trigger.isOpen()"
+        >
           <svg lucideEllipsis [size]="16" aria-hidden="true"></svg>
         </button>
       }
-      <button type="button" class="icon-btn" aria-label="Close (Esc)" title="Close (Esc)" (click)="close()"><svg lucideX [size]="16" aria-hidden="true"></svg></button>
+      <button type="button" class="icon-btn" aria-label="Close (Esc)" title="Close (Esc)" (click)="close()">
+        <svg lucideX [size]="16" aria-hidden="true"></svg>
+      </button>
     </header>
     <div class="task-panel-body">
       @if (editing()) {
@@ -89,6 +114,7 @@ const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, pr
               label="Task description"
               [path]="(task()?.path ?? 'new-task') + '.md'"
               [value]="draft().body"
+              [references]="wiki.referenceCandidates()"
               [lineNumbers]="false"
               [autofocus]="!!task()"
               (valueChange)="setBody($event)"
@@ -114,15 +140,24 @@ const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, pr
     <ng-template #actions>
       <div class="menu" cdkMenu>
         <button gd-menu-item (selected)="copyId()"><svg icon lucideCopy [size]="14" aria-hidden="true"></svg>Copy ID</button>
-        <button gd-menu-item [disabled]="!!links.unavailable()" [attr.title]="links.unavailable()" (selected)="links.copyGitdeskLink(link())">
+        <button
+          gd-menu-item
+          [disabled]="!!links.unavailable()"
+          [attr.title]="links.unavailable()"
+          (selected)="links.copyGitdeskLink(link())"
+        >
           <svg icon lucideLink [size]="14" aria-hidden="true"></svg>Copy GitDesk link
         </button>
         @if (links.webLink(link())) {
-          <button gd-menu-item (selected)="links.copyWebLink(link())"><svg icon lucideGlobe [size]="14" aria-hidden="true"></svg>Copy web link</button>
+          <button gd-menu-item (selected)="links.copyWebLink(link())">
+            <svg icon lucideGlobe [size]="14" aria-hidden="true"></svg>Copy web link
+          </button>
         }
         <button gd-menu-item (selected)="openFile()"><svg icon lucideCodeXml [size]="14" aria-hidden="true"></svg>Open file</button>
         <div class="menu-separator"></div>
-        <button gd-menu-item [danger]="true" (selected)="remove()"><svg icon lucideTrash2 [size]="14" aria-hidden="true"></svg>Delete task…</button>
+        <button gd-menu-item [danger]="true" (selected)="remove()">
+          <svg icon lucideTrash2 [size]="14" aria-hidden="true"></svg>Delete task…
+        </button>
       </div>
     </ng-template>
   `,
@@ -180,7 +215,11 @@ export class TaskPanel {
       if (!this.task()) this.titleField()?.nativeElement.focus();
     });
     trackUnsaved(this.dirty);
-    hotkey("e", () => this.startEditing(), computed(() => !this.editing() && !!this.task()));
+    hotkey(
+      "e",
+      () => this.startEditing(),
+      computed(() => !this.editing() && !!this.task()),
+    );
     hotkey("escape", () => void (this.editing() ? this.cancel() : this.close()));
     hotkey(["mod+s", "mod+enter"], () => void this.save(), this.editing);
   }
@@ -261,7 +300,9 @@ export class TaskPanel {
     this.queue = this.queue.then(async () => {
       const task = this.current();
       if (!task) return;
-      const updated = await this.session.run(() => this.api.content.updateTask(task.path, { ...inputOf(task), ...change(task) }, task.hash));
+      const updated = await this.session.run(() =>
+        this.api.content.updateTask(task.path, { ...inputOf(task), ...change(task) }, task.hash),
+      );
       if (!updated) return;
       this.saved.set(updated);
       this.session.contentChanged();

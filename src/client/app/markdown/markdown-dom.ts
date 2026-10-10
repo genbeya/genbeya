@@ -70,8 +70,15 @@ const ATTRIBUTES: Readonly<Record<string, string>> = {
   ariaDescribedBy: "aria-describedby",
   ariaLabel: "aria-label",
 };
-/** Data attributes of callouts and footnotes; plugins name them `dataX` or `data-x`. */
-const DATA_ATTRIBUTES = new Set(["data-callout", "data-footnote-ref", "data-footnote-backref", "data-footnotes"]);
+/** Data attributes of callouts, footnotes and embeds; plugins name them `dataX` or `data-x`. */
+const DATA_ATTRIBUTES = new Set([
+  "data-callout",
+  "data-footnote-ref",
+  "data-footnote-backref",
+  "data-footnotes",
+  "data-embed",
+  "data-lines",
+]);
 
 function attributeName(property: string): string | undefined {
   const dashed = property.startsWith("data") ? property.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`) : property;
@@ -92,8 +99,18 @@ export interface RepositoryImage {
   readonly path: string;
 }
 
+/** Lines of a repository file shown in place (`![[path#L1-L9]]`). */
+export interface Embed {
+  readonly element: HTMLElement;
+  readonly path: string;
+  /** "10-20", or null for the whole file. */
+  readonly lines: string | null;
+}
+
 export interface RenderedMarkdown {
   readonly fragment: DocumentFragment;
+  /** Placeholders to fill with file contents once inserted. */
+  readonly embeds: readonly Embed[];
   /** Placeholders to draw diagrams into once inserted. */
   readonly diagrams: readonly Diagram[];
   /** Images from the repository, to load through the managers. */
@@ -111,6 +128,13 @@ const SVG = "http://www.w3.org/2000/svg";
 /** Lucide icon shapes used inside rendered Markdown. */
 const ICONS: Readonly<Record<string, readonly string[]>> = {
   check: ["M20 6 9 17l-5-5"],
+  fileText: ["M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z", "M14 2v4a2 2 0 0 0 2 2h4", "M10 9H8", "M16 13H8", "M16 17H8"],
+  fileCode: [
+    "M10 12.5 8 15l2 2.5",
+    "m14 12.5 2 2.5-2 2.5",
+    "M14 2v4a2 2 0 0 0 2 2h4",
+    "M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z",
+  ],
   copy: [
     "M8 10a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2z",
     "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2",
@@ -153,6 +177,7 @@ const classesOf = (element: Element): string[] =>
 export function renderMarkdownTree(tree: Root, document: Document, options: RenderOptions): RenderedMarkdown {
   const diagrams: Diagram[] = [];
   const images: RepositoryImage[] = [];
+  const embeds: Embed[] = [];
 
   const create = (tag: string, classes: string[] = []) => {
     const element = document.createElement(tag);
@@ -219,6 +244,10 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
       anchor.setAttribute("href", href);
       if (/^https?:/i.test(href)) anchor.title = href;
     }
+    // Page and file references carry an icon; task references a coloured dot.
+    const classes = classesOf(node);
+    if (classes.includes("md-ref-page")) anchor.append(icon(document, "fileText", 13));
+    else if (classes.includes("md-ref-file")) anchor.append(icon(document, "fileCode", 13));
     children(node.children, anchor, taskOffset);
     return anchor;
   };
@@ -240,6 +269,14 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
     return img;
   };
 
+  const embed = (node: Element): Node => {
+    const placeholder = create("div", ["md-embed"]);
+    placeholder.append(create("span", ["spinner"]));
+    const lines = node.properties["dataLines"];
+    embeds.push({ element: placeholder, path: String(node.properties["dataEmbed"] ?? ""), lines: lines ? String(lines) : null });
+    return placeholder;
+  };
+
   const checkbox = (node: Element, taskOffset: number | null): Node => {
     const checked = node.properties["checked"] === true;
     const interactive = options.interactiveCheckboxes && taskOffset !== null;
@@ -259,6 +296,7 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
     if (tag === "pre") return codeBlock(node);
     if (tag === "a") return link(node, taskOffset);
     if (tag === "img") return image(node);
+    if (tag === "div" && classesOf(node).includes("md-embed")) return embed(node);
     if (!ALLOWED.has(tag)) {
       const unwrapped = document.createDocumentFragment();
       children(node.children, unwrapped, taskOffset);
@@ -278,5 +316,5 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
 
   const fragment = document.createDocumentFragment();
   children(tree.children, fragment, null);
-  return { fragment, diagrams, images };
+  return { fragment, embeds, diagrams, images };
 }

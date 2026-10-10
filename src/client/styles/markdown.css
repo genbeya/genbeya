@@ -425,3 +425,141 @@
 .hljs-strong {
   font-weight: 650;
 }
+
+/* References: [[GENBEYA-12]], [[Page]], [[src/file.ts#L1-L9]] */
+.markdown a.md-ref {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  max-width: 100%;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--bg-raised);
+  color: var(--text);
+  line-height: 1.55;
+  vertical-align: baseline;
+  text-decoration: none;
+}
+
+.markdown a.md-ref:hover {
+  border-color: var(--line-strong);
+  background: var(--bg-hover);
+}
+
+.markdown a.md-ref svg {
+  flex: none;
+  align-self: center;
+  color: var(--text-3);
+}
+
+.md-ref-dot {
+  flex: none;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+.md-ref-id,
+.md-ref-path,
+.md-ref-lines {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+}
+
+.md-ref-id,
+.md-ref-lines {
+  color: var(--text-3);
+}
+
+.md-ref-title {
+  overflow: hidden;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.md-ref-state {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--tone) 16%, transparent);
+  color: var(--tone);
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.markdown a.md-ref.md-ref-missing {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+.tone-gray {
+  --tone: var(--gray);
+}
+.tone-blue {
+  --tone: var(--blue);
+}
+.tone-yellow {
+  --tone: var(--yellow);
+}
+.tone-purple {
+  --tone: var(--purple);
+}
+.tone-orange {
+  --tone: var(--orange);
+}
+.tone-green {
+  --tone: var(--green);
+}
+.tone-other {
+  --tone: var(--text-3);
+}
+
+/* Embedded lines: ![[src/file.ts#L1-L9]] */
+.markdown .md-embed {
+  margin: 0 0 1em;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.markdown .md-embed > .spinner {
+  margin: 12px;
+}
+
+.markdown .md-embed .md-code {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.markdown .md-embed .md-code-bar span {
+  display: none;
+}
+
+.markdown a.md-embed-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--text-2);
+  font: 500 12px var(--font-mono);
+  text-decoration: none;
+}
+
+.markdown a.md-embed-title:hover {
+  color: var(--text);
+}
+
+.markdown .md-embed.is-error p,
+.markdown .md-embed-note {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--text-3);
+  font-size: 12.5px;
+}

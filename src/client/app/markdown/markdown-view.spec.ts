@@ -67,4 +67,30 @@ describe("MarkdownView", () => {
     await settle(fixture);
     expect(element.querySelector("h1")?.textContent).toBe("Two");
   });
+
+  it("embeds lines of a repository file and links them to the file", async () => {
+    const harness = await openRepository({ files: [{ name: "src", path: "src", children: [{ name: "app.ts", path: "src/app.ts" }] }] });
+    harness.managers.content.read.mockResolvedValue({ scope: "repo", path: "src/app.ts", content: "one\ntwo\nthree\n", hash: "h" });
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.source.set("![[src/app.ts#L2-L3]]");
+    await settle(fixture);
+    const element = fixture.nativeElement as HTMLElement;
+    expect(harness.managers.content.read).toHaveBeenCalledWith("w1", "repo", "src/app.ts");
+    const title = element.querySelector(".md-embed-title")!;
+    expect([title.getAttribute("href"), title.textContent]).toEqual(["/src/app.ts#L2-L3", "src/app.ts:2–3"]);
+    expect(element.querySelector(".md-embed pre")?.textContent).toBe("two\nthree\n");
+    title.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(fixture.componentInstance.links).toEqual([{ kind: "file", path: "src/app.ts", anchor: "L2-L3" }]);
+  });
+
+  it("says when embedded lines do not exist", async () => {
+    const harness = await openRepository();
+    harness.managers.content.read.mockResolvedValue({ scope: "repo", path: "src/app.ts", content: "one\n", hash: "h" });
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.source.set("![[src/app.ts#L5]]");
+    await settle(fixture);
+    expect((fixture.nativeElement as HTMLElement).querySelector(".md-embed.is-error")?.textContent).toContain(
+      "src/app.ts has only 1 line.",
+    );
+  });
 });

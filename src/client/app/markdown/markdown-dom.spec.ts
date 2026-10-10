@@ -1,5 +1,17 @@
 import { renderMarkdownTree } from "./markdown-dom";
 import { parseMarkdown, type GitdeskOptions } from "./markdown-pipeline";
+import type { ReferenceSources } from "./references";
+
+const references: ReferenceSources = {
+  wikiRoot: "docs",
+  pages: [
+    { title: "Getting started", path: "docs/Getting-started.md" },
+    { title: "Content branch", path: "docs/Content-branch.md" },
+  ],
+  tasks: [{ id: "GENBEYA-3", path: "tasks/GENBEYA-3.md", title: "Login", status: "in-progress" }],
+  statuses: ["todo", "in-progress", "done"],
+  files: ["src/app.ts"],
+};
 
 function render(markdown: string, options: GitdeskOptions = {}, interactiveCheckboxes = false) {
   const rendered = renderMarkdownTree(parseMarkdown(markdown, options), document, { path: "docs/Guide/Wiki.md", interactiveCheckboxes });
@@ -27,24 +39,54 @@ describe("wiki extensions", () => {
   });
 
   it("links wiki titles loosely and task IDs to tasks, but not inside code", () => {
-    const { html, container } = render("See [[getting started]], [[Content branch|the branch]], [[Nope]] and GENBEYA-3, not GENBEYA-99.", {
-      pages: [
-        { title: "Getting started", path: "docs/Getting-started.md" },
-        { title: "Content branch", path: "docs/Content-branch.md" },
-      ],
-      tasks: [{ id: "GENBEYA-3", path: "tasks/GENBEYA-3.md" }],
-    });
-    expect(html).toContain('<a href="/docs/Getting-started.md">getting started</a>');
-    expect(html).toContain('<a href="/docs/Content-branch.md">the branch</a>');
+    const { container } = render("See [[getting started]], [[Content branch|the branch]], [[Nope]] and GENBEYA-3, not GENBEYA-99.", { references });
+    const pages = [...container.querySelectorAll<HTMLAnchorElement>("a.md-ref-page")];
+    expect(pages.map((link) => [link.getAttribute("href"), link.textContent])).toEqual([
+      ["/docs/Getting-started.md", "Getting started"],
+      ["/docs/Content-branch.md", "the branch"],
+    ]);
+    expect(pages[0]!.querySelector("svg")).not.toBeNull();
     const missing = container.querySelector(".md-missing")!;
     expect([missing.getAttribute("href"), missing.getAttribute("title"), missing.textContent]).toEqual([
       "gitdesk-missing:Nope",
       "Create this page",
       "Nope",
     ]);
-    expect(html).toContain('<a class="md-task-ref" href="/tasks/GENBEYA-3.md">GENBEYA-3</a>');
-    expect(html).toContain("not GENBEYA-99.");
-    expect(render("`[[Page]]` and `GENBEYA-3`", { tasks: [{ id: "GENBEYA-3", path: "t.md" }] }).html).not.toContain("<a");
+    const id = container.querySelector(".md-task-ref")!;
+    expect([id.getAttribute("href"), id.getAttribute("title"), id.textContent]).toEqual(["/tasks/GENBEYA-3.md", "Login (In progress)", "GENBEYA-3"]);
+    expect(container.textContent).toContain("not GENBEYA-99.");
+    expect(render("`[[Page]]` and `GENBEYA-3`", { references }).html).not.toContain("<a");
+  });
+
+  it("shows task references with ID, title and state", () => {
+    const task = render("Blocked by [[GENBEYA-3]].", { references }).container.querySelector("a.md-ref-task")!;
+    expect(task.getAttribute("href")).toBe("/tasks/GENBEYA-3.md");
+    expect([...task.children].map((part) => [part.className, part.textContent])).toEqual([
+      ["md-ref-dot tone-blue", ""],
+      ["md-ref-id", "GENBEYA-3"],
+      ["md-ref-title", "Login"],
+      ["md-ref-state tone-blue", "In progress"],
+    ]);
+  });
+
+  it("shows file references with their path and lines, and marks files that are gone", () => {
+    const { container } = render("[[src/app.ts#L3-L9]], [[src/app.ts|the app]] and [[src/gone.ts]]", { references });
+    const files = [...container.querySelectorAll("a.md-ref-file")];
+    expect(files.map((link) => [link.getAttribute("href"), link.textContent, link.classList.contains("md-ref-missing")])).toEqual([
+      ["/src/app.ts#L3-L9", "src/app.ts:3–9", false],
+      ["/src/app.ts", "the app", false],
+      ["/src/gone.ts", "src/gone.ts", true],
+    ]);
+  });
+
+  it("embeds lines of a file given alone in a paragraph, and links anything else", () => {
+    const { embeds, container } = render("![[src/app.ts#L3-L9]]\n\n![[src/app.ts]]\n\n![[GENBEYA-3]]", { references });
+    expect(embeds.map(({ path, lines }) => [path, lines])).toEqual([
+      ["src/app.ts", "3-9"],
+      ["src/app.ts", null],
+    ]);
+    expect(embeds[0]!.element.className).toBe("md-embed");
+    expect(container.querySelector("a.md-ref-task")).not.toBeNull();
   });
 
   it("turns GitHub callouts into styled blockquotes", () => {
