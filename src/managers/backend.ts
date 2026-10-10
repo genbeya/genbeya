@@ -7,6 +7,7 @@ import { HostFactory } from "../access/hosts/host-factory";
 import { RemoteFolders } from "../access/hosts/remote-folders";
 import type { Machine } from "../access/ports";
 import { PreferencesStore } from "../access/preferences/preferences-store";
+import { AgentEngine } from "../engines/agent-engine";
 import { SettingsEngine } from "../engines/settings-engine";
 import { TaskEngine } from "../engines/task-engine";
 import { WikiEngine } from "../engines/wiki-engine";
@@ -23,7 +24,7 @@ export interface Backend extends Managers {
 
 /** Managers for `machine`; preferences live in `dataFolder`. */
 export async function createBackend(machine: Machine, dataFolder: string): Promise<Backend> {
-  const engines = { settings: new SettingsEngine(), tasks: new TaskEngine(), wiki: new WikiEngine() };
+  const engines = { settings: new SettingsEngine(), tasks: new TaskEngine(), wiki: new WikiEngine(), agents: new AgentEngine() };
   const registry = new WorkspaceRegistry();
   const preferences = await PreferencesStore.load(machine, dataFolder);
   const hosts = new HostFactory(machine);

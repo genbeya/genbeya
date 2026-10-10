@@ -393,6 +393,91 @@ describe("ContentManager", () => {
   });
 });
 
+describe("ContentManager: agent files", () => {
+  const ALL = ["claudeSkill", "agentsSkill", "agents", "claude", "copilot"] as const;
+  const states = async (content: Managers["content"], id: string, targets: readonly (typeof ALL)[number][] = ALL) =>
+    Object.fromEntries((await content.agentFiles(id, targets)).map((file) => [file.path, file.state]));
+
+  it("adds the skill and instruction files to the checkout for the project's settings", async () => {
+    const { content, id, repository, latest } = await opened();
+    expect(Object.values(await states(content, id))).toEqual(["missing", "missing", "missing", "missing", "missing"]);
+    const written = await content.addAgentFiles(id, ["claudeSkill", "agentsSkill", "agents", "claude"]);
+    expect(written).toEqual([
+      { path: ".claude/skills/gitdesk/SKILL.md", result: "created" },
+      { path: ".agents/skills/gitdesk/SKILL.md", result: "created" },
+      { path: "AGENTS.md", result: "created" },
+      { path: "CLAUDE.md", result: "created" },
+    ]);
+    expect(await repository.read(".agents/skills/gitdesk/SKILL.md")).toContain("`tasks/TP-12.md`");
+    expect(await repository.read("CLAUDE.md")).toContain("@AGENTS.md");
+    expect(await repository.exists(".github/copilot-instructions.md")).toBe(false);
+    expect((await latest()).changes.map((change) => change.path)).toEqual(
+      expect.arrayContaining([".claude/skills/gitdesk/SKILL.md", "AGENTS.md", "CLAUDE.md"]),
+    );
+    expect(await states(content, id, ["claudeSkill", "agentsSkill", "agents", "claude"])).toEqual({
+      ".claude/skills/gitdesk/SKILL.md": "current",
+      ".agents/skills/gitdesk/SKILL.md": "current",
+      "AGENTS.md": "current",
+      "CLAUDE.md": "current",
+      ".github/copilot-instructions.md": "missing",
+    });
+  });
+
+  it("merges its block into existing instruction files and changes nothing the second time", async () => {
+    const crlf = String.fromCharCode(13, 10);
+    const { content, id, repository } = await opened();
+    await repository.write("AGENTS.md", `# Agents${crlf}${crlf}Run the tests.${crlf}`);
+    await content.addAgentFiles(id, ["agents"]);
+    const agents = await repository.read("AGENTS.md");
+    expect(agents.startsWith(`# Agents${crlf}${crlf}Run the tests.${crlf}${crlf}<!-- gitdesk:begin -->${crlf}`)).toBe(true);
+    expect(agents).not.toMatch(/[^\r]\n/);
+    expect(await content.addAgentFiles(id, ["agents"])).toEqual([{ path: "AGENTS.md", result: "unchanged" }]);
+    expect(await repository.read("AGENTS.md")).toBe(agents);
+  });
+
+  it("updates the files after the settings changed", async () => {
+    const { content, id, repository, latest } = await opened();
+    await content.addAgentFiles(id, ["agentsSkill", "agents"]);
+    const snapshot = await latest();
+    await content.saveSettings(id, { ...snapshot.settings, taskPrefix: "NEW" }, snapshot.settingsHash);
+    expect(await states(content, id, ["agentsSkill", "agents"])).toMatchObject({
+      ".agents/skills/gitdesk/SKILL.md": "outdated",
+      "AGENTS.md": "outdated",
+    });
+    expect(await content.addAgentFiles(id, ["agentsSkill", "agents"])).toEqual([
+      { path: ".agents/skills/gitdesk/SKILL.md", result: "updated" },
+      { path: "AGENTS.md", result: "updated" },
+    ]);
+    expect(await repository.read("AGENTS.md")).toContain("`NEW-12.md`");
+  });
+
+  it("writes to the checkout while wiki and tasks live on the content branch", async () => {
+    const { content, id, repository } = await opened();
+    await content.setStorage(id, "branch");
+    await content.addAgentFiles(id, ["agents"]);
+    expect(await repository.read("AGENTS.md")).toContain("`tasks/`");
+    expect(await repository.git("log", "--format=%s", "-1", "gitdesk")).not.toContain("AGENTS");
+  });
+
+  it("writes nothing when one file has broken markers, and warns about ignored files", async () => {
+    const { content, id, repository } = await opened();
+    await repository.write(".gitignore", ".claude/\n");
+    const ignored = (await content.agentFiles(id, ALL)).filter((file) => file.ignored).map((file) => file.path);
+    expect(ignored).toEqual([".claude/skills/gitdesk/SKILL.md"]);
+    await repository.write("CLAUDE.md", "<!-- gitdesk:begin -->\nUnfinished.\n");
+    await expect(content.agentFiles(id, ALL)).rejects.toThrow("CLAUDE.md has unmatched GitDesk markers");
+    await expect(content.addAgentFiles(id, ["agents", "claude"])).rejects.toThrow("CLAUDE.md has unmatched GitDesk markers");
+    expect(await repository.exists("AGENTS.md")).toBe(false);
+  });
+
+  it("validates the targets", async () => {
+    const { content, id } = await opened();
+    await expect(content.agentFiles(id, ["cursor"] as never)).rejects.toThrow("Unknown agent file");
+    await expect(content.addAgentFiles(id, "agents" as never)).rejects.toThrow("Unknown agent file");
+    await expect(content.addAgentFiles(id, [])).rejects.toThrow("Choose the files to add.");
+  });
+});
+
 describe("VersionControlManager", () => {
   it("stages, commits and diffs through the contract", async () => {
     const { versionControl, content, id, latest } = await opened();

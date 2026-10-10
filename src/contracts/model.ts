@@ -171,6 +171,31 @@ export interface CommitDetail {
 
 export type SyncAction = "fetch" | "pull" | "push";
 
+/**
+ * Files that teach coding agents to use GitDesk's tasks and wiki: the skill
+ * where Claude Code and where other agents look for it, and the instruction
+ * files AGENTS.md, CLAUDE.md and Copilot's.
+ */
+export const AGENT_TARGETS = ["claudeSkill", "agentsSkill", "agents", "claude", "copilot"] as const;
+export type AgentTarget = (typeof AGENT_TARGETS)[number];
+
+export interface AgentFile {
+  readonly target: AgentTarget;
+  /** In the checkout. */
+  readonly path: string;
+  /** What GitDesk writes: the whole file, or its marked block in a file it shares with other text. */
+  readonly text: string;
+  /** `missing` also when the file exists without GitDesk's block. */
+  readonly state: "missing" | "current" | "outdated";
+  /** Excluded by `.gitignore`, so it would not be committed. */
+  readonly ignored: boolean;
+}
+
+export interface AgentFileWrite {
+  readonly path: string;
+  readonly result: "created" | "updated" | "unchanged";
+}
+
 export interface RecentEntry {
   readonly location: Location;
   readonly name: string;
