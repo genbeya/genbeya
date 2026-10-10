@@ -2,7 +2,7 @@
 import { type Provider } from "@angular/core";
 import type { Mock } from "vitest";
 import { MANAGER_METHODS, type Managers } from "../../../contracts/manager-contracts";
-import type { Settings, Snapshot, Task } from "../../../contracts/model";
+import { taskType, type Settings, type Snapshot, type Task } from "../../../contracts/model";
 import type { ShellContract } from "../../../contracts/shell";
 import { MANAGERS, SHELL } from "../platform/platform";
 
@@ -13,7 +13,10 @@ export const SETTINGS: Settings = {
   taskRoot: "tasks",
   taskPrefix: "TP",
   statuses: ["backlog", "todo", "in-progress", "review", "done"],
+  statusIcons: {},
   hiddenColumns: [],
+  types: [taskType("bug"), taskType("feature")],
+  fields: [],
 };
 
 export function task(id: string, change: Partial<Task> = {}): Task {
@@ -25,6 +28,8 @@ export function task(id: string, change: Partial<Task> = {}): Task {
     priority: "none",
     assignee: "",
     labels: [],
+    type: "",
+    fields: {},
     body: "",
     epic: "",
     hash: `hash-${id}`,

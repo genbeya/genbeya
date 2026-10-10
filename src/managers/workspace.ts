@@ -10,7 +10,7 @@ import type { RepositoryAccess } from "../access/git/repository-access";
 import { isMissing, type Host } from "../access/hosts/host";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine } from "../engines/task-engine";
-import { baseName, validateRepositoryPath, within } from "../utilities/repository-path";
+import { baseName, validateRepositoryPath } from "../utilities/repository-path";
 import { SerialQueue } from "../utilities/serial-queue";
 
 const CLOSED = "This repository is no longer open.";
@@ -113,7 +113,7 @@ export class Workspace {
 
   /** Reads every task file below the task folder; problems become `warnings`. */
   async tasks(files: readonly string[], settings: Settings, warnings: string[]): Promise<Task[]> {
-    const paths = files.filter((file) => within(file, settings.taskRoot) && file.toLowerCase().endsWith(".md"));
+    const paths = files.filter((file) => this.engines.tasks.isTaskFile(file, settings.taskRoot));
     const contents = await (await this.content.locate()).files.readMany(paths);
     const tasks: Task[] = [];
     const owners = new Map<string, string>();

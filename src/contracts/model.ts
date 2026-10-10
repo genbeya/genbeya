@@ -29,6 +29,51 @@ export interface FolderListing {
 export const PRIORITIES = ["urgent", "high", "medium", "low", "none"] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
+/** Colours for task types, named like the theme's colour tokens. */
+export const TONES = ["gray", "blue", "green", "yellow", "orange", "red", "purple"] as const;
+export type Tone = (typeof TONES)[number];
+
+/** A kind of task, such as a bug. `icon` names a Lucide icon ("trending-up"). */
+export interface TaskType {
+  readonly name: string;
+  readonly icon: string;
+  readonly tone?: Tone;
+}
+
+export const GENERIC_TYPE_ICON = "circle-dot";
+
+const KNOWN_TYPES: Readonly<Record<string, Omit<TaskType, "name">>> = {
+  bug: { icon: "bug", tone: "red" },
+  feature: { icon: "sparkles", tone: "purple" },
+  improvement: { icon: "trending-up", tone: "blue" },
+  chore: { icon: "wrench", tone: "gray" },
+  task: { icon: "square-check", tone: "blue" },
+  story: { icon: "book-open", tone: "green" },
+  docs: { icon: "file-text", tone: "green" },
+  question: { icon: "circle-question-mark", tone: "yellow" },
+  research: { icon: "flask-conical", tone: "orange" },
+};
+
+/** A type of this name with its usual icon and colour: well-known names have their own, others a generic icon. */
+export const taskType = (name: string): TaskType => ({ name, ...(KNOWN_TYPES[name.toLowerCase()] ?? { icon: GENERIC_TYPE_ICON }) });
+
+export const FIELD_TYPES = ["text", "number", "date", "choice"] as const;
+export type FieldType = (typeof FIELD_TYPES)[number];
+
+/** A custom task field: a frontmatter key with an editor. Dates are written as `YYYY-MM-DD`. */
+export interface FieldDefinition {
+  readonly name: string;
+  readonly type: FieldType;
+  /** The values of a choice field. */
+  readonly options?: readonly string[];
+}
+
+/** The frontmatter keys GitDesk writes itself; the epic is the task's folder. Custom fields use other names. */
+export const TASK_KEYS = ["id", "title", "type", "status", "priority", "assignee", "labels", "epic"] as const;
+
+/** The value of a custom field; an empty string removes the field. */
+export type FieldValue = string | number | boolean;
+
 /** Project settings, stored in `.gitdesk.yml` next to the wiki and tasks. */
 export interface Settings {
   readonly name: string;
@@ -37,9 +82,16 @@ export interface Settings {
   readonly taskRoot: string;
   readonly taskPrefix: string;
   readonly statuses: readonly string[];
+  /** Icons of the workflow states that have one, by state; the others show their progress. */
+  readonly statusIcons: Readonly<Record<string, string>>;
   /** Workflow states the board leaves out (the list still shows them). */
   readonly hiddenColumns: readonly string[];
+  readonly types: readonly TaskType[];
+  readonly fields: readonly FieldDefinition[];
 }
+
+/** What a new task of a type starts with, from `<taskRoot>/.templates/<type>.md`. */
+export type TaskTemplate = Pick<TaskInput, "body"> & Partial<Pick<TaskInput, "priority" | "assignee" | "labels" | "fields">>;
 
 export interface FileNode {
   readonly name: string;
@@ -64,6 +116,10 @@ export interface Task {
   readonly priority: string;
   readonly assignee: string;
   readonly labels: readonly string[];
+  /** One of the configured task types, or another name; "" for none. */
+  readonly type: string;
+  /** Other frontmatter fields with a plain value (text, number or true/false), by key. */
+  readonly fields: Readonly<Record<string, FieldValue>>;
   readonly body: string;
   /** The folder below the task folder that holds the task ("Auth/Tokens"); "" for none. */
   readonly epic: string;
@@ -71,7 +127,12 @@ export interface Task {
   readonly hash: string;
 }
 
-export type TaskInput = Pick<Task, "title" | "status" | "priority" | "assignee" | "labels" | "body" | "epic">;
+/**
+ * A task as the client edits it. Updates leave the type as it is when `type`
+ * is left out, and other fields that `fields` does not name.
+ */
+export type TaskInput = Pick<Task, "title" | "status" | "priority" | "assignee" | "labels" | "body" | "epic"> &
+  Partial<Pick<Task, "type" | "fields">>;
 
 export interface Change {
   readonly path: string;

@@ -27,10 +27,22 @@ describe("TaskEngine.parse", () => {
       priority: "none",
       assignee: "",
       labels: ["a", "b"],
+      type: "",
+      fields: {},
       body: "Body\n",
       epic: "",
       hash: "h",
     });
+  });
+
+  it("reads the type and other fields with plain values", () => {
+    const task = engine.parse(
+      "tasks/TP-1.md",
+      "---\nid: TP-1\ntitle: One\ntype: bug\nstatus: todo\nestimate: 3\ndue: 2026-05-01\nflag: true\nlinks: [a]\nempty:\n---\n",
+      "h",
+      "tasks",
+    );
+    expect(task).toMatchObject({ type: "bug", fields: { estimate: 3, due: "2026-05-01", flag: true } });
   });
 
   it("accepts comma-separated labels and CRLF files", () => {
@@ -73,6 +85,14 @@ describe("TaskEngine epics", () => {
     expect(engine.parse("work/tasks/Auth/Tokens/TP-1.md", content, "h", "work/tasks").epic).toBe("Auth/Tokens");
   });
 
+  it("leave out folders whose names start with a dot, such as the templates", () => {
+    expect(engine.isTaskFile("tasks/Auth/TP-1.md", "tasks")).toBe(true);
+    expect(engine.isTaskFile("tasks/.templates/bug.md", "tasks")).toBe(false);
+    expect(engine.isTaskFile("tasks/Auth/.drafts/TP-1.md", "tasks")).toBe(false);
+    expect(engine.isTaskFile("tasks/TP-1.txt", "tasks")).toBe(false);
+    expect(engine.isTaskFile("docs/TP-1.md", "tasks")).toBe(false);
+  });
+
   it("place a task's file", () => {
     expect(engine.pathOf("tasks", "", "TP-1")).toBe("tasks/TP-1.md");
     expect(engine.pathOf("tasks", "Auth/Tokens", "TP-1")).toBe("tasks/Auth/Tokens/TP-1.md");
@@ -99,6 +119,13 @@ describe("TaskEngine.validate", () => {
     expect(engine.validate({ ...input, epic: " Auth / Tokens/ " }, statuses).epic).toBe("Auth/Tokens");
   });
 
+  it("keeps a type and fields only when given", () => {
+    expect(engine.validate(input, statuses)).not.toHaveProperty("type");
+    expect(engine.validate(input, statuses)).not.toHaveProperty("fields");
+    const valid = engine.validate({ ...input, type: " user story ", fields: { estimate: 3, due: "", done: false } }, statuses);
+    expect(valid).toMatchObject({ type: "user story", fields: { estimate: 3, due: "", done: false } });
+  });
+
   it.each([
     [{ title: " " }, "needs a title"],
     [{ status: "nope" }, "workflow states"],
@@ -109,6 +136,13 @@ describe("TaskEngine.validate", () => {
     [{ epic: ".git" }, "epic"],
     [{ epic: "x".repeat(121) }, "epic"],
     [{ epic: 3 }, "epic"],
+    [{ epic: "Auth/.hidden" }, "epic"],
+    [{ type: 3 }, "Invalid type"],
+    [{ type: "x".repeat(41) }, "Invalid type"],
+    [{ fields: [] }, "Invalid fields"],
+    [{ fields: { status: "done" } }, "Invalid field status"],
+    [{ fields: { estimate: Number.NaN } }, "Invalid value of estimate"],
+    [{ fields: { notes: ["a"] } }, "Invalid value of notes"],
   ])("rejects %j", (change, message) => {
     expect(() => engine.validate({ ...input, ...change } as unknown as TaskInput, statuses)).toThrow(message);
   });
@@ -121,10 +155,19 @@ describe("TaskEngine serialisation", () => {
     );
   });
 
+  it("writes the type after the title and fields after the labels, leaving out empty ones", () => {
+    expect(
+      engine.serializeNew("TP-1", { ...input, assignee: "", labels: [], type: "bug", fields: { estimate: 3, due: "", area: "ui" } }),
+    ).toBe(
+      "---\nid: TP-1\ntitle: Build it\ntype: bug\nstatus: backlog\npriority: high\nestimate: 3\narea: ui\n---\n\nUseful work.\n\n- [ ] Done\n",
+    );
+  });
+
   it("round-trips through parse", () => {
-    const task = engine.parse("tasks/TP-1.md", engine.serializeNew("TP-1", input), "h", "tasks");
+    const full = { ...input, type: "bug", fields: { estimate: 3, area: "ui" } };
+    const task = engine.parse("tasks/TP-1.md", engine.serializeNew("TP-1", full), "h", "tasks");
     expect({ ...task, hash: undefined, id: undefined, path: undefined }).toEqual({
-      ...input,
+      ...full,
       hash: undefined,
       id: undefined,
       path: undefined,
@@ -139,6 +182,18 @@ describe("TaskEngine serialisation", () => {
     expect(updated).toContain("title: Build it");
     expect(updated).not.toContain("labels");
     expect(updated.endsWith("- [ ] Done\n")).toBe(true);
+  });
+
+  it("changes the type and the fields it is given, removing empty ones, and leaves the others", () => {
+    const original = "---\nid: TP-1\ntitle: Old\ntype: bug\nstatus: todo\nestimate: '3'\ndue: 2026-05-01\nlinks: [a]\n---\n";
+    const kept = engine.serializeUpdate(original, { ...input, fields: { estimate: "3" } });
+    expect(kept).toContain("type: bug\n");
+    expect(kept).toContain("estimate: '3'\ndue: 2026-05-01\nlinks: [a]\n");
+    const changed = engine.serializeUpdate(original, { ...input, type: "", fields: { estimate: 5, due: "", area: "ui" } });
+    expect(changed).not.toContain("type:");
+    expect(changed).toContain("estimate: 5\nlinks: [a]\n");
+    expect(changed).toContain("area: ui\n");
+    expect(changed).not.toContain("due:");
   });
 
   it("keeps the byte order mark and CRLF line endings of the file", () => {
@@ -162,6 +217,30 @@ describe("TaskEngine serialisation", () => {
     expect(engine.serializeNew("TP-1", { ...input, body }).endsWith(" x\n")).toBe(true);
     // Linear code takes milliseconds and the quadratic regex took about 7 s; the bound sits far from both.
     expect(Date.now() - started).toBeLessThan(3000);
+  });
+});
+
+describe("TaskEngine templates", () => {
+  it("live in the .templates folder of the task folder, named after the type", () => {
+    expect(engine.templatePath("work/tasks", "user story")).toBe("work/tasks/.templates/user story.md");
+    for (const type of ["", "../bug", "a\\b", ".hidden", 3]) expect(() => engine.templatePath("tasks", type)).toThrow("Invalid task type");
+  });
+
+  it("give new tasks their description and preset fields from their frontmatter", () => {
+    const template = "---\nid: X\ntitle: T\nstatus: done\npriority: high\nlabels: [bug]\nseverity: major\n---\n\n## Steps\n";
+    expect(engine.parseTemplate(template)).toEqual({
+      body: "## Steps\n",
+      priority: "high",
+      labels: ["bug"],
+      fields: { severity: "major" },
+    });
+    expect(engine.parseTemplate("## Steps\n")).toEqual({ body: "## Steps\n" });
+  });
+
+  it("start with a description outline that explains the frontmatter", () => {
+    const starter = engine.newTemplate("bug");
+    expect(starter).toMatch(/^---\n# .*bug/);
+    expect(engine.parseTemplate(starter).body).toContain("##");
   });
 });
 

@@ -22,6 +22,7 @@ import type {
   SyncAction,
   Task,
   TaskInput,
+  TaskTemplate,
   TerminalOutput,
 } from "./model";
 
@@ -62,6 +63,10 @@ export interface ContentManagerContract {
   createTask(workspace: string, input: TaskInput): Promise<Task>;
   updateTask(workspace: string, path: string, input: TaskInput, expectedHash: string): Promise<Task>;
   deleteTask(workspace: string, path: string): Promise<void>;
+  /** What a new task of `type` starts with, from the type's template; null without one. */
+  taskTemplate(workspace: string, type: string): Promise<TaskTemplate | null>;
+  /** The template file of `type`, created with an outline when missing; resolves to its path. */
+  ensureTaskTemplate(workspace: string, type: string): Promise<string>;
   saveSettings(workspace: string, settings: Settings, expectedHash: string | null): Promise<void>;
   /** Keeps wiki and tasks in the checkout, or on a dedicated branch shared by all code branches. */
   setStorage(workspace: string, mode: StorageMode): Promise<void>;
@@ -140,6 +145,8 @@ export const MANAGER_METHODS = {
     "createTask",
     "updateTask",
     "deleteTask",
+    "taskTemplate",
+    "ensureTaskTemplate",
     "saveSettings",
     "setStorage",
     "syncContent",

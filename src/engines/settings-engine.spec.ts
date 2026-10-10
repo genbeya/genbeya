@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Settings } from "../contracts/model";
+import { taskType, type Settings } from "../contracts/model";
 import { SettingsEngine } from "./settings-engine";
 
 const engine = new SettingsEngine();
@@ -23,8 +23,136 @@ describe("SettingsEngine", () => {
       taskRoot: "tasks",
       taskPrefix: "TP",
       statuses: ["backlog", "todo", "in-progress", "review", "done"],
+      statusIcons: {},
       hiddenColumns: [],
+      types: [
+        { name: "bug", icon: "bug", tone: "red" },
+        { name: "feature", icon: "sparkles", tone: "purple" },
+        { name: "improvement", icon: "trending-up", tone: "blue" },
+        { name: "chore", icon: "wrench", tone: "gray" },
+      ],
+      fields: [],
     });
+  });
+
+  describe("workflow states", () => {
+    it("reads states as names, or as a name with an icon", () => {
+      const settings = engine.parse("statuses:\n  - todo\n  - name: done\n    icon: circle-check\n", defaults, false);
+      expect(settings.statuses).toEqual(["todo", "done"]);
+      expect(settings.statusIcons).toEqual({ done: "circle-check" });
+    });
+
+    it("writes a state as its name unless it has an icon", () => {
+      const text = engine.serialize({ ...defaults, statuses: ["todo", "done"], statusIcons: { done: "circle-check" } }, null, false);
+      expect(text).toContain("statuses:\n  - todo\n  - name: done\n    icon: circle-check\n");
+      expect(engine.parse(text, defaults, false)).toMatchObject({ statuses: ["todo", "done"], statusIcons: { done: "circle-check" } });
+    });
+
+    it("forgets the icons of states that no longer exist", () => {
+      const settings = engine.validate({ ...defaults, statuses: ["todo"], statusIcons: { todo: "eye", gone: "ban" } }, false);
+      expect(settings.statusIcons).toEqual({ todo: "eye" });
+    });
+
+    it.each([
+      ["statuses: [{ icon: eye }]\n", "workflow states"],
+      ["statuses: [{ name: todo, icon: 'Not An Icon' }]\n", "icon"],
+    ])("rejects %j", (content, message) => {
+      expect(() => engine.parse(content, defaults, false)).toThrow(message);
+    });
+  });
+
+  describe("task types", () => {
+    it("reads types with an icon and an optional colour", () => {
+      const settings = engine.parse(
+        "types:\n  - name: bug\n    icon: zap\n  - name: spike\n    icon: flask-conical\n    tone: orange\n",
+        defaults,
+        false,
+      );
+      expect(settings.types).toEqual([
+        { name: "bug", icon: "zap" },
+        { name: "spike", icon: "flask-conical", tone: "orange" },
+      ]);
+    });
+
+    it("reads a list of names with the usual icons, and a generic one for other names", () => {
+      expect(engine.parse("types: [bug, Feature, epic]\n", defaults, false).types).toEqual([
+        { name: "bug", icon: "bug", tone: "red" },
+        { name: "Feature", icon: "sparkles", tone: "purple" },
+        { name: "epic", icon: "circle-dot" },
+      ]);
+    });
+
+    it("allows a project without types", () => {
+      expect(engine.parse("types: []\n", defaults, false).types).toEqual([]);
+    });
+
+    it("writes types with their usual look as names", () => {
+      const types = [taskType("bug"), { name: "spike", icon: "zap" }];
+      const text = engine.serialize({ ...defaults, types }, null, false);
+      expect(text).toContain("types:\n  - bug\n  - name: spike\n    icon: zap\n");
+      expect(engine.parse(text, defaults, false).types).toEqual(types);
+    });
+
+    it.each([
+      ["types: [bug, Bug]\n", "unique"],
+      ["types: ['a/b']\n", "type name"],
+      ["types: ['.hidden']\n", "type name"],
+      ["types: [{ name: bug }]\n", "icon"],
+      ["types: [{ name: bug, icon: bug, tone: pink }]\n", "colour"],
+      ["types: bug\n", "List the task types"],
+    ])("rejects %j", (content, message) => {
+      expect(() => engine.parse(content, defaults, false)).toThrow(message);
+    });
+  });
+
+  describe("custom fields", () => {
+    it("reads text, number, date and choice fields", () => {
+      const settings = engine.parse(
+        [
+          "fields:",
+          "  - { name: estimate, type: number }",
+          "  - { name: due, type: date, options: [x] }",
+          "  - { name: area, type: choice, options: [ui, backend] }",
+          "  - { name: notes }",
+        ].join("\n"),
+        defaults,
+        false,
+      );
+      expect(settings.fields).toEqual([
+        { name: "estimate", type: "number" },
+        { name: "due", type: "date" },
+        { name: "area", type: "choice", options: ["ui", "backend"] },
+        { name: "notes", type: "text" },
+      ]);
+    });
+
+    it.each([
+      ["fields: [{ name: Status, type: text }]\n", "built-in"],
+      ["fields: [{ name: epic, type: text }]\n", "built-in"],
+      ["fields: [{ name: 'due date', type: date }]\n", "field name"],
+      ["fields: [{ name: '1st', type: text }]\n", "field name"],
+      ["fields: [{ name: due, type: date }, { name: Due, type: text }]\n", "unique"],
+      ["fields: [{ name: due, type: time }]\n", "text, number, date or choice"],
+      ["fields: [{ name: area, type: choice }]\n", "options"],
+      ["fields: [{ name: area, type: choice, options: [a, a] }]\n", "options"],
+      ["fields: estimate\n", "List the custom fields"],
+    ])("rejects %j", (content, message) => {
+      expect(() => engine.parse(content, defaults, false)).toThrow(message);
+    });
+
+    it("writes fields only while there are some", () => {
+      expect(engine.serialize(defaults, null, false)).not.toContain("fields");
+      const text = engine.serialize({ ...defaults, fields: [{ name: "estimate", type: "number" }] }, null, false);
+      expect(engine.parse(text, defaults, false).fields).toEqual([{ name: "estimate", type: "number" }]);
+    });
+  });
+
+  it("leaves unchanged keys as they are written, and keeps default types out of new files", () => {
+    const previous = "name: 'A'\ntypes: [bug, feature]\nstatuses: [todo, done]\n";
+    const settings = engine.parse(previous, defaults, false);
+    const text = engine.serialize({ ...settings, taskPrefix: "AB" }, previous, false);
+    expect(text).toBe(`${previous}wikiRoot: docs\nwikiHome: Home.md\ntaskRoot: tasks\ntaskPrefix: AB\n`);
+    expect(engine.serialize(defaults, null, false)).not.toContain("types");
   });
 
   it("hides configured columns from the board, forgetting states that no longer exist", () => {

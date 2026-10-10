@@ -1,6 +1,6 @@
 /** Everything that edits files: repository files, wiki pages, tasks and settings. */
 import type { ContentManagerContract } from "../contracts/manager-contracts";
-import type { FileContent, Scope, Settings, StorageMode, Task, TaskInput } from "../contracts/model";
+import type { FileContent, Scope, Settings, StorageMode, Task, TaskInput, TaskTemplate } from "../contracts/model";
 import { IMAGE_LIMIT } from "../access/files/file-store";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine } from "../engines/task-engine";
@@ -160,6 +160,27 @@ export class ContentManager implements ContentManagerContract {
     });
   }
 
+  taskTemplate(id: unknown, type: unknown): Promise<TaskTemplate | null> {
+    return this.on(id, async (workspace) => {
+      const path = await this.templatePath(workspace, type);
+      const { files } = await workspace.content.locate();
+      if ((await files.kind(path)) !== "file") return null;
+      return this.engines.tasks.parseTemplate((await files.read(path)).content);
+    });
+  }
+
+  ensureTaskTemplate(id: unknown, type: unknown): Promise<string> {
+    return this.on(id, async (workspace) => {
+      const path = await this.templatePath(workspace, type);
+      const { files } = await workspace.content.locate();
+      if (!(await files.kind(path))) {
+        await files.write(path, this.engines.tasks.newTemplate(type as string), null);
+        await workspace.content.record([path], `Create the ${type as string} task template`);
+      }
+      return path;
+    });
+  }
+
   saveSettings(id: unknown, settings: unknown, expectedHash: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
       const { files } = await workspace.content.locate();
@@ -208,8 +229,13 @@ export class ContentManager implements ContentManagerContract {
   private async taskPath(workspace: Workspace, value: unknown): Promise<{ relative: string; settings: Settings }> {
     const relative = workspace.path(value);
     const { settings } = await workspace.settings();
-    if (!within(relative, settings.taskRoot) || !relative.endsWith(".md"))
+    if (!this.engines.tasks.isTaskFile(relative, settings.taskRoot))
       throw new Error(`Tasks are Markdown files inside ${settings.taskRoot}/.`);
     return { relative, settings };
+  }
+
+  private async templatePath(workspace: Workspace, type: unknown): Promise<string> {
+    const { settings } = await workspace.settings();
+    return workspace.path(this.engines.tasks.templatePath(settings.taskRoot, type));
   }
 }
