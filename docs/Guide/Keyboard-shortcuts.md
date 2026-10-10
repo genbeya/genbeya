@@ -17,3 +17,4 @@ On macOS, use `⌘` where this page says `Ctrl`.
 | `Ctrl+S` | Save |
 | `Esc` | Stop editing, close the task panel |
 | `Ctrl+Enter` | Commit (Changes), save (task) |
+| Context-menu key, `Shift+F10` | Copy a link to the focused page, task, file or commit |
