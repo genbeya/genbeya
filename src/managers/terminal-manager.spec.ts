@@ -68,6 +68,19 @@ describe("TerminalManager", () => {
     await expect(terminal.open(id, 80, 24)).rejects.toThrow("This repository is no longer open.");
   });
 
+  it("ends a shell that finishes starting after its repository closed", async () => {
+    const { runner, opened: started } = fakeTerminalRunner("/bin/zsh");
+    let release: () => void = () => undefined;
+    const starting = new Promise<void>((resolve) => (release = resolve));
+    const slow: TerminalRunner = { shell: runner.shell, open: async (...args) => (await starting, runner.open(...args)) };
+    const { managers, id, terminal } = await opened(slow);
+    const opening = terminal.open(id, 80, 24);
+    await managers.workspace.close(id);
+    release();
+    await expect(opening).rejects.toThrow("This repository is no longer open.");
+    expect(started[0]!.terminal.kill).toHaveBeenCalled();
+  });
+
   it("ends every terminal when the app quits", async () => {
     const { backend, fake } = await withTerminal();
     await backend.dispose();
