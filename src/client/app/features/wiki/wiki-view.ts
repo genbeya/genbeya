@@ -25,7 +25,7 @@ import { WikiPage } from "./wiki-page";
   host: { class: "view" },
   template: `
     <div class="view-body">
-      <aside class="side-panel" gdResizable="wiki-tree" [initial]="256" #panel="gdResizable">
+      <aside class="side-panel" gdResizable="wiki-tree" [initial]="256" #panel="gdResizable" data-tour="wiki-tree">
         <gd-page-tree [selected]="page() ?? (folder() ? 'folder:' + folder() : null)" />
       </aside>
       <div [gdResizeHandle]="panel"></div>

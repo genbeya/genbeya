@@ -3,12 +3,16 @@ import { ContextMenuGuard } from "./core/context-menu-guard";
 import { NavigationGuard } from "./core/navigation-guard";
 import { Session } from "./core/session";
 import { Theme } from "./core/theme";
+import { Onboarding } from "./features/onboarding/onboarding";
 import { Shell } from "./features/shell/shell";
 import { ShellUi } from "./features/shell/shell-ui";
 import { Welcome } from "./features/welcome/welcome";
 import { Toasts } from "./ui/toasts";
 
-/** Starts the session, then shows the welcome screen or the open repository, and opens the GitDesk links launches carry. */
+/**
+ * Starts the session, then shows the welcome screen or the open repository, opens the GitDesk links launches carry,
+ * and introduces GitDesk to new users and what's new to updated ones.
+ */
 @Component({
   selector: "gd-root",
   imports: [Shell, Welcome, Toasts],
@@ -48,6 +52,7 @@ export class App {
     inject(Theme);
     inject(NavigationGuard);
     inject(ContextMenuGuard);
+    inject(Onboarding);
     void this.session.start();
     // The first launch's link, or one a later launch hands over.
     const ui = inject(ShellUi);

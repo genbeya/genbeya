@@ -1,21 +1,23 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, ViewEncapsulation } from "@angular/core";
-import { LucidePencil, LucidePlus, LucideTrash2 } from "@lucide/angular";
+import { LucideExternalLink, LucidePencil, LucidePlus, LucideTrash2 } from "@lucide/angular";
 import type { Settings, StorageMode, Theme } from "../../../../contracts/model";
+import { APP_VERSION } from "../../core/app-version";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
+import { Onboarding } from "../onboarding/onboarding";
 import { titleCase } from "../tasks/task-model";
 import { AgentFiles } from "./agent-files";
 import { StatusEditor } from "./status-editor";
 
 type TextSetting = "name" | "taskPrefix" | "wikiRoot" | "wikiHome" | "taskRoot";
 
-/** Project settings (shared through .gitdesk.yml), content storage, agent files, remotes and personal preferences. */
+/** Project settings (shared through .gitdesk.yml), content storage, agent files, remotes, personal preferences and help. */
 @Component({
   selector: "gd-settings-view",
-  imports: [AgentFiles, StatusEditor, LucidePencil, LucidePlus, LucideTrash2],
+  imports: [AgentFiles, StatusEditor, LucideExternalLink, LucidePencil, LucidePlus, LucideTrash2],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./settings.css",
@@ -24,9 +26,11 @@ type TextSetting = "name" | "taskPrefix" | "wikiRoot" | "wikiHome" | "taskRoot";
 })
 export class SettingsView {
   protected readonly session = inject(Session);
+  protected readonly onboarding = inject(Onboarding);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
   protected readonly mod = MOD_KEY;
+  protected readonly version = APP_VERSION;
   protected readonly themes: readonly Theme[] = ["system", "light", "dark"];
   protected readonly titleCase = titleCase;
   protected readonly snapshot = computed(() => this.session.snapshot()!);

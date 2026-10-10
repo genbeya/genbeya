@@ -5,6 +5,7 @@ import { CTRL_KEY, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
+import { Onboarding } from "../onboarding/onboarding";
 import { WikiActions } from "../wiki/wiki-actions";
 import { PaletteIcon } from "./palette-icon";
 import { allItems, branchItems, linkItem, rank, type PaletteCommands, type PaletteItem } from "./palette-items";
@@ -76,6 +77,7 @@ export class Palette {
   private readonly repository = inject(RepositoryActions);
   private readonly ui = inject(ShellUi);
   private readonly terminals = inject(Terminals);
+  private readonly onboarding = inject(Onboarding);
   protected readonly query = signal("");
   protected readonly active = signal(0);
   private readonly recent = inject(Repositories).recent;
@@ -103,6 +105,9 @@ export class Palette {
     showHelp: () => void this.ui.showHelp(),
     toggleTerminal: () => void this.terminals.toggle(),
     openLink: (link) => void this.ui.openLink(link),
+    startTour: () => void this.onboarding.startTour(),
+    showWhatsNew: () => void this.onboarding.showWhatsNew(),
+    openDocs: () => void this.onboarding.openDocs(),
   };
 
   private readonly items = computed<PaletteItem[]>(() => {
