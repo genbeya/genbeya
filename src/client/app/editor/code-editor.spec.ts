@@ -1,5 +1,6 @@
 import { Component, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
+import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { CodeEditor, type LineRange } from "./code-editor";
 
@@ -79,5 +80,10 @@ describe("CodeEditor", () => {
     const { view, host } = await render("x");
     view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true }));
     expect(host.saves).toBe(1);
+  });
+
+  it("edits with several cursors", async () => {
+    const { view } = await render("a");
+    expect(view.state.facet(EditorState.allowMultipleSelections)).toBe(true);
   });
 });

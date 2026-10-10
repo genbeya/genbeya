@@ -14,6 +14,7 @@ import {
   output,
   untracked,
 } from "@angular/core";
+import { wordWrap } from "./editor-keymap";
 import { editingSetup, isProse, languageFor } from "./editor-setup";
 import { referenceCompletion, type ReferenceCandidate } from "./reference-completion";
 
@@ -120,7 +121,7 @@ export class CodeEditor {
       ...editingSetup(numbered),
       this.language.of([]),
       this.completion.of(this.completionFor(untracked(this.offersReferences))),
-      ...(isProse(path) ? [EditorView.lineWrapping] : []),
+      wordWrap(isProse(path)),
       EditorView.contentAttributes.of({ "aria-label": this.label(), spellcheck: isProse(path) ? "true" : "false" }),
       keymap.of([{ key: "Mod-s", preventDefault: true, run: () => (this.save.emit(), true) }]),
       EditorView.updateListener.of((update) => {
