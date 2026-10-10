@@ -99,6 +99,7 @@ fn main() {
             terminals::term_write,
             terminals::term_resize,
             terminals::term_kill,
+            terminals::term_kill_all,
         ])
         .build(tauri::generate_context!())
         .expect("GitDesk failed to start")

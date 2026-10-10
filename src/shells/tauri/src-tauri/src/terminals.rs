@@ -169,6 +169,7 @@ pub async fn term_open(
 ) -> Result<u32, Failure> {
     check(&command, &env)?;
     let Started { open, mut output, mut child } = start(&command, &args, cwd.as_deref(), size(cols, rows)?, &env)?;
+    let mut killer = child.clone_killer();
     let id = state.next.fetch_add(1, Ordering::SeqCst);
     state.open.lock().unwrap().insert(id, Arc::new(open));
     let (exited, exit_code) = mpsc::channel();
@@ -186,6 +187,8 @@ pub async fn term_open(
             }
             buffer[0] = DATA;
             if events.send(InvokeResponseBody::Raw(buffer[..=n].to_vec())).is_err() {
+                // Nobody reads this terminal any more, and a shell whose output is not read blocks.
+                let _ = killer.kill();
                 break;
             }
         }
@@ -224,6 +227,13 @@ pub async fn term_kill(state: State<'_, Terminals>, id: u32) -> Result<(), Failu
         let _ = terminal.killer.lock().unwrap().kill();
     }
     Ok(())
+}
+
+/// Ends every terminal. A reloaded page has forgotten the ids of the ones it
+/// opened, so it calls this before it opens any (tauri-machine.ts).
+#[tauri::command]
+pub fn term_kill_all(state: State<'_, Terminals>) {
+    state.kill_all();
 }
 
 #[cfg(test)]
@@ -288,6 +298,23 @@ mod tests {
         let text = reader.join().unwrap();
         assert_eq!(code, 3);
         assert!(text.contains("gitdesk-terminal"), "{text}");
+    }
+
+    #[test]
+    fn ends_every_terminal() {
+        // A shell that waits for input until it is ended.
+        let program = if cfg!(windows) { "cmd.exe" } else { "sh" };
+        let size = size(80, 24).unwrap();
+        let Started { open, mut output, mut child } = start(program, &[], None, size, &HashMap::new()).unwrap();
+        thread::spawn(move || while let Ok(1..) = output.read(&mut [0u8; 4096]) {});
+        let terminals = Terminals::default();
+        terminals.open.lock().unwrap().insert(0, Arc::new(open));
+        terminals.kill_all();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while child.try_wait().unwrap().is_none() {
+            assert!(std::time::Instant::now() < deadline, "the shell still runs");
+            thread::sleep(std::time::Duration::from_millis(20));
+        }
     }
 
     #[test]

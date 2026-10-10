@@ -119,10 +119,14 @@ export function tauriTerminals(
   run: Invoke = invoke,
   createChannel: () => Channel<ArrayBuffer> = () => new Channel<ArrayBuffer>(),
 ): TerminalRunner {
+  // The shells live in Rust, so they outlive a reload of the page, which forgets their ids.
+  // One runner is made per page: it ends the ones an earlier page left before it opens any.
+  const cleared = call(run, "term_kill_all").catch(() => undefined);
   return {
     shell: () => call<string>(run, "term_shell"),
 
     async open(command, args, { cwd, cols, rows, env = {} }) {
+      await cleared;
       const listeners = { data: [] as ((data: string) => void)[], exit: [] as ((code: number) => void)[] };
       // Output arrives as bytes; a character may be split between two messages.
       const decoder = new TextDecoder();

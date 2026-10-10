@@ -116,7 +116,7 @@ describe("tauriTerminals", () => {
     const { run, calls } = fakeInvoke(async (call) => (call.command === "term_open" ? 4 : null));
     const terminals = tauriTerminals(run, () => (channel = { onmessage: () => undefined }) as unknown as Channel<ArrayBuffer>);
     const terminal = await terminals.open("ssh", ["-t", "host"], { cols: 80, rows: 24, env: { TERM: "xterm-256color" } });
-    expect(calls[0]).toMatchObject({
+    expect(calls[1]).toMatchObject({
       command: "term_open",
       args: { command: "ssh", args: ["-t", "host"], cwd: null, cols: 80, rows: 24, env: { TERM: "xterm-256color" } },
     });
@@ -139,6 +139,21 @@ describe("tauriTerminals", () => {
       { id: 4, data: "b" },
     ]);
     expect(calls.find((c) => c.command === "term_resize")?.args).toEqual({ id: 4, cols: 100, rows: 30 });
+  });
+
+  it("ends the shells of an earlier page before it opens one", async () => {
+    let finishKill: () => void = () => undefined;
+    const { run, calls } = fakeInvoke((call) =>
+      call.command === "term_kill_all" ? new Promise<void>((resolve) => (finishKill = resolve)) : call.command === "term_open" ? 4 : null,
+    );
+    const terminals = tauriTerminals(run, () => ({ onmessage: () => undefined }) as unknown as Channel<ArrayBuffer>);
+    expect(calls.map((c) => c.command)).toEqual(["term_kill_all"]);
+    const opening = terminals.open("pwsh.exe", [], { cols: 80, rows: 24 });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(calls.map((c) => c.command)).toEqual(["term_kill_all"]);
+    finishKill();
+    await opening;
+    expect(calls.map((c) => c.command)).toEqual(["term_kill_all", "term_open"]);
   });
 
   it("keeps output and the exit that arrive before anyone listens", async () => {
