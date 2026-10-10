@@ -5,7 +5,7 @@ Four managers implement everything the client can do with a repository. Their co
 | Manager | Use cases |
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
-| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, and the [[Content branch]] |
+| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, the [[Content branch]], and the files that teach [[AI agents]] to use them |
 | `versionControl` | Diffs, staging, commits, branches, remotes, fetch/pull/push, history |
 | `terminal` | Shells in the repository for the [[Terminal]]: open, input, size, output, close |
 
