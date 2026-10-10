@@ -169,7 +169,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       if (!THEMES.includes(value.theme as Theme)) throw new Error("Choose the system, light or dark theme.");
       next.theme = value.theme as Theme;
     }
-    for (const key of ["reopenLast", "autoSyncContent", "tourSeen"] as const)
+    for (const key of ["reopenLast", "autoSyncContent", "minimap", "tourSeen"] as const)
       if (value[key] !== undefined) {
         if (typeof value[key] !== "boolean") throw new Error(`Invalid ${key} preference.`);
         next[key] = value[key];

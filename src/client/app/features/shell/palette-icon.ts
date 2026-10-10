@@ -20,6 +20,7 @@ import {
   LucideKeyboard,
   LucideLayoutGrid,
   LucideLink,
+  LucideMap,
   LucideMonitor,
   LucideMoon,
   LucidePlus,
@@ -57,6 +58,7 @@ import type { PaletteIcon as Icon } from "./palette-items";
     LucideKeyboard,
     LucideLayoutGrid,
     LucideLink,
+    LucideMap,
     LucideMonitor,
     LucideMoon,
     LucidePlus,
@@ -159,6 +161,9 @@ import type { PaletteIcon as Icon } from "./palette-items";
       }
       @case ("system") {
         <svg lucideSunMoon [size]="15" aria-hidden="true"></svg>
+      }
+      @case ("minimap") {
+        <svg lucideMap [size]="15" aria-hidden="true"></svg>
       }
       @case ("keyboard") {
         <svg lucideKeyboard [size]="15" aria-hidden="true"></svg>

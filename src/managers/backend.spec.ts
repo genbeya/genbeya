@@ -132,10 +132,11 @@ describe("WorkspaceManager", () => {
 
   it("validates preferences", async () => {
     const managers = await backend();
-    expect(await managers.workspace.setPreferences({ theme: "dark", autoSyncContent: true })).toEqual({
+    expect(await managers.workspace.setPreferences({ theme: "dark", autoSyncContent: true, minimap: false })).toEqual({
       theme: "dark",
       reopenLast: true,
       autoSyncContent: true,
+      minimap: false,
       lastSeenVersion: null,
       tourSeen: false,
       tourOffered: [],
@@ -143,6 +144,7 @@ describe("WorkspaceManager", () => {
     await expect(managers.workspace.setPreferences({ theme: "neon" } as never)).rejects.toThrow("theme");
     await expect(managers.workspace.setPreferences({ reopenLast: "yes" } as never)).rejects.toThrow("reopenLast");
     await expect(managers.workspace.setPreferences({ tourSeen: 1 } as never)).rejects.toThrow("tourSeen");
+    await expect(managers.workspace.setPreferences({ minimap: 1 } as never)).rejects.toThrow("minimap");
     await expect(managers.workspace.setPreferences({ lastSeenVersion: "latest" })).rejects.toThrow("lastSeenVersion");
     await expect(managers.workspace.setPreferences({ tourOffered: ["local:/a", 3] } as never)).rejects.toThrow("tourOffered");
     await expect(managers.workspace.setPreferences({ tourOffered: "local:/a" } as never)).rejects.toThrow("tourOffered");

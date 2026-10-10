@@ -49,6 +49,13 @@ describe("palette items", () => {
     expect(commands.toggleTerminal).toHaveBeenCalled();
   });
 
+  it("toggles the minimap among the preferences", () => {
+    const [toggle] = rank(items, "minimap", false);
+    expect(toggle).toMatchObject({ label: "Toggle minimap", group: "Preferences" });
+    toggle!.run();
+    expect(commands.toggleMinimap).toHaveBeenCalled();
+  });
+
   it("brings back the tour and what's new, and opens the documentation", () => {
     for (const [query, command] of [
       ["tour", "startTour"],

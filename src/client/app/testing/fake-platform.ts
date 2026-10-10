@@ -31,6 +31,7 @@ export const PREFERENCES: Preferences = {
   theme: "system",
   reopenLast: true,
   autoSyncContent: false,
+  minimap: true,
   lastSeenVersion: APP_VERSION,
   tourSeen: true,
   tourOffered: [],

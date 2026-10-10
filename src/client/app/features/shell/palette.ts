@@ -199,6 +199,7 @@ export class Palette {
     closeRepository: () => void this.session.close(),
     openRecent: (entry) => void this.session.open(entry.location),
     setTheme: (theme) => void this.session.setPreferences({ theme }),
+    toggleMinimap: () => void this.session.setPreferences({ minimap: !this.session.preferences().minimap }),
     showHelp: () => void this.ui.showHelp(),
     toggleTerminal: () => void this.terminals.toggle(),
     openLink: (link) => void this.ui.openLink(link),

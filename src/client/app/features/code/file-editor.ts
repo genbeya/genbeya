@@ -160,6 +160,7 @@ import { WikiActions } from "../wiki/wiki-actions";
           [value]="value()"
           [reveal]="lines()"
           [references]="markdown() ? wiki.referenceCandidates() : null"
+          [minimap]="session.preferences().minimap"
           (valueChange)="draft.set($event)"
           (save)="save()"
         />
@@ -191,7 +192,7 @@ export class FileEditor {
   protected readonly wiki = inject(WikiActions);
   protected readonly links = inject(ShareLinks);
   protected readonly link = computed<LinkItem>(() => ({ kind: "file", path: this.path() }));
-  private readonly session = inject(Session);
+  protected readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
   private readonly clipboard = inject(Clipboard);

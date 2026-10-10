@@ -384,6 +384,8 @@ export interface Preferences {
   readonly theme: Theme;
   readonly reopenLast: boolean;
   readonly autoSyncContent: boolean;
+  /** A minimap beside code in the editor. */
+  readonly minimap: boolean;
   /** The app version whose news the user has seen ("0.3.2"); null until the first start. */
   readonly lastSeenVersion: string | null;
   /** The user finished or ended the guided tour. */
