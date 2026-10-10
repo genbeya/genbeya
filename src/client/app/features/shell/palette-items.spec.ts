@@ -43,6 +43,13 @@ describe("palette items", () => {
     expect(commands.toggleTerminal).toHaveBeenCalled();
   });
 
+  it("toggles the minimap among the preferences", () => {
+    const [toggle] = rank(items, "minimap", false);
+    expect(toggle).toMatchObject({ label: "Toggle minimap", group: "Preferences" });
+    toggle!.run();
+    expect(commands.toggleMinimap).toHaveBeenCalled();
+  });
+
   it("offers to open a pasted GitDesk link, and nothing for other text", () => {
     const item = linkItem("  gitdesk://open?remote=git@github.com:acme/demo.git&task=DP-1 ", commands)!;
     expect(item).toMatchObject({ label: "Open link", detail: "task DP-1 in github.com/acme/demo", icon: "link" });

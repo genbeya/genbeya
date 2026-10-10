@@ -128,13 +128,15 @@ describe("WorkspaceManager", () => {
 
   it("validates preferences", async () => {
     const managers = await backend();
-    expect(await managers.workspace.setPreferences({ theme: "dark", autoSyncContent: true })).toEqual({
+    expect(await managers.workspace.setPreferences({ theme: "dark", autoSyncContent: true, minimap: false })).toEqual({
       theme: "dark",
       reopenLast: true,
       autoSyncContent: true,
+      minimap: false,
     });
     await expect(managers.workspace.setPreferences({ theme: "neon" } as never)).rejects.toThrow("theme");
     await expect(managers.workspace.setPreferences({ reopenLast: "yes" } as never)).rejects.toThrow("reopenLast");
+    await expect(managers.workspace.setPreferences({ minimap: 1 } as never)).rejects.toThrow("minimap");
   });
 
   it("clones repositories next to each other and opens them", async () => {

@@ -87,3 +87,27 @@ describe("CodeEditor", () => {
     expect(view.state.facet(EditorState.allowMultipleSelections)).toBe(true);
   });
 });
+
+@Component({
+  imports: [CodeEditor],
+  template: `<gd-code-editor [path]="path()" value="x" [minimap]="minimap()" />`,
+})
+class MinimapHost {
+  readonly path = signal("src/a.ts");
+  readonly minimap = signal(true);
+}
+
+describe("CodeEditor minimap", () => {
+  beforeEach(() => void vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null));
+
+  it("shows a minimap for code while it is switched on, and none for prose", async () => {
+    const fixture = TestBed.createComponent(MinimapHost);
+    const shown = async () => (await fixture.whenStable(), !!fixture.nativeElement.querySelector(".cm-minimap"));
+    expect(await shown()).toBe(true);
+    fixture.componentInstance.minimap.set(false);
+    expect(await shown()).toBe(false);
+    fixture.componentInstance.minimap.set(true);
+    fixture.componentInstance.path.set("docs/Home.md");
+    expect(await shown()).toBe(false);
+  });
+});

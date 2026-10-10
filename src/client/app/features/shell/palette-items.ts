@@ -31,6 +31,7 @@ export type PaletteIcon =
   | "dark"
   | "light"
   | "system"
+  | "minimap"
   | "keyboard"
   | "wiki"
   | "tasks"
@@ -71,6 +72,7 @@ export interface PaletteCommands {
   closeRepository(): void;
   openRecent(entry: RecentEntry): void;
   setTheme(theme: Theme): void;
+  toggleMinimap(): void;
   showHelp(): void;
   toggleTerminal(): void;
   openLink(link: GitdeskLink): void;
@@ -184,6 +186,7 @@ export function allItems(
       ...(theme === option ? { hint: "current" } : {}),
       run: () => commands.setTheme(option),
     })),
+    { id: "minimap", group: "Preferences", label: "Toggle minimap", icon: "minimap", run: () => commands.toggleMinimap() },
     { id: "help", group: "Preferences", label: "Keyboard shortcuts", icon: "keyboard", hint: "?", run: () => commands.showHelp() },
   ];
   const pages = flattenPages(wiki).map((page): PaletteItem => ({

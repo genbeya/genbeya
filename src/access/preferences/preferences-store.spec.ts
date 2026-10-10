@@ -43,6 +43,14 @@ describe("PreferencesStore", () => {
     expect(reloaded.recent.map((entry) => entry.name)).toEqual(["A again"]);
   });
 
+  it("fills in preferences that older versions did not save", async () => {
+    const folder = await temporaryFolder("prefs-");
+    await fs.writeFile(path.join(folder, "state.json"), JSON.stringify({ recent: [], preferences: { theme: "light", reopenLast: false } }));
+    const store = await PreferencesStore.load(machine, folder);
+    expect(store.preferences).toEqual({ ...DEFAULT_PREFERENCES, theme: "light", reopenLast: false });
+    expect(store.preferences.minimap).toBe(true);
+  });
+
   it("keeps at most twenty recent repositories", async () => {
     const store = await PreferencesStore.load(machine, await temporaryFolder("prefs-"));
     for (let i = 0; i < 25; i++) store.remember({ kind: "local", path: `/r${i}` }, `R${i}`, []);

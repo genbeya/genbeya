@@ -185,6 +185,8 @@ export interface Preferences {
   readonly theme: Theme;
   readonly reopenLast: boolean;
   readonly autoSyncContent: boolean;
+  /** A minimap beside code in the editor. */
+  readonly minimap: boolean;
 }
 
 /** What a terminal printed since the last read (possibly nothing yet), or its exit code once it ended and everything was read. */

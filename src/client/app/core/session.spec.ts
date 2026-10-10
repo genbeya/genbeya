@@ -130,7 +130,7 @@ describe("Session", () => {
       id: "w1",
       snapshot: snapshot({ storage: { mode: "branch", branch: "gitdesk", remote: "origin", ahead: 1, behind: 0 } }),
     });
-    managers.workspace.setPreferences.mockResolvedValue({ theme: "system", reopenLast: true, autoSyncContent: true });
+    managers.workspace.setPreferences.mockResolvedValue({ theme: "system", reopenLast: true, autoSyncContent: true, minimap: true });
     await session.open({ kind: "local", path: "/repo" });
     await session.setPreferences({ autoSyncContent: true });
     session.contentChanged();

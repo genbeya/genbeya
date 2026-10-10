@@ -62,7 +62,7 @@ export function fakeManagers(): MockedManagers {
       Object.fromEntries(methods.map((method) => [method, vi.fn(async () => undefined)])),
     ]),
   ) as unknown as MockedManagers;
-  managers.workspace.preferences.mockResolvedValue({ theme: "system", reopenLast: true, autoSyncContent: false });
+  managers.workspace.preferences.mockResolvedValue({ theme: "system", reopenLast: true, autoSyncContent: false, minimap: true });
   managers.workspace.restore.mockResolvedValue(null);
   managers.workspace.recent.mockResolvedValue([]);
   managers.workspace.distributions.mockResolvedValue([]);

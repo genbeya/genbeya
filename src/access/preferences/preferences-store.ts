@@ -4,7 +4,7 @@ import { decodeLenient, encodeText } from "../../utilities/bytes";
 import { withoutCredentials } from "../../utilities/remote-url";
 import type { Machine } from "../ports";
 
-export const DEFAULT_PREFERENCES: Preferences = { theme: "system", reopenLast: true, autoSyncContent: false };
+export const DEFAULT_PREFERENCES: Preferences = { theme: "system", reopenLast: true, autoSyncContent: false, minimap: true };
 const RECENT_LIMIT = 20;
 const SAVE_DELAY = 300;
 
