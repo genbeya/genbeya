@@ -1,12 +1,14 @@
 /** Everything that edits files: repository files, wiki pages, tasks and settings. */
 import type { ContentManagerContract } from "../contracts/manager-contracts";
-import type { FileContent, Scope, Settings, StorageMode, Task, TaskInput } from "../contracts/model";
-import { IMAGE_LIMIT } from "../access/files/file-store";
+import type { FileContent, LinkUpdate, PageMove, Scope, Settings, StorageMode, Task, TaskInput } from "../contracts/model";
+import { IMAGE_LIMIT, type VersionedFile } from "../access/files/file-store";
+import type { LinkEngine, LinkRewrite } from "../engines/link-engine";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { toBase64 } from "../utilities/bytes";
-import { baseName, within } from "../utilities/repository-path";
+import { referenceIndex } from "../utilities/references";
+import { baseName, relocate, within } from "../utilities/repository-path";
 import type { Workspace, WorkspaceRegistry } from "./workspace";
 
 const IMAGE_TYPES: Readonly<Record<string, string>> = {
@@ -24,7 +26,12 @@ const STORAGE_MODES: readonly StorageMode[] = ["worktree", "branch"];
 export class ContentManager implements ContentManagerContract {
   constructor(
     private readonly registry: WorkspaceRegistry,
-    private readonly engines: { readonly settings: SettingsEngine; readonly tasks: TaskEngine; readonly wiki: WikiEngine },
+    private readonly engines: {
+      readonly settings: SettingsEngine;
+      readonly tasks: TaskEngine;
+      readonly wiki: WikiEngine;
+      readonly links: LinkEngine;
+    },
   ) {}
 
   /** Runs an operation on the workspace named by `id`, after its earlier operations. */
@@ -77,18 +84,32 @@ export class ContentManager implements ContentManagerContract {
     });
   }
 
-  movePage(id: unknown, from: unknown, to: unknown): Promise<string> {
+  pageLinks(id: unknown, from: unknown, to: unknown): Promise<LinkUpdate[]> {
     return this.on(id, async (workspace) => {
-      const source = await this.pagePath(workspace, from);
-      const target = await this.pagePath(workspace, to);
-      const { files } = await workspace.content.locate();
-      const hasSubpages = (await files.kind(this.engines.wiki.subpageFolder(source))) === "dir";
-      const moves = this.engines.wiki.planMove(source, target, hasSubpages);
+      const { moves } = await this.pageMove(workspace, from, to);
+      return (await this.linkRewrites(workspace, moves)).map(({ path, changes }) => ({ path, changes }));
+    });
+  }
+
+  movePage(id: unknown, from: unknown, to: unknown, options?: unknown): Promise<string> {
+    return this.on(id, async (workspace) => {
+      const { updateLinks } = this.moveOptions(options);
+      const { source, target, moves } = await this.pageMove(workspace, from, to);
       if (!moves.length) return target;
-      // Subpage folders are derived names: on Windows the page `docs/GIT~1.md` has the folder `docs/GIT~1`.
-      for (const path of moves.flat()) workspace.path(path);
+      const rewrites = updateLinks ? await this.linkRewrites(workspace, moves) : [];
+      const { files } = await workspace.content.locate();
       await files.moveAll(moves);
-      await workspace.content.record(moves.flat(), `Move page ${this.engines.wiki.titleOf(source)} to ${target}`);
+      const updated: string[] = [];
+      for (const rewrite of rewrites) {
+        const path = relocate(rewrite.path, moves) ?? rewrite.path;
+        await files.write(path, rewrite.content, rewrite.hash);
+        updated.push(path);
+      }
+      const message = `Move page ${this.engines.wiki.titleOf(source)} to ${target}`;
+      await workspace.content.record(
+        [...moves.flat(), ...updated],
+        updated.length ? `${message}\n\nUpdate links in ${updated.join(", ")}.` : message,
+      );
       return target;
     });
   }
@@ -196,6 +217,42 @@ export class ContentManager implements ContentManagerContract {
   private async afterEdit(workspace: Workspace, scope: Scope, path: string, message: string) {
     if (scope === "content" || path === SETTINGS_FILE) workspace.forgetSettings();
     if (scope === "content") await workspace.content.record([path], message);
+  }
+
+  private moveOptions(value: unknown): PageMove {
+    if (value === undefined) return {};
+    const options = value as PageMove | null;
+    if (typeof options !== "object" || options === null || !["undefined", "boolean"].includes(typeof options.updateLinks))
+      throw new Error("Invalid move options.");
+    return options;
+  }
+
+  /** The renames that move a page, and its subpages when it has them. */
+  private async pageMove(workspace: Workspace, from: unknown, to: unknown) {
+    const source = await this.pagePath(workspace, from);
+    const target = await this.pagePath(workspace, to);
+    const { files } = await workspace.content.locate();
+    const hasSubpages = (await files.kind(this.engines.wiki.subpageFolder(source))) === "dir";
+    const moves = this.engines.wiki.planMove(source, target, hasSubpages);
+    // Subpage folders are derived names: on Windows the page `docs/GIT~1.md` has the folder `docs/GIT~1`.
+    for (const path of moves.flat()) workspace.path(path);
+    return { source, target, moves };
+  }
+
+  /** The Markdown files of the content location whose links `moves` would break, rewritten, with the versions they were read at. */
+  private async linkRewrites(workspace: Workspace, moves: readonly [string, string][]): Promise<(LinkRewrite & { hash: string })[]> {
+    if (!moves.length) return [];
+    const { settings } = await workspace.settings();
+    const files = await workspace.content.files();
+    const paths = files.filter((file) => file.toLowerCase().endsWith(".md"));
+    const contents = await (await workspace.content.locate()).files.readMany(paths);
+    const documents = contents.filter((file): file is VersionedFile => !!file && !(file instanceof Error));
+    const tasks = await workspace.tasks(files, settings, []);
+    const index = (list: readonly string[]) =>
+      referenceIndex({ wikiRoot: settings.wikiRoot, pages: this.engines.wiki.pages(list, settings), tasks, files: list });
+    const context = { moves, before: index(files), after: index(files.map((file) => relocate(file, moves) ?? file)) };
+    const hashes = new Map(documents.map((file) => [file.path, file.hash]));
+    return this.engines.links.rewrite(documents, context).map((rewrite) => ({ ...rewrite, hash: hashes.get(rewrite.path)! }));
   }
 
   private async pagePath(workspace: Workspace, value: unknown): Promise<string> {
