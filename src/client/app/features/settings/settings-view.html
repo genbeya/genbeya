@@ -77,7 +77,32 @@
         </div>
         <div class="setting-row">
           <div class="setting-label"><span>Workflow</span><small>Board columns, in order. The last state counts as done.</small></div>
-          <div class="setting-control"><gd-status-editor [value]="form().statuses" (changed)="setStatuses($event)" /></div>
+          <div class="setting-control">
+            <gd-status-editor
+              [value]="form().statuses"
+              [icons]="form().statusIcons"
+              (changed)="setStatuses($event)"
+              (iconsChanged)="setStatusIcons($event)"
+            />
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>Task types</span
+            ><small
+              >Each type has an icon and a template for the description of new tasks, in
+              <code>{{ form().taskRoot }}/.templates/</code>.</small
+            >
+          </div>
+          <div class="setting-control">
+            <gd-type-editor [value]="form().types" (changed)="setTypes($event)" (editTemplate)="editTemplate($event)" />
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>Custom fields</span><small>Shown and edited under a task's properties, and stored in its frontmatter.</small>
+          </div>
+          <div class="setting-control"><gd-field-editor [value]="form().fields" (changed)="setFields($event)" /></div>
         </div>
       </div>
     </section>

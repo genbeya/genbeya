@@ -1,18 +1,27 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from "@angular/core";
 import { LucideArrowDown, LucideArrowUp, LucidePlus, LucideX } from "@lucide/angular";
+import { IconPicker } from "../../ui/icon-picker";
 import { StatusIcon } from "../tasks/task-icons";
-import { titleCase } from "../tasks/task-model";
+import { statusColor, titleCase } from "../tasks/task-model";
 
-/** The workflow states, in board order: reorder, remove, add. */
+/** The workflow states, in board order: reorder, remove, add, and choose an icon. */
 @Component({
   selector: "gd-status-editor",
-  imports: [StatusIcon, LucideArrowDown, LucideArrowUp, LucidePlus, LucideX],
+  imports: [IconPicker, StatusIcon, LucideArrowDown, LucideArrowUp, LucidePlus, LucideX],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: "status-editor" },
+  host: { class: "list-editor" },
   template: `
     @for (status of value(); track status; let index = $index; let first = $first; let last = $last) {
-      <div class="status-item">
-        <gd-status-icon [status]="status" [statuses]="value()" />
+      <div class="list-item">
+        <gd-icon-picker
+          [value]="icons()[status] ?? null"
+          [label]="'Icon of ' + titleCase(status)"
+          [color]="statusColor(index, value().length)"
+          noneLabel="Progress ring"
+          (changed)="setIcon(status, $event)"
+        >
+          <gd-status-icon none [status]="status" [statuses]="value()" />
+        </gd-icon-picker>
         <span class="grow">{{ titleCase(status) }}</span>
         <span class="faint mono">{{ status }}</span>
         <button type="button" class="icon-btn" aria-label="Move up" title="Move up" [disabled]="first" (click)="move(index, -1)">
@@ -33,7 +42,7 @@ import { titleCase } from "../tasks/task-model";
         </button>
       </div>
     }
-    <div class="row status-add">
+    <div class="row list-add">
       <input
         #field
         class="input"
@@ -51,9 +60,13 @@ import { titleCase } from "../tasks/task-model";
 })
 export class StatusEditor {
   readonly value = input.required<readonly string[]>();
+  /** Icons of the states that have one. */
+  readonly icons = input<Readonly<Record<string, string>>>({});
   readonly changed = output<string[]>();
+  readonly iconsChanged = output<Record<string, string>>();
   protected readonly adding = signal("");
   protected readonly titleCase = titleCase;
+  protected readonly statusColor = statusColor;
 
   protected move(index: number, step: -1 | 1) {
     const next = [...this.value()];
@@ -70,5 +83,11 @@ export class StatusEditor {
     const name = this.adding().trim().toLowerCase().replace(/\s+/g, "-");
     if (name && !this.value().includes(name)) this.changed.emit([...this.value(), name]);
     this.adding.set("");
+  }
+
+  /** Without an icon, the state shows its progress. */
+  protected setIcon(status: string, icon: string | null) {
+    const others = Object.fromEntries(Object.entries(this.icons()).filter(([other]) => other !== status));
+    this.iconsChanged.emit(icon ? { ...others, [status]: icon } : others);
   }
 }
