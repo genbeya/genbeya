@@ -1,4 +1,5 @@
-import { minimapLayout } from "./minimap";
+import { Text } from "@codemirror/state";
+import { drawnRanges, minimapLayout } from "./minimap";
 
 describe("minimap layout", () => {
   it("shows a short file whole, with the visible lines marked", () => {
@@ -14,5 +15,16 @@ describe("minimap layout", () => {
 
   it("keeps the slider big enough to grab", () => {
     expect(minimapLayout(10, 400, 0, 1, 1).sliderHeight).toBe(12);
+  });
+});
+
+describe("minimap drawing", () => {
+  it("highlights each drawn line only up to the columns the map has", () => {
+    const doc = Text.of(["short", "x".repeat(10_000), "", "end"]);
+    expect(drawnRanges(doc, 2, 4)).toEqual([
+      { from: 6, to: 6 + 64 },
+      { from: 10_007, to: 10_007 },
+      { from: 10_008, to: 10_011 },
+    ]);
   });
 });
