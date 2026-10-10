@@ -23,6 +23,8 @@ IDs are `PREFIX-number`; the prefix is set in **Settings**. Extra frontmatter fi
 
 Reference a task anywhere in Markdown with `[[GENBEYA-12]]`: it shows the task's title and current state (see [[Wiki#references]]).
 
+Task files change with the checked-out branch and are committed like code. To see the same board on every branch, keep the tasks on the shared [[Content branch]] (**Settings → Where content lives → Tasks**); every change is then committed there right away, while the wiki can stay with the code.
+
 ## The board
 
 - Drag cards between columns to change their status, or switch to the list layout.
@@ -65,7 +67,7 @@ Agreed, see [[GENBEYA-14]].
 
 **Activity**, next to Comments, shows who changed the task and when, from the Git history of its file: status, type, priority, assignee, title, epic and custom fields with their old and new values, added and removed labels, description edits, and added, edited or deleted comments. It follows the task when it moves between epics, and lists the latest 100 commits; click a commit to open it in [[Version control#history|History]].
 
-Changes saved but not committed yet come first, marked *Not committed yet*. When wiki and tasks live on a [[Content branch]], every edit is committed right away, so the activity is always complete.
+Changes saved but not committed yet come first, marked *Not committed yet*. When the tasks live on the [[Content branch]], every edit is committed right away, so the activity is always complete.
 
 ## Epics
 
@@ -125,7 +127,7 @@ labels: [bug]
 ## Actual
 ```
 
-The template button next to a type in **Settings → Task types** opens its template, and creates it first if there is none. Folders in the task folder whose names start with a dot hold no tasks, so `.templates` is no epic.
+The template button next to a type in **Settings → Task types** opens its template in **Code**, and creates it first if there is none. Templates live with the tasks: when the tasks are on the [[Content branch]], the button names the file there instead, since **Code** shows the checkout. Folders in the task folder whose names start with a dot hold no tasks, so `.templates` is no epic.
 
 ## Custom fields
 

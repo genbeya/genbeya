@@ -2,10 +2,28 @@
 import { type Provider } from "@angular/core";
 import type { Mock } from "vitest";
 import { MANAGER_METHODS, type Managers } from "../../../contracts/manager-contracts";
-import { taskType, type Preferences, type Settings, type Snapshot, type Task } from "../../../contracts/model";
+import {
+  taskType,
+  type ContentArea,
+  type ContentBranch,
+  type Preferences,
+  type Settings,
+  type Snapshot,
+  type Storage,
+  type Task,
+} from "../../../contracts/model";
 import type { ShellContract } from "../../../contracts/shell";
 import { APP_VERSION } from "../core/app-version";
 import { MANAGERS, SHELL } from "../platform/platform";
+
+/** Storage with `areas` on the content branch `gitdesk`, pushed to origin, and the other areas in the checkout. */
+export function contentBranch(areas: readonly ContentArea[], branch: Partial<ContentBranch> = {}): Storage {
+  const mode = (area: ContentArea) => (areas.includes(area) ? "branch" : "checkout");
+  return {
+    areas: { wiki: mode("wiki"), tasks: mode("tasks"), settings: mode("settings") },
+    branch: { name: "gitdesk", remote: "origin", ahead: 0, behind: 0, ...branch },
+  };
+}
 
 export const SETTINGS: Settings = {
   name: "Test Project",
@@ -55,7 +73,7 @@ export function snapshot(change: Partial<Snapshot> = {}): Snapshot {
     location: { kind: "local", path: "/repo" },
     settings: SETTINGS,
     settingsHash: "settings-hash",
-    storage: { mode: "worktree" },
+    storage: { areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null },
     head: { branch: "main", commit: "abc1234", upstream: null, ahead: 0, behind: 0 },
     branches: ["main"],
     remoteBranches: [],
@@ -80,6 +98,7 @@ export function fakeManagers(): MockedManagers {
     ]),
   ) as unknown as MockedManagers;
   managers.workspace.preferences.mockResolvedValue(PREFERENCES);
+  managers.workspace.setPreferences.mockImplementation(async (change: Partial<Preferences>) => ({ ...PREFERENCES, ...change }));
   managers.workspace.restore.mockResolvedValue(null);
   managers.workspace.recent.mockResolvedValue([]);
   managers.workspace.distributions.mockResolvedValue([]);

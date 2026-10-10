@@ -30,6 +30,10 @@ async function backend(dataFolder?: string): Promise<Managers> {
   return connectManagers((request) => dispatch(managers, structuredClone(request)));
 }
 
+async function shareEverything(content: Managers["content"], id: string) {
+  for (const area of ["wiki", "tasks", "settings"] as const) await content.setStorage(id, area, "branch");
+}
+
 async function opened(files?: Record<string, string>, commit?: boolean) {
   const repository = await createRepository(files, commit);
   const managers = await backend();
@@ -350,7 +354,7 @@ describe("ContentManager", () => {
 
   it("commits a move and its link updates as one commit on the content branch", async () => {
     const { content, id, latest, repository } = await opened(LINKED);
-    await content.setStorage(id, "branch");
+    await shareEverything(content, id);
     const commits = Number(await repository.git("rev-list", "--count", "gitdesk"));
     await content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true });
     expect(Number(await repository.git("rev-list", "--count", "gitdesk"))).toBe(commits + 1);
@@ -367,6 +371,32 @@ describe("ContentManager", () => {
     expect(snapshot.changes).toEqual([]);
     expect(snapshot.warnings).toEqual([]);
     expect(await repository.git("-C", path.join(repository.root, ".git", "gitdesk", "gitdesk"), "status", "--porcelain")).toBe("");
+  });
+
+  it("updates links where each area lives: tasks on the content branch, the wiki in the checkout", async () => {
+    const { content, id, latest, repository } = await opened(LINKED);
+    await content.setStorage(id, "tasks", "branch");
+    await content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true });
+    expect(await repository.git("show", "--name-status", "--format=%s", "gitdesk")).toBe(
+      "Move page Architecture to docs/Design.md\n\nM\ttasks/TP-1.md\n",
+    );
+    expect(await repository.git("show", "gitdesk:tasks/TP-1.md")).toContain("Read [[Design/Backend]].");
+    expect(await repository.read("tasks/TP-1.md")).toBe(LINKED["tasks/TP-1.md"]);
+    expect(await repository.read("docs/Home.md")).toContain("[[Design]]");
+    const changes = (await latest()).changes.map((change) => change.path);
+    expect(changes).toEqual(expect.arrayContaining(["docs/Home.md", "docs/Design.md"]));
+    expect(changes).not.toContain("tasks/TP-1.md");
+  });
+
+  it("updates links where each area lives: the wiki on the content branch, tasks in the checkout", async () => {
+    const { content, id, latest, repository } = await opened(LINKED);
+    await content.setStorage(id, "wiki", "branch");
+    await content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true });
+    const changed = await repository.git("show", "--name-status", "--format=%s", "gitdesk");
+    expect(changed).toMatch(/^Move page Architecture to docs\/Design\.md\n/);
+    expect(changed).not.toMatch(/tasks\//);
+    expect(await repository.read("tasks/TP-1.md")).toContain("Read [[Design/Backend]].");
+    expect((await latest()).changes.map((change) => change.path)).toEqual(["tasks/TP-1.md"]);
   });
 
   it("serves images as data URLs and refuses other files", async () => {
@@ -422,6 +452,15 @@ describe("ContentManager", () => {
     await repository.write(path, "Mine\n");
     expect(await content.ensureTaskTemplate(id, "bug")).toBe(path);
     expect(await repository.read(path)).toBe("Mine\n");
+  });
+
+  it("keeps templates with the tasks on the content branch", async () => {
+    const { content, id, repository } = await opened();
+    await content.setStorage(id, "tasks", "branch");
+    const path = await content.ensureTaskTemplate(id, "bug");
+    expect(await repository.git("show", "--name-status", "--format=%s", "gitdesk")).toBe(`Create the bug task template\n\nA\t${path}\n`);
+    expect(await repository.exists(path)).toBe(false);
+    expect((await content.taskTemplate(id, "bug"))!.body).toContain("## Context");
   });
 
   it("keeps tasks of an epic in its folder and moves them between epics", async () => {
@@ -554,8 +593,9 @@ describe("ContentManager", () => {
   });
 
   it("reads the activity from the content branch, where every edit is a commit", async () => {
-    const { content, id } = await opened();
-    await content.setStorage(id, "branch");
+    const { content, id, repository } = await opened();
+    await content.setStorage(id, "tasks", "branch");
+    await repository.write("docs/Home.md", "# Home\n\nUncommitted.\n");
     const task = await content.createTask(id, input);
     const commented = await content.addComment(id, task.path, "Hi");
     await content.updateTask(id, task.path, { ...input, priority: "low" }, commented.hash);
@@ -613,10 +653,14 @@ describe("ContentManager", () => {
     );
   });
 
-  it("keeps wiki and tasks on a dedicated branch when asked", async () => {
+  it("keeps every area on the content branch when asked", async () => {
     const { content, id, latest, repository } = await opened();
-    await content.setStorage(id, "branch");
-    expect((await latest()).storage).toEqual({ mode: "branch", branch: "gitdesk", remote: null, ahead: 0, behind: 0 });
+    expect((await latest()).storage).toEqual({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null });
+    for (const area of ["wiki", "tasks", "settings"] as const) await content.setStorage(id, area, "branch");
+    expect((await latest()).storage).toEqual({
+      areas: { wiki: "branch", tasks: "branch", settings: "branch" },
+      branch: { name: "gitdesk", remote: null, ahead: 0, behind: 0 },
+    });
     const task = await content.createTask(id, input);
     const page = await content.read(id, "content", "docs/Home.md");
     await content.write(id, "content", page.path, "# Home\n\nShared.\n", page.hash);
@@ -628,22 +672,44 @@ describe("ContentManager", () => {
       "Edit docs/Home.md",
       "Create TP-1: Build it",
     ]);
-    await expect(content.setStorage(id, "cloud" as never)).rejects.toThrow("Invalid storage mode.");
-    await content.setStorage(id, "worktree");
-    expect((await latest()).storage.mode).toBe("worktree");
+    await expect(content.setStorage(id, "wiki", "cloud" as never)).rejects.toThrow("Invalid storage mode.");
+    await expect(content.setStorage(id, "code" as never, "branch")).rejects.toThrow("Invalid content area.");
+    for (const area of ["wiki", "tasks", "settings"] as const) await content.setStorage(id, area, "checkout");
+    expect((await latest()).storage).toMatchObject({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" } });
+    expect(await repository.exists(task.path)).toBe(true);
+  });
+
+  it("keeps tasks on the content branch and the wiki in the checkout", async () => {
+    const { content, id, latest, repository } = await opened();
+    await repository.write("docs/pixel.png", new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
+    await repository.git("add", "docs/pixel.png");
+    await repository.git("commit", "-q", "-m", "Add an image");
+    await content.setStorage(id, "tasks", "branch");
+    const task = await content.createTask(id, input);
+    await content.createPage(id, "docs/Notes.md");
+
+    const snapshot = await latest();
+    expect(snapshot.storage.areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout" });
+    expect(snapshot.tasks.map((t) => t.id)).toEqual(["TP-1"]);
+    expect(snapshot.wiki.map((node) => node.title)).toContain("Notes");
+    expect(snapshot.changes.map((change) => change.path)).toEqual(["docs/Notes.md"]);
+    expect(await repository.exists(task.path)).toBe(false);
+    expect((await repository.git("log", "-1", "--format=%s", "gitdesk")).trim()).toBe("Create TP-1: Build it");
+    expect((await content.read(id, "content", task.path)).content).toContain("title: Build it");
+    expect(await content.image(id, "content", "docs/pixel.png")).toBe("data:image/png;base64,iVBORw==");
   });
 
   it("syncs the content branch with the remote", async () => {
     const { content, versionControl, id, latest } = await opened();
     await versionControl.setRemote(id, "origin", await createRemote());
-    await content.setStorage(id, "branch");
+    await content.setStorage(id, "tasks", "branch");
     await content.syncContent(id);
-    expect((await latest()).storage).toMatchObject({ remote: "origin" });
+    expect((await latest()).storage.branch).toMatchObject({ remote: "origin" });
   });
 
   it("warns when content edits could not be committed", async () => {
     const { content, id, latest, repository } = await opened();
-    await content.setStorage(id, "branch");
+    await content.setStorage(id, "wiki", "branch");
     await repository.git("config", "user.useConfigOnly", "true");
     await repository.git("config", "user.name", "");
     const page = await content.read(id, "content", "docs/Home.md");
@@ -712,7 +778,7 @@ describe("ContentManager: agent files", () => {
 
   it("writes to the checkout while wiki and tasks live on the content branch", async () => {
     const { content, id, repository } = await opened();
-    await content.setStorage(id, "branch");
+    await shareEverything(content, id);
     await content.addAgentFiles(id, ["agents"]);
     expect(await repository.read("AGENTS.md")).toContain("`tasks/`");
     expect(await repository.git("log", "--format=%s", "-1", "gitdesk")).not.toContain("AGENTS");

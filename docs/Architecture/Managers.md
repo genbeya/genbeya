@@ -5,7 +5,7 @@ Four managers implement everything the client can do with a repository. Their co
 | Manager | Use cases |
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
-| `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, the [[Content branch]], full-text [[Search]], and the files that teach [[AI agents]] to use them |
+| `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [[Content branch]]), full-text [[Search]], and the files that teach [[AI agents]] to use them |
 | `versionControl` | Diffs, staging, commits, branches, remotes, fetch/pull/push, history |
 | `terminal` | Shells in the repository for the [[Terminal]]: open, input, size, output, close |
 
@@ -98,15 +98,21 @@ Saves carry the hash of the content they were based on. If the file changed on d
 
 Structured files change only where they must. A task update rewrites the fields GitDesk manages and the custom fields it names, and leaves the type alone unless it names one; saving settings rewrites only the keys of `.gitdesk.yml` whose values changed. Comments, unknown keys and the spelling of everything else survive. New tasks of a type start from `<taskRoot>/.templates/<type>.md` (`content.taskTemplate`), which the settings create on first use (`content.ensureTaskTemplate`).
 
+## Content areas
+
+The wiki, tasks and settings each live in the checkout or on the [[Content branch]]. File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.gitdesk.yml` belongs to the settings, the task folder to the tasks, and everything else, such as pages and their images, to the wiki. Page, task, comment and settings calls use their own area, and edits are committed right away only when that area is on the content branch. A task's activity is the history of its file where the tasks live. `content.setStorage(workspace, area, mode)` moves one area.
+
+Inside the backend, `workspace.locateContent(path)` names the location of a content path (its root, files, Git and branch), for reading a file's history wherever it lives.
+
 ## Moving pages
 
-`content.movePage(workspace, from, to, { updateLinks })` moves a page with its subpage folder. With `updateLinks`, it reads every Markdown file of the content location (in the checkout, that includes `README.md` and other documentation) in one batch, and the link engine (`src/engines/link-engine.ts`) rewrites what the move would break:
+`content.movePage(workspace, from, to, { updateLinks })` moves a page with its subpage folder. With `updateLinks`, it reads every Markdown file where the wiki lives (in the checkout, that includes `README.md` and other documentation), and the task folder where the tasks live when that is elsewhere, and the link engine (`src/engines/link-engine.ts`) rewrites what the move would break:
 
 - relative Markdown links and definitions (`[x](../Guide/Wiki.md#part)`, `[x]: Guide.md`) and images that point into the moved pages, from anywhere;
 - relative links inside the moved pages that point out of them;
 - `[[references]]` to moved pages by path (`[[Guide/Wiki]]`, `[[docs/Guide/Wiki.md]]`), and by title when the title changes; to files in a moved folder by path.
 
-The engine parses with the same Markdown parser as the client, so code blocks and inline code stay untouched, and resolves references by the rules the client renders them with (`src/utilities/references.ts`). Only destinations and reference targets change, written in the style they had: relative or from the root, title or path, with or without `.md`, percent-encoded or in `<…>`. A new title that another page also has is written as a path. The moves and the rewritten files are committed together, so on a [[Content branch]] the move is one commit.
+The engine parses with the same Markdown parser as the client, so code blocks and inline code stay untouched, and resolves references by the rules the client renders them with (`src/utilities/references.ts`). Only destinations and reference targets change, written in the style they had: relative or from the root, title or path, with or without `.md`, percent-encoded or in `<…>`. A new title that another page also has is written as a path. Each rewritten file is written where its area lives. The moves and the rewritten files of one location are committed together, so with the wiki on the [[Content branch]] the move is one commit; tasks on the branch next to a wiki in the checkout get a commit of their own, and files in the checkout stay uncommitted.
 
 `content.pageLinks(workspace, from, to)` returns the same changes without making them, per file with line, before and after, for the move dialog.
 

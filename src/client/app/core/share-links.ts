@@ -47,8 +47,10 @@ export class ShareLinks {
     if (!snapshot || !remote) return null;
     if (item.kind === "commit") return webUrl(remote.url, item);
     const path = item.kind === "task" ? snapshot.tasks.find((task) => task.id === item.id)?.path : item.path;
-    // Pages and tasks on a content branch live there, not on the checked-out branch.
-    const branch = item.kind !== "file" && snapshot.storage.mode === "branch" ? snapshot.storage.branch : this.codeBranch();
+    // Pages and tasks whose area lives on the content branch are there, not on the checked-out branch.
+    const { areas, branch: content } = snapshot.storage;
+    const onBranch = content && ((item.kind === "page" && areas.wiki === "branch") || (item.kind === "task" && areas.tasks === "branch"));
+    const branch = onBranch ? content.name : this.codeBranch();
     return path && branch ? webUrl(remote.url, { kind: "file", path, branch }) : null;
   }
 

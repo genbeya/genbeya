@@ -1,6 +1,6 @@
 /** Opening, closing and observing repositories; the recent list, preferences, and folders on remote machines. */
 import type { WorkspaceManagerContract } from "../contracts/manager-contracts";
-import type { FolderListing, OpenedWorkspace, Preferences, Snapshot, Storage, Theme } from "../contracts/model";
+import type { ContentArea, FolderListing, OpenedWorkspace, Preferences, Snapshot, Storage, Theme } from "../contracts/model";
 import { Git } from "../access/git/git";
 import { RepositoryAccess } from "../access/git/repository-access";
 import type { Host } from "../access/hosts/host";
@@ -198,33 +198,33 @@ export class WorkspaceManager implements WorkspaceManagerContract {
 
   /** Everything the client shows, stamped with a version of its content. */
   private async compose(workspace: Workspace): Promise<Snapshot> {
-    const content = await workspace.content.locate();
-    const separate = content.branch !== null;
-    const [repository, contentFiles, contentBranch, loaded] = await Promise.all([
+    const { areas, branch: content } = await workspace.content.layout();
+    const readsBranch = content && (areas.wiki === "branch" || areas.tasks === "branch");
+    const [repository, branchFiles, contentBranch, loaded] = await Promise.all([
       workspace.repository.state(),
-      separate ? workspace.content.files() : null,
+      readsBranch ? content.git.files() : null,
       workspace.content.branchState(),
       workspace.settings(true),
     ]);
+    const filesOf = (area: ContentArea) => (areas[area] === "branch" && branchFiles ? branchFiles : repository.files);
     const { settings, hash, problem } = loaded;
     const warnings = problem ? [problem] : [];
-    if (workspace.content.commitFailure && content.branch)
+    if (workspace.content.commitFailure && content)
       warnings.push(`Saved, but not committed to the ${content.branch} branch: ${workspace.content.commitFailure}`);
-    const files = contentFiles ?? repository.files;
-    const tasks = await workspace.tasks(files, settings, warnings);
+    const tasks = await workspace.tasks(filesOf("tasks"), settings, warnings);
     if (contentBranch?.uncommitted)
       warnings.push(
-        `${contentBranch.uncommitted} file(s) on the ${contentBranch.branch} branch are not committed. Commit them in ${content.root}.`,
+        `${contentBranch.uncommitted} file(s) on the ${contentBranch.branch} branch are not committed. Commit them in ${content!.root}.`,
       );
-    const storage: Storage = contentBranch
-      ? {
-          mode: "branch",
-          branch: contentBranch.branch,
-          remote: contentBranch.remote,
-          ahead: contentBranch.head.ahead,
-          behind: contentBranch.head.behind,
-        }
-      : { mode: "worktree" };
+    const storage: Storage = {
+      areas,
+      branch: contentBranch && {
+        name: contentBranch.branch,
+        remote: contentBranch.remote,
+        ahead: contentBranch.head.ahead,
+        behind: contentBranch.head.behind,
+      },
+    };
     const body: Omit<Snapshot, "version"> = {
       location: workspace.location,
       settings,
@@ -236,7 +236,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       remotes: repository.remotes,
       changes: repository.changes,
       files: buildFileTree(repository.files),
-      wiki: this.engines.wiki.tree(files, settings),
+      wiki: this.engines.wiki.tree(filesOf("wiki"), settings),
       tasks,
       warnings,
     };

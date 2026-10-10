@@ -36,8 +36,9 @@ Edit the files directly; GitDesk picks up changes on its own.
 
 ## Find the files
 
-1. Run \`git worktree list\`. A worktree inside \`.git/gitdesk/\` holds GitDesk's _content branch_ (\`gitdesk\`, or the branch \`git config gitdesk.branch\` names). Whatever of \`.gitdesk.yml\`, the wiki folder and the task folder exists there lives there, not in the checkout: read and edit it in that worktree, and commit your edits there (\`git -C <worktree> add …\` and \`git -C <worktree> commit -m …\`). Never copy those files into the checkout. GitDesk pushes the content branch when someone syncs it.
-2. Read \`.gitdesk.yml\`. When it disagrees with the values below, the file wins:
+1. Run \`git worktree list\`. A worktree inside \`.git/gitdesk/\` holds GitDesk's _content branch_ (\`gitdesk\`, or the branch \`git config gitdesk.branch\` names). Its \`.gitdesk-content\` file says where each area lives: \`wiki\`, \`tasks\` and \`settings\` (\`.gitdesk.yml\`) set to \`branch\` live in that worktree, those set to \`checkout\` in the checkout; a content branch without that file holds all three. Without such a worktree, everything lives in the checkout.
+   - Read and edit each area where it lives. Commit edits on the content branch right away, in that worktree (\`git -C <worktree> add …\` and \`git -C <worktree> commit -m …\`); GitDesk pushes them when someone syncs. Never copy files between the content branch and the checkout: the copy in the other place is out of date.
+2. Read \`.gitdesk.yml\` where the settings live. When it disagrees with the values below, the file wins:
    - \`wikiRoot\` is the wiki folder (here \`${wikiRoot}\`), \`wikiHome\` its home page relative to that folder (here \`${wikiHome}\`).
    - \`taskRoot\` is the task folder (here \`${taskRoot}\`), \`taskPrefix\` the prefix of task IDs (here \`${prefix}\`).
    - \`statuses\` are the workflow states in board order: the first is where new ideas wait, the last means done. An entry is a state's name, or a mapping whose \`name\` is the state.
@@ -134,7 +135,7 @@ This project plans its work as GitDesk tasks and documents itself in a GitDesk w
 
 - Use tasks instead of an internal todo list. Tasks are files in \`${taskRoot}/\` named after their ID (\`${prefix}-12.md\`). Create one for work you plan, keep its \`status\` current as you go, and tick its checklist.
 - Use the wiki instead of private memory files. Pages are Markdown files in \`${wikiRoot}/\`, starting at \`${wikiRoot}/${wikiHome}\`. Read the relevant pages before you change an area, and record durable project knowledge there.
-- \`.gitdesk.yml\` holds the workflow states, the task prefix and the folders. If \`git worktree list\` shows a worktree inside \`.git/gitdesk/\`, the settings, wiki and tasks found there live there: edit and commit them in that worktree.
+- \`.gitdesk.yml\` holds the workflow states, the task prefix and the folders. If \`git worktree list\` shows a worktree inside \`.git/gitdesk/\`, its \`.gitdesk-content\` file says which areas (\`wiki\`, \`tasks\`, \`settings\`) live there (\`branch\`) and which in the checkout (\`checkout\`); without that file all three live there. Edit and commit an area on the content branch in that worktree.
 - Reference tasks, pages and files as \`[[${prefix}-12]]\`, \`[[Page title]]\` or \`[[src/file.ts#L10-L20]]\`, and name the task in commit messages and pull requests.${details}`;
 }
 
