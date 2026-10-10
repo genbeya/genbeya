@@ -24,17 +24,71 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    // PLACEHOLDER: lists what exists so far. Complete it with everything else 0.3 brings before releasing.
     version: "0.3",
     items: [
       {
-        title: "A guided tour",
-        body: "A short walk through the wiki, tasks, code, version control and the rest. Run **Start the tour** from the command palette any time.",
+        title: "Search inside files",
+        body: "`Ctrl+Shift+F`, or `/` at the start of the command palette, finds text in pages, tasks and code, with switches for case, whole words and regular expressions.",
         target: '[data-tour="search"]',
       },
       {
-        title: "A sample project",
-        body: "Try GitDesk on a small sample repository: **Try GitDesk with a sample project** on the start screen.",
+        title: "Task types and templates",
+        body: "Mark tasks as bugs, features or types of your own, each with an icon. A new task of a type starts from its template in `tasks/.templates/`. Set them up in **Settings → Task types**.",
+        target: '[data-tour="new-task"]',
+        route: "/tasks",
+      },
+      {
+        title: "Custom fields",
+        body: "Give every task an estimate, a due date or a choice of your own in **Settings → Custom fields**. The values are saved to the task's frontmatter.",
+      },
+      {
+        title: "Comments and activity",
+        body: "Discuss a task below its description; comments are stored in the task file. **Activity** shows who changed what, read from Git history.",
+        target: '[data-tour="task-board"]',
+        route: "/tasks",
+      },
+      {
+        title: "Column icons",
+        body: "Pick an icon for each workflow state in **Settings → Workflow**.",
+      },
+      {
+        title: "Links follow moved pages",
+        body: "**Move or rename…** in a page's menu updates the links and `[[references]]` that would break, in pages, tasks and other Markdown files.",
+        target: '[data-tour="page-header"] [aria-label="Page actions"]',
+        route: "/wiki",
+      },
+      {
+        title: "Content where you want it",
+        body: "Keep the wiki, the tasks and the settings each in the checkout or on the shared content branch: **Settings → Where content lives**.",
+        target: '[data-tour="settings"]',
+      },
+      {
+        title: "Stashes, branches and tags",
+        body: "Stash changes from **Changes**. Create, rename and delete branches and tags, and set upstreams, from the menu of a commit in **History**.",
+        target: '[data-tour="commit-box"]',
+        route: "/changes",
+      },
+      {
+        title: "Merge, rebase and resolve conflicts",
+        body: "Merge, rebase (also interactively), cherry-pick and revert from **History**, and resolve conflicts in **Changes**, one conflict or one side at a time.",
+        target: '[data-tour="history"]',
+        route: "/history",
+      },
+      {
+        title: "A stronger editor",
+        body: "Several cursors, a find and replace bar, folding, coloured bracket pairs and a minimap.",
+        target: '[data-tour="code-tree"]',
+        route: "/code",
+      },
+      {
+        title: "AI agents",
+        body: "**Settings → AI agents** adds a skill and instructions that teach Claude Code, Codex, Copilot, Cursor and others to plan in tasks and document in the wiki.",
+      },
+      {
+        title: "Getting started",
+        body: "A sample project on the start screen, a guided tour, and these notes after each update. **Settings → Help** has them all, with the version and the documentation.",
+        target: '[data-tour="help"]',
+        route: "/settings",
       },
       {
         title: "Terminal in the sidebar",
@@ -42,10 +96,8 @@ export const CHANGELOG: readonly Release[] = [
         target: '[data-tour="terminal"]',
       },
       {
-        title: "Help and what's new",
-        body: "**Settings → Help** shows the version, opens the documentation, the tour and these notes, which also appear after each update.",
-        target: '[data-tour="help"]',
-        route: "/settings",
+        title: "Updates install over older versions",
+        body: "Every build has a higher version number, so a newer installer replaces the installed version instead of refusing or installing next to it.",
       },
     ],
   },
