@@ -67,6 +67,19 @@ describe("WorkspaceRegistry", () => {
     await registry.closeAll(50);
     expect(host.dispose).toHaveBeenCalled();
   });
+
+  it("hands an open repository over to a new client under a new id", () => {
+    const registry = new WorkspaceRegistry();
+    const { host, workspace: opened } = workspace();
+    const first = registry.activate(opened);
+    const released = vi.fn();
+    opened.onRelease(released);
+    const second = registry.activate(opened);
+    expect(released).toHaveBeenCalledOnce();
+    expect(() => registry.get(first)).toThrow("This repository is no longer open.");
+    expect(registry.get(second)).toBe(opened);
+    expect(host.dispose).not.toHaveBeenCalled();
+  });
 });
 
 describe("Workspace", () => {
@@ -76,8 +89,8 @@ describe("Workspace", () => {
     const id = registry.activate(opened);
     const closing = vi.fn();
     const forgotten = vi.fn();
-    opened.onClose(closing);
-    opened.onClose(forgotten)();
+    opened.onRelease(closing);
+    opened.onRelease(forgotten)();
     void opened.exclusive(blocking().operation);
     void registry.close(id);
     expect(closing).toHaveBeenCalledOnce();
@@ -90,7 +103,7 @@ describe("Workspace", () => {
     const { workspace: opened } = workspace();
     opened.dispose();
     const closing = vi.fn();
-    opened.onClose(closing);
+    opened.onRelease(closing);
     expect(closing).toHaveBeenCalledOnce();
   });
 });

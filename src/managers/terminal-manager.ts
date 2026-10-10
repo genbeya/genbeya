@@ -14,7 +14,7 @@ const CLOSED = "This terminal is closed.";
 
 interface OpenTerminal {
   readonly session: TerminalSession;
-  /** Stops listening for the repository closing. */
+  /** Stops listening for the repository's client letting go of it. */
   readonly release: () => void;
 }
 
@@ -43,7 +43,7 @@ export class TerminalManager implements TerminalManagerContract {
     if (!this.runner) throw new Error(TERMINALS_UNAVAILABLE);
     const session = await TerminalSession.open(this.runner, workspace.host, workspace.repository.root, dimensions);
     const terminal = crypto.randomUUID();
-    this.terminals.set(terminal, { session, release: workspace.onClose(() => this.end(terminal)) });
+    this.terminals.set(terminal, { session, release: workspace.onRelease(() => this.end(terminal)) });
     // The repository may have closed while the shell started; then it ended with it.
     if (!this.terminals.has(terminal)) throw new Error("This repository is no longer open.");
     return terminal;

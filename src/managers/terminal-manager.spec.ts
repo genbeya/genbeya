@@ -68,6 +68,16 @@ describe("TerminalManager", () => {
     await expect(terminal.open(id, 80, 24)).rejects.toThrow("This repository is no longer open.");
   });
 
+  it("ends the terminals of a client that reloaded, keeping the repository open for the new one", async () => {
+    const { managers, terminal, terminalId, fake, started } = await withTerminal();
+    const restored = await managers.workspace.restore([]);
+    expect(fake().kill).toHaveBeenCalled();
+    await expect(terminal.write(terminalId, "x")).rejects.toThrow("This terminal is closed.");
+    await terminal.open(restored!.id, 80, 24);
+    expect(started).toHaveLength(2);
+    expect(started[1]!.terminal.kill).not.toHaveBeenCalled();
+  });
+
   it("ends every terminal when the app quits", async () => {
     const { backend, fake } = await withTerminal();
     await backend.dispose();
