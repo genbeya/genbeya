@@ -1,6 +1,7 @@
 /**
  * One open repository, shared by the managers: its host, access objects,
- * settings and the queue that runs its operations one at a time.
+ * settings, the queue that runs its operations one at a time, and what has
+ * to end with it (terminals).
  */
 import type { Location, Scope, Settings, Task } from "../contracts/model";
 import { ContentStore } from "../access/content/content-store";
@@ -35,6 +36,7 @@ export class Workspace {
   private readonly queue = new SerialQueue();
   private loadedSettings: LoadedSettings | null = null;
   private closed = false;
+  private readonly closeListeners = new Set<() => void>();
 
   constructor(
     readonly location: Location,
@@ -138,20 +140,33 @@ export class Workspace {
     return tasks;
   }
 
+  /** Calls `listener` once the repository closes (at once if it has); the returned function cancels that. */
+  onClose(listener: () => void): () => void {
+    if (this.closed) listener();
+    else this.closeListeners.add(listener);
+    return () => this.closeListeners.delete(listener);
+  }
+
   /**
    * Refuses new operations, lets queued ones finish (an interrupted commit or
    * rebase on a remote machine would leave the repository half-changed),
    * then disconnects.
    */
   close(): Promise<void> {
-    this.closed = true;
+    this.markClosed();
     return this.queue.run(async () => this.host.dispose());
   }
 
   /** Disconnects now, interrupting a running operation. */
   dispose(): void {
-    this.closed = true;
+    this.markClosed();
     this.host.dispose();
+  }
+
+  private markClosed() {
+    this.closed = true;
+    for (const listener of this.closeListeners) listener();
+    this.closeListeners.clear();
   }
 }
 

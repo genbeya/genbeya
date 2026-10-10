@@ -68,3 +68,29 @@ describe("WorkspaceRegistry", () => {
     expect(host.dispose).toHaveBeenCalled();
   });
 });
+
+describe("Workspace", () => {
+  it("tells its listeners right away when it closes, without waiting for running operations", async () => {
+    const registry = new WorkspaceRegistry();
+    const { workspace: opened } = workspace();
+    const id = registry.activate(opened);
+    const closing = vi.fn();
+    const forgotten = vi.fn();
+    opened.onClose(closing);
+    opened.onClose(forgotten)();
+    void opened.exclusive(blocking().operation);
+    void registry.close(id);
+    expect(closing).toHaveBeenCalledOnce();
+    expect(forgotten).not.toHaveBeenCalled();
+    opened.dispose();
+    expect(closing).toHaveBeenCalledOnce();
+  });
+
+  it("calls a listener at once when it is closed already", () => {
+    const { workspace: opened } = workspace();
+    opened.dispose();
+    const closing = vi.fn();
+    opened.onClose(closing);
+    expect(closing).toHaveBeenCalledOnce();
+  });
+});

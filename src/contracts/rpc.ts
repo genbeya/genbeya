@@ -46,5 +46,10 @@ export function connectManagers(transport: Transport): Managers {
         },
       ]),
     ) as unknown as Managers[K];
-  return { workspace: connect("workspace"), content: connect("content"), versionControl: connect("versionControl") };
+  return {
+    workspace: connect("workspace"),
+    content: connect("content"),
+    versionControl: connect("versionControl"),
+    terminal: connect("terminal"),
+  };
 }

@@ -1,5 +1,5 @@
 /**
- * The service contracts of the three managers. Clients reach them through a
+ * The service contracts of the managers. Clients reach them through a
  * transport (Electron IPC, a Deno binding or in-page calls under Tauri);
  * every argument is validated by the manager, never trusted.
  */
@@ -20,6 +20,7 @@ import type {
   SyncAction,
   Task,
   TaskInput,
+  TerminalOutput,
 } from "./model";
 
 /** Opening, closing and observing repositories; the user's recent list and preferences. */
@@ -79,10 +80,29 @@ export interface VersionControlManagerContract {
   removeRemote(workspace: string, name: string): Promise<void>;
 }
 
+/**
+ * Shells in the repository, on the repository's machine. Terminals belong to
+ * the repository and end when it closes. Output is collected by reading in a
+ * loop, so it reaches the client over any request and reply bridge.
+ */
+export interface TerminalManagerContract {
+  /** False when this build cannot open terminals. */
+  available(): Promise<boolean>;
+  /** Starts the user's shell in the repository's root; resolves to the terminal's id. */
+  open(workspace: string, cols: number, rows: number): Promise<string>;
+  write(terminal: string, data: string): Promise<void>;
+  resize(terminal: string, cols: number, rows: number): Promise<void>;
+  /** Waits for output, up to half a minute; after the last output it resolves to the exit code. */
+  read(terminal: string): Promise<TerminalOutput>;
+  /** Ends the shell. */
+  close(terminal: string): Promise<void>;
+}
+
 export interface Managers {
   readonly workspace: WorkspaceManagerContract;
   readonly content: ContentManagerContract;
   readonly versionControl: VersionControlManagerContract;
+  readonly terminal: TerminalManagerContract;
 }
 
 type Methods<T> = readonly (keyof T & string)[];
@@ -120,6 +140,7 @@ export const MANAGER_METHODS = {
     "setRemote",
     "removeRemote",
   ],
+  terminal: ["available", "open", "write", "resize", "read", "close"],
 } as const satisfies { [K in keyof Managers]: Methods<Managers[K]> };
 
 export type ManagerName = keyof Managers;
