@@ -6,6 +6,9 @@
 import type {
   CommitDetail,
   Commit,
+  OperationOutcome,
+  StashDetail,
+  StashOptions,
   Diff,
   DiffSource,
   FileContent,
@@ -85,6 +88,14 @@ export interface VersionControlManagerContract {
   sync(workspace: string, action: SyncAction, remote: string): Promise<void>;
   setRemote(workspace: string, name: string, url: string): Promise<void>;
   removeRemote(workspace: string, name: string): Promise<void>;
+  /** Stashes uncommitted changes. */
+  stash(workspace: string, options: StashOptions): Promise<void>;
+  stashDetail(workspace: string, hash: string): Promise<StashDetail>;
+  /** Applies a stash; `pop` also drops it, unless applying it conflicts. */
+  applyStash(workspace: string, hash: string, pop: boolean): Promise<OperationOutcome>;
+  dropStash(workspace: string, hash: string): Promise<void>;
+  /** Creates and switches to a branch at the stash's base commit, applies the stash there and drops it. */
+  branchFromStash(workspace: string, hash: string, name: string): Promise<void>;
 }
 
 /**
@@ -158,6 +169,11 @@ export const MANAGER_METHODS = {
     "sync",
     "setRemote",
     "removeRemote",
+    "stash",
+    "stashDetail",
+    "applyStash",
+    "dropStash",
+    "branchFromStash",
   ],
   terminal: ["available", "open", "write", "resize", "read", "close"],
 } as const satisfies { [K in keyof Managers]: Methods<Managers[K]> };

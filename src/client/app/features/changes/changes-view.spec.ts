@@ -88,6 +88,55 @@ describe("ChangesView", () => {
     expect(managers.versionControl.discard).not.toHaveBeenCalled();
   });
 
+  it("stashes changes with the options the dialog returns", async () => {
+    const { element, dialogs, managers, fixture } = await render([{ path: "a.ts", index: " ", worktree: "M" }]);
+    const options = { message: "Later", includeUntracked: true, keepIndex: false };
+    dialogs.open.mockResolvedValue(options);
+    element.querySelector<HTMLButtonElement>("[aria-label='Stash changes']")!.click();
+    await settle(fixture);
+    expect(managers.versionControl.stash).toHaveBeenCalledWith("w1", options);
+  });
+
+  it("lists stashes and shows the selected one with its files", async () => {
+    const stash = { hash: "a".repeat(40), index: 0, message: "Half done", branch: "main", date: new Date().toISOString() };
+    const harness = await openRepository({ stashes: [stash] });
+    harness.managers.versionControl.stashDetail.mockResolvedValue({
+      stash,
+      files: [{ status: "M", path: "a.ts", commit: stash.hash }],
+    });
+    harness.managers.versionControl.diff.mockResolvedValue({ path: "a.ts", original: "", modified: "x", binary: false });
+    const navigate = vi.spyOn(harness.router, "navigate").mockResolvedValue(true);
+    const fixture = TestBed.createComponent(ChangesView);
+    fixture.componentRef.setInput("stash", stash.hash);
+    await settle(fixture);
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector("[aria-label='Stashes']")!.textContent).toContain("Half done");
+    expect(element.querySelector("gd-stash-pane h2")!.textContent).toBe("Half done");
+    expect(navigate).toHaveBeenCalledWith(["/changes"], { queryParams: { stash: stash.hash, file: "a.ts" }, replaceUrl: true });
+
+    harness.managers.versionControl.applyStash.mockResolvedValue("done");
+    [...element.querySelectorAll<HTMLButtonElement>("gd-stash-pane button")].find((b) => b.textContent!.includes("Pop"))!.click();
+    await settle(fixture);
+    expect(harness.managers.versionControl.applyStash).toHaveBeenCalledWith("w1", stash.hash, true);
+  });
+
+  it("asks before dropping a stash", async () => {
+    const stash = { hash: "b".repeat(40), index: 0, message: "Old", branch: null, date: new Date().toISOString() };
+    const harness = await openRepository({ stashes: [stash] });
+    harness.managers.versionControl.stashDetail.mockResolvedValue({ stash, files: [] });
+    harness.dialogs.confirm.mockResolvedValue(false);
+    const fixture = TestBed.createComponent(ChangesView);
+    fixture.componentRef.setInput("stash", stash.hash);
+    await settle(fixture);
+    const drop = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>("gd-stash-pane button")].find((b) =>
+      b.textContent!.includes("Drop"),
+    )!;
+    drop.click();
+    await settle(fixture);
+    expect(harness.dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Drop stash", danger: true }));
+    expect(harness.managers.versionControl.dropStash).not.toHaveBeenCalled();
+  });
+
   it("selects the first change", async () => {
     const { router } = await render([{ path: "b.ts", index: " ", worktree: "M" }]);
     expect(router.navigate).toHaveBeenCalledWith(["/changes"], { queryParams: { file: "b.ts", staged: null }, replaceUrl: true });

@@ -3,13 +3,12 @@
  * committing, history, branches, remotes. Callers validate their input;
  * this class assumes well-formed paths, names and commit IDs.
  */
-import type { Change, Commit, CommitDetail, DiffSource, Head, Remote, SyncAction } from "../../contracts/model";
+import type { Change, Commit, CommitDetail, DiffSource, Head, Remote, Stash, SyncAction } from "../../contracts/model";
 import { splitIntoBatches } from "../../utilities/serial-queue";
 import { isMissing, isTooLarge, type Host } from "../hosts/host";
-import { Git, GitError } from "./git";
+import { Git, GitError, NETWORK_TIMEOUT } from "./git";
 import { LOG_FORMAT, parseLog, parseNameStatus, parseRemotes } from "./git-parsers";
-
-const NETWORK_TIMEOUT = 5 * 60_000;
+import { StashAccess } from "./stash-access";
 
 export interface RepositoryState {
   readonly files: string[];
@@ -18,16 +17,19 @@ export interface RepositoryState {
   readonly branches: string[];
   readonly remoteBranches: string[];
   readonly remotes: Remote[];
+  readonly stashes: Stash[];
 }
 
 export class RepositoryAccess {
   readonly git: Git;
+  readonly stashes: StashAccess;
 
   constructor(
     private readonly host: Host,
     readonly root: string,
   ) {
     this.git = new Git(host, root);
+    this.stashes = new StashAccess(this.git, () => this.conflicted());
   }
 
   /** The top folder of the repository containing `path`, in the host's path style. */
@@ -47,22 +49,28 @@ export class RepositoryAccess {
   }
 
   async state(): Promise<RepositoryState> {
-    const [files, { head, changes }, refs, remoteText] = await Promise.all([
+    const [files, { head, changes }, refs, remoteText, stashes] = await Promise.all([
       this.git.files(),
       this.git.status(),
       this.git.lines(["for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"]),
       this.git.text(["remote", "-v"]),
+      this.stashes.list(),
     ]);
     const branches = refs.filter((ref) => ref.startsWith("refs/heads/")).map((ref) => ref.slice(11));
     const remoteBranches = refs
       .filter((ref) => ref.startsWith("refs/remotes/") && !ref.endsWith("/HEAD"))
       .map((ref) => ref.slice(13))
       .filter((ref) => !branches.includes(ref.slice(ref.indexOf("/") + 1)));
-    return { files, head, changes, branches, remoteBranches, remotes: parseRemotes(remoteText) };
+    return { files, head, changes, branches, remoteBranches, remotes: parseRemotes(remoteText), stashes };
   }
 
   async changes(): Promise<Change[]> {
     return (await this.git.status()).changes;
+  }
+
+  /** True while files have unresolved conflicts. */
+  async conflicted(): Promise<boolean> {
+    return (await this.changes()).some((change) => change.conflict);
   }
 
   async head(): Promise<Head> {
@@ -132,6 +140,8 @@ export class RepositoryAccess {
   async log(skip: number, limit: number): Promise<Commit[]> {
     const output = await this.git.attempt([
       "log",
+      // Stashes have a list of their own.
+      "--exclude=refs/stash",
       "--all",
       "--topo-order",
       `--skip=${skip}`,

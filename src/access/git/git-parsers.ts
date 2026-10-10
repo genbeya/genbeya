@@ -1,5 +1,16 @@
 /** Parsers for git's machine-readable output formats. */
-import type { Change, Commit, CommitFile, Head } from "../../contracts/model";
+import type { Change, Commit, CommitFile, ConflictKind, Head, Stash } from "../../contracts/model";
+
+/** The XY letters of an unmerged entry in `git status`. */
+const CONFLICTS: Readonly<Record<string, ConflictKind>> = {
+  UU: "both-modified",
+  AA: "both-added",
+  DD: "both-deleted",
+  AU: "added-by-us",
+  UA: "added-by-them",
+  DU: "deleted-by-us",
+  UD: "deleted-by-them",
+};
 
 /** `git status --porcelain=v2 --branch -z` → branch state and changes. */
 export function parseStatus(output: string): { head: Head; changes: Change[] } {
@@ -16,10 +27,15 @@ export function parseStatus(output: string): { head: Head; changes: Change[] } {
       else if (key === "branch.head" && value !== "(detached)") head = { ...head, branch: value };
       else if (key === "branch.upstream") head = { ...head, upstream: value };
       else if (key === "branch.ab") head = { ...head, ahead: Number(rest[0]), behind: -Number(rest[1]) };
-    } else if (record.startsWith("1 ") || record.startsWith("u ")) {
+    } else if (record.startsWith("1 ")) {
       const fields = record.split(" ");
       const xy = fields[1]!;
-      changes.push({ path: fields.slice(record[0] === "1" ? 8 : 10).join(" "), index: letter(xy[0]!), worktree: letter(xy[1]!) });
+      changes.push({ path: fields.slice(8).join(" "), index: letter(xy[0]!), worktree: letter(xy[1]!) });
+    } else if (record.startsWith("u ")) {
+      const fields = record.split(" ");
+      const xy = fields[1]!;
+      const conflict = CONFLICTS[xy];
+      changes.push({ path: fields.slice(10).join(" "), index: xy[0]!, worktree: xy[1]!, ...(conflict ? { conflict } : {}) });
     } else if (record.startsWith("2 ")) {
       const fields = record.split(" ");
       const xy = fields[1]!;
@@ -52,6 +68,23 @@ export function parseLog(output: string): Commit[] {
     });
   }
   return commits;
+}
+
+/** Hash, date and reflog subject of each stash, one per line. */
+export const STASH_FORMAT = "%H%x00%cI%x00%gs";
+
+/** `git stash list` in STASH_FORMAT → stashes, newest first. */
+export function parseStashes(output: string): Stash[] {
+  return output
+    .split("\n")
+    .filter(Boolean)
+    .map((line, index) => {
+      const [hash = "", date = "", subject = ""] = line.split("\0");
+      // "On main: message" or "WIP on main: 1234567 subject"; branch names cannot hold colons.
+      const match = /^(?:WIP on|On) ([^:]+): ([\s\S]*)$/.exec(subject);
+      const branch = match && match[1] !== "(no branch)" ? match[1]! : null;
+      return { hash, index, date, branch, message: match ? match[2]! : subject };
+    });
 }
 
 /** `--name-status -z` output; renames and copies report the new path and keep the old one. */

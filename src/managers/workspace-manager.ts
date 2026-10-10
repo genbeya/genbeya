@@ -175,6 +175,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       remoteBranches: repository.remoteBranches,
       remotes: repository.remotes,
       changes: repository.changes,
+      stashes: repository.stashes,
       files: buildFileTree(repository.files),
       wiki: this.engines.wiki.tree(files, settings),
       tasks,

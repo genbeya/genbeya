@@ -11,6 +11,19 @@ The **Changes** view lists staged and unstaged files. Select a file to see its d
 
 Fetch, pull (fast-forward only) and push sit above the file list, together with how far the branch is ahead of or behind its upstream.
 
+## Stashes
+
+**Stash changes** (the box icon next to **Changes**) sets your uncommitted changes aside and cleans the working tree. Give the stash a message if you like; choose whether untracked files go along and whether staged changes stay in place.
+
+Stashes are listed below the changes, newest first, with the branch they were made on. Select one to see its files and their diffs, then:
+
+- **Pop** applies it and removes it from the list.
+- **Apply** applies it and keeps it.
+- **Branch…** creates a branch at the commit the stash was made on, switches to it and pops the stash there — useful when the stash no longer applies cleanly.
+- **Drop…** deletes it. GitDesk asks first.
+
+When a stash conflicts with your changes, the stash stays in the list.
+
 ## Branches
 
 The branch button at the bottom of the sidebar switches branches; remote branches are checked out as tracking branches. Git refuses a switch that would overwrite local changes — commit or discard them first.

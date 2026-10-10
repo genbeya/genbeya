@@ -126,6 +126,15 @@ export class Session {
     }
   }
 
+  /** Like {@link run}, for actions without a result: resolves to whether the action succeeded. */
+  async succeeded(action: () => Promise<unknown>, success?: string): Promise<boolean> {
+    const done = await this.run(async () => {
+      await action();
+      return true;
+    }, success);
+    return done ?? false;
+  }
+
   /** Call after wiki or task edits: shares them soon when the content branch syncs automatically. */
   contentChanged(): void {
     const storage = this.snapshot()?.storage;

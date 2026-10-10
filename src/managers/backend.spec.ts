@@ -440,6 +440,8 @@ describe("VersionControlManager", () => {
     ["action", (m: Managers, id: string) => m.versionControl.sync(id, "merge" as never, "origin"), "Invalid action."],
     ["remote name", (m: Managers, id: string) => m.versionControl.setRemote(id, "-x", "u"), "Remote names"],
     ["remote URL", (m: Managers, id: string) => m.versionControl.setRemote(id, "origin", "-u"), "valid remote URL"],
+    ["stash message", (m: Managers, id: string) => m.versionControl.stash(id, { message: "a\nb" } as never), "one line"],
+    ["stash", (m: Managers, id: string) => m.versionControl.applyStash(id, "stash@{0}", false), "Invalid stash."],
   ])("rejects an invalid %s", async (_, call, message) => {
     const { managers, id } = await opened();
     await expect(call(managers, id)).rejects.toThrow(message);
@@ -451,6 +453,24 @@ describe("VersionControlManager", () => {
     expect((await latest()).head.branch).toBe("feature/x");
     await versionControl.switchBranch(id, "main");
     expect((await latest()).branches).toEqual(["feature/x", "main"]);
+  });
+
+  it("stashes changes, shows and pops them", async () => {
+    const { versionControl, id, latest, repository } = await opened();
+    const stashOptions = { message: "", includeUntracked: true, keepIndex: false };
+    await expect(versionControl.stash(id, stashOptions)).rejects.toThrow("There are no changes to stash.");
+    await repository.write("new.txt", "new");
+    await expect(versionControl.stash(id, { ...stashOptions, includeUntracked: false })).rejects.toThrow("no changes to stash");
+    await versionControl.stash(id, { ...stashOptions, message: "  Untracked  " });
+    const { stashes, changes } = await latest();
+    expect(changes).toEqual([]);
+    expect(stashes).toEqual([expect.objectContaining({ index: 0, message: "Untracked", branch: "main" })]);
+    const detail = await versionControl.stashDetail(id, stashes[0]!.hash);
+    expect(detail.files.map((file) => file.path)).toEqual(["new.txt"]);
+    expect(await versionControl.applyStash(id, stashes[0]!.hash, true)).toBe("done");
+    expect(await repository.read("new.txt")).toBe("new");
+    expect((await latest()).stashes).toEqual([]);
+    await expect(versionControl.dropStash(id, stashes[0]!.hash)).rejects.toThrow("This stash no longer exists.");
   });
 });
 

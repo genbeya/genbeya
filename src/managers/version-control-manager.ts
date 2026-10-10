@@ -1,6 +1,6 @@
 /** Staging, committing, history, branches and remotes of the checked-out repository. */
 import type { VersionControlManagerContract } from "../contracts/manager-contracts";
-import type { Commit, CommitDetail, Diff, DiffSource, SyncAction } from "../contracts/model";
+import type { Commit, CommitDetail, Diff, DiffSource, OperationOutcome, Stash, StashDetail, SyncAction } from "../contracts/model";
 import { TEXT_LIMIT } from "../access/files/file-store";
 import { isCommitId } from "../access/git/git-parsers";
 import { decodeLenient, isBinary } from "../utilities/bytes";
@@ -8,6 +8,7 @@ import type { Workspace, WorkspaceRegistry } from "./workspace";
 
 const SYNC_ACTIONS: readonly SyncAction[] = ["fetch", "pull", "push"];
 const MESSAGE_LIMIT = 20_000;
+const STASH_MESSAGE_LIMIT = 500;
 const HISTORY_PAGE_LIMIT = 1000;
 const REMOTE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
@@ -106,6 +107,41 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   removeRemote(id: unknown, name: unknown): Promise<void> {
     return this.on(id, async (workspace) => workspace.repository.removeRemote(await this.remoteName(workspace, name)));
+  }
+
+  stash(id: unknown, options: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const { message, includeUntracked, keepIndex } = (options ?? {}) as Partial<Record<string, unknown>>;
+      if (typeof message !== "string" || message.length > STASH_MESSAGE_LIMIT || /[\r\n\0]/.test(message))
+        throw new Error("Stash messages are one line of up to 500 characters.");
+      const untracked = includeUntracked === true;
+      const changes = await workspace.repository.changes();
+      if (!changes.some((change) => change.index !== "?" || untracked)) throw new Error("There are no changes to stash.");
+      await workspace.repository.stashes.push({ message: message.trim(), includeUntracked: untracked, keepIndex: keepIndex === true });
+    });
+  }
+
+  stashDetail(id: unknown, hash: unknown): Promise<StashDetail> {
+    return this.on(id, async (workspace) => workspace.repository.stashes.detail(await this.stashOf(workspace, hash)));
+  }
+
+  applyStash(id: unknown, hash: unknown, pop: unknown): Promise<OperationOutcome> {
+    return this.on(id, async (workspace) => workspace.repository.stashes.apply(await this.stashOf(workspace, hash), pop === true));
+  }
+
+  dropStash(id: unknown, hash: unknown): Promise<void> {
+    return this.on(id, async (workspace) => workspace.repository.stashes.drop(await this.stashOf(workspace, hash)));
+  }
+
+  branchFromStash(id: unknown, hash: unknown, name: unknown): Promise<void> {
+    return this.on(id, async (workspace) =>
+      workspace.repository.stashes.branch(await this.stashOf(workspace, hash), await this.branchName(workspace, name)),
+    );
+  }
+
+  private async stashOf(workspace: Workspace, hash: unknown): Promise<Stash> {
+    if (!isCommitId(hash)) throw new Error("Invalid stash.");
+    return workspace.repository.stashes.find(hash);
   }
 
   private async branchName(workspace: Workspace, name: unknown): Promise<string> {

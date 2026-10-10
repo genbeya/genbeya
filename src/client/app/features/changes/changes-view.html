@@ -47,6 +47,11 @@
         <div class="panel-heading">
           Changes <span class="count">{{ unstagedChanges().length }}</span>
           <span class="grow"></span>
+          @if (snapshot().changes.length) {
+            <button type="button" class="icon-btn" aria-label="Stash changes" title="Stash changes…" (click)="stashes.create()">
+              <svg lucideArchive [size]="13" aria-hidden="true"></svg>
+            </button>
+          }
           @if (unstagedChanges().length) {
             <button
               type="button"
@@ -76,11 +81,34 @@
           <p class="no-changes">Nothing to stage.</p>
         }
       </section>
+      @if (snapshot().stashes.length) {
+        <section aria-label="Stashes">
+          <div class="panel-heading">
+            Stashes <span class="count">{{ snapshot().stashes.length }}</span>
+          </div>
+          @for (entry of snapshot().stashes; track entry.hash) {
+            <button
+              type="button"
+              class="stash-row"
+              [class.is-selected]="entry.hash === stash()"
+              [attr.aria-current]="entry.hash === stash() || null"
+              (click)="selectStash(entry.hash)"
+            >
+              <span class="ellipsis">{{ entry.message || "Stash" }}</span>
+              <span class="stash-row-meta ellipsis">{{ entry.branch ?? "detached HEAD" }} · {{ relativeTime(entry.date) }}</span>
+            </button>
+          }
+        </section>
+      }
     </div>
   </aside>
   <div [gdResizeHandle]="panel"></div>
   <section class="main-pane">
-    @if (current() && file()) {
+    @if (selectedStash(); as entry) {
+      @for (key of [entry.hash]; track key) {
+        <gd-stash-pane [stash]="entry" [file]="file()" />
+      }
+    } @else if (current() && file()) {
       @for (key of [file()! + showsStaged()]; track key) {
         <gd-diff-pane [path]="file()!" [badge]="badge()" [load]="loadDiff()" />
       }

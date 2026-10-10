@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { isCommitId, LOG_FORMAT, parseLog, parseNameStatus, parseRemotes, parseStatus, parseWorktrees } from "./git-parsers";
+import {
+  isCommitId,
+  LOG_FORMAT,
+  parseLog,
+  parseNameStatus,
+  parseRemotes,
+  parseStashes,
+  parseStatus,
+  parseWorktrees,
+  STASH_FORMAT,
+} from "./git-parsers";
 
 describe("parseStatus", () => {
   it("reads branch state and every kind of change", () => {
@@ -14,8 +24,22 @@ describe("parseStatus", () => {
     expect(changes).toEqual([
       { path: "file with spaces.md", index: " ", worktree: "M" },
       { path: "new name.md", oldPath: "old name.md", index: "R", worktree: " " },
-      { path: "conflict.txt", index: "U", worktree: "U" },
+      { path: "conflict.txt", index: "U", worktree: "U", conflict: "both-modified" },
       { path: "untracked.txt", index: "?", worktree: "?" },
+    ]);
+  });
+
+  it("names every kind of conflict", () => {
+    const conflict = (xy: string) => `u ${xy} N... 100644 100644 100644 100644 a a a f.txt`;
+    const kinds = ["UU", "AA", "DD", "AU", "UA", "DU", "UD"].map((xy) => parseStatus(conflict(xy)).changes[0]?.conflict);
+    expect(kinds).toEqual([
+      "both-modified",
+      "both-added",
+      "both-deleted",
+      "added-by-us",
+      "added-by-them",
+      "deleted-by-us",
+      "deleted-by-them",
     ]);
   });
 
@@ -52,6 +76,25 @@ describe("parseNameStatus", () => {
       { status: "R", path: "new.md", oldPath: "old.md" },
       { status: "A", path: "b c.md" },
     ]);
+  });
+});
+
+describe("parseStashes", () => {
+  it("reads the branch and message of each stash, newest first", () => {
+    expect(STASH_FORMAT.split("%x00").length).toBe(3);
+    const a = "a".repeat(40);
+    const b = "b".repeat(40);
+    const c = "c".repeat(40);
+    const output =
+      `${a}\x002026-01-02T00:00:00Z\0On feature/x: Half done: really\n` +
+      `${b}\x002026-01-01T00:00:00Z\0WIP on main: 1234567 Subject\n` +
+      `${c}\x002026-01-01T00:00:00Z\0On (no branch): Detached\n`;
+    expect(parseStashes(output)).toEqual([
+      { hash: a, index: 0, date: "2026-01-02T00:00:00Z", branch: "feature/x", message: "Half done: really" },
+      { hash: b, index: 1, date: "2026-01-01T00:00:00Z", branch: "main", message: "1234567 Subject" },
+      { hash: c, index: 2, date: "2026-01-01T00:00:00Z", branch: null, message: "Detached" },
+    ]);
+    expect(parseStashes("")).toEqual([]);
   });
 });
 
