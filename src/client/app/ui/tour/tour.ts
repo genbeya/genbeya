@@ -5,7 +5,7 @@
  * missing (a view without content, a feature this build lacks) are skipped.
  */
 import { ApplicationRef, type ComponentRef, createComponent, EnvironmentInjector, Injectable, inject, signal } from "@angular/core";
-import { Router } from "@angular/router";
+import { isActive, Router } from "@angular/router";
 import type { TourPlacement } from "./tour-placement";
 
 export interface TourStep {
@@ -16,7 +16,7 @@ export interface TourStep {
   readonly body: string;
   /** The preferred side of the element; the popover moves to another when this one has no room. */
   readonly placement?: TourPlacement;
-  /** The router URL the element is on; the tour goes there first. */
+  /** The router URL the element is on; the tour goes there first, unless the path is shown already. */
   readonly route?: string;
   /** Something to try right away, such as "Press Ctrl+K". */
   readonly tryIt?: string;
@@ -106,7 +106,9 @@ export class Tour {
     this.searching.set(true);
     for (let index = from; index >= 0 && index < this.steps.length; index += direction) {
       const step = this.steps[index]!;
-      if (step.route) await this.router.navigateByUrl(step.route).catch(() => false);
+      // Already there, the view keeps what it shows (the open page, say).
+      if (step.route && !isActive(step.route, this.router, { paths: "exact" })())
+        await this.router.navigateByUrl(step.route).catch(() => false);
       const target = await waitForTarget(step.target, step.route ? TARGET_WAIT.route : TARGET_WAIT.inPlace);
       if (move !== this.moves) return;
       if (target) {

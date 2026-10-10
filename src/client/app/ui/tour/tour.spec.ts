@@ -103,6 +103,17 @@ describe("Tour", () => {
     expect(navigate).toHaveBeenCalledWith("/tasks");
   });
 
+  it("stays on a route that is shown already, whatever its view shows", async () => {
+    const router = TestBed.inject(Router);
+    router.resetConfig([{ path: "tasks", children: [] }]);
+    await router.navigateByUrl("/tasks?task=TP-1");
+    const navigate = vi.spyOn(router, "navigateByUrl");
+    place("routed");
+    void tour.start([step("routed", { route: "/tasks" })]);
+    await showing("1 of 1");
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it("is driven by the keyboard and moves the focus along", async () => {
     place("one", "two");
     const field = document.createElement("input");
