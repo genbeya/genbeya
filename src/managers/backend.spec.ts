@@ -299,6 +299,15 @@ describe("ContentManager", () => {
     await expect(content.createTask(id, { ...input, epic: "../outside" })).rejects.toThrow("epic");
   });
 
+  it("files tasks under an epic's existing spelling", async () => {
+    const { content, id } = await opened();
+    const first = await content.createTask(id, { ...input, epic: "Auth" });
+    const second = await content.createTask(id, { ...input, title: "Second", epic: "auth" });
+    expect(second).toMatchObject({ path: "tasks/Auth/TP-2.md", epic: "Auth" });
+    const updated = await content.updateTask(id, first.path, { ...input, epic: "AUTH", status: "done" }, first.hash);
+    expect(updated).toMatchObject({ path: "tasks/Auth/TP-1.md", epic: "Auth", status: "done" });
+  });
+
   it("skips task IDs whose files exist in any epic", async () => {
     const { content, id } = await opened({ ".gitdesk.yml": "name: T\ntaskPrefix: TP\n", "tasks/Old/TP-1.md": "not a task" });
     expect((await content.createTask(id, input)).id).toBe("TP-2");

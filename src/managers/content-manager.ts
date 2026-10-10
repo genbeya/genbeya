@@ -117,7 +117,8 @@ export class ContentManager implements ContentManagerContract {
         existing.map((task) => task.id),
         (candidate) => fileNames.has(`${candidate}.md`),
       );
-      const path = workspace.path(this.engines.tasks.pathOf(settings.taskRoot, valid.epic, taskId));
+      const epic = this.engines.tasks.existingSpelling(valid.epic, files, settings.taskRoot);
+      const path = workspace.path(this.engines.tasks.pathOf(settings.taskRoot, epic, taskId));
       const file = await (await workspace.content.locate()).files.write(path, this.engines.tasks.serializeNew(taskId, valid), null);
       await workspace.content.record([path], `Create ${taskId}: ${valid.title}`);
       return this.engines.tasks.parse(path, file.content, file.hash, settings.taskRoot);
@@ -133,10 +134,9 @@ export class ContentManager implements ContentManagerContract {
       if (original.hash !== expectedHash) throw new Error("This task changed on disk. Reopen it to see the latest version.");
       const task = this.engines.tasks.parse(relative, original.content, original.hash, settings.taskRoot);
       // Another epic is another folder; the file keeps its name.
+      const epic = this.engines.tasks.existingSpelling(valid.epic, await workspace.content.files(), settings.taskRoot);
       const target =
-        valid.epic === task.epic
-          ? relative
-          : workspace.path(this.engines.tasks.pathOf(settings.taskRoot, valid.epic, baseName(relative).slice(0, -3)));
+        epic === task.epic ? relative : workspace.path(this.engines.tasks.pathOf(settings.taskRoot, epic, baseName(relative).slice(0, -3)));
       if (target !== relative) await files.moveAll([[relative, target]]);
       const file = await files.write(target, this.engines.tasks.serializeUpdate(original.content, valid), original.hash);
       await workspace.content.record([...new Set([relative, target])], `Update ${task.id}: ${valid.title}`);
