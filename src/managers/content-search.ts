@@ -1,8 +1,8 @@
 /**
- * Full-text search of an open repository. With wiki and tasks on a
- * dedicated branch, the checkout supplies the code and the branch's
- * worktree the pages and tasks, so copies left in the checkout are not
- * listed twice.
+ * Full-text search of an open repository. The checkout supplies the code,
+ * and the wiki and the tasks come from wherever their area lives, so the
+ * copy an area on the content branch left in the checkout (or the reverse)
+ * is not listed twice.
  */
 import type { SearchArea, SearchHit, SearchMatch, SearchRange, SearchResults, Settings, Task, TaskSearchHit } from "../contracts/model";
 import type { FileStore } from "../access/files/file-store";
@@ -30,13 +30,14 @@ interface Source {
 
 export async function searchContent(workspace: Workspace, engines: SearchEngines, query: SearchQuery): Promise<SearchResults> {
   const { settings } = await workspace.settings();
-  const content = await workspace.content.locate();
-  const sources: Source[] = content.branch
-    ? [
-        { git: workspace.repository.git, areas: ["code"] },
-        { git: content.git, areas: ["wiki", "tasks"] },
-      ]
-    : [{ git: workspace.repository.git, areas: AREAS }];
+  const located = { wiki: await workspace.content.locate("wiki"), tasks: await workspace.content.locate("tasks") };
+  // One source per working tree: code is in the checkout, wiki and tasks wherever their area lives.
+  const byRoot = new Map<string, Source>([[workspace.checkout.root, { git: workspace.repository.git, areas: ["code"] }]]);
+  for (const area of ["wiki", "tasks"] as const) {
+    const { root, git } = located[area];
+    byRoot.set(root, { git, areas: [...(byRoot.get(root)?.areas ?? []), area] });
+  }
+  const sources = [...byRoot.values()];
 
   // The files with a match, at most so many per area; then only their lines are read.
   let truncated = false;
@@ -70,7 +71,7 @@ export async function searchContent(workspace: Workspace, engines: SearchEngines
       return [{ path, scope: area === "code" ? "repo" : "content", title, matches: matches.slice(0, SEARCH_LIMITS.matchesPerFile) }];
     });
   const [wiki, tasks, code] = [hits("wiki"), hits("tasks"), hits("code")];
-  return { wiki, tasks: await describeTasks(content.files, engines.tasks, settings, tasks), code, truncated };
+  return { wiki, tasks: await describeTasks(located.tasks.files, engines.tasks, settings, tasks), code, truncated };
 }
 
 /** The matching lines of one file, each with the lines around it. */

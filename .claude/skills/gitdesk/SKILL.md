@@ -14,8 +14,9 @@ Edit the files directly; GitDesk picks up changes on its own.
 
 ## Find the files
 
-1. Run `git worktree list`. A worktree inside `.git/gitdesk/` holds GitDesk's _content branch_ (`gitdesk`, or the branch `git config gitdesk.branch` names). Whatever of `.gitdesk.yml`, the wiki folder and the task folder exists there lives there, not in the checkout: read and edit it in that worktree, and commit your edits there (`git -C <worktree> add …` and `git -C <worktree> commit -m …`). Never copy those files into the checkout. GitDesk pushes the content branch when someone syncs it.
-2. Read `.gitdesk.yml`. When it disagrees with the values below, the file wins:
+1. Run `git worktree list`. A worktree inside `.git/gitdesk/` holds GitDesk's _content branch_ (`gitdesk`, or the branch `git config gitdesk.branch` names). Its `.gitdesk-content` file says where each area lives: `wiki`, `tasks` and `settings` (`.gitdesk.yml`) set to `branch` live in that worktree, those set to `checkout` in the checkout; a content branch without that file holds all three. Without such a worktree, everything lives in the checkout.
+   - Read and edit each area where it lives. Commit edits on the content branch right away, in that worktree (`git -C <worktree> add …` and `git -C <worktree> commit -m …`); GitDesk pushes them when someone syncs. Never copy files between the content branch and the checkout: the copy in the other place is out of date.
+2. Read `.gitdesk.yml` where the settings live. When it disagrees with the values below, the file wins:
    - `wikiRoot` is the wiki folder (here `docs`), `wikiHome` its home page relative to that folder (here `Home.md`).
    - `taskRoot` is the task folder (here `tasks`), `taskPrefix` the prefix of task IDs (here `GD`).
    - `statuses` are the workflow states in board order: the first is where new ideas wait, the last means done. An entry is a state's name, or a mapping whose `name` is the state.

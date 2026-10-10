@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { RepositoryAccess } from "../access/git/repository-access";
 import type { Host } from "../access/hosts/host";
+import { LocalHost } from "../access/hosts/local-host";
 import { SettingsEngine } from "../engines/settings-engine";
 import { TaskEngine } from "../engines/task-engine";
+import { nodeMachine } from "../platforms/node/node-machine";
+import { createRepository, DEFAULT_FILES } from "../testing/repository";
 import { posixPaths } from "../utilities/native-path";
 import { Workspace, WorkspaceRegistry } from "./workspace";
 
@@ -105,5 +108,23 @@ describe("Workspace", () => {
     const closing = vi.fn();
     opened.onRelease(closing);
     expect(closing).toHaveBeenCalledOnce();
+  });
+
+  it("finds where a content path lives by its area", async () => {
+    const repository = await createRepository({ ...DEFAULT_FILES, ".gitdesk.yml": "name: Test\ntaskRoot: work\n" });
+    const host = new LocalHost(nodeMachine());
+    const root = host.paths.normalize(repository.root);
+    const opened = new Workspace({ kind: "local", path: root }, host, new RepositoryAccess(host, root), {
+      settings: new SettingsEngine(),
+      tasks: new TaskEngine(),
+    });
+    await opened.content.setStorage("tasks", "branch", "work");
+
+    expect(await opened.areaOf(".gitdesk.yml")).toBe("settings");
+    expect(await opened.areaOf("work/Epic/T-1.md")).toBe("tasks");
+    expect(await opened.areaOf("docs/Home.md")).toBe("wiki");
+    expect(await opened.areaOf("images/logo.png")).toBe("wiki");
+    expect((await opened.locateContent("work/T-1.md")).branch).toBe("gitdesk");
+    expect(await opened.locateContent("docs/Home.md")).toMatchObject({ branch: null, root });
   });
 });

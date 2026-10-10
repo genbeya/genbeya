@@ -34,6 +34,6 @@ The status line counts the matches. Search lists up to 30 files per group and 10
 
 - Files Git tracks, and new files not committed yet, such as a page created a moment ago.
 - Not files that `.gitignore` excludes, and not binary files such as images.
-- With wiki and tasks on a [[Content branch]], pages and tasks come from that branch and code from your checkout; copies of the wiki left in the checkout are not listed twice.
+- Pages and tasks come from wherever their area lives, the checkout or the [[Content branch]], and code from your checkout; the copy an area on the content branch left in the checkout is not listed twice.
 
 Search runs `git grep` on the machine the repository lives on, so it works the same for repositories on WSL and over SSH.

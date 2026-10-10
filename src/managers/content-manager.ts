@@ -2,9 +2,12 @@
 import type { ContentManagerContract } from "../contracts/manager-contracts";
 import {
   AGENT_TARGETS,
+  CONTENT_AREAS,
+  STORAGE_MODES,
   type AgentFile,
   type AgentFileWrite,
   type AgentTarget,
+  type ContentArea,
   type FileContent,
   type LinkUpdate,
   type PageMove,
@@ -16,6 +19,7 @@ import {
   type TaskActivity,
   type TaskInput,
 } from "../contracts/model";
+import type { ContentLocation } from "../access/content/content-store";
 import { IMAGE_LIMIT, type VersionedFile } from "../access/files/file-store";
 import { isMissing } from "../access/hosts/host";
 import type { AgentEngine } from "../engines/agent-engine";
@@ -40,7 +44,6 @@ const IMAGE_TYPES: Readonly<Record<string, string>> = {
   avif: "image/avif",
 };
 
-const STORAGE_MODES: readonly StorageMode[] = ["worktree", "branch"];
 /** Commits a task's activity lists at most. */
 const ACTIVITY_LIMIT = 100;
 /** Larger task files list their commits without what changed, so the history stays small. */
@@ -70,7 +73,8 @@ export class ContentManager implements ContentManagerContract {
 
   read(id: unknown, scope: unknown, path: unknown): Promise<FileContent> {
     return this.on(id, async (workspace) => {
-      const file = await (await workspace.files(scope as Scope)).read(workspace.path(path));
+      const relative = workspace.path(path);
+      const file = await (await workspace.files(scope as Scope, relative)).read(relative);
       return { scope: scope as Scope, ...file };
     });
   }
@@ -80,7 +84,7 @@ export class ContentManager implements ContentManagerContract {
       const relative = workspace.path(path);
       const type = IMAGE_TYPES[relative.slice(relative.lastIndexOf(".") + 1).toLowerCase()];
       if (!type) throw new Error(`${relative} is not a supported image.`);
-      const data = await (await workspace.files(scope as Scope)).readBytes(relative, IMAGE_LIMIT);
+      const data = await (await workspace.files(scope as Scope, relative)).readBytes(relative, IMAGE_LIMIT);
       return `data:${type};base64,${toBase64(data)}`;
     });
   }
@@ -89,7 +93,7 @@ export class ContentManager implements ContentManagerContract {
     return this.on(id, async (workspace) => {
       const relative = workspace.path(path);
       if (typeof content !== "string") throw new Error("Invalid content.");
-      const file = await (await workspace.files(scope as Scope)).write(relative, content, this.version(expectedHash));
+      const file = await (await workspace.files(scope as Scope, relative)).write(relative, content, this.version(expectedHash));
       await this.afterEdit(workspace, scope as Scope, relative, `Edit ${relative}`);
       return { scope: scope as Scope, ...file };
     });
@@ -98,7 +102,7 @@ export class ContentManager implements ContentManagerContract {
   remove(id: unknown, scope: unknown, path: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
       const relative = workspace.path(path);
-      await (await workspace.files(scope as Scope)).remove(relative);
+      await (await workspace.files(scope as Scope, relative)).remove(relative);
       await this.afterEdit(workspace, scope as Scope, relative, `Delete ${relative}`);
     });
   }
@@ -106,8 +110,8 @@ export class ContentManager implements ContentManagerContract {
   createPage(id: unknown, path: unknown): Promise<FileContent> {
     return this.on(id, async (workspace) => {
       const page = await this.pagePath(workspace, path);
-      const file = await (await workspace.content.locate()).files.write(page, this.engines.wiki.newPage(page), null);
-      await workspace.content.record([page], `Create page ${this.engines.wiki.titleOf(page)}`);
+      const file = await (await workspace.content.locate("wiki")).files.write(page, this.engines.wiki.newPage(page), null);
+      await workspace.content.record("wiki", [page], `Create page ${this.engines.wiki.titleOf(page)}`);
       return { scope: "content", ...file };
     });
   }
@@ -125,19 +129,18 @@ export class ContentManager implements ContentManagerContract {
       const { source, target, moves } = await this.pageMove(workspace, from, to);
       if (!moves.length) return target;
       const rewrites = updateLinks ? await this.linkRewrites(workspace, moves) : [];
-      const { files } = await workspace.content.locate();
-      await files.moveAll(moves);
-      const updated: string[] = [];
+      await (await workspace.content.locate("wiki")).files.moveAll(moves);
+      // One commit per location: the wiki's, and the tasks' when they live elsewhere.
+      const updated: Record<"wiki" | "tasks", string[]> = { wiki: [], tasks: [] };
       for (const rewrite of rewrites) {
         const path = relocate(rewrite.path, moves) ?? rewrite.path;
-        await files.write(path, rewrite.content, rewrite.hash);
-        updated.push(path);
+        await (await workspace.content.locate(rewrite.area)).files.write(path, rewrite.content, rewrite.hash);
+        updated[rewrite.area].push(path);
       }
       const message = `Move page ${this.engines.wiki.titleOf(source)} to ${target}`;
-      await workspace.content.record(
-        [...moves.flat(), ...updated],
-        updated.length ? `${message}\n\nUpdate links in ${updated.join(", ")}.` : message,
-      );
+      const describe = (paths: readonly string[]) => (paths.length ? `${message}\n\nUpdate links in ${paths.join(", ")}.` : message);
+      await workspace.content.record("wiki", [...moves.flat(), ...updated.wiki], describe(updated.wiki));
+      if (updated.tasks.length) await workspace.content.record("tasks", updated.tasks, describe(updated.tasks));
       return target;
     });
   }
@@ -146,10 +149,10 @@ export class ContentManager implements ContentManagerContract {
     return this.on(id, async (workspace) => {
       const page = await this.pagePath(workspace, path);
       const folder = this.engines.wiki.subpageFolder(page);
-      if ((await workspace.content.files()).some((file) => within(file, folder)))
+      if ((await workspace.content.files("wiki")).some((file) => within(file, folder)))
         throw new Error("This page has subpages. Move or delete them first.");
-      await (await workspace.content.locate()).files.remove(page);
-      await workspace.content.record([page], `Delete page ${this.engines.wiki.titleOf(page)}`);
+      await (await workspace.content.locate("wiki")).files.remove(page);
+      await workspace.content.record("wiki", [page], `Delete page ${this.engines.wiki.titleOf(page)}`);
     });
   }
 
@@ -157,7 +160,7 @@ export class ContentManager implements ContentManagerContract {
     return this.on(id, async (workspace) => {
       const { settings } = await workspace.settings();
       const valid = this.engines.tasks.validate(input as TaskInput, settings.statuses);
-      const files = await workspace.content.files();
+      const files = await workspace.content.files("tasks");
       const existing = await workspace.tasks(files, settings, []);
       // A free ID may still name a file in some epic, e.g. a task renamed on another branch.
       const fileNames = new Set(files.filter((file) => within(file, settings.taskRoot)).map(baseName));
@@ -168,8 +171,8 @@ export class ContentManager implements ContentManagerContract {
       );
       const epic = this.engines.tasks.existingSpelling(valid.epic, files, settings.taskRoot);
       const path = workspace.path(this.engines.tasks.pathOf(settings.taskRoot, epic, taskId));
-      const file = await (await workspace.content.locate()).files.write(path, this.engines.tasks.serializeNew(taskId, valid), null);
-      await workspace.content.record([path], `Create ${taskId}: ${valid.title}`);
+      const file = await (await workspace.content.locate("tasks")).files.write(path, this.engines.tasks.serializeNew(taskId, valid), null);
+      await workspace.content.record("tasks", [path], `Create ${taskId}: ${valid.title}`);
       return this.engines.tasks.parse(path, file.content, file.hash, settings.taskRoot);
     });
   }
@@ -178,17 +181,17 @@ export class ContentManager implements ContentManagerContract {
     return this.on(id, async (workspace) => {
       const { relative, settings } = await this.taskPath(workspace, path);
       const valid = this.engines.tasks.validate(input as TaskInput, settings.statuses);
-      const { files } = await workspace.content.locate();
+      const { files } = await workspace.content.locate("tasks");
       const original = await files.read(relative);
       if (original.hash !== expectedHash) throw new Error("This task changed on disk. Reopen it to see the latest version.");
       const task = this.engines.tasks.parse(relative, original.content, original.hash, settings.taskRoot);
       // Another epic is another folder; the file keeps its name.
-      const epic = this.engines.tasks.existingSpelling(valid.epic, await workspace.content.files(), settings.taskRoot);
+      const epic = this.engines.tasks.existingSpelling(valid.epic, await workspace.content.files("tasks"), settings.taskRoot);
       const target =
         epic === task.epic ? relative : workspace.path(this.engines.tasks.pathOf(settings.taskRoot, epic, baseName(relative).slice(0, -3)));
       if (target !== relative) await files.moveAll([[relative, target]]);
       const file = await files.write(target, this.engines.tasks.serializeUpdate(original.content, valid), original.hash);
-      await workspace.content.record([...new Set([relative, target])], `Update ${task.id}: ${valid.title}`);
+      await workspace.content.record("tasks", [...new Set([relative, target])], `Update ${task.id}: ${valid.title}`);
       return this.engines.tasks.parse(target, file.content, file.hash, settings.taskRoot);
     });
   }
@@ -196,7 +199,7 @@ export class ContentManager implements ContentManagerContract {
   deleteTask(id: unknown, path: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
       const { relative, settings } = await this.taskPath(workspace, path);
-      const { files } = await workspace.content.locate();
+      const { files } = await workspace.content.locate("tasks");
       const original = await files.read(relative);
       let taskId = baseName(relative).slice(0, -3);
       try {
@@ -205,17 +208,17 @@ export class ContentManager implements ContentManagerContract {
         /* Unreadable task files can be deleted too. */
       }
       await files.remove(relative);
-      await workspace.content.record([relative], `Delete ${taskId}`);
+      await workspace.content.record("tasks", [relative], `Delete ${taskId}`);
     });
   }
 
   taskActivity(id: unknown, path: unknown): Promise<readonly TaskActivity[]> {
     return this.on(id, async (workspace) => {
       const { relative, settings } = await this.taskPath(workspace, path);
-      const current = await (await workspace.content.locate()).files.read(relative);
+      const current = await (await workspace.content.locate("tasks")).files.read(relative);
       const committed = await this.lastCommitted(workspace, relative, settings.taskRoot);
       const contents = current.content.length <= ACTIVITY_CONTENT_LIMIT;
-      const revisions = committed ? await workspace.content.history(committed.path, ACTIVITY_LIMIT, contents) : [];
+      const revisions = committed ? await workspace.content.history("tasks", committed.path, ACTIVITY_LIMIT, contents) : [];
       const activity: TaskActivity[] = revisions.map((revision) => ({
         commit: revision.hash,
         author: revision.author,
@@ -249,12 +252,12 @@ export class ContentManager implements ContentManagerContract {
       const { relative, settings } = await this.taskPath(workspace, path);
       const comment = this.engines.tasks.validComment(text);
       const author = await this.author(workspace);
-      const { files } = await workspace.content.locate();
+      const { files } = await workspace.content.locate("tasks");
       // Comments go last whatever changed meanwhile, so adding one needs no version.
       const original = await files.read(relative);
       const task = this.engines.tasks.parse(relative, original.content, original.hash, settings.taskRoot);
       const file = await files.write(relative, this.engines.tasks.addComment(original.content, author, new Date(), comment), original.hash);
-      await workspace.content.record([relative], `Comment on ${task.id}`);
+      await workspace.content.record("tasks", [relative], `Comment on ${task.id}`);
       return this.engines.tasks.parse(relative, file.content, file.hash, settings.taskRoot);
     });
   }
@@ -283,7 +286,7 @@ export class ContentManager implements ContentManagerContract {
     return this.on(id, async (workspace) => {
       const { relative, settings } = await this.taskPath(workspace, path);
       if (!Number.isInteger(index) || (index as number) < 0) throw new Error("Invalid comment.");
-      const { files } = await workspace.content.locate();
+      const { files } = await workspace.content.locate("tasks");
       const original = await files.read(relative);
       if (original.hash !== expectedHash) throw new Error("This task changed on disk. Reopen it to see the latest version.");
       const task = this.engines.tasks.parse(relative, original.content, original.hash, settings.taskRoot);
@@ -291,7 +294,7 @@ export class ContentManager implements ContentManagerContract {
       if (!comment) throw new Error("This comment no longer exists. Reopen the task to see the latest version.");
       if (comment.author !== (await this.author(workspace))) throw new Error("You can only change your own comments.");
       const file = await files.write(relative, change(original.content, index as number), original.hash);
-      await workspace.content.record([relative], `${message} ${task.id}`);
+      await workspace.content.record("tasks", [relative], `${message} ${task.id}`);
       return this.engines.tasks.parse(relative, file.content, file.hash, settings.taskRoot);
     });
   }
@@ -308,29 +311,31 @@ export class ContentManager implements ContentManagerContract {
    * another epic since, the committed file with its name (IDs are unique).
    */
   private async lastCommitted(workspace: Workspace, relative: string, taskRoot: string): Promise<TaskVersion | null> {
-    const content = await workspace.content.committed(relative);
+    const content = await workspace.content.committed("tasks", relative);
     if (content !== null) return { path: relative, content };
     const name = baseName(relative);
-    const moved = (await workspace.content.committedFiles(taskRoot)).find((file) => baseName(file) === name);
-    return moved ? { path: moved, content: await workspace.content.committed(moved) } : null;
+    const moved = (await workspace.content.committedFiles("tasks", taskRoot)).find((file) => baseName(file) === name);
+    return moved ? { path: moved, content: await workspace.content.committed("tasks", moved) } : null;
   }
 
   saveSettings(id: unknown, settings: unknown, expectedHash: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
-      const { files } = await workspace.content.locate();
+      const { files } = await workspace.content.locate("settings");
       const version = this.version(expectedHash);
       const previous = version === null ? null : (await files.read(SETTINGS_FILE)).content;
       await files.write(SETTINGS_FILE, this.engines.settings.serialize(settings as Settings, previous, workspace.windows), version);
       workspace.forgetSettings();
-      await workspace.content.record([SETTINGS_FILE], "Update GitDesk settings");
+      await workspace.content.record("settings", [SETTINGS_FILE], "Update GitDesk settings");
     });
   }
 
-  setStorage(id: unknown, mode: unknown): Promise<void> {
+  setStorage(id: unknown, area: unknown, mode: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
+      if (!CONTENT_AREAS.includes(area as ContentArea)) throw new Error("Invalid content area.");
       if (!STORAGE_MODES.includes(mode as StorageMode)) throw new Error("Invalid storage mode.");
       const { settings } = await workspace.settings();
-      await workspace.content.setMode(mode as StorageMode, [settings.wikiRoot, settings.taskRoot, SETTINGS_FILE]);
+      const paths: Readonly<Record<ContentArea, string>> = { wiki: settings.wikiRoot, tasks: settings.taskRoot, settings: SETTINGS_FILE };
+      await workspace.content.setStorage(area as ContentArea, mode as StorageMode, paths[area as ContentArea]);
       workspace.forgetSettings();
     });
   }
@@ -402,10 +407,10 @@ export class ContentManager implements ContentManagerContract {
     return value;
   }
 
-  /** Content edits are committed on a dedicated branch; settings edits are re-read. */
+  /** Content edits are committed when their area lives on the content branch; settings edits are re-read. */
   private async afterEdit(workspace: Workspace, scope: Scope, path: string, message: string) {
     if (scope === "content" || path === SETTINGS_FILE) workspace.forgetSettings();
-    if (scope === "content") await workspace.content.record([path], message);
+    if (scope === "content") await workspace.content.record(await workspace.areaOf(path), [path], message);
   }
 
   private moveOptions(value: unknown): PageMove {
@@ -420,7 +425,7 @@ export class ContentManager implements ContentManagerContract {
   private async pageMove(workspace: Workspace, from: unknown, to: unknown) {
     const source = await this.pagePath(workspace, from);
     const target = await this.pagePath(workspace, to);
-    const { files } = await workspace.content.locate();
+    const { files } = await workspace.content.locate("wiki");
     const hasSubpages = (await files.kind(this.engines.wiki.subpageFolder(source))) === "dir";
     const moves = this.engines.wiki.planMove(source, target, hasSubpages);
     // Subpage folders are derived names: on Windows the page `docs/GIT~1.md` has the folder `docs/GIT~1`.
@@ -428,20 +433,41 @@ export class ContentManager implements ContentManagerContract {
     return { source, target, moves };
   }
 
-  /** The Markdown files of the content location whose links `moves` would break, rewritten, with the versions they were read at. */
-  private async linkRewrites(workspace: Workspace, moves: readonly [string, string][]): Promise<(LinkRewrite & { hash: string })[]> {
+  /**
+   * The Markdown files whose links `moves` would break, rewritten, with the
+   * versions they were read at: the files where the wiki lives, and the task
+   * folder where the tasks live when that is elsewhere. `area` names the
+   * location each is written to.
+   */
+  private async linkRewrites(
+    workspace: Workspace,
+    moves: readonly [string, string][],
+  ): Promise<(LinkRewrite & { hash: string; area: "wiki" | "tasks" })[]> {
     if (!moves.length) return [];
     const { settings } = await workspace.settings();
-    const files = await workspace.content.files();
-    const paths = files.filter((file) => file.toLowerCase().endsWith(".md"));
-    const contents = await (await workspace.content.locate()).files.readMany(paths);
-    const documents = contents.filter((file): file is VersionedFile => !!file && !(file instanceof Error));
-    const tasks = await workspace.tasks(files, settings, []);
+    const wiki = await workspace.content.locate("wiki");
+    const tasks = await workspace.content.locate("tasks");
+    const together = wiki.root === tasks.root;
+    // Where the tasks live elsewhere, the wiki's location holds at most a stale copy of them.
+    const wikiFiles = (await wiki.git.files()).filter((file) => together || !within(file, settings.taskRoot));
+    const taskFiles = together ? [] : (await tasks.git.files()).filter((file) => within(file, settings.taskRoot));
+    const read = async (location: ContentLocation, list: readonly string[]) =>
+      (await location.files.readMany(list.filter((file) => file.toLowerCase().endsWith(".md")))).filter(
+        (file): file is VersionedFile => !!file && !(file instanceof Error),
+      );
+    const documents = [...(await read(wiki, wikiFiles)), ...(await read(tasks, taskFiles))];
+    const files = [...wikiFiles, ...taskFiles];
+    const taskList = await workspace.tasks(together ? wikiFiles : taskFiles, settings, []);
     const index = (list: readonly string[]) =>
-      referenceIndex({ wikiRoot: settings.wikiRoot, pages: this.engines.wiki.pages(list, settings), tasks, files: list });
+      referenceIndex({ wikiRoot: settings.wikiRoot, pages: this.engines.wiki.pages(list, settings), tasks: taskList, files: list });
     const context = { moves, before: index(files), after: index(files.map((file) => relocate(file, moves) ?? file)) };
     const hashes = new Map(documents.map((file) => [file.path, file.hash]));
-    return this.engines.links.rewrite(documents, context).map((rewrite) => ({ ...rewrite, hash: hashes.get(rewrite.path)! }));
+    const elsewhere = new Set(taskFiles);
+    return this.engines.links.rewrite(documents, context).map((rewrite) => ({
+      ...rewrite,
+      hash: hashes.get(rewrite.path)!,
+      area: elsewhere.has(rewrite.path) ? "tasks" : "wiki",
+    }));
   }
 
   private async pagePath(workspace: Workspace, value: unknown): Promise<string> {

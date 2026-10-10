@@ -83,36 +83,52 @@
     </section>
 
     <section class="settings-section" aria-labelledby="storage-heading">
-      <h2 id="storage-heading">Where wiki and tasks live</h2>
-      <p class="settings-note">On a dedicated branch, documentation and tasks stay the same on every code branch and sync independently.</p>
+      <h2 id="storage-heading">Where content lives</h2>
+      <p class="settings-note">
+        In the checkout, files change with each code branch and you commit them like code. On the shared content branch, they are the same
+        on every code branch, each edit is committed right away, and Sync shares them. Everyone gets these choices through the content
+        branch.
+      </p>
       <div class="settings-card">
-        <div class="storage-options" role="radiogroup" aria-labelledby="storage-heading">
-          <button
-            type="button"
-            role="radio"
-            class="storage-option"
-            [attr.aria-checked]="snapshot().storage.mode === 'worktree'"
-            [class.is-active]="snapshot().storage.mode === 'worktree'"
-            (click)="setStorage('worktree')"
-          >
-            <strong>Checked-out branch</strong>
-            <span>Files live next to the code and change with each branch. Commit them like code.</span>
-          </button>
-          <button
-            type="button"
-            role="radio"
-            class="storage-option"
-            [attr.aria-checked]="snapshot().storage.mode === 'branch'"
-            [class.is-active]="snapshot().storage.mode === 'branch'"
-            (click)="setStorage('branch')"
-          >
-            <strong>Dedicated branch</strong>
-            <span
-              >Files live on the <code>{{ contentBranch() }}</code> branch. Every edit is committed automatically.</span
-            >
-          </button>
-        </div>
-        @if (snapshot().storage.mode === "branch") {
+        @for (item of areas(); track item.area) {
+          <div class="setting-row">
+            <div class="setting-label">
+              <span [id]="'storage-' + item.area">{{ item.label }}</span
+              ><small>{{ item.hint }}</small>
+            </div>
+            <div class="setting-control">
+              <div class="segmented" role="radiogroup" [attr.aria-labelledby]="'storage-' + item.area">
+                @for (option of storageModes; track option.mode) {
+                  <button
+                    type="button"
+                    role="radio"
+                    [attr.aria-checked]="snapshot().storage.areas[item.area] === option.mode"
+                    [class.is-active]="snapshot().storage.areas[item.area] === option.mode"
+                    (click)="setStorage(item.area, option.mode)"
+                  >
+                    {{ option.label }}
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        }
+        @if (sharedBranch(); as branch) {
+          <div class="setting-row content-branch">
+            <div class="setting-label">
+              <span>Content branch</span><small>Checked out separately inside <code>.git</code>.</small>
+            </div>
+            <div class="setting-control">
+              <code>{{ branch.name }}</code>
+              <span class="content-branch-state">{{ branch.remote ? "on " + branch.remote : "not shared yet" }}</span>
+              @if (branch.ahead) {
+                <span class="content-branch-state">{{ branch.ahead }} to push</span>
+              }
+              @if (branch.behind) {
+                <span class="content-branch-state">{{ branch.behind }} to pull</span>
+              }
+            </div>
+          </div>
           <div class="setting-row">
             <div class="setting-label">
               <label for="setting-autosync">Sync automatically</label

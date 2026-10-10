@@ -150,17 +150,30 @@ export interface Head {
   readonly behind: number;
 }
 
-export type Storage =
-  | { readonly mode: "worktree" }
-  | {
-      readonly mode: "branch";
-      readonly branch: string;
-      readonly remote: string | null;
-      readonly ahead: number;
-      readonly behind: number;
-    };
+/** The parts of a repository's GitDesk content that can each live in the checkout or on the content branch. */
+export const CONTENT_AREAS = ["wiki", "tasks", "settings"] as const;
+export type ContentArea = (typeof CONTENT_AREAS)[number];
 
-export type StorageMode = Storage["mode"];
+/** `checkout`: next to the code, changing with the checked-out branch. `branch`: on the shared content branch. */
+export const STORAGE_MODES = ["checkout", "branch"] as const;
+export type StorageMode = (typeof STORAGE_MODES)[number];
+
+export interface ContentBranch {
+  readonly name: string;
+  readonly remote: string | null;
+  readonly ahead: number;
+  readonly behind: number;
+}
+
+export interface Storage {
+  readonly areas: Readonly<Record<ContentArea, StorageMode>>;
+  /** The content branch while this clone uses one, whether or not an area lives on it; null otherwise. */
+  readonly branch: ContentBranch | null;
+}
+
+/** True when the content branch has something to sync: an area lives on it, or it holds commits to push. */
+export const syncsContentBranch = (storage: Storage): storage is Storage & { readonly branch: ContentBranch } =>
+  storage.branch !== null && (CONTENT_AREAS.some((area) => storage.areas[area] === "branch") || storage.branch.ahead > 0);
 
 /** Everything the client shows about an open repository, polled with {@link Snapshot.version}. */
 export interface Snapshot {
@@ -182,7 +195,7 @@ export interface Snapshot {
   readonly warnings: readonly string[];
 }
 
-/** `repo` is the checked-out working tree; `content` is wherever the wiki and tasks live. */
+/** `repo` is the checked-out working tree; `content` is wherever the path's area (wiki, tasks or settings) lives. */
 export type Scope = "repo" | "content";
 
 export interface FileContent {

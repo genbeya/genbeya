@@ -163,8 +163,8 @@ const WHERE_FILES_LIVE = text(
   "| Settings | `.gitdesk.yml`: the project name, the folders, the task prefix and the workflow states |",
   "| Code | Everything else, such as [[src/forecast.ts]] |",
   "",
-  "Edits are ordinary changes: review and commit them in **Changes**. A team can keep wiki and tasks",
-  "on a separate content branch instead: **Settings → Where wiki and tasks live**.",
+  "Edits are ordinary changes: review and commit them in **Changes**. A team can keep the wiki, the tasks",
+  "or the settings on a shared content branch instead, each on its own: **Settings → Where content lives**.",
 );
 
 const task = (id: string, fields: readonly string[], ...body: string[]) => text("---", `id: ${id}`, ...fields, "---", "", ...body);

@@ -105,7 +105,7 @@ export function appTour({ mod, ctrl }: Keys): TourStep[] {
       target: at("settings"),
       placement: "right",
       title: "Settings",
-      body: "The project's settings, saved to `.gitdesk.yml`. Wiki and tasks can also live on a content branch that every code branch shares. **Help** has the version and the documentation.",
+      body: "The project's settings, saved to `.gitdesk.yml`. The wiki, the tasks and the settings can each live on a content branch that every code branch shares. **Help** has the version and the documentation.",
     },
     {
       target: `${at("page-header")} [aria-label="Page actions"]`,

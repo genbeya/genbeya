@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, ViewEncapsulation } from "@angular/core";
 import { LucideExternalLink, LucidePencil, LucidePlus, LucideTrash2 } from "@lucide/angular";
-import type { Settings, StorageMode, Theme } from "../../../../contracts/model";
+import { syncsContentBranch, type ContentArea, type Settings, type StorageMode, type Theme } from "../../../../contracts/model";
 import { APP_VERSION } from "../../core/app-version";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
@@ -10,6 +10,7 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { Onboarding } from "../onboarding/onboarding";
 import { titleCase } from "../tasks/task-model";
 import { AgentFiles } from "./agent-files";
+import { AREA_NAMES } from "./content-areas";
 import { StatusEditor } from "./status-editor";
 
 type TextSetting = "name" | "taskPrefix" | "wikiRoot" | "wikiHome" | "taskRoot";
@@ -40,10 +41,24 @@ export class SettingsView {
   protected readonly form = signal<Settings>(this.snapshot().settings);
   protected readonly dirty = computed(() => JSON.stringify(this.form()) !== JSON.stringify(this.base().settings));
   protected readonly prefix = computed(() => this.form().taskPrefix || "T");
-  protected readonly contentBranch = computed(() => {
-    const storage = this.snapshot().storage;
-    return storage.mode === "branch" ? storage.branch : "gitdesk";
+  protected readonly storageModes: readonly { readonly mode: StorageMode; readonly label: string }[] = [
+    { mode: "checkout", label: "Checkout" },
+    { mode: "branch", label: "Content branch" },
+  ];
+  protected readonly areas = computed(() => {
+    const { wikiRoot, taskRoot } = this.snapshot().settings;
+    return [
+      { area: "wiki", label: "Wiki", hint: `Pages and their images in ${wikiRoot}/.` },
+      { area: "tasks", label: "Tasks", hint: `Task files in ${taskRoot}/.` },
+      { area: "settings", label: "Project settings", hint: "The .gitdesk.yml file with the settings above." },
+    ] as const;
   });
+  /** The content branch while it has something to sync. */
+  protected readonly sharedBranch = computed(() => {
+    const storage = this.snapshot().storage;
+    return syncsContentBranch(storage) ? storage.branch : null;
+  });
+  private readonly branchName = computed(() => this.snapshot().storage.branch?.name ?? "gitdesk");
 
   constructor() {
     // Follow saves and outside edits of .gitdesk.yml while the form is untouched.
@@ -80,23 +95,24 @@ export class SettingsView {
     }, "Settings saved");
   }
 
-  protected async setStorage(mode: StorageMode) {
-    if (mode === this.snapshot().storage.mode) return;
+  protected async setStorage(area: ContentArea, mode: StorageMode) {
+    if (mode === this.snapshot().storage.areas[area]) return;
+    const name = AREA_NAMES[area];
+    const branch = this.branchName();
     const confirmed = await this.dialogs.confirm(
       mode === "branch"
         ? {
-            title: "Store wiki and tasks on a dedicated branch",
-            message:
-              "GitDesk keeps wiki pages, tasks and settings on a branch named gitdesk, checked out separately inside .git. Every edit becomes a commit there, and code branches stay untouched. A new branch starts with the committed wiki and tasks of the current branch; the files on your code branches are left as they are.",
-            confirm: "Use a dedicated branch",
+            title: `Keep ${name} on the content branch`,
+            message: `GitDesk copies ${name} as last committed on the current branch onto the ${branch} branch, which is checked out separately inside .git, and commits every later edit there. The files on your code branches stay as they are; delete them in a normal commit once the team has switched. Everyone else follows when they sync.`,
+            confirm: "Move to the content branch",
           }
         : {
-            title: "Store wiki and tasks in the checkout",
-            message: "GitDesk reads the wiki and tasks from the checked-out branch again. The gitdesk branch is kept.",
-            confirm: "Switch",
+            title: `Keep ${name} in the checkout`,
+            message: `GitDesk copies ${name} from the ${branch} branch into your checkout as uncommitted changes; commit them like code. The ${branch} branch keeps its copy. Everyone else follows when they sync.`,
+            confirm: "Move to the checkout",
           },
     );
-    if (confirmed) await this.session.run(() => this.api.content.setStorage(mode), "Storage updated");
+    if (confirmed) await this.session.run(() => this.api.content.setStorage(area, mode), "Storage updated");
   }
 
   protected async editRemote(name?: string, url?: string) {
