@@ -9,6 +9,7 @@ import type { WikiEngine } from "../engines/wiki-engine";
 import { sha256 } from "../utilities/bytes";
 import { buildFileTree } from "../utilities/file-tree";
 import { requestedLink, requestedLocation } from "../utilities/launch-request";
+import { namesRemoteHelper } from "../utilities/remote-url";
 import { Workspace, type Engines, type WorkspaceRegistry } from "./workspace";
 
 const THEMES: readonly Theme[] = ["system", "light", "dark"];
@@ -65,6 +66,8 @@ export class WorkspaceManager implements WorkspaceManagerContract {
   async clone(url: unknown, parent: unknown): Promise<OpenedWorkspace> {
     if (typeof url !== "string" || !url.trim() || url.length > 2048 || url.trim().startsWith("-") || /[\r\n\0]/.test(url))
       throw new Error("Enter a Git URL or repository path.");
+    // A link's remote may end up here; git would run the program a <transport>::<address> names.
+    if (namesRemoteHelper(url)) throw new Error("GitDesk does not clone through Git remote helpers (transport::address).");
     const where = validateLocation(parent);
     const name =
       url

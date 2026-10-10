@@ -2,7 +2,8 @@
 declare namespace Deno {
   const args: string[];
   const build: { readonly os: "windows" | "darwin" | "linux" | string };
-  const env: { get(key: string): string | undefined };
+  const env: { get(key: string): string | undefined; toObject(): Record<string, string> };
+  function execPath(): string;
   function exit(code?: number): never;
   function readFile(path: string | URL): Promise<Uint8Array<ArrayBuffer>>;
   function serve(handler: (request: Request) => Response | Promise<Response>): unknown;

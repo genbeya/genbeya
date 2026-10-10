@@ -77,6 +77,15 @@ describe("TaskEngine epics", () => {
     expect(engine.pathOf("tasks", "", "TP-1")).toBe("tasks/TP-1.md");
     expect(engine.pathOf("tasks", "Auth/Tokens", "TP-1")).toBe("tasks/Auth/Tokens/TP-1.md");
   });
+
+  it("keep the spelling of an existing folder that differs only in case", () => {
+    const files = ["tasks/Auth/TP-1.md", "tasks/Auth/Tokens/TP-2.md", "tasks/TP-3.md", "docs/auth/x.md"];
+    expect(engine.existingSpelling("auth", files, "tasks")).toBe("Auth");
+    expect(engine.existingSpelling("AUTH/tokens", files, "tasks")).toBe("Auth/Tokens");
+    expect(engine.existingSpelling("auth/New", files, "tasks")).toBe("Auth/New");
+    expect(engine.existingSpelling("Billing", files, "tasks")).toBe("Billing");
+    expect(engine.existingSpelling("", files, "tasks")).toBe("");
+  });
 });
 
 describe("TaskEngine.validate", () => {

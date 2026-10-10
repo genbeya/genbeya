@@ -78,6 +78,27 @@ export class TaskEngine {
     return below.includes("/") ? below.slice(0, below.lastIndexOf("/")) : "";
   }
 
+  /**
+   * `epic` spelled like the existing epic folders among `files` that differ from it only in
+   * case, folder by folder: Windows and macOS see one folder in both spellings.
+   */
+  existingSpelling(epic: string, files: readonly string[], taskRoot: string): string {
+    const folders = new Map<string, string>();
+    for (const file of files) {
+      const parts = this.epicOf(file, taskRoot).split("/");
+      for (let length = 1; length <= parts.length && parts[0]; length++) {
+        const folder = parts.slice(0, length).join("/");
+        if (!folders.has(folder.toLowerCase())) folders.set(folder.toLowerCase(), folder);
+      }
+    }
+    let spelled = "";
+    for (const part of epic ? epic.split("/") : []) {
+      const folder = spelled ? `${spelled}/${part}` : part;
+      spelled = folders.get(folder.toLowerCase()) ?? folder;
+    }
+    return spelled;
+  }
+
   /** Where the task `id` of `epic` lives. */
   pathOf(taskRoot: string, epic: string, id: string): string {
     return [taskRoot, ...(epic ? [epic] : []), `${id}.md`].join("/");

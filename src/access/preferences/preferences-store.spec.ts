@@ -122,6 +122,24 @@ describe("PreferencesStore", () => {
     expect(writeFile).toHaveBeenCalledTimes(1);
   });
 
+  it("remembers remotes without credentials, also those an older version saved", async () => {
+    const folder = await temporaryFolder("prefs-");
+    const saved = { recent: [{ location: a, name: "A", openedAt: 1, remotes: ["https://me:token@github.com/acme/a.git"] }] };
+    await fs.writeFile(path.join(folder, "state.json"), JSON.stringify(saved));
+    const store = await PreferencesStore.load(machine, folder);
+    expect(store.recent[0]!.remotes).toEqual(["https://github.com/acme/a.git"]);
+    await store.flush();
+    expect(await fs.readFile(path.join(folder, "state.json"), "utf8")).not.toContain("token");
+
+    store.remember(b, "B", ["https://me:token@github.com/acme/b.git", "git@github.com:acme/b.git"], 2);
+    store.rememberRemotes(a, ["ssh://git:secret@github.com/acme/a.git?x=1"]);
+    expect(store.recent.map((entry) => entry.remotes)).toEqual([
+      ["https://github.com/acme/b.git", "git@github.com:acme/b.git"],
+      ["ssh://github.com/acme/a.git"],
+    ]);
+    await store.flush();
+  });
+
   it("ignores unreadable files and fills in new preferences", async () => {
     const folder = await temporaryFolder("prefs-");
     await fs.writeFile(path.join(folder, "state.json"), "{ broken");

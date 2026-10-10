@@ -53,6 +53,10 @@ jobs:
 
       - uses: ./.github/actions/verify
 
+      # The Tauri shell embeds the client, which the end-to-end tests have built.
+      - name: Test the Tauri shell
+        run: cargo test --manifest-path src/shells/tauri/src-tauri/Cargo.toml
+
       # The end-to-end tests have built the client and the Electron shell, so the
       # packaging steps skip the `ng build` of the npm package scripts.
       # Electron's targets and architectures are in the `build` section of package.json.

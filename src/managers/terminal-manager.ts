@@ -43,9 +43,11 @@ export class TerminalManager implements TerminalManagerContract {
     if (!this.runner) throw new Error(TERMINALS_UNAVAILABLE);
     const session = await TerminalSession.open(this.runner, workspace.host, workspace.repository.root, dimensions);
     const terminal = crypto.randomUUID();
-    this.terminals.set(terminal, { session, release: workspace.onRelease(() => this.end(terminal)) });
-    // The repository may have closed while the shell started; then it ended with it.
+    this.terminals.set(terminal, { session, release: () => undefined });
+    // The repository may have closed while the shell started; then onRelease ends it right away.
+    const release = workspace.onRelease(() => this.end(terminal));
     if (!this.terminals.has(terminal)) throw new Error("This repository is no longer open.");
+    this.terminals.set(terminal, { session, release });
     return terminal;
   }
 

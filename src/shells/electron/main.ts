@@ -11,6 +11,7 @@ import { dispatch } from "../../contracts/rpc";
 import { locationOfFolder } from "../../access/hosts/host-factory";
 import { createBackend, type Backend } from "../../managers/backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
+import { withoutLinks } from "../../utilities/launch-request";
 import { updateJumpList } from "./jump-list";
 import { CONTENT_SECURITY_POLICY } from "../content-security-policy";
 import { isRendererPage, RENDERER_URL, resolveAsset } from "./renderer-protocol";
@@ -36,6 +37,8 @@ if (primary && app.isPackaged) app.setAsDefaultProtocolClient("gitdesk");
 
 /** Links from `open-url`, which comes before the window exists on a cold start; the page reads them with the launch arguments. */
 const openedLinks: string[] = [];
+/** Whether the page had the launch's links; a reloaded page must not open them again. */
+let linksHandedOver = false;
 /** Passes later links and second launches to the page, once the window exists. */
 let handOver: ((args: readonly string[]) => void) | null = null;
 app.on("open-url", (event, url) => {
@@ -163,7 +166,9 @@ function connect(window: BrowserWindow, backend: Backend) {
       if (THEMES.includes(theme as Theme)) nativeTheme.themeSource = theme as Theme;
     },
     async launchArgs() {
-      return [...process.argv, ...openedLinks];
+      if (linksHandedOver) return withoutLinks(process.argv);
+      linksHandedOver = true;
+      return [...process.argv, ...openedLinks.splice(0)];
     },
   };
   ipcMain.handle("gitdesk:shell", (event, operation: unknown, args: unknown) => {

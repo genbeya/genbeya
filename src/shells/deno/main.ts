@@ -14,6 +14,20 @@ import { CONTENT_TYPES, resolveClientFile } from "./static-files";
 
 const CLIENT = new URL("../client/browser/", import.meta.url);
 
+// WebView2 keeps its profile next to the executable, which an installed app cannot write to, unless
+// WEBVIEW2_USER_DATA_FOLDER names another folder. Deno Desktop creates the webview before this code
+// runs, so setting the variable here is too late: the app starts again with it set, and this
+// instance ends. Its own webview fails without a window. (Deno hides spawned windows by default.)
+if (Deno.build.os === "windows" && !Deno.env.get("WEBVIEW2_USER_DATA_FOLDER")) {
+  spawn(Deno.execPath(), Deno.args, {
+    env: { ...Deno.env.toObject(), WEBVIEW2_USER_DATA_FOLDER: `${Deno.env.get("LOCALAPPDATA")}\\GitDesk Deno\\WebView2` },
+    detached: true,
+    windowsHide: false,
+    stdio: "ignore",
+  }).unref();
+  Deno.exit(0);
+}
+
 // Deno Desktop serves this on a random loopback port and points the window at it.
 Deno.serve(async (request) => {
   const file = request.method === "GET" ? resolveClientFile(CLIENT, new URL(request.url).pathname) : null;

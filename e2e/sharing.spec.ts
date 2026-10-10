@@ -1,4 +1,5 @@
 import type { ElectronApplication, Page } from "@playwright/test";
+import type { ElectronBridge } from "../src/contracts/bridges";
 import { expect, mainWindow, MOD, test } from "./app";
 
 const LINK = "gitdesk://open?remote=https://github.com/acme/demo.git&task=DP-1";
@@ -47,5 +48,10 @@ test.describe("sharing", () => {
     await app.close();
     const linked = await mainWindow(await launch(LINK));
     await expect(linked.getByRole("dialog", { name: "Task DP-1" })).toBeVisible();
+    // A reloaded page asks for the launch arguments again; it must not open the link again.
+    const again = await linked.evaluate(() =>
+      (globalThis as unknown as { gitdeskElectron: ElectronBridge }).gitdeskElectron.shell("launchArgs", []),
+    );
+    expect(again).not.toContain(LINK);
   });
 });

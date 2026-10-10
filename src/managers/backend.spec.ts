@@ -144,6 +144,8 @@ describe("WorkspaceManager", () => {
     const { snapshot } = await managers.workspace.clone(source.root, { kind: "local", path: parent });
     expect(snapshot.settings.name).toBe("Test Project");
     await expect(managers.workspace.clone("--upload-pack=evil", { kind: "local", path: parent })).rejects.toThrow("Enter a Git URL");
+    for (const helper of ["ext::calc.exe", " fd::3"])
+      await expect(managers.workspace.clone(helper, { kind: "local", path: parent })).rejects.toThrow("remote helpers");
   });
 
   it("validates folders to browse", async () => {
@@ -295,6 +297,15 @@ describe("ContentManager", () => {
     await repository.write("tasks/Billing/TP-2.md", "not a task");
     await expect(content.updateTask(id, second.path, { ...input, epic: "Billing" }, second.hash)).rejects.toThrow("already exists");
     await expect(content.createTask(id, { ...input, epic: "../outside" })).rejects.toThrow("epic");
+  });
+
+  it("files tasks under an epic's existing spelling", async () => {
+    const { content, id } = await opened();
+    const first = await content.createTask(id, { ...input, epic: "Auth" });
+    const second = await content.createTask(id, { ...input, title: "Second", epic: "auth" });
+    expect(second).toMatchObject({ path: "tasks/Auth/TP-2.md", epic: "Auth" });
+    const updated = await content.updateTask(id, first.path, { ...input, epic: "AUTH", status: "done" }, first.hash);
+    expect(updated).toMatchObject({ path: "tasks/Auth/TP-1.md", epic: "Auth", status: "done" });
   });
 
   it("skips task IDs whose files exist in any epic", async () => {

@@ -22,11 +22,17 @@ const SCHEMES = new Set(["https", "http", "ssh", "git", "git+ssh", "ssh+git"]);
 /** `[user@]host:path`, Git's scp-like syntax. */
 const SCP_LIKE = /^(?:[^@/\s]+@)?([^:/\s]+):(?!\/\/)(.+)$/;
 
+/**
+ * True for Git's `<transport>::<address>`, which runs the program git-remote-<transport>
+ * (`ext::` runs any command). No network remote is spelled like that.
+ */
+export const namesRemoteHelper = (url: string): boolean => /^[a-z][a-z0-9+.-]*::/i.test(url.trim());
+
 /** The repository a remote URL names, or null for local paths and anything else no other machine can reach. */
 export function parseRemote(url: string): RemoteRepository | null {
   const text = url.trim();
   // eslint-disable-next-line no-control-regex
-  if (!text || text.length > MAX_LENGTH || /[\s\x00-\x1f]/.test(text) || text.startsWith("-")) return null;
+  if (!text || text.length > MAX_LENGTH || /[\s\x00-\x1f]/.test(text) || text.startsWith("-") || namesRemoteHelper(text)) return null;
   const scheme = /^([a-z][a-z0-9+.-]*):\/\//i.exec(text)?.[1]?.toLowerCase();
   let host: string;
   let path: string;
@@ -47,7 +53,8 @@ export function parseRemote(url: string): RemoteRepository | null {
   }
   host = host.toLowerCase();
   path = path.replace(/^\/+|\/+$/g, "").replace(/\.git$/, "");
-  if (!host || !path) return null;
+  // A host that starts with "-" would reach ssh as an option.
+  if (!host || host.startsWith("-") || !path) return null;
   return { ...azure(host, path), scheme: scheme === "http" ? "http" : "https" };
 }
 
@@ -61,8 +68,26 @@ function azure(host: string, path: string): Pick<RemoteRepository, "host" | "pat
   return { host, path };
 }
 
-/** `url` without a user name or token in front of an http(s) host; ssh users such as `git@` are not secret and stay. */
-export const withoutCredentials = (url: string): string => url.trim().replace(/^(https?:\/\/)[^/@]*@/i, "$1");
+/**
+ * `url` without anything that may be secret: URLs lose their user name, password, query and
+ * fragment, whatever the scheme. Git's scp-like form keeps a plain user such as `git@`, which
+ * names the account on the server rather than a person, but loses a `user:password@`.
+ */
+export function withoutCredentials(url: string): string {
+  const text = url.trim();
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) return text.replace(/^[^@/\\\s]*:[^@/\\\s]*@/, "");
+  try {
+    const parsed = new URL(text);
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.href;
+  } catch {
+    // Not a URL to `new URL`: drop everything up to the last @ of the authority, and the query.
+    return text.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/?#]*@/i, "$1").replace(/[?#].*$/, "");
+  }
+}
 
 /** True when both URLs name the same repository; hosts and paths compare without case, as Git hosts do. */
 export function sameRepository(a: string, b: string): boolean {

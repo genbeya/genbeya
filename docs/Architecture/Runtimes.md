@@ -44,7 +44,7 @@ The Angular client is 613 kB of initial JavaScript (120 kB compressed). Mermaid 
 **Deno Desktop**
 - Labelled experimental. No folder dialog (the shell calls PowerShell, `osascript` or `zenity`), no theme override, no shell-level navigation guard, no single-instance or jump list support. It is packaged with all permissions (`-A`).
 - No handler for `gitdesk://` links: Deno Desktop cannot register a URL scheme with the operating system, so links are pasted into the command palette. Electron registers the scheme when the installed app starts, Tauri through its installers (and AppImages at start), both through the single-instance hand-over for a running app.
-- Would write its WebView2 profile next to the executable; the packaged app moves it to `%LOCALAPPDATA%\GitDesk Deno` with an environment file read at start (`src/shells/deno/desktop.env`).
+- Would write its WebView2 profile next to the executable, which is read-only once installed. Deno Desktop creates the webview before the app's code runs and has no setting for the profile folder, so on Windows the app starts itself again with `WEBVIEW2_USER_DATA_FOLDER` pointing to `%LOCALAPPDATA%\GitDesk Deno\WebView2` (`src/shells/deno/main.ts`). The variable must be the running user's, so it cannot be set at build time.
 - No [[Terminal]]. node-pty loads under Deno's Node compatibility, but on Windows it opens its ConPTY pipes with `fs` calls Deno rejects, and `deno desktop` cannot bundle a native module. The shell gives the managers a machine without terminals, and the panel says so.
 - Ships its own runtime, so the size win is small, and it uses the most memory of the three.
 
