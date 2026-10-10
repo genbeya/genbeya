@@ -5,6 +5,7 @@
  */
 import type { SearchArea, SearchRange, Settings } from "../contracts/model";
 import { within } from "../utilities/repository-path";
+import { isTaskFile } from "./task-engine";
 
 export const SEARCH_LIMITS = {
   /** Characters of a query. */
@@ -47,9 +48,9 @@ export class SearchEngine {
     return { text, caseSensitive: flags.caseSensitive === true, regex: flags.regex === true, wholeWord: flags.wholeWord === true };
   }
 
-  /** Tasks and pages are Markdown files below their folders; everything else is code. */
+  /** Tasks and pages are Markdown files below their folders; everything else, task templates included, is code. */
   areaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot">): SearchArea {
-    if (isMarkdown(path) && within(path, settings.taskRoot)) return "tasks";
+    if (isTaskFile(path, settings.taskRoot)) return "tasks";
     if (isMarkdown(path) && within(path, settings.wikiRoot)) return "wiki";
     return "code";
   }

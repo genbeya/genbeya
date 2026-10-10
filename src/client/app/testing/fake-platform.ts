@@ -2,7 +2,16 @@
 import { type Provider } from "@angular/core";
 import type { Mock } from "vitest";
 import { MANAGER_METHODS, type Managers } from "../../../contracts/manager-contracts";
-import type { ContentArea, ContentBranch, Preferences, Settings, Snapshot, Storage, Task } from "../../../contracts/model";
+import {
+  taskType,
+  type ContentArea,
+  type ContentBranch,
+  type Preferences,
+  type Settings,
+  type Snapshot,
+  type Storage,
+  type Task,
+} from "../../../contracts/model";
 import type { ShellContract } from "../../../contracts/shell";
 import { APP_VERSION } from "../core/app-version";
 import { MANAGERS, SHELL } from "../platform/platform";
@@ -23,7 +32,10 @@ export const SETTINGS: Settings = {
   taskRoot: "tasks",
   taskPrefix: "TP",
   statuses: ["backlog", "todo", "in-progress", "review", "done"],
+  statusIcons: {},
   hiddenColumns: [],
+  types: [taskType("bug"), taskType("feature")],
+  fields: [],
 };
 
 /** A user who has seen the tour and the news of this version. */
@@ -46,6 +58,8 @@ export function task(id: string, change: Partial<Task> = {}): Task {
     priority: "none",
     assignee: "",
     labels: [],
+    type: "",
+    fields: {},
     body: "",
     epic: "",
     hash: `hash-${id}`,
@@ -88,6 +102,7 @@ export function fakeManagers(): MockedManagers {
     ]),
   ) as unknown as MockedManagers;
   managers.workspace.preferences.mockResolvedValue(PREFERENCES);
+  managers.workspace.setPreferences.mockImplementation(async (change: Partial<Preferences>) => ({ ...PREFERENCES, ...change }));
   managers.workspace.restore.mockResolvedValue(null);
   managers.workspace.recent.mockResolvedValue([]);
   managers.workspace.distributions.mockResolvedValue([]);

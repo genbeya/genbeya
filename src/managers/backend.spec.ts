@@ -428,6 +428,43 @@ describe("ContentManager", () => {
     await expect(content.updateTask(id, "docs/Home.md", input, "x")).rejects.toThrow("inside tasks/");
   });
 
+  it("starts tasks of a type from its template, which is not a task itself", async () => {
+    const { content, id, latest, repository } = await opened({
+      ".gitdesk.yml": "name: T\ntaskPrefix: TP\n",
+      "tasks/.templates/bug.md": "---\npriority: urgent\nseverity: major\n---\n\n## Steps\n",
+    });
+    expect(await latest()).toMatchObject({ tasks: [], warnings: [] });
+    expect(await content.taskTemplate(id, "feature")).toBeNull();
+    const template = (await content.taskTemplate(id, "bug"))!;
+    expect(template).toEqual({ body: "## Steps\n", priority: "urgent", fields: { severity: "major" } });
+    const task = await content.createTask(id, { ...input, ...template, type: "bug" });
+    expect(task).toMatchObject({ type: "bug", priority: "urgent", fields: { severity: "major" } });
+    expect(await repository.read(task.path)).toBe(
+      "---\nid: TP-1\ntitle: Build it\ntype: bug\nstatus: backlog\npriority: urgent\nassignee: alice\nlabels:\n  - backend\nseverity: major\n---\n\n## Steps\n",
+    );
+    await expect(content.taskTemplate(id, "../bug")).rejects.toThrow("Invalid task type");
+    await expect(content.updateTask(id, "tasks/.templates/bug.md", input, "x")).rejects.toThrow("inside tasks/");
+  });
+
+  it("creates a type's template once, for editing", async () => {
+    const { content, id, repository } = await opened();
+    const path = await content.ensureTaskTemplate(id, "bug");
+    expect(path).toBe("tasks/.templates/bug.md");
+    expect(await repository.read(path)).toContain("New bug tasks start with");
+    await repository.write(path, "Mine\n");
+    expect(await content.ensureTaskTemplate(id, "bug")).toBe(path);
+    expect(await repository.read(path)).toBe("Mine\n");
+  });
+
+  it("keeps templates with the tasks on the content branch", async () => {
+    const { content, id, repository } = await opened();
+    await content.setStorage(id, "tasks", "branch");
+    const path = await content.ensureTaskTemplate(id, "bug");
+    expect(await repository.git("show", "--name-status", "--format=%s", "gitdesk")).toBe(`Create the bug task template\n\nA\t${path}\n`);
+    expect(await repository.exists(path)).toBe(false);
+    expect((await content.taskTemplate(id, "bug"))!.body).toContain("## Context");
+  });
+
   it("keeps tasks of an epic in its folder and moves them between epics", async () => {
     const { content, id, latest, repository } = await opened();
     const first = await content.createTask(id, { ...input, epic: "Login rework" });

@@ -15,7 +15,7 @@ import {
 import { Router } from "@angular/router";
 import { LucideCodeXml, LucideCopy, LucideEllipsis, LucideGlobe, LucideLink, LucidePencil, LucideTrash2, LucideX } from "@lucide/angular";
 import type { LinkItem } from "../../../../contracts/gitdesk-link";
-import type { Task, TaskInput } from "../../../../contracts/model";
+import type { Task, TaskInput, TaskTemplate } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { Clipboard } from "../../core/clipboard";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
@@ -31,10 +31,21 @@ import { MenuItem } from "../../ui/menu-item";
 import { WikiActions } from "../wiki/wiki-actions";
 import { TaskActivity } from "./task-activity";
 import { TaskComments } from "./task-comments";
+import { TaskFields } from "./task-fields";
 import { displayId, inputOf } from "./task-model";
 import { TaskProperties } from "./task-properties";
 
 const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, priority: "none", assignee: "", labels: [], body: "", epic });
+
+/** `draft` with the template's description, and its presets where the draft has none. */
+const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
+  ...draft,
+  body: template.body,
+  priority: draft.priority === "none" ? (template.priority ?? draft.priority) : draft.priority,
+  assignee: draft.assignee || (template.assignee ?? ""),
+  labels: draft.labels.length ? draft.labels : (template.labels ?? []),
+  fields: { ...template.fields, ...draft.fields },
+});
 
 /**
  * The task drawer. Viewing renders the description and saves property
@@ -50,6 +61,7 @@ const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, pr
     MenuItem,
     TaskActivity,
     TaskComments,
+    TaskFields,
     TaskProperties,
     LucideCodeXml,
     LucideCopy,
@@ -111,6 +123,7 @@ const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, pr
         <h1 class="task-title selectable">{{ current()!.title }}</h1>
       }
       <gd-task-properties [value]="shown()" (changed)="patch($event)" />
+      <gd-task-fields [value]="shown()" (changed)="patch($event)" />
       <div class="task-description" [class.is-viewing]="!editing()">
         @if (editing()) {
           <div class="task-body-editor">
@@ -238,6 +251,8 @@ ${this.task()!.hash}`,
   protected readonly shown = computed(() => (this.editing() || !this.current() ? this.draft() : inputOf(this.current()!)));
   /** The task an edit started from: saving fails if the file changed since. */
   private editBase: Task | null = null;
+  /** The description the last template gave a new task. */
+  private templateBody = "";
   private saving = false;
   /** Property changes while viewing save one after another, each on the newest version. */
   private queue: Promise<unknown> = Promise.resolve();
@@ -336,8 +351,24 @@ ${this.task()!.hash}`,
 
   /** Property edits: saved at once while viewing, into the draft while editing or creating. */
   protected patch(change: Partial<TaskInput>) {
-    if (this.editing() || !this.current()) return this.draft.update((draft) => ({ ...draft, ...change }));
+    if (this.editing() || !this.current()) {
+      this.draft.update((draft) => ({ ...draft, ...change }));
+      if (!this.task() && change.type) void this.applyTemplate(change.type);
+      return;
+    }
     this.enqueue(() => change);
+  }
+
+  /**
+   * A new task of a type starts from the type's template, unless someone wrote
+   * its description already. The template's fields fill those still unset.
+   */
+  private async applyTemplate(type: string) {
+    const template = await this.session.run(() => this.api.content.taskTemplate(type));
+    const draft = this.draft();
+    if (!template || draft.type !== type || (draft.body.trim() && draft.body !== this.templateBody)) return;
+    this.templateBody = template.body;
+    this.draft.set(withTemplate(draft, template));
   }
 
   protected toggleCheckbox(offset: number) {

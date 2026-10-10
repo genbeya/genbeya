@@ -10,6 +10,9 @@ import {
   peopleOf,
   statusColor,
   titleCase,
+  toneColor,
+  typeLook,
+  typesOf,
   visibleTasks,
 } from "./task-model";
 
@@ -18,7 +21,7 @@ const tasks = [
   task("TP-2", { priority: "urgent", title: "Fix outage" }),
   task("TP-3", { priority: "low", status: "done", assignee: "bob", labels: ["api", "ui"] }),
   task("TP-4", { status: "blocked", epic: "Billing" }),
-  task("TP-5", { status: "todo", epic: "auth/Tokens" }),
+  task("TP-5", { status: "todo", epic: "auth/Tokens", type: "bug" }),
 ];
 
 describe("task ordering and filters", () => {
@@ -36,6 +39,22 @@ describe("task ordering and filters", () => {
   it("filters by epic, with tasks outside any epic as their own choice", () => {
     expect(visibleTasks(tasks, { ...NO_FILTERS, epic: "Billing" }).map((t) => t.id)).toEqual(["TP-4"]);
     expect(visibleTasks(tasks, { ...NO_FILTERS, epic: "" }).map((t) => t.id)).toEqual(["TP-2", "TP-3", "TP-1"]);
+  });
+
+  it("filters by type, with tasks without one as their own choice", () => {
+    expect(visibleTasks(tasks, { ...NO_FILTERS, type: "bug" }).map((t) => t.id)).toEqual(["TP-5"]);
+    expect(visibleTasks(tasks, { ...NO_FILTERS, type: "" }).map((t) => t.id)).toEqual(["TP-2", "TP-3", "TP-1", "TP-4"]);
+  });
+
+  it("lists the configured types, then other types tasks have", () => {
+    const bug = { name: "bug", icon: "bug", tone: "red" } as const;
+    expect(typesOf([bug, { name: "chore", icon: "wrench" }], [...tasks, task("TP-6", { type: "spike" })])).toEqual([
+      bug,
+      { name: "chore", icon: "wrench" },
+      { name: "spike", icon: "circle-dot" },
+    ]);
+    expect(typeLook("bug", [bug])).toBe(bug);
+    expect(typeLook("spike", [bug])).toEqual({ name: "spike", icon: "circle-dot" });
   });
 
   it("shows tasks being moved in their new column and lane", () => {
@@ -69,5 +88,10 @@ describe("task labels", () => {
     expect(statusColor(0, 4)).toBe("var(--gray)");
     expect(statusColor(3, 4)).toBe("var(--green)");
     expect(statusColor(-1, 4)).toBe("var(--text-3)");
+  });
+
+  it("colours types by their tone", () => {
+    expect(toneColor("red")).toBe("var(--red)");
+    expect(toneColor(undefined)).toBe("var(--text-2)");
   });
 });

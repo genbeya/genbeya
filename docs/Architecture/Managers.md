@@ -5,7 +5,7 @@ Four managers implement everything the client can do with a repository. Their co
 | Manager | Use cases |
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
-| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, where each of those areas lives (the [[Content branch]]), full-text [[Search]], and the files that teach [[AI agents]] to use them |
+| `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [[Content branch]]), full-text [[Search]], and the files that teach [[AI agents]] to use them |
 | `versionControl` | Diffs, staging, commits, stashes, branches, tags, remotes, fetch/pull/push, history, merges, rebases and conflicts |
 | `terminal` | Shells in the repository for the [[Terminal]]: open, input, size, output, close |
 
@@ -111,6 +111,8 @@ sequenceDiagram
 ## Writes
 
 Saves carry the hash of the content they were based on. If the file changed on disk since, the save is rejected and the editor keeps the draft. Line endings and a byte order mark are kept as they were. All operations on one workspace run one at a time.
+
+Structured files change only where they must. A task update rewrites the fields GitDesk manages and the custom fields it names, and leaves the type alone unless it names one; saving settings rewrites only the keys of `.gitdesk.yml` whose values changed. Comments, unknown keys and the spelling of everything else survive. New tasks of a type start from `<taskRoot>/.templates/<type>.md` (`content.taskTemplate`), which the settings create on first use (`content.ensureTaskTemplate`).
 
 ## Content areas
 

@@ -11,11 +11,15 @@ import { epicName, titleCase } from "./task-model";
 const valueText = (field: TaskField, value: string): string =>
   field === "status" || field === "priority"
     ? titleCase(value)
-    : field === "epic"
-      ? epicName(value)
-      : field === "assignee"
-        ? value || "nobody"
-        : `“${value}”`;
+    : field === "type"
+      ? value
+        ? titleCase(value)
+        : "none"
+      : field === "epic"
+        ? epicName(value)
+        : field === "assignee"
+          ? value || "nobody"
+          : `“${value}”`;
 
 const counted = (count: number, verb: string) => (count === 1 ? `${verb} a comment` : `${verb} ${count} comments`);
 
@@ -38,6 +42,8 @@ export function describeChange(change: TaskChange): string {
       ]
         .filter(Boolean)
         .join(", ");
+    case "custom":
+      return `${change.field} ${change.from || "none"} → ${change.to || "none"}`;
     case "other":
       return `changed ${change.fields.join(", ")}`;
   }

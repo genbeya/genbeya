@@ -37,7 +37,7 @@
   padding: 14px 16px;
 }
 
-.setting-row:has(.status-editor) {
+.setting-row:has(.list-editor) {
   align-items: start;
 }
 
@@ -64,14 +64,14 @@
   width: 120px;
 }
 
-.status-editor {
+.list-editor {
   display: flex;
   flex-direction: column;
   gap: 2px;
   width: 100%;
 }
 
-.status-item {
+.list-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -80,16 +80,37 @@
   border-radius: var(--radius-s);
 }
 
-.status-item:hover {
+.list-item:hover {
   background: var(--bg-hover);
 }
 
-.status-item .icon-btn {
+.list-item .icon-btn {
   width: 22px;
   height: 22px;
 }
 
-.status-add {
+.list-item .compact {
+  width: auto;
+  height: 24px;
+  font-size: 12px;
+}
+
+/* A second line of an item, such as the options of a choice field. */
+.list-item.list-detail {
+  padding-left: 20px;
+}
+
+.list-item.list-detail:hover {
+  background: none;
+}
+
+.list-item .select.compact {
+  background-position:
+    calc(100% - 15px) 10px,
+    calc(100% - 10px) 10px;
+}
+
+.list-add {
   margin-top: 6px;
 }
 

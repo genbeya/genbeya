@@ -39,6 +39,7 @@ import type {
   Task,
   TaskActivity,
   TaskInput,
+  TaskTemplate,
   TerminalOutput,
 } from "./model";
 
@@ -83,6 +84,10 @@ export interface ContentManagerContract {
   createTask(workspace: string, input: TaskInput): Promise<Task>;
   updateTask(workspace: string, path: string, input: TaskInput, expectedHash: string): Promise<Task>;
   deleteTask(workspace: string, path: string): Promise<void>;
+  /** What a new task of `type` starts with, from the type's template; null without one. */
+  taskTemplate(workspace: string, type: string): Promise<TaskTemplate | null>;
+  /** The template file of `type`, created with an outline when missing; resolves to its path. */
+  ensureTaskTemplate(workspace: string, type: string): Promise<string>;
   /**
    * Who changed the task and how, newest first, from the Git history of its
    * file, following moves between epics. Edits not committed yet come first.
@@ -232,6 +237,8 @@ export const MANAGER_METHODS = {
     "createTask",
     "updateTask",
     "deleteTask",
+    "taskTemplate",
+    "ensureTaskTemplate",
     "taskActivity",
     "commentAuthor",
     "addComment",

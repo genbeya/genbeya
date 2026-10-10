@@ -3,6 +3,7 @@ import { diffTasks, type TaskState } from "./task-activity";
 
 const state: TaskState = {
   title: "Build it",
+  type: "",
   status: "todo",
   priority: "none",
   assignee: "",
@@ -10,7 +11,8 @@ const state: TaskState = {
   labels: ["a"],
   description: "Text\n",
   comments: [{ author: "Ada", date: "2026-01-02T03:04", body: "Hi" }],
-  other: { estimate: "3" },
+  fields: { estimate: "3" },
+  other: { links: '["a"]' },
 };
 
 describe("diffTasks", () => {
@@ -47,9 +49,19 @@ describe("diffTasks", () => {
     expect(diffTasks(state, { ...state, comments: [] })).toEqual([{ kind: "comments", added: 0, edited: 0, removed: 1 }]);
   });
 
-  it("names other changed frontmatter fields", () => {
-    expect(diffTasks(state, { ...state, other: { estimate: "5", type: '"bug"' } })).toEqual([
-      { kind: "other", fields: ["estimate", "type"] },
+  it("names a changed type with its old and new value", () => {
+    expect(diffTasks(state, { ...state, type: "bug" })).toEqual([{ kind: "field", field: "type", from: "", to: "bug" }]);
+  });
+
+  it("names changed custom fields with their old and new value, empty where a task had none", () => {
+    expect(diffTasks(state, { ...state, fields: { due: "2026-05-01", estimate: "5" } })).toEqual([
+      { kind: "custom", field: "due", from: "", to: "2026-05-01" },
+      { kind: "custom", field: "estimate", from: "3", to: "5" },
     ]);
+    expect(diffTasks(state, { ...state, fields: {} })).toEqual([{ kind: "custom", field: "estimate", from: "3", to: "" }]);
+  });
+
+  it("names other changed frontmatter fields", () => {
+    expect(diffTasks(state, { ...state, other: { links: '["b"]', meta: "{}" } })).toEqual([{ kind: "other", fields: ["links", "meta"] }]);
   });
 });

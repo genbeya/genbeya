@@ -35,6 +35,12 @@ const SETTINGS = text(
   "# The board leaves these out; the list still shows them.",
   "hiddenColumns:",
   "  - backlog",
+  "# Task types; a new bug starts from tasks/.templates/bug.md.",
+  "types: [feature, bug, docs, chore]",
+  "# Custom fields, edited under a task's properties.",
+  "fields:",
+  "  - name: estimate",
+  "    type: number",
 );
 
 const README = text(
@@ -160,7 +166,7 @@ const WHERE_FILES_LIVE = text(
   "| --- | --- |",
   "| Wiki pages | Markdown files in `docs/`. `Architecture.md` and the folder `Architecture/` make a page with subpages |",
   "| Tasks | One Markdown file per task in `tasks/`, its fields as YAML frontmatter. A folder below `tasks/` is an epic |",
-  "| Settings | `.gitdesk.yml`: the project name, the folders, the task prefix and the workflow states |",
+  "| Settings | `.gitdesk.yml`: the project name, the folders, the task prefix, the workflow states, task types and custom fields |",
   "| Code | Everything else, such as [[src/forecast.ts]] |",
   "",
   "Edits are ordinary changes: review and commit them in **Changes**. A team can keep the wiki, the tasks",
@@ -174,7 +180,7 @@ const TASKS: readonly SampleFile[] = [
     path: "tasks/PW-1.md",
     content: task(
       "PW-1",
-      ["title: Print the forecast as a report", "status: done", "priority: medium", "labels: [cli]"],
+      ["title: Print the forecast as a report", "type: feature", "status: done", "priority: medium", "labels: [cli]"],
       "One line per day:",
       "",
       `![[${REPORT_LINES}]]`,
@@ -184,7 +190,15 @@ const TASKS: readonly SampleFile[] = [
     path: "tasks/PW-2.md",
     content: task(
       "PW-2",
-      ["title: Show temperatures in Fahrenheit", "status: in-progress", "priority: medium", "assignee: sam", "labels: [cli]"],
+      [
+        "title: Show temperatures in Fahrenheit",
+        "type: feature",
+        "status: in-progress",
+        "priority: medium",
+        "assignee: sam",
+        "labels: [cli]",
+        "estimate: 2",
+      ],
       "Add `--fahrenheit` to switch units. Tick the boxes right here, without editing:",
       "",
       "- [x] Convert in the report",
@@ -196,7 +210,7 @@ const TASKS: readonly SampleFile[] = [
     path: "tasks/PW-3.md",
     content: task(
       "PW-3",
-      ["title: Fetch real forecasts", "status: todo", "priority: high", "labels: [data]"],
+      ["title: Fetch real forecasts", "type: feature", "status: todo", "priority: high", "labels: [data]", "estimate: 5"],
       "Replace the canned forecast with the service described in [[Forecast source]].",
     ),
   },
@@ -204,7 +218,7 @@ const TASKS: readonly SampleFile[] = [
     path: "tasks/PW-4.md",
     content: task(
       "PW-4",
-      ["title: Warn about storms", "status: backlog", "priority: low"],
+      ["title: Warn about storms", "type: feature", "status: backlog", "priority: low"],
       "Waits in the backlog, which the board hides (`hiddenColumns` in `.gitdesk.yml`). The list shows it.",
     ),
   },
@@ -212,14 +226,34 @@ const TASKS: readonly SampleFile[] = [
     path: "tasks/Release 1.0/PW-5.md",
     content: task(
       "PW-5",
-      ["title: Write the README", "status: review", "priority: medium", "assignee: alex", "labels: [docs]"],
+      ["title: Write the README", "type: docs", "status: review", "priority: medium", "assignee: alex", "labels: [docs]"],
       "Tasks in a folder below `tasks/` belong to an epic: this one is in *Release 1.0*.",
       "Turn on swimlanes on the board to see one row per epic.",
     ),
   },
   {
     path: "tasks/Release 1.0/PW-6.md",
-    content: task("PW-6", ["title: Publish the first release", "status: todo", "priority: high"], "Once PW-2 and PW-3 are done."),
+    content: task(
+      "PW-6",
+      ["title: Publish the first release", "type: chore", "status: todo", "priority: high"],
+      "Once PW-2 and PW-3 are done.",
+    ),
+  },
+  {
+    // Not a task: the description new bugs start with. Folders starting with a dot hold no tasks.
+    path: "tasks/.templates/bug.md",
+    content: text(
+      "---",
+      "# New bugs start with this description; fields here, such as the priority, preset theirs.",
+      "priority: high",
+      "---",
+      "",
+      "## Steps to reproduce",
+      "",
+      "## Expected",
+      "",
+      "## Actual",
+    ),
   },
 ];
 

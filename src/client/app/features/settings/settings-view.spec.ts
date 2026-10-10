@@ -46,6 +46,29 @@ describe("SettingsView", () => {
     expect(element.querySelector("#setting-autosync")).not.toBeNull();
   });
 
+  it("opens a type's template in the code view while the tasks live in the checkout", async () => {
+    const { element, managers, router, fixture } = await render();
+    const navigate = vi.spyOn(router, "navigate").mockResolvedValue(true);
+    managers.content.ensureTaskTemplate.mockResolvedValue("tasks/.templates/bug.md");
+    element.querySelector<HTMLButtonElement>("button[aria-label='Edit the bug template']")!.click();
+    await settle(fixture);
+    expect(managers.content.ensureTaskTemplate).toHaveBeenCalledWith("w1", "bug");
+    expect(navigate).toHaveBeenCalledWith(["/code"], { queryParams: { file: "tasks/.templates/bug.md" } });
+  });
+
+  it("names a type's template on the content branch instead of opening the checkout's file", async () => {
+    const { element, managers, router, dialogs, fixture } = await render(contentBranch(["tasks"]));
+    const navigate = vi.spyOn(router, "navigate").mockResolvedValue(true);
+    managers.content.ensureTaskTemplate.mockResolvedValue("tasks/.templates/bug.md");
+    dialogs.confirm.mockResolvedValue(false);
+    element.querySelector<HTMLButtonElement>("button[aria-label='Edit the bug template']")!.click();
+    await settle(fixture);
+    expect(dialogs.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("tasks/.templates/bug.md on the gitdesk branch"), confirm: "Copy path" }),
+    );
+    expect(navigate).not.toHaveBeenCalledWith(["/code"], expect.anything());
+  });
+
   it("offers no automatic sync while every area lives in the checkout", async () => {
     const { element } = await render();
     expect(element.querySelector("#setting-autosync")).toBeNull();

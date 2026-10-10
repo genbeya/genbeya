@@ -1,7 +1,17 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, ViewEncapsulation } from "@angular/core";
+import { Router } from "@angular/router";
 import { LucideExternalLink, LucidePencil, LucidePlus, LucideTrash2 } from "@lucide/angular";
-import { syncsContentBranch, type ContentArea, type Settings, type StorageMode, type Theme } from "../../../../contracts/model";
+import {
+  syncsContentBranch,
+  type ContentArea,
+  type FieldDefinition,
+  type Settings,
+  type StorageMode,
+  type TaskType,
+  type Theme,
+} from "../../../../contracts/model";
 import { APP_VERSION } from "../../core/app-version";
+import { Clipboard } from "../../core/clipboard";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
@@ -11,14 +21,16 @@ import { Onboarding } from "../onboarding/onboarding";
 import { titleCase } from "../tasks/task-model";
 import { AgentFiles } from "./agent-files";
 import { AREA_NAMES } from "./content-areas";
+import { FieldEditor } from "./field-editor";
 import { StatusEditor } from "./status-editor";
+import { TypeEditor } from "./type-editor";
 
 type TextSetting = "name" | "taskPrefix" | "wikiRoot" | "wikiHome" | "taskRoot";
 
 /** Project settings (shared through .gitdesk.yml), content storage, agent files, remotes, personal preferences and help. */
 @Component({
   selector: "gd-settings-view",
-  imports: [AgentFiles, StatusEditor, LucideExternalLink, LucidePencil, LucidePlus, LucideTrash2],
+  imports: [AgentFiles, FieldEditor, StatusEditor, TypeEditor, LucideExternalLink, LucidePencil, LucidePlus, LucideTrash2],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./settings.css",
@@ -30,6 +42,8 @@ export class SettingsView {
   protected readonly onboarding = inject(Onboarding);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
+  private readonly router = inject(Router);
+  private readonly clipboard = inject(Clipboard);
   protected readonly mod = MOD_KEY;
   protected readonly version = APP_VERSION;
   protected readonly themes: readonly Theme[] = ["system", "light", "dark"];
@@ -78,8 +92,47 @@ export class SettingsView {
     this.form.update((form) => ({ ...form, [key]: value }));
   }
 
+  /** Removed states take their icons along. */
   protected setStatuses(statuses: string[]) {
-    this.form.update((form) => ({ ...form, statuses }));
+    this.form.update((form) => ({
+      ...form,
+      statuses,
+      statusIcons: Object.fromEntries(Object.entries(form.statusIcons).filter(([status]) => statuses.includes(status))),
+    }));
+  }
+
+  protected setStatusIcons(statusIcons: Record<string, string>) {
+    this.form.update((form) => ({ ...form, statusIcons }));
+  }
+
+  protected setTypes(types: TaskType[]) {
+    this.form.update((form) => ({ ...form, types }));
+  }
+
+  protected setFields(fields: FieldDefinition[]) {
+    this.form.update((form) => ({ ...form, fields }));
+  }
+
+  /**
+   * Opens the type's template in the code view, creating it first if needed.
+   * The code view shows the checkout, so a template on the content branch,
+   * where the tasks live then, is named for editing elsewhere instead.
+   */
+  protected async editTemplate(type: string) {
+    const path = await this.session.run(() => this.api.content.ensureTaskTemplate(type));
+    if (!path) return;
+    if (this.snapshot().storage.areas.tasks === "checkout") {
+      await this.router.navigate(["/code"], { queryParams: { file: path } });
+      return;
+    }
+    const copy = await this.dialogs.confirm({
+      title: `The ${type} template`,
+      message:
+        `The template is ${path} on the ${this.branchName()} branch, with the tasks. The code view shows the checkout, ` +
+        "so edit it in the branch's worktree inside .git (git worktree list names it), or move the tasks to the checkout.",
+      confirm: "Copy path",
+    });
+    if (copy) await this.clipboard.copy(path, "Path");
   }
 
   protected discard() {

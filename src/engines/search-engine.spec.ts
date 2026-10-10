@@ -37,6 +37,7 @@ describe("SearchEngine.areaOf", () => {
 
   it("puts Markdown below the task and wiki folders in their areas, and everything else in code", () => {
     expect(engine.areaOf("tasks/Auth/TP-1.md", settings)).toBe("tasks");
+    expect(engine.areaOf("tasks/.templates/bug.md", settings)).toBe("code");
     expect(engine.areaOf("docs/Guide/Setup.MD", settings)).toBe("wiki");
     expect(engine.areaOf("docs/diagram.svg", settings)).toBe("code");
     expect(engine.areaOf("README.md", settings)).toBe("code");

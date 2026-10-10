@@ -129,7 +129,7 @@ export class Workspace {
 
   /** Reads every task file below the task folder; problems become `warnings`. */
   async tasks(files: readonly string[], settings: Settings, warnings: string[]): Promise<Task[]> {
-    const paths = files.filter((file) => within(file, settings.taskRoot) && file.toLowerCase().endsWith(".md"));
+    const paths = files.filter((file) => this.engines.tasks.isTaskFile(file, settings.taskRoot));
     const contents = await (await this.content.locate("tasks")).files.readMany(paths);
     const tasks: Task[] = [];
     const owners = new Map<string, string>();

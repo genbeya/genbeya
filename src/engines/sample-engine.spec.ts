@@ -14,6 +14,8 @@ const settings = settingsEngine.parse(files.get(SETTINGS_FILE)!, settingsEngine.
 describe("SampleEngine", () => {
   it("has valid settings that hide a column", () => {
     expect(settings).toMatchObject({ name: "Pocket Weather", taskPrefix: "PW", hiddenColumns: ["backlog"] });
+    expect(settings.types.map((type) => type.name)).toEqual(["feature", "bug", "docs", "chore"]);
+    expect(settings.fields).toEqual([{ name: "estimate", type: "number" }]);
   });
 
   it("names only paths a repository may hold, on every file system", () => {
@@ -23,11 +25,13 @@ describe("SampleEngine", () => {
   it("has tasks that parse, with unique IDs, in every state and in an epic", () => {
     const tasks = new TaskEngine();
     const parsed = [...files]
-      .filter(([path]) => path.startsWith(`${settings.taskRoot}/`))
+      .filter(([path]) => tasks.isTaskFile(path, settings.taskRoot))
       .map(([path, content]) => tasks.parse(path, content, "hash", settings.taskRoot));
     expect(new Set(parsed.map((task) => task.id)).size).toBe(parsed.length);
     expect(new Set(parsed.map((task) => task.status))).toEqual(new Set(settings.statuses));
     expect(parsed.filter((task) => task.epic === "Release 1.0")).toHaveLength(2);
+    expect(parsed.every((task) => settings.types.some((type) => type.name === task.type))).toBe(true);
+    expect(tasks.parseTemplate(files.get(tasks.templatePath(settings.taskRoot, "bug"))!)).toMatchObject({ priority: "high" });
     for (const task of parsed) {
       expect(task.path).toBe(tasks.pathOf(settings.taskRoot, task.epic, task.id));
       expect(tasks.validate(task, settings.statuses)).toMatchObject({ title: task.title, status: task.status });

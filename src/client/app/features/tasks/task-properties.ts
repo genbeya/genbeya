@@ -1,15 +1,15 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
-import { LucideFolder, LucidePlus, LucideTag, LucideUser } from "@lucide/angular";
+import { LucideFolder, LucidePlus, LucideShapes, LucideTag, LucideUser } from "@lucide/angular";
 import { PRIORITIES, type TaskInput } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { Session } from "../../core/session";
 import { Avatar } from "../../ui/avatar";
 import { MenuItem } from "../../ui/menu-item";
-import { LabelChip, PriorityIcon, StatusIcon } from "./task-icons";
-import { epicName, epicsOf, labelsOf, peopleOf, titleCase } from "./task-model";
+import { LabelChip, PriorityIcon, StatusIcon, TypeIcon } from "./task-icons";
+import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./task-model";
 
-/** Status, priority, assignee, labels and epic as compact menu buttons. */
+/** Status, type, priority, assignee, labels and epic as compact menu buttons. */
 @Component({
   selector: "gd-task-properties",
   imports: [
@@ -20,8 +20,10 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase } from "./task-model";
     LabelChip,
     PriorityIcon,
     StatusIcon,
+    TypeIcon,
     LucideFolder,
     LucidePlus,
+    LucideShapes,
     LucideTag,
     LucideUser,
   ],
@@ -29,8 +31,19 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase } from "./task-model";
   host: { class: "task-properties" },
   template: `
     <button type="button" class="property" aria-label="Status" [cdkMenuTriggerFor]="statusMenu">
-      <gd-status-icon [status]="value().status" [statuses]="statuses()" />{{ titleCase(value().status) }}
+      <gd-status-icon [status]="value().status" [statuses]="statuses()" [iconName]="statusIcons()[value().status]" />{{
+        titleCase(value().status)
+      }}
     </button>
+    @if (types().length) {
+      <button type="button" class="property" aria-label="Type" [cdkMenuTriggerFor]="typeMenu">
+        @if (value().type) {
+          <gd-type-icon [type]="value().type!" [decorative]="true" />{{ titleCase(value().type!) }}
+        } @else {
+          <svg lucideShapes [size]="13" aria-hidden="true"></svg>No type
+        }
+      </button>
+    }
     <button type="button" class="property" aria-label="Priority" [cdkMenuTriggerFor]="priorityMenu">
       <gd-priority-icon [priority]="value().priority" />{{ priorityName(value().priority) }}
     </button>
@@ -56,7 +69,19 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase } from "./task-model";
       <div class="menu" cdkMenu>
         @for (status of statuses(); track status) {
           <button gd-menu-item [checked]="status === value().status" (selected)="changed.emit({ status })">
-            <gd-status-icon icon [status]="status" [statuses]="statuses()" />{{ titleCase(status) }}
+            <gd-status-icon icon [status]="status" [statuses]="statuses()" [iconName]="statusIcons()[status]" />{{ titleCase(status) }}
+          </button>
+        }
+      </div>
+    </ng-template>
+    <ng-template #typeMenu>
+      <div class="menu" cdkMenu>
+        <button gd-menu-item [checked]="!value().type" (selected)="changed.emit({ type: '' })">
+          <svg icon lucideShapes [size]="13" aria-hidden="true"></svg>No type
+        </button>
+        @for (type of types(); track type.name) {
+          <button gd-menu-item [checked]="type.name === value().type" (selected)="changed.emit({ type: type.name })">
+            <gd-type-icon icon [type]="type.name" [decorative]="true" />{{ titleCase(type.name) }}
           </button>
         }
       </div>
@@ -123,6 +148,9 @@ export class TaskProperties {
   protected readonly priorities = PRIORITIES;
   protected readonly titleCase = titleCase;
   protected readonly statuses = computed(() => this.session.snapshot()!.settings.statuses);
+  protected readonly statusIcons = computed(() => this.session.snapshot()!.settings.statusIcons);
+  /** The configured types, and this task's type even when it is not configured. */
+  protected readonly types = computed(() => typesOf(this.session.snapshot()!.settings.types, [{ type: this.value().type ?? "" }]));
   protected readonly people = computed(() => peopleOf(this.session.snapshot()!.tasks));
   protected readonly epicName = epicName;
   /** Epics of other tasks, and this one's even while it is the only task in it. */

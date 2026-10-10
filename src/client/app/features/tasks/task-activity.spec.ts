@@ -76,10 +76,14 @@ describe("describeChange", () => {
     [{ kind: "field", field: "title", from: "Old", to: "New" }, "title “Old” → “New”"],
     [{ kind: "field", field: "assignee", from: "", to: "ada" }, "assignee nobody → ada"],
     [{ kind: "field", field: "priority", from: "high", to: "none" }, "priority High → None"],
+    [{ kind: "field", field: "type", from: "bug", to: "feature" }, "type Bug → Feature"],
+    [{ kind: "field", field: "type", from: "", to: "bug" }, "type none → Bug"],
+    [{ kind: "custom", field: "estimate", from: "3", to: "5" }, "estimate 3 → 5"],
+    [{ kind: "custom", field: "due", from: "", to: "2026-05-01" }, "due none → 2026-05-01"],
     [{ kind: "labels", added: ["a", "b"], removed: ["c"] }, "labels +a +b −c"],
     [{ kind: "description" }, "edited the description"],
     [{ kind: "comments", added: 2, edited: 1, removed: 1 }, "added 2 comments, edited a comment, deleted a comment"],
-    [{ kind: "other", fields: ["estimate", "type"] }, "changed estimate, type"],
+    [{ kind: "other", fields: ["links", "meta"] }, "changed links, meta"],
   ] as const)("%j", (change, text) => {
     expect(describeChange(change)).toBe(text);
   });

@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import { openRepository, settle } from "../../testing/component-harness";
+import type { TaskInput } from "../../../../contracts/model";
 import { task } from "../../testing/fake-platform";
 import { TaskPanel } from "./task-panel";
 
@@ -112,6 +113,47 @@ describe("TaskPanel", () => {
     await settle(fixture);
     expect(managers.content.createTask).toHaveBeenCalledWith("w1", expect.objectContaining({ title: "Second", status: "todo" }));
     expect(navigate).toHaveBeenCalledWith(["/tasks"], { queryParams: { task: "TP-2" }, replaceUrl: true });
+  });
+
+  it("offers the configured types in the type menu and saves the choice", async () => {
+    const { button, managers, fixture } = await render({ task: first });
+    managers.content.updateTask.mockResolvedValue({ ...first, type: "bug", hash: "h2" });
+    expect(button("Type").textContent).toContain("No type");
+    button("Type").click();
+    await settle(fixture);
+    const items = [...document.querySelectorAll<HTMLElement>(".cdk-overlay-container [role=menuitem]")];
+    expect(items.map((item) => item.textContent!.replace(/\s+/g, " ").trim())).toEqual(["No type (selected)", "Bug", "Feature"]);
+    items[1]!.click();
+    await vi.waitFor(() =>
+      expect(managers.content.updateTask).toHaveBeenCalledWith(
+        "w1",
+        "tasks/TP-1.md",
+        expect.objectContaining({ type: "bug" }),
+        "hash-TP-1",
+      ),
+    );
+    document.querySelector(".cdk-overlay-container")?.replaceChildren();
+  });
+
+  it("starts a new task of a type from the type's template, keeping a description written already", async () => {
+    const { managers, fixture, element } = await render({ createStatus: "todo" });
+    managers.content.taskTemplate.mockImplementation(async (_: string, type: string) =>
+      type === "bug" ? { body: "## Steps\n", priority: "high", labels: ["bug"] } : { body: "## Goal\n" },
+    );
+    const panel = fixture.componentInstance as unknown as { patch(change: object): void; draft(): TaskInput };
+    panel.patch({ type: "bug" });
+    await settle(fixture);
+    expect(managers.content.taskTemplate).toHaveBeenCalledWith("w1", "bug");
+    expect(panel.draft()).toMatchObject({ type: "bug", body: "## Steps\n", priority: "high", labels: ["bug"] });
+    // Another type replaces the template's description, but not one written by hand.
+    panel.patch({ type: "feature" });
+    await settle(fixture);
+    expect(panel.draft()).toMatchObject({ body: "## Goal\n", priority: "high" });
+    panel.patch({ body: "Mine" });
+    panel.patch({ type: "bug" });
+    await settle(fixture);
+    expect(panel.draft().body).toBe("Mine");
+    expect(element.querySelector("button[aria-label='Type']")!.textContent).toContain("Bug");
   });
 
   it("shows comments below the description and loads the activity only when asked", async () => {

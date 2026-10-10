@@ -53,6 +53,24 @@ describe("TasksView", () => {
     expect(toggle("Backlog").checked).toBe(true);
   });
 
+  it("filters by type, showing each task's type icon", async () => {
+    localStorage.setItem("tasks:layout", "list");
+    await openRepository({ tasks: [task("TP-1", { type: "bug" }), task("TP-2")] });
+    const fixture = TestBed.createComponent(TasksView);
+    await settle(fixture);
+    const element = fixture.nativeElement as HTMLElement;
+    const rows = () => [...element.querySelectorAll(".task-row")].map((row) => row.querySelector(".task-id")!.textContent);
+    expect(element.querySelector(".task-row gd-type-icon[aria-label='Bug']")).not.toBeNull();
+    element.querySelector<HTMLButtonElement>("button[aria-label='Filter by']")!.click();
+    await settle(fixture);
+    const items = [...document.querySelectorAll<HTMLElement>(".cdk-overlay-container [role=menuitem]")];
+    items.find((item) => item.textContent!.trim() === "Bug")!.click();
+    await settle(fixture);
+    expect(rows()).toEqual(["TP-1"]);
+    expect(element.querySelector("button[aria-label='Remove filter Bug']")).not.toBeNull();
+    document.querySelector(".cdk-overlay-container")?.replaceChildren();
+  });
+
   it("keeps the open task's panel, with its draft, when the task moves to another epic", async () => {
     const { fixture, element, managers, session } = await render("TP-1");
     element.querySelector<HTMLButtonElement>(".task-panel-header .btn-default")!.click();

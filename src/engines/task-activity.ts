@@ -4,6 +4,7 @@ import type { TaskChange, TaskComment, TaskField } from "../contracts/model";
 /** A version of a task as far as its activity is concerned. */
 export interface TaskState {
   readonly title: string;
+  readonly type: string;
   readonly status: string;
   readonly priority: string;
   readonly assignee: string;
@@ -11,11 +12,17 @@ export interface TaskState {
   readonly labels: readonly string[];
   readonly description: string;
   readonly comments: readonly TaskComment[];
+  /** Custom fields with a plain value, by name, as text. */
+  readonly fields: Readonly<Record<string, string>>;
   /** Other frontmatter fields, by name, as JSON. */
   readonly other: Readonly<Record<string, string>>;
 }
 
-const FIELDS: readonly TaskField[] = ["title", "status", "priority", "assignee", "epic"];
+const FIELDS: readonly TaskField[] = ["title", "type", "status", "priority", "assignee", "epic"];
+
+/** The names of the entries that differ between `before` and `after`, sorted. */
+const changedNames = (before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>): string[] =>
+  [...new Set([...Object.keys(before), ...Object.keys(after)])].sort().filter((name) => before[name] !== after[name]);
 
 const keyOf = (comment: TaskComment) => `${comment.author}\n${comment.date}`;
 
@@ -42,8 +49,9 @@ export function diffTasks(before: TaskState | null, after: TaskState): TaskChang
   if (added.length || removed.length) changes.push({ kind: "labels", added, removed });
   if (before.description.trim() !== after.description.trim()) changes.push({ kind: "description" });
   changes.push(...commentChanges(before.comments, after.comments));
-  const names = [...new Set([...Object.keys(before.other), ...Object.keys(after.other)])].sort();
-  const other = names.filter((name) => before.other[name] !== after.other[name]);
+  for (const field of changedNames(before.fields, after.fields))
+    changes.push({ kind: "custom", field, from: before.fields[field] ?? "", to: after.fields[field] ?? "" });
+  const other = changedNames(before.other, after.other);
   if (other.length) changes.push({ kind: "other", fields: other });
   return changes;
 }
