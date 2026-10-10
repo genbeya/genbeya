@@ -31,7 +31,7 @@ import { MenuItem } from "../../ui/menu-item";
 import { WikiActions } from "../wiki/wiki-actions";
 import { TaskActivity } from "./task-activity";
 import { TaskComments } from "./task-comments";
-import { TaskFields } from "./task-fields";
+import { type FieldChange, TaskFields } from "./task-fields";
 import { displayId, inputOf } from "./task-model";
 import { TaskProperties } from "./task-properties";
 
@@ -108,7 +108,7 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
         <h1 class="task-title selectable">{{ current()!.title }}</h1>
       }
       <gd-task-properties [value]="shown()" (changed)="patch($event)" />
-      <gd-task-fields [value]="shown()" (changed)="patch($event)" />
+      <gd-task-fields [value]="shown()" (changed)="setField($event)" />
       <div class="task-description" [class.is-viewing]="!editing()">
         @if (editing()) {
           <div class="task-body-editor">
@@ -370,6 +370,13 @@ ${this.task()!.hash}`,
       return;
     }
     this.enqueue(() => change);
+  }
+
+  /** A custom field's change, merged into the fields of the newest version, so quick changes to two fields keep both. */
+  protected setField({ name, value }: FieldChange) {
+    const withField = (input: TaskInput): Partial<TaskInput> => ({ fields: { ...input.fields, [name]: value } });
+    if (this.editing() || !this.current()) this.draft.update((draft) => ({ ...draft, ...withField(draft) }));
+    else this.enqueue((task) => withField(inputOf(task)));
   }
 
   /**

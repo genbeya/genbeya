@@ -249,6 +249,20 @@ describe("TaskPanel", () => {
     expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
   });
 
+  it("keeps both of two fields changed in quick succession", async () => {
+    const { managers, fixture } = await render({ task: first });
+    managers.content.updateTask
+      .mockResolvedValueOnce({ ...first, fields: { estimate: 5 }, hash: "h2" })
+      .mockResolvedValueOnce({ ...first, fields: { estimate: 5, area: "ui" }, hash: "h3" });
+    const panel = fixture.componentInstance as unknown as { setField(change: object): void };
+    // The second change comes before the first is saved, from fields that still show the old values.
+    panel.setField({ name: "estimate", value: 5 });
+    panel.setField({ name: "area", value: "ui" });
+    await vi.waitFor(() => expect(managers.content.updateTask).toHaveBeenCalledTimes(2));
+    const [, second] = managers.content.updateTask.mock.calls;
+    expect(second!.slice(2)).toEqual([expect.objectContaining({ fields: { estimate: 5, area: "ui" } }), "h2"]);
+  });
+
   it("changes properties at once while viewing", async () => {
     const { managers, fixture } = await render({ task: first });
     managers.content.updateTask.mockResolvedValue({ ...first, priority: "low", hash: "h2" });

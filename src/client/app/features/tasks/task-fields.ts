@@ -3,10 +3,16 @@ import type { FieldDefinition, FieldValue, TaskInput } from "../../../../contrac
 import { Session } from "../../core/session";
 import { titleCase } from "./task-model";
 
+export interface FieldChange {
+  readonly name: string;
+  readonly value: FieldValue;
+}
+
 /**
  * The custom fields of a task: an editor per field the settings configure,
  * then the task's other frontmatter fields, which are only shown. A change is
- * emitted with all fields, an emptied field as "".
+ * emitted for its field alone, an emptied field as "", so changes made in
+ * quick succession each apply to the newest version of the task.
  */
 @Component({
   selector: "gd-task-fields",
@@ -55,7 +61,7 @@ import { titleCase } from "./task-model";
 })
 export class TaskFields {
   readonly value = input.required<TaskInput>();
-  readonly changed = output<Partial<TaskInput>>();
+  readonly changed = output<FieldChange>();
   private readonly session = inject(Session);
   protected readonly titleCase = titleCase;
   protected readonly definitions = computed(() => this.session.snapshot()!.settings.fields);
@@ -78,6 +84,6 @@ export class TaskFields {
   }
 
   protected set(name: string, value: FieldValue) {
-    if ((this.values()[name] ?? "") !== value) this.changed.emit({ fields: { ...this.values(), [name]: value } });
+    if ((this.values()[name] ?? "") !== value) this.changed.emit({ name, value });
   }
 }
