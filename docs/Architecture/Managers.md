@@ -5,7 +5,7 @@ Four managers implement everything the client can do with a repository. Their co
 | Manager | Use cases |
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
-| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, the [[Content branch]], and the files that teach [[AI agents]] to use them |
+| `content` | Files, wiki pages, tasks, `.gitdesk.yml`, the [[Content branch]], full-text [[Search]], and the files that teach [[AI agents]] to use them |
 | `versionControl` | Diffs, staging, commits, branches, remotes, fetch/pull/push, history |
 | `terminal` | Shells in the repository for the [[Terminal]]: open, input, size, output, close |
 
@@ -55,6 +55,19 @@ The patches carry whole files, so every commit yields both versions, and `rename
 `workspace.browse({ kind, distro | host, path })` lists the subfolders of a folder on WSL or SSH, for the folder browser of the open and clone dialogs. An empty path, `~` or `~/…` starts in the home folder. The listing has the folder's absolute path (links resolved), its parent (null at `/`) and up to 2000 subfolders, sorted by name ignoring case with hidden ones last; each says whether it is a Git repository (holds `.git`), and `truncated` says when there were more. Folders on this computer use the system folder dialog instead.
 
 Connection failures name the machine: `Can't connect to <host>: <ssh's reason>`, or `WSL has no distribution named <distro>.` See [[Hosts]] for how one listing travels.
+
+## Search
+
+`content.search(workspace, text, { caseSensitive, wholeWord, regex })` finds text in pages, tasks and code and answers `{ wiki, tasks, code, truncated }`: per file its path, scope and title (a task also its ID and status), and per match the line number, the line, where the text matches in it, and the lines before and after. Text is literal and case is ignored unless the options say otherwise; regular expressions are POSIX extended ones.
+
+It runs `git grep` on the repository's host, so it needs nothing but Git there, in two calls per working tree:
+
+1. `git grep -l -z -I --untracked` lists the files with a match: tracked ones and untracked ones that `.gitignore` does not exclude, binary files skipped. The search engine (`src/engines/search-engine.ts`) sorts them into areas — Markdown below the task folder is a task, below the wiki folder a page, everything else code — and keeps 30 per area.
+2. `git grep -n --column -z -C1` on just those files returns the matching lines and one line of context. With `-z`, paths end at a NUL, and only matches carry a column, which tells them from context lines whatever the text holds.
+
+The engine then finds the matches within each line (for highlighting), keeps 10 per file, and shortens lines over 200 characters around the first match. `truncated` says whether anything was left out. With a [[Content branch]], the content worktree supplies pages and tasks and the checkout only code, so stale copies in the checkout are not listed twice.
+
+The text travels as the argument of `-e`, after `-F` or `-E`, in an argument list: never through a shell string, never readable as an option. The manager rejects empty or blank text, more than 200 characters, line breaks (git would read several patterns) and options that are not booleans. A search that runs longer than 20 seconds is stopped.
 
 ## Terminals
 

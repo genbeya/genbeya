@@ -25,6 +25,7 @@ interface Registration {
 export const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
 export const MOD_KEY = isMac ? "⌘" : "Ctrl";
 export const CTRL_KEY = isMac ? "⌃" : "Ctrl";
+export const SHIFT_KEY = isMac ? "⇧" : "Shift";
 
 function parse(text: string): Combo {
   const parts = text.toLowerCase().split("+");

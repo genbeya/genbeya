@@ -9,6 +9,7 @@ import {
   type LinkUpdate,
   type PageMove,
   type Scope,
+  type SearchResults,
   type Settings,
   type StorageMode,
   type Task,
@@ -19,12 +20,14 @@ import { IMAGE_LIMIT, type VersionedFile } from "../access/files/file-store";
 import { isMissing } from "../access/hosts/host";
 import type { AgentEngine } from "../engines/agent-engine";
 import type { LinkEngine, LinkRewrite } from "../engines/link-engine";
+import type { SearchEngine } from "../engines/search-engine";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine, TaskVersion } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { toBase64 } from "../utilities/bytes";
 import { referenceIndex } from "../utilities/references";
 import { baseName, relocate, within } from "../utilities/repository-path";
+import { searchContent } from "./content-search";
 import type { Workspace, WorkspaceRegistry } from "./workspace";
 
 const IMAGE_TYPES: Readonly<Record<string, string>> = {
@@ -55,6 +58,7 @@ export class ContentManager implements ContentManagerContract {
       readonly wiki: WikiEngine;
       readonly agents: AgentEngine;
       readonly links: LinkEngine;
+      readonly search: SearchEngine;
     },
   ) {}
 
@@ -386,6 +390,11 @@ export class ContentManager implements ContentManagerContract {
         }),
       })),
     );
+  }
+
+  search(id: unknown, text: unknown, options?: unknown): Promise<SearchResults> {
+    const query = this.engines.search.validate(text, options);
+    return this.on(id, (workspace) => searchContent(workspace, this.engines, query));
   }
 
   private version(value: unknown): string | null {
