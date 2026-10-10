@@ -22,9 +22,17 @@ Open this folder in GitDesk: its wiki documents the app and its task board is th
 
 ## Download
 
-Every push to `main` publishes a [release](https://github.com/h3ll5ur7er/gitdesk/releases) with installers for Windows (`.exe`), macOS (`.dmg`, Intel and Apple silicon) and Linux (`.AppImage`). Pull requests build the same installers as workflow artifacts.
+Every push to `main` publishes a [release](https://github.com/h3ll5ur7er/gitdesk/releases) with every installer as its own file, named `GitDesk-<version>-<variant>-<os>-<arch>`. GitDesk comes in three variants that can be installed side by side (see [Runtimes](docs/Architecture/Runtimes.md)):
 
-The builds are unsigned. On Windows, choose _More info → Run anyway_; on macOS, run `xattr -dr com.apple.quarantine /Applications/GitDesk.app` after installing.
+| Variant                                                        | Windows                | macOS                                             | Linux                         |
+| -------------------------------------------------------------- | ---------------------- | ------------------------------------------------- | ----------------------------- |
+| **Electron** (recommended; bundled Chromium, largest)          | `-setup.exe`           | `.dmg`, Apple silicon (`arm64`) and Intel (`x64`) | `.AppImage`                   |
+| **Tauri** (small, system webview; installs as "GitDesk Tauri") | `-setup.exe` or `.msi` | `.dmg`, Apple silicon                             | `.AppImage`, `.deb` or `.rpm` |
+| **Deno Desktop** (experimental; installs as "GitDesk Deno")    | `.msi`                 | `.dmg`, Apple silicon                             | `.AppImage` or `.deb`         |
+
+Pull requests and `experiment/**` branches build the same installers as workflow artifacts.
+
+The builds are unsigned. On Windows, choose _More info → Run anyway_; on macOS, open the app the first time with right-click → _Open_ or run `xattr -dr com.apple.quarantine /Applications/GitDesk.app`; on Linux, `chmod +x` the AppImage.
 
 ## Documentation
 

@@ -13,9 +13,9 @@ Requires Node.js 24 and Git. Tauri also needs a Rust toolchain (and `libwebkit2g
 | `npm test` | Backend and client unit tests |
 | `npm run e2e` | Build, then end-to-end tests against the Electron app |
 | `npm run build` | Production client and Electron shell |
-| `npm run package` | Electron installer for the current OS |
+| `npm run package` | Electron installer for the current OS, in `release/` |
 | `npm run package:tauri` | Tauri installers, in `src/shells/tauri/src-tauri/target/release/bundle/` |
-| `npm run package:deno` | Deno Desktop build, in `release-deno/` |
+| `npm run package:deno` | Deno Desktop installers (`.msi`, `.dmg`, or `.AppImage` and `.deb`), in `release-deno/` |
 
 ## Tests
 
@@ -27,8 +27,14 @@ Code is written test first. Specs sit next to the code they test.
 
 ## Continuous integration
 
-- `.github/workflows/build.yml` runs lint, unit and end-to-end tests and packages the Electron app on Windows, macOS and Linux for every push and pull request to `main`. Pull requests upload the installers as workflow artifacts; pushes to `main` also publish them as a GitHub release tagged `v<version>-build.<run>`.
-- `.github/workflows/runtimes.yml` runs the same tests and packages all three shells on every push to an `experiment/**` branch, reports their sizes and uploads each build as its own artifact (see [[Runtimes]]).
+`.github/workflows/build.yml` runs on every push and pull request to `main` and on pushes to `experiment/**` branches. On Windows, macOS and Linux it runs lint, unit and end-to-end tests (`.github/actions/verify`), then packages Electron, Tauri and Deno Desktop.
+
+- `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `GitDesk-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `GitDesk-0.2.0-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
+- `scripts/report-sizes.mjs` lists their sizes in the job summary.
+- Each run uploads one artifact per variant and platform, such as `GitDesk-tauri-macOS`.
+- Pushes to `main` also publish all installers as one GitHub release tagged `v<version>-build.<run>`, with the text of `.github/release-notes.md` above the generated notes.
+
+macOS builds Electron for Apple silicon and Intel; Tauri and Deno Desktop only for the runner's Apple silicon.
 
 ## Conventions
 

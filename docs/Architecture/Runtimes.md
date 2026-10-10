@@ -48,14 +48,14 @@ The Angular client is 613 kB of initial JavaScript (120 kB compressed). Mermaid 
 
 ## Trying the builds
 
-Every push to an `experiment/**` branch runs the *Runtime comparison* workflow. Each run has one artifact per runtime and platform, such as `GitDesk-tauri-macOS`:
+Every push to `main` publishes one GitHub release with all variants for all platforms; pushes to `experiment/**` branches and pull requests build the same files as workflow artifacts, one per runtime and platform, such as `GitDesk-tauri-macOS`. Each installer is named `GitDesk-<version>-<variant>-<os>-<arch>`:
 
 | Runtime | Windows | macOS | Linux |
 | --- | --- | --- | --- |
-| Electron | `.exe` installer | `.dmg` | `.AppImage` |
-| Tauri | `.exe` and `.msi` installers | `.dmg` | `.deb`, `.rpm`, `.AppImage` |
-| Deno Desktop | `.tar.gz` with the app folder | `.tar.gz` with the `.app` | `.tar.gz` with the executable |
+| Electron | `electron-windows-x64-setup.exe` | `electron-macos-arm64.dmg`, `electron-macos-x64.dmg` | `electron-linux-x64.AppImage` |
+| Tauri | `tauri-windows-x64-setup.exe`, `tauri-windows-x64.msi` | `tauri-macos-arm64.dmg` | `tauri-linux-x64.AppImage`, `.deb`, `.rpm` |
+| Deno Desktop | `deno-windows-x64.msi` | `deno-macos-arm64.dmg` | `deno-linux-x64.AppImage`, `.deb` |
 
 The builds are unsigned: on Windows choose *More info → Run anyway*; on macOS open the app once with right-click → *Open*; on Linux `chmod +x` the AppImage.
 
-The Electron build installs as "GitDesk" and replaces the version from `main`. Tauri installs as "GitDesk Tauri" with its own settings (`dev.gitdesk.tauri`), and Deno runs from its folder, so both can be used next to it. To build locally, see [[Development]].
+The Electron build installs as "GitDesk". Tauri installs as "GitDesk Tauri" with its own settings (`dev.gitdesk.tauri`), and Deno Desktop as "GitDesk Deno" with its own settings folder, so all three can be used side by side. The Deno `.msi` installs for all users into `Program Files`, where its WebView2 profile cannot be written (see above). To build locally, see [[Development]].

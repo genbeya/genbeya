@@ -18,7 +18,7 @@
     "test:client": "ng test --watch=false",
     "e2e": "npm run build && playwright test",
     "package": "npm run build && electron-builder",
-    "package:deno": "ng build && node scripts/build-backend.mjs deno && deno desktop -A --no-check --no-config --include dist/client/browser -o release-deno/GitDesk dist/deno/main.js",
+    "package:deno": "ng build && node scripts/package-deno.mjs",
     "package:tauri": "ng build && cd src/shells/tauri && tauri build"
   },
   "devDependencies": {
@@ -95,18 +95,34 @@
     ],
     "publish": null,
     "mac": {
-      "target": "dmg",
+      "target": {
+        "target": "dmg",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      },
       "category": "public.app-category.developer-tools"
     },
     "win": {
-      "target": "nsis"
+      "target": {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     },
     "linux": {
-      "target": "AppImage",
+      "target": {
+        "target": "AppImage",
+        "arch": [
+          "x64"
+        ]
+      },
       "category": "Development"
     }
   },

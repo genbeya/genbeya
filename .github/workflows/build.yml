@@ -1,8 +1,11 @@
 name: Build
 
+# Tests GitDesk and packages it with Electron, Tauri and Deno Desktop on Windows,
+# macOS and Linux. Every run uploads the installers as artifacts; a push to main
+# also publishes them all as one GitHub release.
 on:
   push:
-    branches: [main]
+    branches: [main, "experiment/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -23,16 +26,10 @@ jobs:
         include:
           - name: Windows
             os: windows-latest
-            target: --win --x64
-            files: release/*.exe
           - name: macOS
             os: macos-latest
-            target: --mac --x64 --arm64
-            files: release/*.dmg
           - name: Linux
             os: ubuntu-latest
-            target: --linux --x64
-            files: release/*.AppImage
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -42,20 +39,58 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Install Tauri's Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src/shells/tauri/src-tauri
+
       - run: npm ci
 
       - uses: ./.github/actions/verify
 
-      - name: Package
-        run: npx electron-builder ${{ matrix.target }} --publish never
+      # The end-to-end tests have built the client and the Electron shell, so the
+      # packaging steps skip the `ng build` of the npm package scripts.
+      # Electron's targets and architectures are in the `build` section of package.json.
+      - name: Package Electron
+        run: npx electron-builder --publish never
         env:
           # No signing certificates are configured; build unsigned installers.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
+      - name: Package Tauri
+        run: npx tauri build
+        working-directory: src/shells/tauri
+
+      - name: Package Deno Desktop
+        run: node scripts/package-deno.mjs
+
+      - name: Collect installers
+        run: node scripts/collect-installers.mjs out/installers
+
+      - name: Report sizes
+        run: node scripts/report-sizes.mjs out/installers
+
       - uses: actions/upload-artifact@v4
         with:
-          name: GitDesk-${{ matrix.name }}
-          path: ${{ matrix.files }}
+          name: GitDesk-electron-${{ matrix.name }}
+          path: out/installers/*-electron-*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GitDesk-tauri-${{ matrix.name }}
+          path: out/installers/*-tauri-*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GitDesk-deno-${{ matrix.name }}
+          path: out/installers/*-deno-*
           if-no-files-found: error
 
   release:
@@ -70,7 +105,8 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          path: release
+          pattern: GitDesk-*
+          path: out/installers
           merge-multiple: true
 
       - name: Publish release
@@ -79,8 +115,11 @@ jobs:
         run: |
           version=$(node -p "require('./package.json').version")
           tag="v$version-build.$GITHUB_RUN_NUMBER"
-          gh release create "$tag" release/* \
+          sed "s/{{version}}/$version/g" .github/release-notes.md > out/release-notes.md
+          ls -l out/installers
+          gh release create "$tag" out/installers/* \
             --target "$GITHUB_SHA" \
             --title "GitDesk $version (build $GITHUB_RUN_NUMBER)" \
+            --notes-file out/release-notes.md \
             --generate-notes \
             --latest
