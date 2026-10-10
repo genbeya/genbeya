@@ -16,11 +16,13 @@ npm start
 | From | How |
 | --- | --- |
 | This computer | **Open folder** (`Ctrl+O`). Any folder inside a Git working tree works. |
-| WSL | **Open on WSL or SSH** → WSL, pick the distribution and enter a Linux path. Picking a `\\wsl$\…` folder in the folder dialog also opens it through WSL. |
-| SSH | **Open on WSL or SSH** → SSH, enter `user@host` (or a `Host` from `~/.ssh/config`) and the repository path. |
+| WSL | **Open on WSL or SSH** → WSL, pick the distribution and enter a Linux path or **Browse…** for it. Picking a `\\wsl$\…` folder in the folder dialog also opens it through WSL. |
+| SSH | **Open on WSL or SSH** → SSH, enter `user@host` (or a `Host` from `~/.ssh/config`) and the repository path, or **Browse…** for it. |
 | A remote URL | **Clone repository**, then choose where the clone goes — locally, on WSL or over SSH. |
 
 On WSL and SSH, Git runs on the remote machine; GitDesk talks to it through one long-lived shell. See [[Hosts]].
+
+**Browse…** shows the folders on the remote machine, starting at the path you typed or at your home folder. Double-click a folder (or select it and press `Enter`) to go into it, `Backspace` goes up, and typing the start of a name selects it. Git repositories are marked; when opening, select one and choose **Open** to open it right away. You can also type a path into the field at the top (`~` is your home folder) and press `Enter`. Hidden folders appear with **Show hidden folders**.
 
 > [!NOTE]
 > SSH connections run in batch mode: GitDesk never asks for passwords. Use an SSH agent or key, and connect once in a terminal so the host key is trusted.
