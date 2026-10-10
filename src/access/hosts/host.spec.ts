@@ -11,6 +11,7 @@ import { HostFactory, locationOfFolder, validateLocation } from "./host-factory"
 import { LocalHost } from "./local-host";
 import { printfFormat, ShellHost } from "./shell-host";
 import { quote, ShellSession } from "./shell-session";
+import { localTerminal, sshTerminal, wslTerminal } from "./terminal-commands";
 
 const machine = nodeMachine();
 
@@ -223,7 +224,7 @@ describe("WSL", async () => {
 describe.skipIf(!shell)("shell transport", () => {
   describeHost("ShellHost", async () => {
     const session = new ShellSession(machine.processes, shell!, [], "sh");
-    const host = new ShellHost(session);
+    const host = new ShellHost(session, (path) => ({ command: shell!, args: [], cwd: path }));
     const made = await host.run("sh", ["-c", "mktemp -d"], { cwd: "/" });
     const root = decodeLenient(made.stdout).trim();
     const sh = (script: string) => host.run("sh", ["-c", script], { cwd: root });
@@ -299,6 +300,28 @@ describe("locations", () => {
     { kind: "ftp", path: "/x" },
   ])("rejects %j", (value) => {
     expect(() => validateLocation(value)).toThrow();
+  });
+});
+
+describe("terminal commands of hosts", () => {
+  it("start each host's shell in the repository", async () => {
+    const factory = new HostFactory(machine);
+    const hosts = [
+      factory.connect({ kind: "wsl", distro: "Ubuntu", path: "/r" }),
+      factory.connect({ kind: "ssh", host: "me@server", path: "/r" }),
+      factory.connect({ kind: "local", path: "C:\\r" }),
+    ];
+    onTestFinished(() => hosts.forEach((host) => host.dispose()));
+    const [wsl, ssh, local] = await Promise.all(hosts.map((host) => host.terminalCommand("/r")));
+    expect(wsl).toEqual(wslTerminal("Ubuntu", "/r"));
+    expect(ssh).toEqual(sshTerminal("me@server", "/r"));
+    expect(local).toEqual(localTerminal(await machine.terminals!.shell(), "/r"));
+  });
+
+  it("explain that a runtime without terminals has none", async () => {
+    await expect(new LocalHost({ ...machine, terminals: null }).terminalCommand("/r")).rejects.toThrow(
+      "The terminal is not available in this build.",
+    );
   });
 });
 

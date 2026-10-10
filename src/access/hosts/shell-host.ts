@@ -3,6 +3,7 @@ import { posixPaths } from "../../utilities/native-path";
 import type { RunOptions } from "../ports";
 import { HostError, type EntryKind, type Host, type HostErrorCode } from "./host";
 import { quote, type ShellSession } from "./shell-session";
+import type { TerminalCommand } from "./terminal-commands";
 
 /** Exit codes of the file scripts below. */
 const FAILURES: Partial<Record<number, HostErrorCode>> = { 3: "SYMLINK", 4: "ENOENT", 5: "NOTFILE", 6: "TOOLARGE", 7: "EXISTS" };
@@ -21,7 +22,10 @@ export function printfFormat(data: Uint8Array): string {
 export class ShellHost implements Host {
   readonly paths = posixPaths;
 
-  constructor(private readonly session: ShellSession) {}
+  constructor(
+    private readonly session: ShellSession,
+    private readonly terminal: (path: string) => TerminalCommand,
+  ) {}
 
   run(command: string, args: readonly string[], { cwd, timeout }: RunOptions) {
     return this.session.exec(`cd ${quote(cwd)} && exec ${[command, ...args].map(quote).join(" ")}`, timeout);
@@ -110,6 +114,10 @@ export class ShellHost implements Host {
         `if [ -e "$t" ]; then { [ "$4" = 1 ] && [ "$f" -ef "$t" ]; } || exit 7; m=$f.gitdesk-$$; mv -- "$f" "$m" && mv -- "$m" "$t"; ` +
         `else mkdir -p -- "$(dirname -- "$t")" && mv -- "$f" "$t"; fi`,
     );
+  }
+
+  async terminalCommand(path: string) {
+    return this.terminal(path);
   }
 
   dispose() {

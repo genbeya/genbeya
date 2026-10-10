@@ -5,6 +5,7 @@ import type { Host } from "./host";
 import { LocalHost } from "./local-host";
 import { ShellHost } from "./shell-host";
 import { ShellSession } from "./shell-session";
+import { sshTerminal, wslTerminal } from "./terminal-commands";
 
 const SSH_DESTINATION = /^(ssh:\/\/)?[A-Za-z0-9._@:[\]%-]+$/;
 const MAX_TEXT = 4096;
@@ -45,6 +46,7 @@ export class HostFactory {
       case "wsl":
         return new ShellHost(
           new ShellSession(this.machine.processes, "wsl.exe", ["-d", location.distro, "-e", "sh"], `WSL (${location.distro})`),
+          (path) => wslTerminal(location.distro, path),
         );
       case "ssh":
         return new ShellHost(
@@ -54,6 +56,7 @@ export class HostFactory {
             ["-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "ServerAliveInterval=30", "--", location.host, "sh"],
             location.host,
           ),
+          (path) => sshTerminal(location.host, path),
         );
     }
   }

@@ -160,6 +160,9 @@ export interface Preferences {
   readonly autoSyncContent: boolean;
 }
 
+/** What a terminal printed since the last read (possibly nothing yet), or its exit code once it ended and everything was read. */
+export type TerminalOutput = { readonly data: string } | { readonly exit: number };
+
 /** An open repository: `id` names it in every later call, so calls racing a switch fail cleanly. */
 export interface OpenedWorkspace {
   readonly id: string;

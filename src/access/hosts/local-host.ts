@@ -1,6 +1,7 @@
 /** The machine GitDesk runs on, through the runtime's file system and processes. */
 import { hasCode, type Machine, type RunOptions } from "../ports";
-import { GIT_ENVIRONMENT, HostError, type EntryKind, type Host } from "./host";
+import { GIT_ENVIRONMENT, HostError, TERMINALS_UNAVAILABLE, type EntryKind, type Host } from "./host";
+import { localTerminal } from "./terminal-commands";
 
 const MOVE_ATTEMPTS = 3;
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -116,6 +117,11 @@ export class LocalHost implements Host {
     await fs.makeDirectory(target);
     for (const entry of await fs.list(source)) await this.moveEntry(this.paths.join(source, entry), this.paths.join(target, entry));
     await fs.removeDirectory(source).catch(() => undefined);
+  }
+
+  async terminalCommand(path: string) {
+    if (!this.machine.terminals) throw new Error(TERMINALS_UNAVAILABLE);
+    return localTerminal(await this.machine.terminals.shell(), path);
   }
 
   dispose() {
