@@ -9,6 +9,7 @@ import type { Commit, MergeOptions, OperationKind, OperationOutcome, RebaseStep 
 import { Dialogs } from "../../core/dialogs";
 import { Notifications } from "../../core/notifications";
 import { Session } from "../../core/session";
+import { UnsavedChanges } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
 import type { MergeRequest } from "./merge-dialog";
 import type { RebaseRequest } from "./rebase-dialog";
@@ -22,6 +23,7 @@ export class OperationActions {
   private readonly dialogs = inject(Dialogs);
   private readonly notifications = inject(Notifications);
   private readonly router = inject(Router);
+  private readonly unsaved = inject(UnsavedChanges);
 
   /** Asks for the message and whether to fast-forward, then merges `source` into the current branch. */
   async merge(source: string, kind: MergeRequest["kind"]): Promise<void> {
@@ -99,8 +101,16 @@ export class OperationActions {
     this.report(await this.session.run(() => this.api.versionControl.continueOperation()), `${name} finished`);
   }
 
+  /** Leaves out the commit being applied, after confirming: its conflict resolutions are lost. */
   async skip(): Promise<void> {
     const name = this.name();
+    const confirmed = await this.dialogs.confirm({
+      title: "Skip commit",
+      message: this.withUnsaved("The commit being applied is left out, and the conflict resolutions made for it are lost."),
+      confirm: "Skip",
+      danger: true,
+    });
+    if (!confirmed) return;
     this.report(await this.session.run(() => this.api.versionControl.skipOperation()), `${name} finished`);
   }
 
@@ -108,7 +118,7 @@ export class OperationActions {
     const name = this.name();
     const confirmed = await this.dialogs.confirm({
       title: `Abort ${name.toLowerCase()}`,
-      message: "Everything goes back to how it was before it started. Conflict resolutions made so far are lost.",
+      message: this.withUnsaved("Everything goes back to how it was before it started. Conflict resolutions made so far are lost."),
       confirm: "Abort",
       danger: true,
     });
@@ -124,6 +134,11 @@ export class OperationActions {
   /** Tracked files have uncommitted changes, which rewriting history must set aside. */
   private dirty(): boolean {
     return !!this.session.snapshot()?.changes.some((change) => change.index !== "?");
+  }
+
+  /** Skipping and aborting replace the conflicted files, and with them what the conflict editor has not saved. */
+  private withUnsaved(message: string): string {
+    return this.unsaved.any() ? `${message} So are your unsaved edits.` : message;
   }
 
   private pushedWarning(pushed: readonly string[]): string {

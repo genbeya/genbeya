@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import type { Change, Operation } from "../../../../contracts/model";
+import { UnsavedChanges } from "../../core/unsaved-changes";
 import { openRepository, settle } from "../../testing/component-harness";
 import { describeOperation, OperationBanner } from "./operation-banner";
 
@@ -40,13 +41,29 @@ describe("OperationBanner", () => {
     expect(managers.versionControl.abortOperation).toHaveBeenCalledWith("w1");
   });
 
-  it("lets rebases skip a commit", async () => {
-    const { fixture, button, managers } = await render({ kind: "rebase", source: "feature", target: "main", step: 2, steps: 3 }, [
+  it("lets rebases skip a commit, after asking", async () => {
+    const { fixture, button, managers, dialogs } = await render({ kind: "rebase", source: "feature", target: "main", step: 2, steps: 3 }, [
       CONFLICT,
     ]);
+    dialogs.confirm.mockResolvedValueOnce(false);
+    button("Skip")!.click();
+    await settle(fixture);
+    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Skip commit", danger: true }));
+    expect(managers.versionControl.skipOperation).not.toHaveBeenCalled();
     button("Skip")!.click();
     await settle(fixture);
     expect(managers.versionControl.skipOperation).toHaveBeenCalledWith("w1");
+  });
+
+  it("warns that skipping loses the conflict editor's unsaved edits", async () => {
+    const { fixture, button, dialogs } = await render({ kind: "cherry-pick", source: "Fix", target: null, step: null, steps: null }, [
+      CONFLICT,
+    ]);
+    TestBed.inject(UnsavedChanges).mark({}, true);
+    dialogs.confirm.mockResolvedValueOnce(false);
+    button("Skip")!.click();
+    await settle(fixture);
+    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("unsaved edits") }));
   });
 });
 
