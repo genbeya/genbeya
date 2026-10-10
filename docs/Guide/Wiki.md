@@ -30,13 +30,15 @@ A folder without a matching page still shows up and lists its children. Moving a
 
 `[[…]]` points at anything in the repository and shows what it points at, kept up to date:
 
-| Write | Shows |
-| --- | --- |
-| `[[GENBEYA-12]]` | The task: its ID, title and state, in the state's colour |
-| `[[Getting started]]`, `[[Guide/Wiki]]` | The page's title; pages are found by title or by path below the wiki folder |
-| `[[src/app.ts]]`, `[[src/app.ts#L10-L20]]` | The file and lines; clicking opens the editor with those lines selected |
-| `[[GENBEYA-12\|the login bug]]` | Any reference with your own text |
-| `![[src/app.ts#L10-L20]]` on its own line | Those lines of the file, highlighted, always the current version |
+| Write | Shows | Description |
+| --- | --- | --- |
+| `[[GENBEYA-12]]` | [[GENBEYA-12]] | The task: its ID, title and state, in the state's colour |
+| `[[Getting started]]`, `[[Guide/Wiki]]` | [[Getting started]], [[Guide/Wiki]] | The page's title; pages are found by title or by path below the wiki folder |
+| `[[src/client/app/app.ts]]`, `[[src/client/app/app.ts#L10-L20]]` | [[src/client/app/app.ts]], [[src/client/app/app.ts#L10-L20]] | The file and lines; clicking opens the editor with those lines selected |
+| `[[GENBEYA-12\|the login bug]]` | [[GENBEYA-12\|the login bug]] | Any reference with your own text |
+| `![[src/client/app/app.ts#L10-L20]]` on its own line | see next line | Those lines of the file, highlighted, always the current version |
+
+![[src/client/app/app.ts#L10-L20]]
 
 Type `[[` in any editor to pick a task, page or file from a list. A page that does not exist yet shows in red; clicking it creates the page. A file that is not in the repository shows dashed. Task IDs written plainly in text (`GENBEYA-12`) link to the task too, with its title and state as a tooltip.
 
