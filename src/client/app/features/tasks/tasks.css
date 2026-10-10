@@ -529,6 +529,7 @@
   gap: 18px;
 }
 
+.task-discussion.is-hidden,
 .task-comments.is-hidden {
   display: none;
 }

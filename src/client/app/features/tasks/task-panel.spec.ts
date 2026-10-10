@@ -1,6 +1,7 @@
 import { TestBed } from "@angular/core/testing";
 import { openRepository, settle } from "../../testing/component-harness";
 import type { TaskInput } from "../../../../contracts/model";
+import { UnsavedChanges } from "../../core/unsaved-changes";
 import { task } from "../../testing/fake-platform";
 import { TaskPanel } from "./task-panel";
 
@@ -196,6 +197,56 @@ describe("TaskPanel", () => {
     await settle(fixture);
     expect(dialogs.discardEdits).toHaveBeenCalledWith("this comment");
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("asks only once before closing with an unsent comment, leaving nothing for the route to ask about", async () => {
+    const { element, dialogs, fixture, router } = await render({ task: first });
+    const unsaved = TestBed.inject(UnsavedChanges);
+    const navigate = vi.spyOn(router, "navigate").mockImplementation(async () => !unsaved.any());
+    const composer = element.querySelector<HTMLTextAreaElement>("textarea[aria-label='New comment']")!;
+    composer.value = "Unsent";
+    composer.dispatchEvent(new Event("input"));
+    await settle(fixture);
+    expect(unsaved.any()).toBe(true);
+    element.querySelector<HTMLButtonElement>("button[aria-label='Close (Esc)']")!.click();
+    await settle(fixture);
+    expect(dialogs.discardEdits).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(["/tasks"]);
+    expect(await navigate.mock.results[0]!.value).toBe(true);
+  });
+
+  it("keeps an unsent comment while the task is edited", async () => {
+    const { element, fixture, button } = await render({ task: first });
+    const composer = () => element.querySelector<HTMLTextAreaElement>("textarea[aria-label='New comment']")!;
+    composer().value = "Unsent";
+    composer().dispatchEvent(new Event("input"));
+    button("Edit").click();
+    await settle(fixture);
+    expect(element.querySelector(".task-discussion")!.classList).toContain("is-hidden");
+    button("Cancel").click();
+    await settle(fixture);
+    expect(element.querySelector(".task-discussion")!.classList).not.toContain("is-hidden");
+    expect(composer().value).toBe("Unsent");
+  });
+
+  it("moves between comments and activity with the arrow keys", async () => {
+    const { element, managers, fixture } = await render({ task: first });
+    managers.content.taskActivity.mockResolvedValue([]);
+    const tabs = [...element.querySelectorAll<HTMLButtonElement>("[role=tab]")];
+    expect(tabs.map((tab) => element.querySelector(`#${tab.getAttribute("aria-controls")}`)!.getAttribute("role"))).toEqual([
+      "tabpanel",
+      "tabpanel",
+    ]);
+    expect(tabs.map((tab) => tab.tabIndex)).toEqual([0, -1]);
+    tabs[0]!.focus();
+    tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await settle(fixture);
+    expect(tabs[1]!.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tabs[1]);
+    expect(tabs.map((tab) => tab.tabIndex)).toEqual([-1, 0]);
+    tabs[1]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await settle(fixture);
+    expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
   });
 
   it("changes properties at once while viewing", async () => {

@@ -121,6 +121,12 @@ export class TaskComments {
     trackUnsaved(this.dirty);
   }
 
+  /** Drops the unsent comment and the edit in progress. */
+  discard(): void {
+    this.draft.set("");
+    this.editing.set(null);
+  }
+
   private async loadAuthor() {
     this.author.set(await this.api.content.commentAuthor().catch(() => null));
   }

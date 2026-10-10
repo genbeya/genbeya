@@ -35,6 +35,9 @@ import { TaskFields } from "./task-fields";
 import { displayId, inputOf } from "./task-model";
 import { TaskProperties } from "./task-properties";
 
+const TABS = ["comments", "activity"] as const;
+type Tab = (typeof TABS)[number];
+
 const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, priority: "none", assignee: "", labels: [], body: "", epic });
 
 /** `draft` with the template's description, and its presets where the draft has none. */
@@ -134,36 +137,45 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
           <button type="button" class="task-empty-body" (click)="startEditing()">Add a description…</button>
         }
       </div>
-      @if (task() && !editing()) {
-        <section class="task-discussion">
-          <div class="segmented" role="tablist" aria-label="Comments and activity">
-            <button
-              type="button"
-              role="tab"
-              [attr.aria-selected]="tab() === 'comments'"
-              [class.is-active]="tab() === 'comments'"
-              (click)="tab.set('comments')"
-            >
-              Comments
-              @if (current()!.comments.length) {
-                <span class="faint">{{ current()!.comments.length }}</span>
-              }
-            </button>
-            <button
-              type="button"
-              role="tab"
-              [attr.aria-selected]="tab() === 'activity'"
-              [class.is-active]="tab() === 'activity'"
-              (click)="tab.set('activity')"
-            >
-              Activity
-            </button>
+      @if (task()) {
+        <!-- Hidden rather than removed while editing, and the comments while showing the activity, so an unsent comment survives. -->
+        <section class="task-discussion" [class.is-hidden]="editing()">
+          <div class="segmented" role="tablist" aria-label="Comments and activity" (keydown)="tabKey($event)">
+            @for (name of tabs; track name) {
+              <button
+                type="button"
+                role="tab"
+                [id]="'task-tab-' + name"
+                [attr.aria-controls]="'task-tabpanel-' + name"
+                [attr.aria-selected]="tab() === name"
+                [tabIndex]="tab() === name ? 0 : -1"
+                [class.is-active]="tab() === name"
+                (click)="tab.set(name)"
+              >
+                @if (name === "comments") {
+                  Comments
+                  @if (current()!.comments.length) {
+                    <span class="faint">{{ current()!.comments.length }}</span>
+                  }
+                } @else {
+                  Activity
+                }
+              </button>
+            }
           </div>
-          <!-- Hidden rather than removed, so an unsent comment survives a look at the activity. -->
-          <gd-task-comments [class.is-hidden]="tab() !== 'comments'" [task]="current()!" (changed)="saved.set($event)" />
-          @if (tab() === "activity") {
-            <gd-task-activity [task]="current()!" />
-          }
+          <gd-task-comments
+            id="task-tabpanel-comments"
+            role="tabpanel"
+            aria-labelledby="task-tab-comments"
+            [class.is-hidden]="tab() !== 'comments'"
+            [task]="current()!"
+            (changed)="saved.set($event)"
+          />
+          <div id="task-tabpanel-activity" role="tabpanel" aria-labelledby="task-tab-activity" [hidden]="tab() !== 'activity'">
+            @if (tab() === "activity") {
+              <gd-task-activity [task]="current()!" />
+            }
+          </div>
         </section>
       }
     </div>
@@ -212,7 +224,8 @@ export class TaskPanel {
 
   /** A save's result, until the snapshot catches up with it. */
   protected readonly saved = signal<Task | null>(null);
-  protected readonly tab = signal<"comments" | "activity">("comments");
+  protected readonly tabs = TABS;
+  protected readonly tab = signal<Tab>("comments");
   private readonly comments = viewChild(TaskComments);
   protected readonly current = computed(() => this.saved() ?? this.task() ?? null);
   /** The actions menu only exists for a task. */
@@ -286,13 +299,33 @@ ${this.task()!.hash}`,
 
   protected async cancel() {
     if (this.dirty() && !(await this.dialogs.discardEdits("this task"))) return;
+    this.base.set(JSON.stringify(this.draft()));
     if (this.task()) this.editing.set(false);
     else await this.close();
   }
 
+  /** Asks once before discarding an edit or an unsent comment, then leaves; the route's own guard finds nothing left to ask about. */
   protected async close() {
-    if (this.comments()?.dirty() && !(await this.dialogs.discardEdits("this comment"))) return;
+    const comments = this.comments();
+    const unsentComment = !!comments?.dirty();
+    if (unsentComment || this.dirty()) {
+      if (!(await this.dialogs.discardEdits(this.dirty() ? "this task" : "this comment"))) return;
+      comments?.discard();
+      this.base.set(JSON.stringify(this.draft()));
+    }
     await this.router.navigate(["/tasks"]);
+  }
+
+  /** Arrow keys, Home and End move between the tabs, as in every tab list. */
+  protected tabKey(event: KeyboardEvent) {
+    const index = this.tabs.indexOf(this.tab());
+    const last = this.tabs.length - 1;
+    const next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: last }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    const tab = this.tabs[(next + this.tabs.length) % this.tabs.length]!;
+    this.tab.set(tab);
+    (event.currentTarget as HTMLElement).querySelector<HTMLElement>(`#task-tab-${tab}`)?.focus();
   }
 
   protected async save() {
