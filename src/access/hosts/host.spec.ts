@@ -1,30 +1,18 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { nodeMachine } from "../../platforms/node/node-machine";
+import { findShell } from "../../testing/shell";
 import { temporaryFolder } from "../../testing/temp";
 import { decodeLenient, encodeText } from "../../utilities/bytes";
 import { FileSystemError, type FileSystem } from "../ports";
 import { HostError, type Host } from "./host";
-import { HostFactory, locationOfFolder, validateLocation } from "./host-factory";
+import { HostFactory, locationOfFolder, validateFolderLocation, validateLocation } from "./host-factory";
 import { LocalHost } from "./local-host";
 import { printfFormat, ShellHost } from "./shell-host";
 import { quote, ShellSession } from "./shell-session";
 
 const machine = nodeMachine();
-
-/** A POSIX sh on this machine: /bin/sh, or Git for Windows' sh.exe. */
-function findShell(): string | null {
-  if (machine.os !== "windows") return "sh";
-  try {
-    const execPath = execFileSync("git", ["--exec-path"], { encoding: "utf8" }).trim();
-    const sh = path.resolve(execPath, "../../../usr/bin/sh.exe");
-    return existsSync(sh) ? sh : null;
-  } catch {
-    return null;
-  }
-}
 
 interface HostFixture {
   host: Host;
@@ -212,7 +200,7 @@ function describeSessionCleanup(name: string, command: string, args: string[]) {
   });
 }
 
-const shell = findShell();
+const shell = findShell(machine.os === "windows");
 if (shell) describeSessionCleanup("sh", shell, []);
 
 describe("WSL", async () => {
@@ -299,6 +287,24 @@ describe("locations", () => {
     { kind: "ftp", path: "/x" },
   ])("rejects %j", (value) => {
     expect(() => validateLocation(value)).toThrow();
+  });
+
+  it("accepts remote folders to browse, including the home folder", () => {
+    for (const path of ["", "~", "~/code", "/srv"])
+      expect(validateFolderLocation({ kind: "wsl", distro: "Ubuntu", path, extra: 1 })).toEqual({ kind: "wsl", distro: "Ubuntu", path });
+  });
+
+  it.each([
+    [{ kind: "local", path: "C:\\" }, "folder dialog"],
+    [{ kind: "wsl", distro: "Ubuntu", path: "relative" }, "absolute path"],
+    [{ kind: "wsl", distro: "Ubuntu", path: "~me" }, "absolute path"],
+    [{ kind: "ssh", host: "server", path: "/a\nb" }, "absolute path"],
+    [{ kind: "wsl", distro: "-u root", path: "/" }, "Invalid"],
+    [{ kind: "ssh", host: "-oProxyCommand=evil", path: "/" }, "Invalid"],
+    [{ kind: "ssh", host: "server" }, "Invalid"],
+    [null, "Invalid"],
+  ])("refuses to browse %j", (value, message) => {
+    expect(() => validateFolderLocation(value)).toThrow(message);
   });
 });
 

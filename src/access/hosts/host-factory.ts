@@ -1,5 +1,5 @@
 /** Validates repository locations and connects to the machines they name. */
-import type { Location } from "../../contracts/model";
+import type { Location, RemoteLocation } from "../../contracts/model";
 import type { Machine } from "../ports";
 import type { Host } from "./host";
 import { LocalHost } from "./local-host";
@@ -9,23 +9,49 @@ import { ShellSession } from "./shell-session";
 const SSH_DESTINATION = /^(ssh:\/\/)?[A-Za-z0-9._@:[\]%-]+$/;
 const MAX_TEXT = 4096;
 const BYTE_ORDER_MARK = String.fromCharCode(0xfeff);
+const INVALID = "Invalid repository location.";
 
 const isText = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0 && value.length < MAX_TEXT && !/[\0\r\n]/.test(value);
 
-/** A trusted copy of a client-supplied location, or an error. */
-export function validateLocation(value: unknown): Location {
-  const location = value as Partial<Record<"kind" | "path" | "distro" | "host", unknown>> | null;
-  if (!location || typeof location !== "object" || !isText(location.path)) throw new Error("Invalid repository location.");
-  const path = location.path;
-  if (location.kind === "local") return { kind: "local", path };
-  if (!path.startsWith("/")) throw new Error("Use an absolute path on the remote machine, such as /home/me/project.");
+type UntrustedLocation = Partial<Record<"kind" | "path" | "distro" | "host", unknown>>;
+
+/** `location`'s WSL distribution or SSH server with `path`, or null when it names neither. */
+function remote(location: UntrustedLocation, path: string): RemoteLocation | null {
   // A leading "-" would turn a name into an option of wsl.exe or ssh.
   if (location.kind === "wsl" && isText(location.distro) && !location.distro.startsWith("-"))
     return { kind: "wsl", distro: location.distro, path };
   if (location.kind === "ssh" && isText(location.host) && !location.host.startsWith("-") && SSH_DESTINATION.test(location.host))
     return { kind: "ssh", host: location.host, path };
-  throw new Error("Invalid repository location.");
+  return null;
+}
+
+/** A trusted copy of a client-supplied location, or an error. */
+export function validateLocation(value: unknown): Location {
+  const location = value as UntrustedLocation | null;
+  if (!location || typeof location !== "object" || !isText(location.path)) throw new Error(INVALID);
+  const path = location.path;
+  if (location.kind === "local") return { kind: "local", path };
+  if (!path.startsWith("/")) throw new Error("Use an absolute path on the remote machine, such as /home/me/project.");
+  const trusted = remote(location, path);
+  if (!trusted) throw new Error(INVALID);
+  return trusted;
+}
+
+/**
+ * A trusted copy of a client-supplied folder on WSL or SSH to browse. Its
+ * path is absolute, or empty or starting with `~` for the home folder.
+ */
+export function validateFolderLocation(value: unknown): RemoteLocation {
+  const location = value as UntrustedLocation | null;
+  if (!location || typeof location !== "object" || typeof location.path !== "string") throw new Error(INVALID);
+  if (location.kind === "local") throw new Error("Choose folders on this computer with the folder dialog.");
+  const path = location.path;
+  if (path && !(isText(path) && (path.startsWith("/") || path === "~" || path.startsWith("~/"))))
+    throw new Error("Use an absolute path, such as /home/me, or ~ for your home folder.");
+  const trusted = remote(location, path);
+  if (!trusted) throw new Error(INVALID);
+  return trusted;
 }
 
 /** Maps `\\wsl$\Distro\path` and `\\wsl.localhost\Distro\path` to a WSL location. */
@@ -39,23 +65,19 @@ export class HostFactory {
   constructor(private readonly machine: Machine) {}
 
   connect(location: Location): Host {
-    switch (location.kind) {
-      case "local":
-        return new LocalHost(this.machine);
-      case "wsl":
-        return new ShellHost(
-          new ShellSession(this.machine.processes, "wsl.exe", ["-d", location.distro, "-e", "sh"], `WSL (${location.distro})`),
-        );
-      case "ssh":
-        return new ShellHost(
-          new ShellSession(
-            this.machine.processes,
-            "ssh",
-            ["-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "ServerAliveInterval=30", "--", location.host, "sh"],
-            location.host,
-          ),
-        );
-    }
+    return location.kind === "local" ? new LocalHost(this.machine) : new ShellHost(this.session(location));
+  }
+
+  /** A shell on the WSL distribution or SSH server of `location`; it connects on first use. */
+  session(location: RemoteLocation): ShellSession {
+    if (location.kind === "wsl")
+      return new ShellSession(this.machine.processes, "wsl.exe", ["-d", location.distro, "-e", "sh"], `WSL (${location.distro})`);
+    return new ShellSession(
+      this.machine.processes,
+      "ssh",
+      ["-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "ServerAliveInterval=30", "--", location.host, "sh"],
+      location.host,
+    );
   }
 
   /** WSL distributions of this machine; empty outside Windows or without WSL. */

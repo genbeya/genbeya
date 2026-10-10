@@ -124,6 +124,22 @@ describe("WorkspaceManager", () => {
     await expect(managers.workspace.clone("--upload-pack=evil", { kind: "local", path: parent })).rejects.toThrow("Enter a Git URL");
   });
 
+  it("validates folders to browse", async () => {
+    const managers = await backend();
+    await expect(managers.workspace.browse({ kind: "local", path: "C:\\" } as never)).rejects.toThrow("folder dialog");
+    await expect(managers.workspace.browse({ kind: "ssh", host: "-oProxyCommand=x", path: "" })).rejects.toThrow(
+      "Invalid repository location.",
+    );
+    await expect(managers.workspace.browse({ kind: "wsl", distro: "Ubuntu", path: "relative" })).rejects.toThrow("absolute path");
+  });
+
+  it("explains SSH servers it cannot reach", async () => {
+    const managers = await backend();
+    await expect(managers.workspace.browse({ kind: "ssh", host: "nosuchhost.invalid", path: "" })).rejects.toThrow(
+      /^Can't connect to nosuchhost\.invalid: \S/,
+    );
+  });
+
   it("explains why a repository could not be reopened", async () => {
     const data = await temporaryFolder("data-");
     const repository = await createRepository();
@@ -404,5 +420,15 @@ describe("WSL repositories", async () => {
     await managers.versionControl.commit(id, "Add task", false);
     expect((await managers.versionControl.log(id, 0, 5))[0]!.subject).toBe("Add task");
     await expect(managers.content.read(id, "repo", "missing.md")).rejects.toThrow("does not exist");
+  });
+
+  it.skipIf(!ubuntu)("browse folders and name missing distributions", async () => {
+    const managers = await backend();
+    const root = await managers.workspace.browse({ kind: "wsl", distro: "Ubuntu", path: "/" });
+    expect(root).toMatchObject({ path: "/", parent: null, truncated: false });
+    expect(root.folders).toContainEqual({ name: "tmp", repository: false });
+    await expect(managers.workspace.browse({ kind: "wsl", distro: "GitDeskNoSuchDistro", path: "" })).rejects.toThrow(
+      "WSL has no distribution named GitDeskNoSuchDistro.",
+    );
   });
 });

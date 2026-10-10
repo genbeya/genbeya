@@ -5,6 +5,27 @@ export type Location =
   | { readonly kind: "wsl"; readonly distro: string; readonly path: string }
   | { readonly kind: "ssh"; readonly host: string; readonly path: string };
 
+/** A location on a WSL distribution or an SSH server. */
+export type RemoteLocation = Exclude<Location, { readonly kind: "local" }>;
+
+export interface Folder {
+  readonly name: string;
+  /** Holds a `.git` entry. */
+  readonly repository: boolean;
+}
+
+/** The subfolders of a folder on a remote machine, for choosing a path there. */
+export interface FolderListing {
+  /** Absolute, with symbolic links resolved. */
+  readonly path: string;
+  /** Null at the root. */
+  readonly parent: string | null;
+  /** By name, ignoring case; hidden folders (".name") last. */
+  readonly folders: readonly Folder[];
+  /** True when the folder holds more subfolders than are listed. */
+  readonly truncated: boolean;
+}
+
 export const PRIORITIES = ["urgent", "high", "medium", "low", "none"] as const;
 export type Priority = (typeof PRIORITIES)[number];
 

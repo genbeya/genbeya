@@ -31,6 +31,16 @@ printf '\\n${READY}\\n'
 /** Quotes a value for POSIX sh. */
 export const quote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
 
+/** The connection ended, or never started; `detail` is what the connecting program wrote to stderr. */
+export class ConnectionError extends Error {
+  constructor(
+    label: string,
+    readonly detail: string,
+  ) {
+    super(`Lost the connection to ${label}.` + (detail ? ` ${detail}` : ""));
+  }
+}
+
 export class ShellSession {
   private child: ChildProcess | null = null;
   private starting: Promise<void> | null = null;
@@ -128,8 +138,7 @@ export class ShellSession {
   }
 
   private async waitForData(deadline: number, child = this.child) {
-    if (!child || child !== this.child)
-      throw new Error(`Lost the connection to ${this.label}.` + (this.diagnostics.trim() ? ` ${this.diagnostics.trim()}` : ""));
+    if (!child || child !== this.child) throw new ConnectionError(this.label, this.diagnostics.trim());
     const remaining = deadline - Date.now();
     if (remaining <= 0) throw new Error(`${this.label} did not respond in time.`);
     await new Promise<void>((resolve) => {

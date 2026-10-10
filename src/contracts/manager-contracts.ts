@@ -9,10 +9,12 @@ import type {
   Diff,
   DiffSource,
   FileContent,
+  FolderListing,
   Location,
   OpenedWorkspace,
   Preferences,
   RecentEntry,
+  RemoteLocation,
   Scope,
   Settings,
   Snapshot,
@@ -37,6 +39,11 @@ export interface WorkspaceManagerContract {
   setPreferences(change: Partial<Preferences>): Promise<Preferences>;
   /** WSL distributions on this machine; empty elsewhere. */
   distributions(): Promise<readonly string[]>;
+  /**
+   * The subfolders of a folder on WSL or SSH, for choosing a path there. An
+   * empty path, or one starting with `~`, is relative to the home folder.
+   */
+  browse(location: RemoteLocation): Promise<FolderListing>;
 }
 
 /** Everything that edits files: repository files, wiki pages, tasks and settings. */
@@ -89,7 +96,19 @@ type Methods<T> = readonly (keyof T & string)[];
 
 /** Every callable method, per manager. Transports dispatch only these names. */
 export const MANAGER_METHODS = {
-  workspace: ["open", "restore", "clone", "close", "snapshot", "recent", "forget", "preferences", "setPreferences", "distributions"],
+  workspace: [
+    "open",
+    "restore",
+    "clone",
+    "close",
+    "snapshot",
+    "recent",
+    "forget",
+    "preferences",
+    "setPreferences",
+    "distributions",
+    "browse",
+  ],
   content: [
     "read",
     "image",

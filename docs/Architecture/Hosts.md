@@ -26,5 +26,9 @@ sequenceDiagram
 
 File content is written with `printf` and octal escapes, which only needs a POSIX shell — no extra tools on the remote. Requirements on the remote: `sh`, `git`, and the usual `cat`, `wc`, `mktemp`, `mkdir`, `mv`, `rm`.
 
+## Browsing folders
+
+`RemoteFolders` (`src/access/hosts/remote-folders.ts`) lists a folder on WSL or SSH in one request: a single `sh` script enters the folder, prints `pwd -P`, and loops over `*` and `.*`, keeping entries for which `[ -d ]` holds (so linked folders count) and marking those with a `.git` entry. Records end with NUL, so any file name survives. The session of the machine last browsed stays open between listings; browsing another machine, a minute without listings, or closing the backend ends it.
+
 > [!IMPORTANT]
 > The login shell of the SSH user must accept a POSIX command line (bash, zsh, dash, ksh). See GENBEYA-9 for fish and other shells.

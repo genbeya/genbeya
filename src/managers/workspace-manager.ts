@@ -1,8 +1,9 @@
-/** Opening, closing and observing repositories; the recent list and preferences. */
+/** Opening, closing and observing repositories; the recent list, preferences, and folders on remote machines. */
 import type { WorkspaceManagerContract } from "../contracts/manager-contracts";
-import type { OpenedWorkspace, Preferences, Snapshot, Storage, Theme } from "../contracts/model";
+import type { FolderListing, OpenedWorkspace, Preferences, Snapshot, Storage, Theme } from "../contracts/model";
 import { RepositoryAccess } from "../access/git/repository-access";
-import { validateLocation, type HostFactory } from "../access/hosts/host-factory";
+import { validateFolderLocation, validateLocation, type HostFactory } from "../access/hosts/host-factory";
+import type { RemoteFolders } from "../access/hosts/remote-folders";
 import type { PreferencesStore } from "../access/preferences/preferences-store";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { sha256 } from "../utilities/bytes";
@@ -17,6 +18,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
   constructor(
     private readonly registry: WorkspaceRegistry,
     private readonly hosts: HostFactory,
+    private readonly folders: RemoteFolders,
     private readonly preferencesStore: PreferencesStore,
     private readonly engines: Engines & { readonly wiki: WikiEngine },
   ) {}
@@ -118,6 +120,10 @@ export class WorkspaceManager implements WorkspaceManagerContract {
 
   async distributions(): Promise<readonly string[]> {
     return this.hosts.distributions();
+  }
+
+  async browse(location: unknown): Promise<FolderListing> {
+    return this.folders.list(validateFolderLocation(location));
   }
 
   /** Everything the client shows, stamped with a version of its content. */

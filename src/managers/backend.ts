@@ -4,6 +4,7 @@
  */
 import type { Managers } from "../contracts/manager-contracts";
 import { HostFactory } from "../access/hosts/host-factory";
+import { RemoteFolders } from "../access/hosts/remote-folders";
 import type { Machine } from "../access/ports";
 import { PreferencesStore } from "../access/preferences/preferences-store";
 import { SettingsEngine } from "../engines/settings-engine";
@@ -15,7 +16,7 @@ import { WorkspaceManager } from "./workspace-manager";
 import { WorkspaceRegistry } from "./workspace";
 
 export interface Backend extends Managers {
-  /** Closes repositories and saves pending preferences. */
+  /** Closes repositories and remote sessions, and saves pending preferences. */
   dispose(): Promise<void>;
 }
 
@@ -24,11 +25,14 @@ export async function createBackend(machine: Machine, dataFolder: string): Promi
   const engines = { settings: new SettingsEngine(), tasks: new TaskEngine(), wiki: new WikiEngine() };
   const registry = new WorkspaceRegistry();
   const preferences = await PreferencesStore.load(machine, dataFolder);
+  const hosts = new HostFactory(machine);
+  const folders = new RemoteFolders(hosts);
   return {
-    workspace: new WorkspaceManager(registry, new HostFactory(machine), preferences, engines),
+    workspace: new WorkspaceManager(registry, hosts, folders, preferences, engines),
     content: new ContentManager(registry, engines),
     versionControl: new VersionControlManager(registry),
     async dispose() {
+      folders.dispose();
       await registry.closeAll();
       await preferences.flush();
     },
