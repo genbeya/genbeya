@@ -5,18 +5,19 @@ import { LucideCodeXml, LucideCopy, LucideGitMerge } from "@lucide/angular";
 import type { CommitDetail } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Clipboard } from "../../core/clipboard";
+import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
 import { EmptyState } from "../../ui/empty-state";
 import { DiffPane } from "../diff/diff-pane";
-import { ShareMenu } from "../share/share-menu";
 import { relativeTime } from "./commit-graph";
+import { CommitMenu } from "./commit-menu";
 import { RefChips } from "./ref-chips";
 
 /** A commit: message, author, files, and the selected file's diff against the (first) parent. */
 @Component({
   selector: "gd-commit-pane",
-  imports: [Avatar, CdkContextMenuTrigger, DiffPane, EmptyState, RefChips, ShareMenu, LucideCodeXml, LucideCopy, LucideGitMerge],
+  imports: [Avatar, CdkContextMenuTrigger, CommitMenu, DiffPane, EmptyState, RefChips, LucideCodeXml, LucideCopy, LucideGitMerge],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -25,12 +26,8 @@ import { RefChips } from "./ref-chips";
         ><p class="selectable">{{ message }}</p></gd-empty-state
       >
     } @else if (detail(); as detail) {
-      <gd-share-menu #share="gdShareMenu" />
-      <div
-        class="commit-head"
-        [cdkContextMenuTriggerFor]="share.menu()"
-        [cdkContextMenuTriggerData]="{ $implicit: { kind: 'commit', hash: detail.commit.hash } }"
-      >
+      <gd-commit-menu #commitMenu="gdCommitMenu" />
+      <div class="commit-head" [cdkContextMenuTriggerFor]="commitMenu.menu()" [cdkContextMenuTriggerData]="{ $implicit: detail.commit }">
         <div class="commit-title selectable">
           @if (detail.commit.parents.length > 1) {
             <svg lucideGitMerge [size]="16" class="faint" aria-label="Merge commit"></svg>
@@ -93,6 +90,11 @@ export class CommitPane {
   readonly file = input<string>();
 
   private readonly api = inject(WorkspaceApi);
+  private readonly session = inject(Session);
+  private readonly refs = computed(() => {
+    const snapshot = this.session.snapshot();
+    return [snapshot?.head.commit, ...(snapshot?.branches ?? []), ...(snapshot?.tags ?? [])].join(" ");
+  });
   private readonly router = inject(Router);
   private readonly clipboard = inject(Clipboard);
   protected readonly relativeTime = relativeTime;
@@ -108,6 +110,8 @@ export class CommitPane {
   constructor() {
     effect(() => {
       const hash = this.hash();
+      // Branches and tags pointing here may change.
+      this.refs();
       untracked(() => void this.load(hash));
     });
     // Without a file, show the first one.

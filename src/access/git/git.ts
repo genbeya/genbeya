@@ -1,11 +1,34 @@
 /** Runs git in one working tree with settings that keep app-issued commands predictable. */
-import type { Change, Head } from "../../contracts/model";
+import type { Change, Head, OperationOutcome } from "../../contracts/model";
 import { decodeLenient } from "../../utilities/bytes";
 import type { Host } from "../hosts/host";
 import type { RunResult } from "../ports";
 import { parseStatus } from "./git-parsers";
 
 export class GitError extends Error {}
+
+/** How long fetches and pushes may take. */
+export const NETWORK_TIMEOUT = 5 * 60_000;
+
+/** A failed command as a {@link GitError} with git's message, which some commands ("nothing to commit") print to stdout. */
+export const failure = (args: readonly string[], result: RunResult): GitError =>
+  new GitError(
+    result.stderr.replace(/^(fatal|error): /gm, "").trim() ||
+      decodeLenient(result.stdout.subarray(0, 2000)).trim() ||
+      `git ${args[0]} failed with exit code ${result.code}.`,
+  );
+
+export interface GitOptions {
+  /** Milliseconds; 60 s unless given. */
+  readonly timeout?: number;
+  /** Added to git's environment. */
+  readonly env?: Readonly<Record<string, string>>;
+  /**
+   * Leaves out `--literal-pathspecs`, for commands that take no paths but
+   * use pathspec magic themselves, such as `stash push --include-untracked`.
+   */
+  readonly pathspecMagic?: boolean;
+}
 
 export class Git {
   constructor(
@@ -20,10 +43,10 @@ export class Git {
    * `core.sshCommand` still run on add, commit, fetch and push, as they do
    * in a terminal.
    */
-  private args(args: readonly string[]): string[] {
+  private args(args: readonly string[], pathspecMagic = false): string[] {
     return [
       // Paths are never globs. check-ignore takes plain paths and refuses the flag.
-      ...(args[0] === "check-ignore" ? [] : ["--literal-pathspecs"]),
+      ...(pathspecMagic || args[0] === "check-ignore" ? [] : ["--literal-pathspecs"]),
       "-c",
       "core.quotepath=false",
       "-c",
@@ -38,7 +61,16 @@ export class Git {
 
   /** The finished process, whatever its exit code. */
   run(args: readonly string[], timeout?: number): Promise<RunResult> {
-    return this.host.run("git", this.args(args), { cwd: this.cwd, ...(timeout ? { timeout } : {}) });
+    return this.execute(args, { timeout });
+  }
+
+  /** Like {@link run}, with more options. */
+  execute(args: readonly string[], { timeout, env, pathspecMagic }: GitOptions): Promise<RunResult> {
+    return this.host.run("git", this.args(args, pathspecMagic), {
+      cwd: this.cwd,
+      ...(timeout ? { timeout } : {}),
+      ...(env ? { env } : {}),
+    });
   }
 
   async bytes(args: readonly string[], timeout?: number): Promise<Uint8Array> {
@@ -47,13 +79,28 @@ export class Git {
 
   /** The output of a successful command; a failure becomes a {@link GitError} with git's message. */
   private check(args: readonly string[], result: RunResult): Uint8Array {
-    if (result.code !== 0)
-      throw new GitError(result.stderr.replace(/^(fatal|error): /gm, "").trim() || `git ${args[0]} failed with exit code ${result.code}.`);
+    if (result.code !== 0) throw failure(args, result);
     return result.stdout;
+  }
+
+  /**
+   * Runs a command that may stop for conflicts, such as a merge: a failure
+   * is "stopped" when `stopped` finds what is left to resolve, else an error.
+   */
+  async outcome(args: readonly string[], stopped: () => Promise<boolean>, options: GitOptions = {}): Promise<OperationOutcome> {
+    const result = await this.execute(args, options);
+    if (result.code === 0) return "done";
+    if (await stopped()) return "stopped";
+    throw failure(args, result);
   }
 
   async text(args: readonly string[], timeout?: number): Promise<string> {
     return decodeLenient(await this.bytes(args, timeout));
+  }
+
+  /** Like {@link text}, with more options. */
+  async output(args: readonly string[], options: GitOptions): Promise<string> {
+    return decodeLenient(this.check(args, await this.execute(args, options)));
   }
 
   /** Like {@link text}, but null instead of an error. */

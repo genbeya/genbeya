@@ -3,13 +3,25 @@
  * committing, history, branches, remotes. Callers validate their input;
  * this class assumes well-formed paths, names and commit IDs.
  */
-import type { Change, Commit, CommitDetail, DiffSource, Head, Remote, SyncAction } from "../../contracts/model";
+import type {
+  Change,
+  Commit,
+  CommitDetail,
+  DiffSource,
+  Head,
+  Operation,
+  OperationOutcome,
+  Remote,
+  Stash,
+  SyncAction,
+} from "../../contracts/model";
 import { splitIntoBatches } from "../../utilities/serial-queue";
 import { isMissing, isTooLarge, type Host } from "../hosts/host";
-import { Git, GitError } from "./git";
+import { Git, GitError, NETWORK_TIMEOUT } from "./git";
 import { LOG_FORMAT, parseLog, parseNameStatus, parseRemotes } from "./git-parsers";
-
-const NETWORK_TIMEOUT = 5 * 60_000;
+import { OperationAccess } from "./operation-access";
+import { RefAccess } from "./ref-access";
+import { StashAccess } from "./stash-access";
 
 export interface RepositoryState {
   readonly files: string[];
@@ -18,16 +30,25 @@ export interface RepositoryState {
   readonly branches: string[];
   readonly remoteBranches: string[];
   readonly remotes: Remote[];
+  readonly tags: string[];
+  readonly stashes: Stash[];
+  readonly operation: Operation | null;
 }
 
 export class RepositoryAccess {
   readonly git: Git;
+  readonly refs: RefAccess;
+  readonly stashes: StashAccess;
+  readonly operations: OperationAccess;
 
   constructor(
     private readonly host: Host,
     readonly root: string,
   ) {
     this.git = new Git(host, root);
+    this.refs = new RefAccess(this.git);
+    this.operations = new OperationAccess(host, root, this.git);
+    this.stashes = new StashAccess(this.git, () => this.operations.conflicted());
   }
 
   /** The top folder of the repository containing `path`, in the host's path style. */
@@ -47,18 +68,17 @@ export class RepositoryAccess {
   }
 
   async state(): Promise<RepositoryState> {
-    const [files, { head, changes }, refs, remoteText] = await Promise.all([
+    const [files, { head, changes }, { branches, remoteBranches, tags }, remoteText, stashes] = await Promise.all([
       this.git.files(),
       this.git.status(),
-      this.git.lines(["for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"]),
+      this.refs.names(),
       this.git.text(["remote", "-v"]),
+      this.stashes.list(),
     ]);
-    const branches = refs.filter((ref) => ref.startsWith("refs/heads/")).map((ref) => ref.slice(11));
-    const remoteBranches = refs
-      .filter((ref) => ref.startsWith("refs/remotes/") && !ref.endsWith("/HEAD"))
-      .map((ref) => ref.slice(13))
-      .filter((ref) => !branches.includes(ref.slice(ref.indexOf("/") + 1)));
-    return { files, head, changes, branches, remoteBranches, remotes: parseRemotes(remoteText) };
+    // Remote branches with a local counterpart are switched to through that.
+    const remoteOnly = remoteBranches.filter((ref) => !branches.includes(ref.slice(ref.indexOf("/") + 1)));
+    const operation = await this.operations.current(head.branch);
+    return { files, head, changes, branches, remoteBranches: remoteOnly, remotes: parseRemotes(remoteText), tags, stashes, operation };
   }
 
   async changes(): Promise<Change[]> {
@@ -132,6 +152,8 @@ export class RepositoryAccess {
   async log(skip: number, limit: number): Promise<Commit[]> {
     const output = await this.git.attempt([
       "log",
+      // Stashes have a list of their own.
+      "--exclude=refs/stash",
       "--all",
       "--topo-order",
       `--skip=${skip}`,
@@ -171,8 +193,10 @@ export class RepositoryAccess {
     await this.git.text(remoteOnly ? ["switch", "--track", name] : ["switch", name]);
   }
 
-  async createBranch(name: string): Promise<void> {
-    await this.git.text(["switch", "--create", name]);
+  /** Creates a branch at `start` (HEAD when omitted), switching to it when `checkout` is set. */
+  async createBranch(name: string, start?: string, checkout = true): Promise<void> {
+    const at = start ? [start] : [];
+    await this.git.text(checkout ? ["switch", "--create", name, ...at] : ["branch", name, ...at]);
   }
 
   async remoteNames(): Promise<string[]> {
@@ -188,11 +212,7 @@ export class RepositoryAccess {
   async sync(action: SyncAction, remote: string, branch: string | null): Promise<void> {
     if (action === "fetch") return void (await this.git.text(["fetch", "--prune", remote], NETWORK_TIMEOUT));
     if (!branch) throw new Error("Switch to a branch first.");
-    const [upstreamRemote, upstreamRef] = await Promise.all([
-      this.git.config(`branch.${branch}.remote`),
-      this.git.config(`branch.${branch}.merge`),
-    ]);
-    const tracked = upstreamRemote === remote && upstreamRef ? upstreamRef : null;
+    const { upstreamRemote, tracked } = await this.upstream(branch, remote);
     const args =
       action === "pull"
         ? ["pull", "--ff-only", remote, tracked ?? branch]
@@ -200,6 +220,23 @@ export class RepositoryAccess {
           ? ["push", remote, `refs/heads/${branch}:${tracked}`]
           : ["push", ...(upstreamRemote ? [] : ["--set-upstream"]), remote, branch];
     await this.git.text(args, NETWORK_TIMEOUT);
+  }
+
+  /** Pulls `branch`'s counterpart on `remote` (see {@link sync}) by rebasing onto it. */
+  async pullRebase(remote: string, branch: string | null, autostash: boolean): Promise<OperationOutcome> {
+    if (!branch) throw new Error("Switch to a branch first.");
+    const { tracked } = await this.upstream(branch, remote);
+    const args = ["pull", "--rebase", ...(autostash ? ["--autostash"] : []), remote, tracked ?? branch];
+    return this.git.outcome(args, this.operations.unfinished, { timeout: NETWORK_TIMEOUT });
+  }
+
+  /** The remote `branch` tracks, and the branch it tracks there when that remote is `remote`. */
+  private async upstream(branch: string, remote: string): Promise<{ upstreamRemote: string | null; tracked: string | null }> {
+    const [upstreamRemote, upstreamRef] = await Promise.all([
+      this.git.config(`branch.${branch}.remote`),
+      this.git.config(`branch.${branch}.merge`),
+    ]);
+    return { upstreamRemote, tracked: upstreamRemote === remote && upstreamRef ? upstreamRef : null };
   }
 
   async setRemote(name: string, url: string): Promise<void> {

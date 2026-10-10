@@ -21,7 +21,8 @@ import { Onboarding } from "../onboarding/onboarding";
 import { WikiActions } from "../wiki/wiki-actions";
 import { MarkedText } from "./marked-text";
 import { PaletteIcon } from "./palette-icon";
-import { allItems, branchItems, linkItem, rank, type PaletteCommands } from "./palette-items";
+import { OperationActions } from "../operations/operation-actions";
+import { allItems, branchItems, linkItem, mergeItems, rank, rebaseItems, type PaletteCommands } from "./palette-items";
 import { RepositoryActions } from "./repository-actions";
 import { describeResults, SEARCH_PREFIX, searchItems, searchText, type PaletteRow, type SearchCommands } from "./search-items";
 import { ShellUi, type PaletteMode } from "./shell-ui";
@@ -41,7 +42,7 @@ const TOGGLES: readonly { key: keyof SearchOptions; text: string; label: string;
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./palette.css",
   template: `
-    <div class="palette" role="dialog" [attr.aria-label]="mode === 'branches' ? 'Switch branch' : 'Command palette'">
+    <div class="palette" role="dialog" [attr.aria-label]="label">
       <div class="palette-field">
         <input
           #field
@@ -155,9 +156,18 @@ export class Palette {
   private readonly router = inject(Router);
   private readonly wiki = inject(WikiActions);
   private readonly repository = inject(RepositoryActions);
+  private readonly operations = inject(OperationActions);
   private readonly ui = inject(ShellUi);
   private readonly terminals = inject(Terminals);
   private readonly onboarding = inject(Onboarding);
+  protected readonly label =
+    this.mode === "branches"
+      ? "Switch branch"
+      : this.mode === "merge"
+        ? "Merge branch"
+        : this.mode === "rebase"
+          ? "Rebase onto"
+          : "Command palette";
   protected readonly query = signal(this.mode === "search" ? SEARCH_PREFIX : "");
   protected readonly active = signal(0);
   private readonly recent = inject(Repositories).recent;
@@ -175,6 +185,11 @@ export class Palette {
     switchBranch: (name) => void this.repository.switchBranch(name),
     createBranch: (name) => void this.repository.createBranch(name),
     showBranches: () => void this.ui.openPalette("branches"),
+    merge: (source, kind) => void this.operations.merge(source, kind),
+    showMerge: () => void this.ui.openPalette("merge"),
+    rebase: (onto) => void this.operations.rebase(onto),
+    showRebase: () => void this.ui.openPalette("rebase"),
+    pullRebase: (remote) => void this.operations.pullRebase(remote),
     searchText: () => void this.ui.openPalette("search"),
     sync: (action, remote) => void this.repository.sync(action, remote),
     syncContent: () => void this.repository.syncContent(),
@@ -200,20 +215,21 @@ export class Palette {
   };
 
   /** The text after "/", which searches inside files; null for the other modes. */
-  protected readonly fullText = computed(() => (this.mode === "branches" ? null : searchText(this.query())));
+  protected readonly fullText = computed(() => (this.mode === "all" || this.mode === "search" ? searchText(this.query()) : null));
   protected readonly text = textSearch(this.fullText);
 
   private readonly items = computed(() => {
     const snapshot = this.session.snapshot()!;
-    return this.mode === "branches"
-      ? branchItems(snapshot, this.query(), this.commands)
-      : allItems(
-          snapshot,
-          this.recent(),
-          this.session.preferences().theme,
-          { mod: MOD_KEY, ctrl: CTRL_KEY, shift: SHIFT_KEY },
-          this.commands,
-        );
+    if (this.mode === "branches") return branchItems(snapshot, this.query(), this.commands);
+    if (this.mode === "merge") return mergeItems(snapshot, this.commands);
+    if (this.mode === "rebase") return rebaseItems(snapshot, this.commands);
+    return allItems(
+      snapshot,
+      this.recent(),
+      this.session.preferences().theme,
+      { mod: MOD_KEY, ctrl: CTRL_KEY, shift: SHIFT_KEY },
+      this.commands,
+    );
   });
   protected readonly results = computed<readonly PaletteRow[]>(() => {
     if (this.fullText() !== null) {
@@ -221,16 +237,16 @@ export class Palette {
       return found ? searchItems(found, this.found) : [];
     }
     const link = this.mode === "all" ? linkItem(this.query(), this.commands) : null;
-    return link ? [link] : rank(this.items(), this.query(), this.mode === "branches");
+    return link ? [link] : rank(this.items(), this.query(), this.mode !== "all");
   });
 
-  protected readonly placeholder = computed(() =>
-    this.mode === "branches"
-      ? "Switch to branch…"
-      : this.fullText() !== null
-        ? "Search in pages, tasks and files…"
-        : "Search pages, tasks, files and commands…",
-  );
+  protected readonly placeholder = computed(() => {
+    const branch = this.session.snapshot()?.head.branch ?? "the current branch";
+    if (this.mode === "branches") return "Switch to branch…";
+    if (this.mode === "merge") return `Merge into ${branch}…`;
+    if (this.mode === "rebase") return `Rebase ${branch} onto…`;
+    return this.fullText() !== null ? "Search in pages, tasks and files…" : "Search pages, tasks, files and commands…";
+  });
   protected readonly status = computed(() => {
     if (!this.fullText()?.trim()) return "Alt+C match case · Alt+W whole word · Alt+R regular expression";
     if (this.text.loading()) return "Searching…";

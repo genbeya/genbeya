@@ -17,6 +17,8 @@ export type PaletteIcon =
   | "remote-branch"
   | "add"
   | "add-branch"
+  | "merge"
+  | "rebase"
   | "fetch"
   | "pull"
   | "push"
@@ -67,6 +69,11 @@ export interface PaletteCommands {
   switchBranch(name: string): void;
   createBranch(name: string): void;
   showBranches(): void;
+  merge(source: string, kind: "branch" | "remote"): void;
+  showMerge(): void;
+  rebase(onto: string): void;
+  showRebase(): void;
+  pullRebase(remote: string): void;
   /** Reopens the palette for searching inside files. */
   searchText(): void;
   sync(action: "fetch" | "pull" | "push", remote: string): void;
@@ -111,6 +118,37 @@ export function branchItems(snapshot: Snapshot, query: string, commands: Palette
   ];
 }
 
+/** Branches other than the current one, with the upstream among the remote branches. */
+function otherBranches({ head, branches, remoteBranches }: Snapshot): { name: string; kind: "branch" | "remote" }[] {
+  const remotes = head.upstream && !remoteBranches.includes(head.upstream) ? [head.upstream, ...remoteBranches] : remoteBranches;
+  return [
+    ...branches.filter((branch) => branch !== head.branch).map((name) => ({ name, kind: "branch" as const })),
+    ...remotes.map((name) => ({ name, kind: "remote" as const })),
+  ];
+}
+
+/** The branches to merge into the current one. */
+export function mergeItems(snapshot: Snapshot, commands: PaletteCommands): PaletteItem[] {
+  return otherBranches(snapshot).map(({ name, kind }): PaletteItem => ({
+    id: `merge:${name}`,
+    group: kind === "branch" ? "Branches" : "Remote branches",
+    label: name,
+    icon: "merge",
+    run: () => commands.merge(name, kind),
+  }));
+}
+
+/** The branches to rebase the current one onto. */
+export function rebaseItems(snapshot: Snapshot, commands: PaletteCommands): PaletteItem[] {
+  return otherBranches(snapshot).map(({ name, kind }): PaletteItem => ({
+    id: `rebase:${name}`,
+    group: kind === "branch" ? "Branches" : "Remote branches",
+    label: name,
+    icon: "rebase",
+    run: () => commands.rebase(name),
+  }));
+}
+
 export function allItems(
   snapshot: Snapshot,
   recent: readonly RecentEntry[],
@@ -119,7 +157,7 @@ export function allItems(
   keys: { readonly mod: string; readonly ctrl: string; readonly shift?: string },
   commands: PaletteCommands,
 ): PaletteItem[] {
-  const { head, remotes, storage, wiki, tasks, files, settings } = snapshot;
+  const { head, remotes, storage, wiki, tasks, files, settings, operation } = snapshot;
   const { mod, ctrl, shift = "Shift" } = keys;
   const remote = head.upstream?.split("/")[0] ?? remotes[0]?.name;
   const views = [
@@ -159,10 +197,36 @@ export function allItems(
       run: () => commands.toggleTerminal(),
     },
     { id: "create-branch", group: "Actions", label: "Create branch…", icon: "add-branch", run: () => commands.createBranch("") },
+    ...(head.branch && !operation
+      ? [
+          {
+            id: "merge",
+            group: "Actions",
+            label: `Merge into ${head.branch}…`,
+            icon: "merge",
+            run: () => commands.showMerge(),
+          } satisfies PaletteItem,
+          {
+            id: "rebase",
+            group: "Actions",
+            label: `Rebase ${head.branch} onto…`,
+            icon: "rebase",
+            run: () => commands.showRebase(),
+          } satisfies PaletteItem,
+        ]
+      : []),
     ...(remote
       ? ([
           { id: "fetch", group: "Actions", label: `Fetch from ${remote}`, icon: "fetch", run: () => commands.sync("fetch", remote) },
           { id: "pull", group: "Actions", label: `Pull from ${remote}`, icon: "pull", run: () => commands.sync("pull", remote) },
+          {
+            id: "pull-rebase",
+            group: "Actions",
+            label: `Pull from ${remote} by rebasing`,
+            icon: "pull",
+            keywords: "update rebase",
+            run: () => commands.pullRebase(remote),
+          },
           { id: "push", group: "Actions", label: `Push to ${remote}`, icon: "push", run: () => commands.sync("push", remote) },
         ] satisfies PaletteItem[])
       : []),

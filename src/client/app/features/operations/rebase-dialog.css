@@ -1,0 +1,84 @@
+.rebase-hint {
+  margin: 0;
+}
+
+.rebase-rows {
+  max-height: 52vh;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+}
+
+.rebase-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 10px 6px 4px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-overlay);
+}
+
+.rebase-row:last-child {
+  border-bottom: 0;
+}
+
+.rebase-row.is-dropped .rebase-subject {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.rebase-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rebase-handle {
+  display: flex;
+  color: var(--text-3);
+  cursor: grab;
+}
+
+.rebase-action {
+  flex: none;
+  width: 96px;
+}
+
+.rebase-subject {
+  flex: 1;
+  min-width: 0;
+}
+
+.rebase-hash {
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+
+.rebase-message {
+  margin-left: 22px;
+  font-size: 12.5px;
+}
+
+.rebase-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--yellow);
+  font-size: 12.5px;
+}
+
+.rebase-row.cdk-drag-preview {
+  box-shadow: var(--shadow-pop);
+}
+
+.rebase-row.cdk-drag-placeholder {
+  opacity: 0.3;
+}
+
+.rebase-rows.cdk-drop-list-dragging .rebase-row:not(.cdk-drag-placeholder) {
+  transition: transform 150ms ease;
+}

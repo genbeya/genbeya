@@ -114,6 +114,13 @@ function describeHost(name: string, setup: () => Promise<HostFixture>) {
       expect(result.code).toBe(0);
       expect(await host.kind(root, ".git")).toBe("dir");
     });
+
+    it("never lets git open an editor, and passes environment variables", async () => {
+      const { host, root } = await setup();
+      const editor = (env?: Record<string, string>) => host.run("git", ["var", "GIT_EDITOR"], { cwd: root, ...(env ? { env } : {}) });
+      expect(decodeLenient((await editor()).stdout).trim()).toBe(":");
+      expect(decodeLenient((await editor({ GIT_EDITOR: "it's $HOME" })).stdout).trim()).toBe("it's $HOME");
+    });
   });
 }
 

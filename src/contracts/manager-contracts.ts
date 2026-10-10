@@ -9,6 +9,8 @@ import type {
   AgentTarget,
   CommitDetail,
   Commit,
+  ConflictFile,
+  ConflictResolution,
   ContentArea,
   Diff,
   DiffSource,
@@ -16,9 +18,13 @@ import type {
   FolderListing,
   LinkUpdate,
   Location,
+  MergeOptions,
   OpenedWorkspace,
+  OperationOutcome,
   PageMove,
   Preferences,
+  RebasePlan,
+  RebaseStep,
   RecentEntry,
   RemoteLocation,
   Scope,
@@ -26,6 +32,8 @@ import type {
   SearchResults,
   Settings,
   Snapshot,
+  StashDetail,
+  StashOptions,
   StorageMode,
   SyncAction,
   Task,
@@ -120,10 +128,53 @@ export interface VersionControlManagerContract {
   log(workspace: string, skip: number, limit: number): Promise<readonly Commit[]>;
   commitDetail(workspace: string, hash: string): Promise<CommitDetail>;
   switchBranch(workspace: string, name: string): Promise<void>;
-  createBranch(workspace: string, name: string): Promise<void>;
+  /** Starts at `start` (a branch, tag or commit; HEAD when omitted) and switches to it unless `checkout` is false. */
+  createBranch(workspace: string, name: string, start?: string, checkout?: boolean): Promise<void>;
+  renameBranch(workspace: string, name: string, newName: string): Promise<void>;
+  /** Resolves to false, deleting nothing, when the branch is not fully merged and `force` is false. */
+  deleteBranch(workspace: string, name: string, force: boolean): Promise<boolean>;
+  /** Deletes a branch such as `origin/feature` on its remote. */
+  deleteRemoteBranch(workspace: string, name: string): Promise<void>;
+  /** Makes `branch` track the remote branch `upstream`, such as `origin/main`. */
+  setUpstream(workspace: string, branch: string, upstream: string): Promise<void>;
+  /** An annotated tag when `message` is not empty, else a lightweight one. */
+  createTag(workspace: string, name: string, commit: string, message: string): Promise<void>;
+  deleteTag(workspace: string, name: string): Promise<void>;
+  pushTag(workspace: string, name: string, remote: string): Promise<void>;
+  deleteRemoteTag(workspace: string, name: string, remote: string): Promise<void>;
   sync(workspace: string, action: SyncAction, remote: string): Promise<void>;
   setRemote(workspace: string, name: string, url: string): Promise<void>;
   removeRemote(workspace: string, name: string): Promise<void>;
+  /** Stashes uncommitted changes. */
+  stash(workspace: string, options: StashOptions): Promise<void>;
+  stashDetail(workspace: string, hash: string): Promise<StashDetail>;
+  /** Applies a stash; `pop` also drops it, unless applying it conflicts. */
+  applyStash(workspace: string, hash: string, pop: boolean): Promise<OperationOutcome>;
+  dropStash(workspace: string, hash: string): Promise<void>;
+  /** Creates and switches to a branch at the stash's base commit, applies the stash there and drops it. */
+  branchFromStash(workspace: string, hash: string, name: string): Promise<void>;
+  /** Merges a branch, tag or commit into the current branch. */
+  merge(workspace: string, ref: string, options: MergeOptions): Promise<OperationOutcome>;
+  /** Rebases the current branch onto a branch, tag or commit; `autostash` sets uncommitted changes aside meanwhile. */
+  rebase(workspace: string, onto: string, autostash: boolean): Promise<OperationOutcome>;
+  /** Pulls the current branch from `remote` by rebasing onto what it tracks there. */
+  pullRebase(workspace: string, remote: string, autostash: boolean): Promise<OperationOutcome>;
+  /** The commits a rebase onto `base` (a branch, tag or commit) would rewrite. */
+  rebasePlan(workspace: string, base: string): Promise<RebasePlan>;
+  /** Rewrites the commits after `base`, an ancestor of HEAD: every one of them, in their new order. */
+  rebaseInteractive(workspace: string, base: string, steps: readonly RebaseStep[], autostash: boolean): Promise<OperationOutcome>;
+  /** Applies a commit's changes as a new commit on the current branch. */
+  cherryPick(workspace: string, hash: string): Promise<OperationOutcome>;
+  /** Undoes a commit with a new commit on the current branch. */
+  revert(workspace: string, hash: string): Promise<OperationOutcome>;
+  /** Continues the operation in progress once its conflicts are resolved. */
+  continueOperation(workspace: string): Promise<OperationOutcome>;
+  /** Leaves out the commit a rebase, cherry-pick or revert stopped at. */
+  skipOperation(workspace: string): Promise<OperationOutcome>;
+  /** Restores the state before the operation began. */
+  abortOperation(workspace: string): Promise<void>;
+  conflict(workspace: string, path: string): Promise<ConflictFile>;
+  resolveConflict(workspace: string, path: string, resolution: ConflictResolution): Promise<void>;
 }
 
 /**
@@ -204,9 +255,34 @@ export const MANAGER_METHODS = {
     "commitDetail",
     "switchBranch",
     "createBranch",
+    "renameBranch",
+    "deleteBranch",
+    "deleteRemoteBranch",
+    "setUpstream",
+    "createTag",
+    "deleteTag",
+    "pushTag",
+    "deleteRemoteTag",
     "sync",
     "setRemote",
     "removeRemote",
+    "stash",
+    "stashDetail",
+    "applyStash",
+    "dropStash",
+    "branchFromStash",
+    "merge",
+    "rebase",
+    "pullRebase",
+    "rebasePlan",
+    "rebaseInteractive",
+    "cherryPick",
+    "revert",
+    "continueOperation",
+    "skipOperation",
+    "abortOperation",
+    "conflict",
+    "resolveConflict",
   ],
   terminal: ["available", "open", "write", "resize", "read", "close"],
 } as const satisfies { [K in keyof Managers]: Methods<Managers[K]> };
