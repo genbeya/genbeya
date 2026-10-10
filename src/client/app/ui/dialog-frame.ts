@@ -1,6 +1,6 @@
 import { DialogRef } from "@angular/cdk/dialog";
 import { ChangeDetectionStrategy, Component, inject, input, output } from "@angular/core";
-import { LucideX } from "@lucide/angular";
+import { Icon } from "./icon";
 
 /**
  * The frame of every dialog: title, close button, body and an optional
@@ -8,14 +8,14 @@ import { LucideX } from "@lucide/angular";
  */
 @Component({
   selector: "gd-dialog-frame",
-  imports: [LucideX],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <form class="dialog" role="dialog" aria-modal="true" [attr.aria-label]="title()" [style.width.px]="width()" (submit)="submit($event)">
       <header>
         <h2>{{ title() }}</h2>
         <button type="button" class="icon-btn" aria-label="Close" title="Close" (click)="dialog.close()">
-          <svg lucideX [size]="16" aria-hidden="true"></svg>
+          <svg gd-icon name="x" [size]="16"></svg>
         </button>
       </header>
       <div class="dialog-body"><ng-content /></div>

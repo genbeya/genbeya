@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from "@angular/core";
-import { LucideArrowDown, LucideArrowUp, LucidePlus, LucideX } from "@lucide/angular";
+import { Icon } from "../../ui/icon";
 import { IconPicker } from "../../ui/icon-picker";
 import { StatusIcon } from "../tasks/task-icons";
 import { statusColor, titleCase } from "../tasks/task-model";
@@ -7,7 +7,7 @@ import { statusColor, titleCase } from "../tasks/task-model";
 /** The workflow states, in board order: reorder, remove, add, and choose an icon. */
 @Component({
   selector: "gd-status-editor",
-  imports: [IconPicker, StatusIcon, LucideArrowDown, LucideArrowUp, LucidePlus, LucideX],
+  imports: [Icon, IconPicker, StatusIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "list-editor" },
   template: `
@@ -25,10 +25,10 @@ import { statusColor, titleCase } from "../tasks/task-model";
         <span class="grow">{{ titleCase(status) }}</span>
         <span class="faint mono">{{ status }}</span>
         <button type="button" class="icon-btn" aria-label="Move up" title="Move up" [disabled]="first" (click)="move(index, -1)">
-          <svg lucideArrowUp [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="arrow-up" [size]="13"></svg>
         </button>
         <button type="button" class="icon-btn" aria-label="Move down" title="Move down" [disabled]="last" (click)="move(index, 1)">
-          <svg lucideArrowDown [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="arrow-down" [size]="13"></svg>
         </button>
         <button
           type="button"
@@ -38,7 +38,7 @@ import { statusColor, titleCase } from "../tasks/task-model";
           [disabled]="value().length === 1"
           (click)="remove(status)"
         >
-          <svg lucideX [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="x" [size]="13"></svg>
         </button>
       </div>
     }
@@ -53,7 +53,7 @@ import { statusColor, titleCase } from "../tasks/task-model";
         (keydown.enter)="$event.preventDefault(); add()"
       />
       <button type="button" class="btn btn-default btn-m" [disabled]="!adding().trim()" (click)="add()">
-        <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Add</span>
+        <svg gd-icon name="plus" [size]="14"></svg><span>Add</span>
       </button>
     </div>
   `,

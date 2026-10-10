@@ -198,7 +198,7 @@
               [title]="'Edit ' + remote.name"
               (click)="editRemote(remote.name, remote.url)"
             >
-              <svg lucidePencil [size]="13" aria-hidden="true"></svg>
+              <svg gd-icon name="pencil" [size]="13"></svg>
             </button>
             <button
               type="button"
@@ -207,13 +207,13 @@
               [title]="'Remove ' + remote.name"
               (click)="removeRemote(remote.name, remote.url)"
             >
-              <svg lucideTrash2 [size]="13" aria-hidden="true"></svg>
+              <svg gd-icon name="trash-2" [size]="13"></svg>
             </button>
           </div>
         }
         <div class="remote-row">
           <button type="button" class="btn btn-default btn-m" (click)="editRemote()">
-            <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Add remote</span>
+            <svg gd-icon name="plus" [size]="14"></svg><span>Add remote</span>
           </button>
         </div>
       </div>
@@ -290,7 +290,7 @@
           <div class="setting-label"><span>Documentation</span><small>Guides and reference, on GitHub.</small></div>
           <div class="setting-control">
             <button type="button" class="btn btn-default btn-m" (click)="onboarding.openDocs()">
-              <svg lucideExternalLink [size]="13" aria-hidden="true"></svg><span>Open the documentation</span>
+              <svg gd-icon name="external-link" [size]="13"></svg><span>Open the documentation</span>
             </button>
           </div>
         </div>

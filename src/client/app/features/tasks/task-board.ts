@@ -1,8 +1,8 @@
 import { CdkDropListGroup, type CdkDragDrop } from "@angular/cdk/drag-drop";
 import { NgTemplateOutlet } from "@angular/common";
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from "@angular/core";
-import { LucideChevronDown, LucideChevronRight, LucidePlus } from "@lucide/angular";
 import type { Task } from "../../../../contracts/model";
+import { Icon } from "../../ui/icon";
 import { BoardCell } from "./board-cell";
 import { StatusIcon } from "./task-icons";
 import { epicName, titleCase, type Placement } from "./task-model";
@@ -19,7 +19,7 @@ interface Cell extends Placement {
  */
 @Component({
   selector: "gd-task-board",
-  imports: [BoardCell, CdkDropListGroup, NgTemplateOutlet, LucideChevronDown, LucideChevronRight, LucidePlus, StatusIcon],
+  imports: [BoardCell, CdkDropListGroup, Icon, NgTemplateOutlet, StatusIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "board", "[class.has-lanes]": "!!lanes()", "[style.--columns]": "columns().length" },
   template: `
@@ -37,7 +37,7 @@ interface Cell extends Placement {
             [title]="'New task in ' + titleCase(status)"
             (click)="create.emit({ status, epic: '' })"
           >
-            <svg lucidePlus [size]="14" aria-hidden="true"></svg>
+            <svg gd-icon name="plus" [size]="14"></svg>
           </button>
         }
       </header>
@@ -58,9 +58,9 @@ interface Cell extends Placement {
             <header class="board-lane-header">
               <button type="button" class="plain board-lane-toggle" [attr.aria-expanded]="!collapsed" (click)="fold(epic)">
                 @if (collapsed) {
-                  <svg lucideChevronRight [size]="14" aria-hidden="true"></svg>
+                  <svg gd-icon name="chevron-right" [size]="14"></svg>
                 } @else {
-                  <svg lucideChevronDown [size]="14" aria-hidden="true"></svg>
+                  <svg gd-icon name="chevron-down" [size]="14"></svg>
                 }
                 <strong [class.faint]="!epic">{{ epicName(epic) }}</strong>
               </button>
@@ -72,7 +72,7 @@ interface Cell extends Placement {
                 [title]="'New task in ' + epicName(epic)"
                 (click)="create.emit({ status: laneStatus(), epic })"
               >
-                <svg lucidePlus [size]="14" aria-hidden="true"></svg>
+                <svg gd-icon name="plus" [size]="14"></svg>
               </button>
             </header>
             @if (!collapsed) {

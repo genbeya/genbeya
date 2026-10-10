@@ -16,7 +16,7 @@
       {{ folderName() }}
     </span>
   </span>
-  <svg lucideChevronsUpDown [size]="14" class="faint" aria-hidden="true"></svg>
+  <svg gd-icon name="chevrons-up-down" [size]="14" class="faint"></svg>
 </button>
 
 <ng-template #switcher>
@@ -36,40 +36,36 @@
       <div class="menu-separator"></div>
     }
     <button gd-menu-item [hint]="mod + '+O'" (selected)="session.pick()">
-      <svg icon lucideFolderOpen [size]="14" aria-hidden="true"></svg>Open folder…
+      <svg icon gd-icon name="folder-open" [size]="14"></svg>Open folder…
     </button>
-    <button gd-menu-item (selected)="ui.openRemote()">
-      <svg icon lucideServer [size]="14" aria-hidden="true"></svg>Open on WSL or SSH…
-    </button>
-    <button gd-menu-item (selected)="ui.openClone()">
-      <svg icon lucideCloudDownload [size]="14" aria-hidden="true"></svg>Clone repository…
-    </button>
+    <button gd-menu-item (selected)="ui.openRemote()"><svg icon gd-icon name="server" [size]="14"></svg>Open on WSL or SSH…</button>
+    <button gd-menu-item (selected)="ui.openClone()"><svg icon gd-icon name="cloud-download" [size]="14"></svg>Clone repository…</button>
     <div class="menu-separator"></div>
-    <button gd-menu-item (selected)="session.close()"><svg icon lucideX [size]="14" aria-hidden="true"></svg>Close repository</button>
+    <button gd-menu-item (selected)="session.close()"><svg icon gd-icon name="x" [size]="14"></svg>Close repository</button>
   </div>
 </ng-template>
 
 <button type="button" class="sidebar-search" data-tour="search" (click)="ui.openPalette()">
-  <svg lucideSearch [size]="14" aria-hidden="true"></svg>
+  <svg gd-icon name="search" [size]="14"></svg>
   <span class="grow">Search</span>
   <kbd class="kbd">{{ mod }} K</kbd>
 </button>
 
 <nav class="sidebar-nav" aria-label="Views" data-tour="views">
   <a class="nav-item" routerLink="/wiki" routerLinkActive="is-active" [title]="'Wiki (' + mod + '+1)'">
-    <svg lucideBookOpen [size]="16" aria-hidden="true"></svg><span class="grow">Wiki</span>
+    <svg gd-icon name="book-open" [size]="16"></svg><span class="grow">Wiki</span>
   </a>
   <a class="nav-item" routerLink="/tasks" routerLinkActive="is-active" [title]="'Tasks (' + mod + '+2)'">
-    <svg lucideLayoutGrid [size]="16" aria-hidden="true"></svg><span class="grow">Tasks</span>
+    <svg gd-icon name="layout-grid" [size]="16"></svg><span class="grow">Tasks</span>
     @if (openTasks()) {
       <span class="nav-count" [attr.aria-label]="openTasks() + ' open'">{{ openTasks() }}</span>
     }
   </a>
   <a class="nav-item" routerLink="/code" routerLinkActive="is-active" [title]="'Code (' + mod + '+3)'">
-    <svg lucideCodeXml [size]="16" aria-hidden="true"></svg><span class="grow">Code</span>
+    <svg gd-icon name="code-xml" [size]="16"></svg><span class="grow">Code</span>
   </a>
   <a class="nav-item" routerLink="/changes" routerLinkActive="is-active" [title]="'Changes (' + mod + '+4)'">
-    <svg lucideGitCommitHorizontal [size]="16" aria-hidden="true"></svg><span class="grow">Changes</span>
+    <svg gd-icon name="git-commit-horizontal" [size]="16"></svg><span class="grow">Changes</span>
     @if (snapshot().changes.length) {
       <span class="nav-count is-accent" [attr.aria-label]="snapshot().changes.length + ' changed files'">{{
         snapshot().changes.length
@@ -77,7 +73,7 @@
     }
   </a>
   <a class="nav-item" routerLink="/history" routerLinkActive="is-active" [title]="'History (' + mod + '+5)'">
-    <svg lucideHistory [size]="16" aria-hidden="true"></svg><span class="grow">History</span>
+    <svg gd-icon name="history" [size]="16"></svg><span class="grow">History</span>
   </a>
 </nav>
 
@@ -87,13 +83,13 @@
 
 @if (contentBranch(); as branch) {
   <div class="content-sync" [title]="branch.holds">
-    <svg lucideBookOpen [size]="14" aria-hidden="true"></svg>
+    <svg gd-icon name="book-open" [size]="14"></svg>
     <span class="grow ellipsis">{{ branch.name }}</span>
     @if (branch.ahead) {
-      <span class="sync-count"><svg lucideArrowUp [size]="11" aria-hidden="true"></svg>{{ branch.ahead }}</span>
+      <span class="sync-count"><svg gd-icon name="arrow-up" [size]="11"></svg>{{ branch.ahead }}</span>
     }
     @if (branch.behind) {
-      <span class="sync-count"><svg lucideArrowDown [size]="11" aria-hidden="true"></svg>{{ branch.behind }}</span>
+      <span class="sync-count"><svg gd-icon name="arrow-down" [size]="11"></svg>{{ branch.behind }}</span>
     }
     <button
       type="button"
@@ -106,7 +102,7 @@
       @if (session.busy()) {
         <span class="spinner" aria-label="Syncing"></span>
       } @else {
-        <svg lucideRefreshCw [size]="13" aria-hidden="true"></svg>
+        <svg gd-icon name="refresh-cw" [size]="13"></svg>
       }
     </button>
   </div>
@@ -120,15 +116,15 @@
   [attr.aria-label]="'Switch branch (on ' + (snapshot().head.branch ?? 'no branch') + ')'"
   (click)="ui.openPalette('branches')"
 >
-  <svg lucideGitBranch [size]="14" aria-hidden="true"></svg>
+  <svg gd-icon name="git-branch" [size]="14"></svg>
   <span class="grow ellipsis">{{
     snapshot().head.branch ?? (snapshot().head.commit ? "detached at " + snapshot().head.commit : "no commits")
   }}</span>
   @if (snapshot().head.ahead) {
-    <span class="sync-count"><svg lucideArrowUp [size]="11" aria-hidden="true"></svg>{{ snapshot().head.ahead }}</span>
+    <span class="sync-count"><svg gd-icon name="arrow-up" [size]="11"></svg>{{ snapshot().head.ahead }}</span>
   }
   @if (snapshot().head.behind) {
-    <span class="sync-count"><svg lucideArrowDown [size]="11" aria-hidden="true"></svg>{{ snapshot().head.behind }}</span>
+    <span class="sync-count"><svg gd-icon name="arrow-down" [size]="11"></svg>{{ snapshot().head.behind }}</span>
   }
 </button>
 
@@ -142,10 +138,10 @@
     [title]="'Terminal (' + ctrl + '+`)'"
     (click)="terminals.toggle()"
   >
-    <svg lucideSquareTerminal [size]="16" aria-hidden="true"></svg><span class="grow">Terminal</span>
+    <svg gd-icon name="square-terminal" [size]="16"></svg><span class="grow">Terminal</span>
   </button>
 }
 
 <a class="nav-item" routerLink="/settings" routerLinkActive="is-active" data-tour="settings" [title]="'Settings (' + mod + '+,)'">
-  <svg lucideSettings [size]="16" aria-hidden="true"></svg><span class="grow">Settings</span>
+  <svg gd-icon name="settings" [size]="16"></svg><span class="grow">Settings</span>
 </a>

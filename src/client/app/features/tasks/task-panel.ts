@@ -13,7 +13,6 @@ import {
   viewChild,
 } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideCodeXml, LucideCopy, LucideEllipsis, LucideGlobe, LucideLink, LucidePencil, LucideTrash2, LucideX } from "@lucide/angular";
 import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import type { Task, TaskInput, TaskTemplate } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
@@ -27,6 +26,7 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { CodeEditor } from "../../editor/code-editor";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { toggleCheckboxAt } from "../../markdown/task-checkbox";
+import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { WikiActions } from "../wiki/wiki-actions";
 import { TaskActivity } from "./task-activity";
@@ -53,25 +53,7 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
  */
 @Component({
   selector: "gd-task-panel",
-  imports: [
-    CdkMenu,
-    CdkMenuTrigger,
-    CodeEditor,
-    MarkdownView,
-    MenuItem,
-    TaskActivity,
-    TaskComments,
-    TaskFields,
-    TaskProperties,
-    LucideCodeXml,
-    LucideCopy,
-    LucideEllipsis,
-    LucideGlobe,
-    LucideLink,
-    LucidePencil,
-    LucideTrash2,
-    LucideX,
-  ],
+  imports: [CdkMenu, CdkMenuTrigger, CodeEditor, Icon, MarkdownView, MenuItem, TaskActivity, TaskComments, TaskFields, TaskProperties],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-panel", role: "dialog", "[attr.aria-label]": "task() ? 'Task ' + task()!.id : 'New task'" },
   template: `
@@ -89,7 +71,7 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
         </button>
       } @else {
         <button type="button" class="btn btn-default btn-m" (click)="startEditing()">
-          <svg lucidePencil [size]="13" aria-hidden="true"></svg><span>Edit</span><kbd class="kbd">E</kbd>
+          <svg gd-icon name="pencil" [size]="13"></svg><span>Edit</span><kbd class="kbd">E</kbd>
         </button>
         <button
           type="button"
@@ -100,11 +82,11 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
           #trigger="cdkMenuTriggerFor"
           [class.is-active]="trigger.isOpen()"
         >
-          <svg lucideEllipsis [size]="16" aria-hidden="true"></svg>
+          <svg gd-icon name="ellipsis" [size]="16"></svg>
         </button>
       }
       <button type="button" class="icon-btn" aria-label="Close (Esc)" title="Close (Esc)" (click)="close()">
-        <svg lucideX [size]="16" aria-hidden="true"></svg>
+        <svg gd-icon name="x" [size]="16"></svg>
       </button>
     </header>
     <div class="task-panel-body">
@@ -188,25 +170,23 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
 
     <ng-template #actions>
       <div class="menu" cdkMenu>
-        <button gd-menu-item (selected)="copyId()"><svg icon lucideCopy [size]="14" aria-hidden="true"></svg>Copy ID</button>
+        <button gd-menu-item (selected)="copyId()"><svg icon gd-icon name="copy" [size]="14"></svg>Copy ID</button>
         <button
           gd-menu-item
           [disabled]="!!links.unavailable()"
           [attr.title]="links.unavailable()"
           (selected)="links.copyGitdeskLink(link())"
         >
-          <svg icon lucideLink [size]="14" aria-hidden="true"></svg>Copy GitDesk link
+          <svg icon gd-icon name="link" [size]="14"></svg>Copy GitDesk link
         </button>
         @if (links.webLink(link())) {
           <button gd-menu-item (selected)="links.copyWebLink(link())">
-            <svg icon lucideGlobe [size]="14" aria-hidden="true"></svg>Copy web link
+            <svg icon gd-icon name="globe" [size]="14"></svg>Copy web link
           </button>
         }
-        <button gd-menu-item (selected)="openFile()"><svg icon lucideCodeXml [size]="14" aria-hidden="true"></svg>Open file</button>
+        <button gd-menu-item (selected)="openFile()"><svg icon gd-icon name="code-xml" [size]="14"></svg>Open file</button>
         <div class="menu-separator"></div>
-        <button gd-menu-item [danger]="true" (selected)="remove()">
-          <svg icon lucideTrash2 [size]="14" aria-hidden="true"></svg>Delete task…
-        </button>
+        <button gd-menu-item [danger]="true" (selected)="remove()"><svg icon gd-icon name="trash-2" [size]="14"></svg>Delete task…</button>
       </div>
     </ng-template>
   `,

@@ -1,7 +1,7 @@
 import { afterNextRender, ChangeDetectionStrategy, Component, ElementRef, inject, Injector, ViewEncapsulation } from "@angular/core";
-import { LucideChevronDown, LucidePlus, LucideSquareTerminal, LucideX } from "@lucide/angular";
 import { CTRL_KEY } from "../../core/hotkeys";
 import { Terminals } from "../../core/terminals";
+import { Icon } from "../../ui/icon";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { TerminalView } from "./terminal-view";
 
@@ -13,7 +13,7 @@ import { TerminalView } from "./terminal-view";
  */
 @Component({
   selector: "gd-terminal-panel",
-  imports: [Resizable, ResizeHandle, TerminalView, LucideChevronDown, LucidePlus, LucideSquareTerminal, LucideX],
+  imports: [Icon, Resizable, ResizeHandle, TerminalView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // xterm.js builds its own DOM, which emulated encapsulation would not reach.
   encapsulation: ViewEncapsulation.None,
@@ -49,22 +49,22 @@ import { TerminalView } from "./terminal-view";
               (keydown)="moveFocus($event)"
               (keydown.delete)="close(tab.key)"
             >
-              <svg lucideSquareTerminal [size]="14" aria-hidden="true"></svg>{{ tab.title }}
+              <svg gd-icon name="square-terminal" [size]="14"></svg>{{ tab.title }}
               <!-- For the mouse; the keyboard closes the focused tab with Delete. A button inside a tab is not allowed. -->
               <span class="terminal-tab-close" aria-hidden="true" title="Close (Delete)" (click)="$event.stopPropagation(); close(tab.key)">
-                <svg lucideX [size]="13"></svg>
+                <svg gd-icon name="x" [size]="13"></svg>
               </span>
             </button>
           }
         </div>
         @if (terminals.available()) {
           <button type="button" class="icon-btn" aria-label="New terminal" title="New terminal" (click)="terminals.add()">
-            <svg lucidePlus [size]="15" aria-hidden="true"></svg>
+            <svg gd-icon name="plus" [size]="15"></svg>
           </button>
         }
         <span class="grow"></span>
         <button type="button" class="icon-btn" aria-label="Hide terminal" [title]="hideTitle" (click)="terminals.toggle()">
-          <svg lucideChevronDown [size]="15" aria-hidden="true"></svg>
+          <svg gd-icon name="chevron-down" [size]="15"></svg>
         </button>
       </header>
       @if (terminals.available() === false) {

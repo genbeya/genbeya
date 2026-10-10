@@ -1,24 +1,9 @@
 import { CdkMenu } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, type TemplateRef, viewChild } from "@angular/core";
-import {
-  LucideArrowRightLeft,
-  LucideCherry,
-  LucideCloudOff,
-  LucideCloudUpload,
-  LucideGitBranchPlus,
-  LucideGitMerge,
-  LucideGitPullRequestArrow,
-  LucideGlobe,
-  LucideLink,
-  LucideListRestart,
-  LucidePencil,
-  LucideTag,
-  LucideTrash2,
-  LucideUndo2,
-} from "@lucide/angular";
 import type { Commit } from "../../../../contracts/model";
 import { Session } from "../../core/session";
 import { ShareLinks } from "../../core/share-links";
+import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { OperationActions } from "../operations/operation-actions";
 import { RepositoryActions } from "../shell/repository-actions";
@@ -35,102 +20,81 @@ import { parseRefs, type Ref } from "./ref-chips";
 @Component({
   selector: "gd-commit-menu",
   exportAs: "gdCommitMenu",
-  imports: [
-    CdkMenu,
-    MenuItem,
-    LucideArrowRightLeft,
-    LucideCherry,
-    LucideCloudOff,
-    LucideCloudUpload,
-    LucideGitBranchPlus,
-    LucideGitMerge,
-    LucideGitPullRequestArrow,
-    LucideGlobe,
-    LucideLink,
-    LucideListRestart,
-    LucidePencil,
-    LucideTag,
-    LucideTrash2,
-    LucideUndo2,
-  ],
+  imports: [CdkMenu, Icon, MenuItem],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: none" },
   template: `
     <ng-template #menu let-commit>
       <div class="menu" cdkMenu>
         <button gd-menu-item (selected)="refs.createBranch(commit)">
-          <svg icon lucideGitBranchPlus [size]="14" aria-hidden="true"></svg>Create branch here…
+          <svg icon gd-icon name="git-branch-plus" [size]="14"></svg>Create branch here…
         </button>
-        <button gd-menu-item (selected)="refs.createTag(commit)">
-          <svg icon lucideTag [size]="14" aria-hidden="true"></svg>Create tag here…
-        </button>
+        <button gd-menu-item (selected)="refs.createTag(commit)"><svg icon gd-icon name="tag" [size]="14"></svg>Create tag here…</button>
         @if (current(); as branch) {
           <div class="menu-separator"></div>
           @if (commit.parents.length < 2) {
             <button gd-menu-item (selected)="operations.cherryPick(commit)">
-              <svg icon lucideCherry [size]="14" aria-hidden="true"></svg>Cherry-pick onto {{ branch }}
+              <svg icon gd-icon name="cherry" [size]="14"></svg>Cherry-pick onto {{ branch }}
             </button>
-            <button gd-menu-item (selected)="operations.revert(commit)">
-              <svg icon lucideUndo2 [size]="14" aria-hidden="true"></svg>Revert…
-            </button>
+            <button gd-menu-item (selected)="operations.revert(commit)"><svg icon gd-icon name="undo-2" [size]="14"></svg>Revert…</button>
           }
           <button gd-menu-item (selected)="operations.rebaseInteractive(commit)">
-            <svg icon lucideListRestart [size]="14" aria-hidden="true"></svg>Rebase interactively from here…
+            <svg icon gd-icon name="list-restart" [size]="14"></svg>Rebase interactively from here…
           </button>
         }
         @for (ref of refsOf(commit); track ref.raw) {
           <div class="menu-separator"></div>
           @if (!ref.head && current(); as branch) {
             <button gd-menu-item (selected)="operations.merge(ref.name, ref.kind)">
-              <svg icon lucideGitMerge [size]="14" aria-hidden="true"></svg>Merge {{ ref.name }} into {{ branch }}…
+              <svg icon gd-icon name="git-merge" [size]="14"></svg>Merge {{ ref.name }} into {{ branch }}…
             </button>
             <button gd-menu-item (selected)="operations.rebase(ref.name)">
-              <svg icon lucideGitPullRequestArrow [size]="14" aria-hidden="true"></svg>Rebase {{ branch }} onto {{ ref.name }}…
+              <svg icon gd-icon name="git-pull-request-arrow" [size]="14"></svg>Rebase {{ branch }} onto {{ ref.name }}…
             </button>
           }
           @switch (ref.kind) {
             @case ("branch") {
               @if (!ref.head) {
                 <button gd-menu-item (selected)="repository.switchBranch(ref.name)">
-                  <svg icon lucideArrowRightLeft [size]="14" aria-hidden="true"></svg>Switch to {{ ref.name }}
+                  <svg icon gd-icon name="arrow-right-left" [size]="14"></svg>Switch to {{ ref.name }}
                 </button>
               }
               <button gd-menu-item (selected)="refs.renameBranch(ref.name)">
-                <svg icon lucidePencil [size]="14" aria-hidden="true"></svg>Rename {{ ref.name }}…
+                <svg icon gd-icon name="pencil" [size]="14"></svg>Rename {{ ref.name }}…
               </button>
               @if (remote()) {
                 <button gd-menu-item (selected)="refs.setUpstream(ref.name)">
-                  <svg icon lucideCloudUpload [size]="14" aria-hidden="true"></svg>Set upstream of {{ ref.name }}…
+                  <svg icon gd-icon name="cloud-upload" [size]="14"></svg>Set upstream of {{ ref.name }}…
                 </button>
               }
               @if (!ref.head) {
                 <button gd-menu-item [danger]="true" (selected)="refs.deleteBranch(ref.name)">
-                  <svg icon lucideTrash2 [size]="14" aria-hidden="true"></svg>Delete {{ ref.name }}…
+                  <svg icon gd-icon name="trash-2" [size]="14"></svg>Delete {{ ref.name }}…
                 </button>
               }
             }
             @case ("remote") {
               @if (remoteOnly(ref)) {
                 <button gd-menu-item (selected)="repository.switchBranch(ref.name)">
-                  <svg icon lucideArrowRightLeft [size]="14" aria-hidden="true"></svg>Check out {{ ref.name }}
+                  <svg icon gd-icon name="arrow-right-left" [size]="14"></svg>Check out {{ ref.name }}
                 </button>
               }
               <button gd-menu-item [danger]="true" (selected)="refs.deleteRemoteBranch(ref.name)">
-                <svg icon lucideCloudOff [size]="14" aria-hidden="true"></svg>Delete {{ ref.name }} on the remote…
+                <svg icon gd-icon name="cloud-off" [size]="14"></svg>Delete {{ ref.name }} on the remote…
               </button>
             }
             @case ("tag") {
               @if (remote(); as name) {
                 <button gd-menu-item (selected)="refs.pushTag(ref.name)">
-                  <svg icon lucideCloudUpload [size]="14" aria-hidden="true"></svg>Push tag {{ ref.name }} to {{ name }}
+                  <svg icon gd-icon name="cloud-upload" [size]="14"></svg>Push tag {{ ref.name }} to {{ name }}
                 </button>
               }
               <button gd-menu-item [danger]="true" (selected)="refs.deleteTag(ref.name)">
-                <svg icon lucideTrash2 [size]="14" aria-hidden="true"></svg>Delete tag {{ ref.name }}…
+                <svg icon gd-icon name="trash-2" [size]="14"></svg>Delete tag {{ ref.name }}…
               </button>
               @if (remote(); as name) {
                 <button gd-menu-item [danger]="true" (selected)="refs.deleteRemoteTag(ref.name)">
-                  <svg icon lucideCloudOff [size]="14" aria-hidden="true"></svg>Delete tag {{ ref.name }} on {{ name }}…
+                  <svg icon gd-icon name="cloud-off" [size]="14"></svg>Delete tag {{ ref.name }} on {{ name }}…
                 </button>
               }
             }
@@ -143,11 +107,11 @@ import { parseRefs, type Ref } from "./ref-chips";
           [attr.title]="links.unavailable()"
           (selected)="links.copyGitdeskLink(link(commit))"
         >
-          <svg icon lucideLink [size]="14" aria-hidden="true"></svg>Copy GitDesk link
+          <svg icon gd-icon name="link" [size]="14"></svg>Copy GitDesk link
         </button>
         @if (links.webLink(link(commit))) {
           <button gd-menu-item (selected)="links.copyWebLink(link(commit))">
-            <svg icon lucideGlobe [size]="14" aria-hidden="true"></svg>Copy web link
+            <svg icon gd-icon name="globe" [size]="14"></svg>Copy web link
           </button>
         }
       </div>

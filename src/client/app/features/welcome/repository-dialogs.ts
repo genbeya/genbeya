@@ -1,11 +1,11 @@
 /** Dialogs that name a repository elsewhere: on WSL or SSH, or a URL to clone. */
 import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
 import { ChangeDetectionStrategy, Component, computed, inject, input, model, output, signal } from "@angular/core";
-import { LucideFolderOpen } from "@lucide/angular";
 import { describeLocation, type Location, type RemoteLocation } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { Repositories } from "../../core/repositories";
 import { DialogFrame } from "../../ui/dialog-frame";
+import { Icon } from "../../ui/icon";
 import { FolderBrowser, type FolderBrowserOptions, type FolderChoice } from "./folder-browser";
 
 type Kind = "wsl" | "ssh";
@@ -13,7 +13,7 @@ type Kind = "wsl" | "ssh";
 /** Distribution or host, and a path; shared by both dialogs. */
 @Component({
   selector: "gd-remote-fields",
-  imports: [LucideFolderOpen],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: contents" },
   template: `
@@ -71,7 +71,7 @@ type Kind = "wsl" | "ssh";
           (input)="path.set($any($event.target).value)"
         />
         <button type="button" class="btn btn-default btn-m" [disabled]="!machine()" (click)="browse()">
-          <svg lucideFolderOpen [size]="14" aria-hidden="true"></svg><span>Browse…</span>
+          <svg gd-icon name="folder-open" [size]="14"></svg><span>Browse…</span>
         </button>
       </div>
     </div>
@@ -169,7 +169,7 @@ export class RemoteDialog {
 /** A URL and where to clone it; the dialog's data is a URL to start with, such as the remote of a GitDesk link. */
 @Component({
   selector: "gd-clone-dialog",
-  imports: [DialogFrame, RemoteFields, LucideFolderOpen],
+  imports: [DialogFrame, Icon, RemoteFields],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <gd-dialog-frame title="Clone a repository" [width]="500" (submitted)="submit()">
@@ -205,7 +205,7 @@ export class RemoteDialog {
               [value]="folderText()"
             />
             <button type="button" class="btn btn-default btn-m" (click)="chooseFolder()">
-              <svg lucideFolderOpen [size]="14" aria-hidden="true"></svg><span>Choose…</span>
+              <svg gd-icon name="folder-open" [size]="14"></svg><span>Choose…</span>
             </button>
           </div>
         </div>

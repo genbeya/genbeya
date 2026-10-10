@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from "@angular/core";
-import { LucideArrowDown, LucideArrowUp, LucideFilePen, LucidePlus, LucideX } from "@lucide/angular";
 import { taskType, TONES, type TaskType, type Tone } from "../../../../contracts/model";
+import { Icon } from "../../ui/icon";
 import { IconPicker } from "../../ui/icon-picker";
 import { titleCase, toneColor } from "../tasks/task-model";
 
 /** The task types, in menu order: icon, colour and template of each; reorder, remove, add. */
 @Component({
   selector: "gd-type-editor",
-  imports: [IconPicker, LucideArrowDown, LucideArrowUp, LucideFilePen, LucidePlus, LucideX],
+  imports: [Icon, IconPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "list-editor" },
   template: `
@@ -37,13 +37,13 @@ import { titleCase, toneColor } from "../tasks/task-model";
           [title]="'Edit the template for new ' + type.name + ' tasks'"
           (click)="editTemplate.emit(type.name)"
         >
-          <svg lucideFilePen [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="file-pen" [size]="13"></svg>
         </button>
         <button type="button" class="icon-btn" aria-label="Move up" title="Move up" [disabled]="first" (click)="move(index, -1)">
-          <svg lucideArrowUp [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="arrow-up" [size]="13"></svg>
         </button>
         <button type="button" class="icon-btn" aria-label="Move down" title="Move down" [disabled]="last" (click)="move(index, 1)">
-          <svg lucideArrowDown [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="arrow-down" [size]="13"></svg>
         </button>
         <button
           type="button"
@@ -52,7 +52,7 @@ import { titleCase, toneColor } from "../tasks/task-model";
           [title]="'Remove ' + type.name"
           (click)="changed.emit(without(index))"
         >
-          <svg lucideX [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="x" [size]="13"></svg>
         </button>
       </div>
     }
@@ -67,7 +67,7 @@ import { titleCase, toneColor } from "../tasks/task-model";
         (keydown.enter)="$event.preventDefault(); add()"
       />
       <button type="button" class="btn btn-default btn-m" [disabled]="!adding().trim()" (click)="add()">
-        <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Add</span>
+        <svg gd-icon name="plus" [size]="14"></svg><span>Add</span>
       </button>
     </div>
   `,

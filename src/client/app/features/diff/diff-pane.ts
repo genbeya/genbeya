@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, signal, untracked } from "@angular/core";
-import { LucideColumns2, LucideRows2 } from "@lucide/angular";
 import type { Diff } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
 import { DiffView } from "../../editor/diff-view";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 import { recall, remember } from "../../ui/remembered";
 
 const INLINE_KEY = "diff:inline";
@@ -12,7 +12,7 @@ const INLINE_KEY = "diff:inline";
 /** A file's diff with a header; reloads whenever the repository changes. Project actions into the header. */
 @Component({
   selector: "gd-diff-pane",
-  imports: [DiffView, EmptyState, LucideColumns2, LucideRows2],
+  imports: [DiffView, EmptyState, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./diff-pane.css",
   host: { class: "view" },
@@ -32,9 +32,9 @@ const INLINE_KEY = "diff:inline";
         (click)="toggleInline()"
       >
         @if (inline()) {
-          <svg lucideColumns2 [size]="15" aria-hidden="true"></svg>
+          <svg gd-icon name="columns-2" [size]="15"></svg>
         } @else {
-          <svg lucideRows2 [size]="15" aria-hidden="true"></svg>
+          <svg gd-icon name="rows-2" [size]="15"></svg>
         }
       </button>
     </header>

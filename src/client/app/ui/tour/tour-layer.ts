@@ -11,11 +11,11 @@ import {
   viewChild,
   ViewEncapsulation,
 } from "@angular/core";
-import { LucideMousePointerClick, LucideX } from "@lucide/angular";
 import { ExternalLinks } from "../../core/external-links";
 import { isTyping } from "../../core/hotkeys";
 import type { LinkTarget } from "../../markdown/link-target";
 import { MarkdownView } from "../../markdown/markdown-view";
+import { Icon } from "../icon";
 import { findTarget, Tour } from "./tour";
 import { placePopover, type Box, type Placed } from "./tour-placement";
 
@@ -35,7 +35,7 @@ const sameBox = (a: Box | null, b: Box | null) =>
  */
 @Component({
   selector: "gd-tour-layer",
-  imports: [MarkdownView, LucideMousePointerClick, LucideX],
+  imports: [Icon, MarkdownView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // Global but namespaced, so the rendered Markdown inside is styled too.
   encapsulation: ViewEncapsulation.None,
@@ -70,13 +70,13 @@ const sameBox = (a: Box | null, b: Box | null) =>
         <header>
           <span class="tour-count">{{ position.index + 1 }} of {{ position.count }}</span>
           <button type="button" class="icon-btn" aria-label="End the tour" title="End the tour (Esc)" (click)="tour.stop()">
-            <svg lucideX [size]="15" aria-hidden="true"></svg>
+            <svg gd-icon name="x" [size]="15"></svg>
           </button>
         </header>
         <h2 id="tour-title">{{ position.step.title }}</h2>
         <gd-markdown id="tour-body" class="tour-body" [source]="position.step.body" path="" (linkClicked)="follow($event)" />
         @if (position.step.tryIt; as tryIt) {
-          <p class="tour-try"><svg lucideMousePointerClick [size]="14" aria-hidden="true"></svg>{{ tryIt }}</p>
+          <p class="tour-try"><svg gd-icon name="mouse-pointer-click" [size]="14"></svg>{{ tryIt }}</p>
         }
         <footer>
           <button type="button" class="btn btn-ghost btn-m" (click)="tour.stop()"><span>Skip tour</span></button>

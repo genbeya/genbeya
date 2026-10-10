@@ -1,19 +1,45 @@
 /**
  * The icons that task types and workflow states may use, by Lucide name.
- * The set is small and explicit (see icon-data.ts); names configured by hand
- * outside it fall back to a generic icon.
+ * The set is small and explicit; names configured by hand outside it fall
+ * back to a generic icon.
  */
-import type { LucideIconData } from "@lucide/angular";
 import { GENERIC_TYPE_ICON } from "../../../contracts/model";
-import { ICON_DATA } from "./icon-data";
-
-const ICONS: ReadonlyMap<string, LucideIconData> = new Map(ICON_DATA.map((icon) => [icon.name, icon]));
+import type { IconName } from "./icon-data";
 
 /** Every icon to choose from, in picker order. */
-export const ICON_NAMES: readonly string[] = [...ICONS.keys()];
+export const ICON_NAMES: readonly IconName[] = [
+  "bug",
+  "sparkles",
+  "trending-up",
+  "wrench",
+  "square-check",
+  "book-open",
+  "file-text",
+  "circle-question-mark",
+  "flask-conical",
+  "lightbulb",
+  "shield",
+  "zap",
+  "palette",
+  "gauge",
+  "rocket",
+  "circle-dot",
+  "circle",
+  "circle-dashed",
+  "circle-check",
+  "circle-x",
+  "clock",
+  "eye",
+  "play",
+  "pause",
+  "ban",
+  "archive",
+  "inbox",
+  "flag",
+];
 
 /** The icon of this name, if the set has it. */
-export const knownIcon = (name: string | undefined): LucideIconData | undefined => (name ? ICONS.get(name) : undefined);
+export const knownIcon = (name: string | undefined): IconName | undefined => ICON_NAMES.find((icon) => icon === name);
 
 /** The icon of this name, or a generic one. */
-export const iconFor = (name: string | undefined): LucideIconData => knownIcon(name) ?? ICONS.get(GENERIC_TYPE_ICON)!;
+export const iconFor = (name: string | undefined): IconName => knownIcon(name) ?? GENERIC_TYPE_ICON;

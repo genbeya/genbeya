@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from "@angular/core";
-import { LucideArrowDown, LucideArrowUp, LucidePlus, LucideX } from "@lucide/angular";
 import { FIELD_TYPES, type FieldDefinition, type FieldType } from "../../../../contracts/model";
+import { Icon } from "../../ui/icon";
 import { titleCase } from "../tasks/task-model";
 
 /** The custom task fields, in panel order: kind and options of each; reorder, remove, add. */
 @Component({
   selector: "gd-field-editor",
-  imports: [LucideArrowDown, LucideArrowUp, LucidePlus, LucideX],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "list-editor" },
   template: `
@@ -19,10 +19,10 @@ import { titleCase } from "../tasks/task-model";
           }
         </select>
         <button type="button" class="icon-btn" aria-label="Move up" title="Move up" [disabled]="first" (click)="move(index, -1)">
-          <svg lucideArrowUp [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="arrow-up" [size]="13"></svg>
         </button>
         <button type="button" class="icon-btn" aria-label="Move down" title="Move down" [disabled]="last" (click)="move(index, 1)">
-          <svg lucideArrowDown [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="arrow-down" [size]="13"></svg>
         </button>
         <button
           type="button"
@@ -31,7 +31,7 @@ import { titleCase } from "../tasks/task-model";
           [title]="'Remove ' + field.name + ' (tasks keep their values)'"
           (click)="changed.emit(without(index))"
         >
-          <svg lucideX [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="x" [size]="13"></svg>
         </button>
       </div>
       @if (field.type === "choice") {
@@ -58,7 +58,7 @@ import { titleCase } from "../tasks/task-model";
         (keydown.enter)="$event.preventDefault(); add()"
       />
       <button type="button" class="btn btn-default btn-m" [disabled]="!adding().trim()" (click)="add()">
-        <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Add</span>
+        <svg gd-icon name="plus" [size]="14"></svg><span>Add</span>
       </button>
     </div>
   `,

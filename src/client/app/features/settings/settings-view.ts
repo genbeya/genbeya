@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, ViewEncapsulation } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideExternalLink, LucidePencil, LucidePlus, LucideTrash2 } from "@lucide/angular";
 import {
   syncsContentBranch,
   type ContentArea,
@@ -17,6 +16,7 @@ import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
+import { Icon } from "../../ui/icon";
 import { Onboarding } from "../onboarding/onboarding";
 import { titleCase } from "../tasks/task-model";
 import { AgentFiles } from "./agent-files";
@@ -30,7 +30,7 @@ type TextSetting = "name" | "taskPrefix" | "wikiRoot" | "wikiHome" | "taskRoot";
 /** Project settings (shared through .gitdesk.yml), content storage, agent files, remotes, personal preferences and help. */
 @Component({
   selector: "gd-settings-view",
-  imports: [AgentFiles, FieldEditor, StatusEditor, TypeEditor, LucideExternalLink, LucidePencil, LucidePlus, LucideTrash2],
+  imports: [AgentFiles, FieldEditor, Icon, StatusEditor, TypeEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./settings.css",

@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from "@angular/core";
 import { RouterLink } from "@angular/router";
-import { LucideGitMerge } from "@lucide/angular";
 import type { Operation } from "../../../../contracts/model";
 import { Session } from "../../core/session";
+import { Icon } from "../../ui/icon";
 import { OperationActions } from "./operation-actions";
 
 /** What an operation in progress does, such as "Merging feature into main". */
@@ -22,7 +22,7 @@ export function describeOperation({ kind, source, target, step, steps }: Operati
 /** The merge, rebase, cherry-pick or revert in progress, its conflicts, and how to go on. */
 @Component({
   selector: "gd-operation-banner",
-  imports: [RouterLink, LucideGitMerge],
+  imports: [Icon, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host {
@@ -49,7 +49,7 @@ export function describeOperation({ kind, source, target, step, steps }: Operati
   `,
   host: { role: "status", "[attr.aria-label]": "description()" },
   template: `
-    <svg lucideGitMerge [size]="15" aria-hidden="true"></svg>
+    <svg gd-icon name="git-merge" [size]="15"></svg>
     <span class="operation-text ellipsis">
       {{ description() }}
       <span class="operation-conflicts"

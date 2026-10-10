@@ -1,18 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from "@angular/core";
-import {
-  LucideArrowRight,
-  LucideCloudDownload,
-  LucideExternalLink,
-  LucideFlaskConical,
-  LucideFolderOpen,
-  LucideServer,
-  LucideX,
-} from "@lucide/angular";
 import { describeLocation, type Location } from "../../../../contracts/model";
 import { APP_VERSION } from "../../core/app-version";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
+import { Icon } from "../../ui/icon";
 import { Onboarding } from "../onboarding/onboarding";
 import { HostIcon, initials } from "../shell/repository-mark";
 import { ShellUi } from "../shell/shell-ui";
@@ -30,16 +22,7 @@ export function ago(time: number, now = Date.now()): string {
 
 @Component({
   selector: "gd-welcome",
-  imports: [
-    HostIcon,
-    LucideArrowRight,
-    LucideCloudDownload,
-    LucideExternalLink,
-    LucideFlaskConical,
-    LucideFolderOpen,
-    LucideServer,
-    LucideX,
-  ],
+  imports: [HostIcon, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./welcome.css",
   host: { class: "welcome" },
@@ -64,23 +47,23 @@ export function ago(time: number, now = Date.now()): string {
             below for a short tour of it, or try GitDesk on a sample project first.
           </p>
           <button type="button" class="btn btn-primary btn-m" [disabled]="busy()" (click)="onboarding.createSample()">
-            <svg lucideFlaskConical [size]="14" aria-hidden="true"></svg><span>Try GitDesk with a sample project</span>
+            <svg gd-icon name="flask-conical" [size]="14"></svg><span>Try GitDesk with a sample project</span>
           </button>
         </section>
       }
 
       <div class="welcome-actions">
         <button type="button" class="welcome-action" [disabled]="busy()" (click)="session.pick()">
-          <svg lucideFolderOpen [size]="18" aria-hidden="true"></svg>
+          <svg gd-icon name="folder-open" [size]="18"></svg>
           <span class="grow">Open folder</span>
           <kbd class="kbd">{{ mod }} O</kbd>
         </button>
         <button type="button" class="welcome-action" [disabled]="busy()" (click)="ui.openRemote()">
-          <svg lucideServer [size]="18" aria-hidden="true"></svg>
+          <svg gd-icon name="server" [size]="18"></svg>
           <span class="grow">Open on WSL or SSH</span>
         </button>
         <button type="button" class="welcome-action" [disabled]="busy()" (click)="ui.openClone()">
-          <svg lucideCloudDownload [size]="18" aria-hidden="true"></svg>
+          <svg gd-icon name="cloud-download" [size]="18"></svg>
           <span class="grow">Clone repository</span>
         </button>
       </div>
@@ -99,7 +82,7 @@ export function ago(time: number, now = Date.now()): string {
                   >
                 </span>
                 <span class="recent-time">{{ ago(entry.openedAt) }}</span>
-                <svg lucideArrowRight [size]="14" class="recent-arrow" aria-hidden="true"></svg>
+                <svg gd-icon name="arrow-right" [size]="14" class="recent-arrow"></svg>
               </button>
               <button
                 type="button"
@@ -108,7 +91,7 @@ export function ago(time: number, now = Date.now()): string {
                 title="Remove from list"
                 (click)="forget(entry.location)"
               >
-                <svg lucideX [size]="13" aria-hidden="true"></svg>
+                <svg gd-icon name="x" [size]="13"></svg>
               </button>
             </div>
           }
@@ -122,7 +105,7 @@ export function ago(time: number, now = Date.now()): string {
         <span>GitDesk {{ version }}</span>
         <button type="button" class="btn btn-ghost btn-s" (click)="onboarding.showWhatsNew()"><span>What's new</span></button>
         <button type="button" class="btn btn-ghost btn-s" (click)="onboarding.openDocs()">
-          <span>Documentation</span><svg lucideExternalLink [size]="12" aria-hidden="true"></svg>
+          <span>Documentation</span><svg gd-icon name="external-link" [size]="12"></svg>
         </button>
       </footer>
     </div>

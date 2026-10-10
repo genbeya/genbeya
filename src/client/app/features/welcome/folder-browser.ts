@@ -1,11 +1,11 @@
 /** Chooses a folder on WSL or SSH, where the system folder dialog does not reach. */
 import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
 import { afterRenderEffect, ChangeDetectionStrategy, Component, computed, type ElementRef, inject, signal, viewChild } from "@angular/core";
-import { LucideArrowUp, LucideFolder, LucideFolderGit2, LucideHouse } from "@lucide/angular";
 import type { Folder, FolderListing, RemoteLocation } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Repositories } from "../../core/repositories";
 import { DialogFrame } from "../../ui/dialog-frame";
+import { Icon } from "../../ui/icon";
 import { recall, remember } from "../../ui/remembered";
 
 export interface FolderBrowserOptions {
@@ -32,7 +32,7 @@ const parentOf = (path: string) => (/^\/.*[^/]/.test(path) ? path.replace(/\/*[^
 
 @Component({
   selector: "gd-folder-browser",
-  imports: [DialogFrame, LucideArrowUp, LucideFolder, LucideFolderGit2, LucideHouse],
+  imports: [DialogFrame, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./folder-browser.css",
   template: `
@@ -46,10 +46,10 @@ const parentOf = (path: string) => (/^\/.*[^/]/.test(path) ? path.replace(/\/*[^
           [disabled]="parent() === null"
           (click)="up()"
         >
-          <svg lucideArrowUp [size]="15" aria-hidden="true"></svg>
+          <svg gd-icon name="arrow-up" [size]="15"></svg>
         </button>
         <button type="button" class="icon-btn" aria-label="Home folder" title="Home folder" (click)="load('')">
-          <svg lucideHouse [size]="15" aria-hidden="true"></svg>
+          <svg gd-icon name="house" [size]="15"></svg>
         </button>
         <input
           #field
@@ -88,9 +88,9 @@ const parentOf = (path: string) => (/^\/.*[^/]/.test(path) ? path.replace(/\/*[^
               (dblclick)="enter(folder)"
             >
               @if (folder.repository) {
-                <svg lucideFolderGit2 [size]="15" class="browser-icon is-repository" aria-hidden="true"></svg>
+                <svg gd-icon name="folder-git-2" [size]="15" class="browser-icon is-repository"></svg>
               } @else {
-                <svg lucideFolder [size]="15" class="browser-icon" aria-hidden="true"></svg>
+                <svg gd-icon name="folder" [size]="15" class="browser-icon"></svg>
               }
               <span class="browser-name ellipsis">{{ folder.name }}</span>
               @if (folder.repository) {

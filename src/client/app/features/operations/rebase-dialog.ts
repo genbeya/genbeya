@@ -1,9 +1,9 @@
 import { CdkDrag, type CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from "@angular/cdk/drag-drop";
 import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from "@angular/core";
-import { LucideGripVertical, LucideTriangleAlert } from "@lucide/angular";
 import { REBASE_ACTIONS, type RebaseAction, type RebaseCommit, type RebasePlan, type RebaseStep } from "../../../../contracts/model";
 import { DialogFrame } from "../../ui/dialog-frame";
+import { Icon } from "../../ui/icon";
 
 export interface RebaseRequest {
   readonly plan: RebasePlan;
@@ -53,7 +53,7 @@ export function problemOf(rows: readonly Row[]): string | null {
  */
 @Component({
   selector: "gd-rebase-dialog",
-  imports: [CdkDrag, CdkDragHandle, CdkDropList, DialogFrame, LucideGripVertical, LucideTriangleAlert],
+  imports: [CdkDrag, CdkDragHandle, CdkDropList, DialogFrame, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./rebase-dialog.css",
   template: `
@@ -63,7 +63,7 @@ export function problemOf(rows: readonly Row[]): string | null {
         @for (row of rows(); track row.commit.hash; let index = $index) {
           <li class="rebase-row" cdkDrag [class.is-dropped]="row.action === 'drop'">
             <div class="rebase-line">
-              <span class="rebase-handle" cdkDragHandle aria-hidden="true"><svg lucideGripVertical [size]="14"></svg></span>
+              <span class="rebase-handle" cdkDragHandle aria-hidden="true"><svg gd-icon name="grip-vertical" [size]="14"></svg></span>
               <select
                 #action
                 class="select rebase-action"
@@ -93,7 +93,7 @@ export function problemOf(rows: readonly Row[]): string | null {
       </ol>
       @if (request.plan.pushed.length) {
         <p class="rebase-warning" role="alert">
-          <svg lucideTriangleAlert [size]="14" aria-hidden="true"></svg>
+          <svg gd-icon name="triangle-alert" [size]="14"></svg>
           Some of these commits are already on {{ request.plan.pushed.join(", ") }}. Rewriting them means you will have to force-push.
         </p>
       }

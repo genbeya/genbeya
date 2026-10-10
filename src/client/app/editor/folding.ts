@@ -6,13 +6,12 @@
 import { codeFolding, foldGutter } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { LucideChevronDown, LucideChevronRight } from "@lucide/angular";
-import { iconElement } from "./icon";
+import { iconElement } from "../ui/icon";
 
 function marker(open: boolean): HTMLElement {
   const element = document.createElement("span");
   element.className = open ? "cm-foldMarker" : "cm-foldMarker is-folded";
-  element.append(iconElement(open ? LucideChevronDown.icon : LucideChevronRight.icon, 14));
+  element.append(iconElement(open ? "chevron-down" : "chevron-right", 14));
   return element;
 }
 

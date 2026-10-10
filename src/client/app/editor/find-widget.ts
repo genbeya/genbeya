@@ -20,21 +20,9 @@ import {
 } from "@codemirror/search";
 import { EditorSelection, type EditorState, type Extension, StateEffect, StateField } from "@codemirror/state";
 import { type Command, Decoration, EditorView, type KeyBinding, type Panel, runScopeHandlers, type ViewUpdate } from "@codemirror/view";
-import {
-  LucideArrowDown,
-  LucideArrowUp,
-  LucideCaseSensitive,
-  LucideChevronRight,
-  LucideRegex,
-  LucideReplace,
-  LucideReplaceAll,
-  LucideScanText,
-  LucideWholeWord,
-  LucideX,
-  type LucideIconData,
-} from "@lucide/angular";
 import { isMac, MOD_KEY } from "../core/hotkeys";
-import { iconElement } from "./icon";
+import { iconElement } from "../ui/icon";
+import type { IconName } from "../ui/icon-data";
 
 /** Counting stops here, so a pattern that matches everywhere in a huge file stays fast. */
 export const MATCH_LIMIT = 2000;
@@ -121,7 +109,7 @@ type Toggle = "caseSensitive" | "wholeWord" | "regexp" | "scoped";
 /** The open panel of each editor, for the commands. */
 const panels = new WeakMap<EditorView, FindPanel>();
 
-function button(label: string, icon: LucideIconData, onClick: () => void, pressed?: boolean): HTMLButtonElement {
+function button(label: string, icon: IconName, onClick: () => void, pressed?: boolean): HTMLButtonElement {
   const element = document.createElement("button");
   element.type = "button";
   element.title = label;
@@ -166,19 +154,19 @@ class FindPanel implements Panel {
   private readonly matchButtons: HTMLButtonElement[];
 
   constructor(private readonly view: EditorView) {
-    const toggle = (option: Toggle, label: string, icon: LucideIconData) => button(label, icon, () => this.toggle(option), false);
+    const toggle = (option: Toggle, label: string, icon: IconName) => button(label, icon, () => this.toggle(option), false);
     this.toggles = {
-      caseSensitive: toggle("caseSensitive", `Match case (${keys("Alt+C", "⌥⌘C")})`, LucideCaseSensitive.icon),
-      wholeWord: toggle("wholeWord", `Match whole word (${keys("Alt+W", "⌥⌘W")})`, LucideWholeWord.icon),
-      regexp: toggle("regexp", `Use regular expression (${keys("Alt+R", "⌥⌘R")})`, LucideRegex.icon),
-      scoped: toggle("scoped", `Find in selection (${keys("Alt+L", "⌥⌘L")})`, LucideScanText.icon),
+      caseSensitive: toggle("caseSensitive", `Match case (${keys("Alt+C", "⌥⌘C")})`, "case-sensitive"),
+      wholeWord: toggle("wholeWord", `Match whole word (${keys("Alt+W", "⌥⌘W")})`, "whole-word"),
+      regexp: toggle("regexp", `Use regular expression (${keys("Alt+R", "⌥⌘R")})`, "regex"),
+      scoped: toggle("scoped", `Find in selection (${keys("Alt+L", "⌥⌘L")})`, "scan-text"),
     };
-    const previous = button("Previous match (Shift+Enter)", LucideArrowUp.icon, () => findPrevious(view));
-    const next = button("Next match (Enter)", LucideArrowDown.icon, () => findNext(view));
-    const replace = button("Replace (Enter)", LucideReplace.icon, () => replaceNext(view));
-    const replaceEverything = button(`Replace all (${MOD_KEY}+Alt+Enter)`, LucideReplaceAll.icon, () => replaceAll(view));
+    const previous = button("Previous match (Shift+Enter)", "arrow-up", () => findPrevious(view));
+    const next = button("Next match (Enter)", "arrow-down", () => findNext(view));
+    const replace = button("Replace (Enter)", "replace", () => replaceNext(view));
+    const replaceEverything = button(`Replace all (${MOD_KEY}+Alt+Enter)`, "replace-all", () => replaceAll(view));
     this.matchButtons = [previous, next, replace, replaceEverything];
-    this.expander = button("Toggle replace", LucideChevronRight.icon, () => this.showReplace(!!this.replaceRow.hidden));
+    this.expander = button("Toggle replace", "chevron-right", () => this.showReplace(!!this.replaceRow.hidden));
     this.expander.classList.add("cm-find-expander");
     this.expander.setAttribute("aria-expanded", "false");
     this.count.className = "cm-find-count";
@@ -192,7 +180,7 @@ class FindPanel implements Panel {
       previous,
       next,
       this.toggles.scoped,
-      button("Close (Escape)", LucideX.icon, () => closeFind(view)),
+      button("Close (Escape)", "x", () => closeFind(view)),
     );
     this.replaceRow = div("cm-find-row", div("cm-find-field", this.replaceField), replace, replaceEverything);
     this.replaceRow.hidden = true;

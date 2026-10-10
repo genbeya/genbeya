@@ -1,12 +1,12 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked, ViewEncapsulation } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideGitCommitHorizontal } from "@lucide/angular";
 import type { Commit } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { layoutGraph, relativeTime } from "./commit-graph";
 import { CommitMenu } from "./commit-menu";
@@ -24,17 +24,7 @@ const MAX_LANES = 12;
  */
 @Component({
   selector: "gd-history-view",
-  imports: [
-    CdkContextMenuTrigger,
-    CommitMenu,
-    CommitPane,
-    EmptyState,
-    GraphLines,
-    RefChips,
-    Resizable,
-    ResizeHandle,
-    LucideGitCommitHorizontal,
-  ],
+  imports: [CdkContextMenuTrigger, CommitMenu, CommitPane, EmptyState, GraphLines, Icon, RefChips, Resizable, ResizeHandle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./history.css",
@@ -48,7 +38,7 @@ const MAX_LANES = 12;
       <div class="editor-loading"><span class="spinner" aria-label="Loading"></span></div>
     } @else if (!commits()!.length) {
       <gd-empty-state title="No commits yet">
-        <svg icon lucideGitCommitHorizontal [size]="20" aria-hidden="true"></svg>
+        <svg icon gd-icon name="git-commit-horizontal" [size]="20"></svg>
         <p>Commit your first changes in Changes.</p>
       </gd-empty-state>
     } @else {

@@ -44,8 +44,8 @@ describe("IconPicker", () => {
 
 describe("icons", () => {
   it("are found by their Lucide name, with a generic one for others", () => {
-    expect(knownIcon("bug")!.name).toBe("bug");
+    expect(knownIcon("bug")).toBe("bug");
     expect(knownIcon("not-an-icon")).toBeUndefined();
-    expect(iconFor("not-an-icon").name).toBe("circle-dot");
+    expect(iconFor("not-an-icon")).toBe("circle-dot");
   });
 });

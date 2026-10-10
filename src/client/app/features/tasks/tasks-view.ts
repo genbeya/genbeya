@@ -11,25 +11,13 @@ import {
   ViewEncapsulation,
 } from "@angular/core";
 import { Router } from "@angular/router";
-import {
-  LucideColumns3,
-  LucideFolder,
-  LucideLayoutList,
-  LucideListFilter,
-  LucidePlus,
-  LucideRows3,
-  LucideSearch,
-  LucideShapes,
-  LucideTag,
-  LucideUser,
-  LucideX,
-} from "@lucide/angular";
 import { PRIORITIES, type Task } from "../../../../contracts/model";
 import { hotkey } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { recall, remember } from "../../ui/remembered";
 import { TaskBoard } from "./task-board";
@@ -65,29 +53,7 @@ const LANES_KEY = "tasks:lanes";
  */
 @Component({
   selector: "gd-tasks-view",
-  imports: [
-    CdkMenu,
-    CdkMenuTrigger,
-    Avatar,
-    EmptyState,
-    MenuItem,
-    PriorityIcon,
-    TaskBoard,
-    TaskList,
-    TaskPanel,
-    TypeIcon,
-    LucideColumns3,
-    LucideFolder,
-    LucideLayoutList,
-    LucideListFilter,
-    LucidePlus,
-    LucideRows3,
-    LucideSearch,
-    LucideShapes,
-    LucideTag,
-    LucideUser,
-    LucideX,
-  ],
+  imports: [Avatar, CdkMenu, CdkMenuTrigger, EmptyState, Icon, MenuItem, PriorityIcon, TaskBoard, TaskList, TaskPanel, TypeIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./tasks.css",

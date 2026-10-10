@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from "@angular/core";
-import { LucideChevronDown, LucideChevronUp } from "@lucide/angular";
 import type { ConflictFile, ConflictKind, ConflictResolution } from "../../../../contracts/model";
 import { type ConflictHunk, type HunkChoice, parseConflicts, resolveHunk } from "../../../../utilities/conflict-markers";
 import { Dialogs } from "../../core/dialogs";
@@ -9,6 +8,7 @@ import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { CodeEditor, type LineRange } from "../../editor/code-editor";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 
 interface Choice {
   readonly label: string;
@@ -75,7 +75,7 @@ const rangeOf = (hunk: ConflictHunk): LineRange => ({ from: hunk.line, to: hunk.
  */
 @Component({
   selector: "gd-conflict-pane",
-  imports: [CodeEditor, EmptyState, LucideChevronDown, LucideChevronUp],
+  imports: [CodeEditor, EmptyState, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./conflict-pane.css",
   host: { class: "view" },
@@ -124,10 +124,10 @@ const rangeOf = (hunk: ConflictHunk): LineRange => ({ from: hunk.line, to: hunk.
         @if (active(); as hunk) {
           <span class="conflict-count">Conflict {{ index() + 1 }} of {{ hunks().length }}</span>
           <button type="button" class="icon-btn" aria-label="Previous conflict" title="Previous conflict" (click)="go(-1)">
-            <svg lucideChevronUp [size]="14" aria-hidden="true"></svg>
+            <svg gd-icon name="chevron-up" [size]="14"></svg>
           </button>
           <button type="button" class="icon-btn" aria-label="Next conflict" title="Next conflict" (click)="go(1)">
-            <svg lucideChevronDown [size]="14" aria-hidden="true"></svg>
+            <svg gd-icon name="chevron-down" [size]="14"></svg>
           </button>
           <span class="grow"></span>
           <button type="button" class="btn btn-default btn-s" [title]="hunk.oursLabel" (click)="accept('ours')">

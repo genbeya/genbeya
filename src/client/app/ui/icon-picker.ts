@@ -1,6 +1,6 @@
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, input, output } from "@angular/core";
-import { LucideDynamicIcon } from "@lucide/angular";
+import { Icon } from "./icon";
 import { ICON_NAMES, iconFor } from "./icons";
 import { MenuItem } from "./menu-item";
 
@@ -10,7 +10,7 @@ import { MenuItem } from "./menu-item";
  */
 @Component({
   selector: "gd-icon-picker",
-  imports: [CdkMenu, CdkMenuItem, CdkMenuTrigger, LucideDynamicIcon, MenuItem],
+  imports: [CdkMenu, CdkMenuItem, CdkMenuTrigger, Icon, MenuItem],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .icon-grid {
@@ -56,7 +56,7 @@ import { MenuItem } from "./menu-item";
       [class.is-active]="trigger.isOpen()"
     >
       @if (value()) {
-        <svg [lucideIcon]="iconFor(value()!)" [size]="15" aria-hidden="true"></svg>
+        <svg gd-icon [name]="iconFor(value()!)" [size]="15"></svg>
       } @else {
         <ng-content select="[none]" />
       }
@@ -76,7 +76,7 @@ import { MenuItem } from "./menu-item";
             [class.is-active]="name === value()"
             (cdkMenuItemTriggered)="changed.emit(name)"
           >
-            <svg [lucideIcon]="iconFor(name)" [size]="15" aria-hidden="true"></svg>
+            <svg gd-icon [name]="name" [size]="15"></svg>
           </button>
         }
       </div>

@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from "@angular/core";
-import { LucidePencil, LucideTrash2 } from "@lucide/angular";
 import type { Task } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { MOD_KEY, matchesHotkey } from "../../core/hotkeys";
@@ -8,6 +7,7 @@ import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { Avatar } from "../../ui/avatar";
+import { Icon } from "../../ui/icon";
 import { relativeTime } from "../history/commit-graph";
 import { WikiActions } from "../wiki/wiki-actions";
 
@@ -17,7 +17,7 @@ import { WikiActions } from "../wiki/wiki-actions";
  */
 @Component({
   selector: "gd-task-comments",
-  imports: [Avatar, MarkdownView, LucidePencil, LucideTrash2],
+  imports: [Avatar, Icon, MarkdownView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-comments" },
   template: `
@@ -30,10 +30,10 @@ import { WikiActions } from "../wiki/wiki-actions";
           <span class="grow"></span>
           @if (comment.author === author() && editing() === null) {
             <button type="button" class="icon-btn" aria-label="Edit comment" title="Edit comment" (click)="startEditing($index)">
-              <svg lucidePencil [size]="13" aria-hidden="true"></svg>
+              <svg gd-icon name="pencil" [size]="13"></svg>
             </button>
             <button type="button" class="icon-btn" aria-label="Delete comment" title="Delete comment" (click)="remove($index)">
-              <svg lucideTrash2 [size]="13" aria-hidden="true"></svg>
+              <svg gd-icon name="trash-2" [size]="13"></svg>
             </button>
           }
         </header>

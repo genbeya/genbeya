@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
-import { LucideChevronRight, LucideFilePlus2, LucideFileText, LucideFolder } from "@lucide/angular";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 import { Breadcrumbs } from "./breadcrumbs";
 import { WikiActions } from "./wiki-actions";
 import { findPage, nodeKey } from "./wiki-pages";
@@ -10,7 +10,7 @@ import { findPage, nodeKey } from "./wiki-pages";
 /** A folder without its own page: its pages as cards, and an offer to write an overview. */
 @Component({
   selector: "gd-folder-page",
-  imports: [Breadcrumbs, EmptyState, LucideChevronRight, LucideFilePlus2, LucideFileText, LucideFolder],
+  imports: [Breadcrumbs, EmptyState, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -19,7 +19,7 @@ import { findPage, nodeKey } from "./wiki-pages";
         <gd-breadcrumbs [path]="path()" />
         <span class="grow"></span>
         <button type="button" class="btn btn-default btn-m" (click)="writeOverview()">
-          <svg lucideFilePlus2 [size]="14" aria-hidden="true"></svg><span>Write an overview page</span>
+          <svg gd-icon name="file-plus-2" [size]="14"></svg><span>Write an overview page</span>
         </button>
       </header>
       <div class="content-scroll">
@@ -30,15 +30,15 @@ import { findPage, nodeKey } from "./wiki-pages";
               @for (child of folder.children; track key(child)) {
                 <button type="button" class="folder-card" (click)="wiki.openNode(child)">
                   @if (child.path) {
-                    <svg lucideFileText [size]="16" aria-hidden="true"></svg>
+                    <svg gd-icon name="file-text" [size]="16"></svg>
                   } @else {
-                    <svg lucideFolder [size]="16" aria-hidden="true"></svg>
+                    <svg gd-icon name="folder" [size]="16"></svg>
                   }
                   <span class="grow">{{ child.title }}</span>
                   @if (child.children.length) {
                     <span class="faint">{{ child.children.length }} pages</span>
                   }
-                  <svg lucideChevronRight [size]="14" class="faint" aria-hidden="true"></svg>
+                  <svg gd-icon name="chevron-right" [size]="14" class="faint"></svg>
                 </button>
               }
             </div>
@@ -46,7 +46,7 @@ import { findPage, nodeKey } from "./wiki-pages";
         </div>
       </div>
     } @else {
-      <gd-empty-state title="This folder has no pages"><svg icon lucideFolder [size]="20" aria-hidden="true"></svg></gd-empty-state>
+      <gd-empty-state title="This folder has no pages"><svg icon gd-icon name="folder" [size]="20"></svg></gd-empty-state>
     }
   `,
 })

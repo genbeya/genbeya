@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, untracked } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideArchive, LucideCheckCheck, LucideMinus, LucidePlus, LucideUndo2 } from "@lucide/angular";
 import type { Change, ConflictKind } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { DiffPane } from "../diff/diff-pane";
 import { relativeTime } from "../history/commit-graph";
@@ -36,21 +36,7 @@ const CONFLICT_KINDS: Readonly<Record<ConflictKind, string>> = {
  */
 @Component({
   selector: "gd-changes-view",
-  imports: [
-    ChangeRow,
-    ConflictPane,
-    DiffPane,
-    EmptyState,
-    Resizable,
-    ResizeHandle,
-    StashPane,
-    SyncBar,
-    LucideArchive,
-    LucideCheckCheck,
-    LucideMinus,
-    LucidePlus,
-    LucideUndo2,
-  ],
+  imports: [ChangeRow, ConflictPane, DiffPane, EmptyState, Icon, Resizable, ResizeHandle, StashPane, SyncBar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./changes.css",
   host: { class: "view" },

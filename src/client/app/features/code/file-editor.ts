@@ -1,18 +1,6 @@
 import { CdkContextMenuTrigger, CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from "@angular/core";
 import { Router } from "@angular/router";
-import {
-  LucideChevronRight,
-  LucideCopy,
-  LucideEllipsis,
-  LucideEye,
-  LucideFile,
-  LucideFileDiff,
-  LucideGlobe,
-  LucideLink,
-  LucidePencil,
-  LucideTrash2,
-} from "@lucide/angular";
 import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import { Dialogs } from "../../core/dialogs";
 import { Clipboard } from "../../core/clipboard";
@@ -25,6 +13,7 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { CodeEditor, type LineRange } from "../../editor/code-editor";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { ShareMenu } from "../share/share-menu";
 import { WikiActions } from "../wiki/wiki-actions";
@@ -32,26 +21,7 @@ import { WikiActions } from "../wiki/wiki-actions";
 /** One repository file in the editor; Markdown can also be previewed. */
 @Component({
   selector: "gd-file-editor",
-  imports: [
-    CdkContextMenuTrigger,
-    CdkMenu,
-    CdkMenuTrigger,
-    CodeEditor,
-    EmptyState,
-    MarkdownView,
-    MenuItem,
-    ShareMenu,
-    LucideChevronRight,
-    LucideCopy,
-    LucideEllipsis,
-    LucideEye,
-    LucideFile,
-    LucideFileDiff,
-    LucideGlobe,
-    LucideLink,
-    LucidePencil,
-    LucideTrash2,
-  ],
+  imports: [CdkContextMenuTrigger, CdkMenu, CdkMenuTrigger, CodeEditor, EmptyState, Icon, MarkdownView, MenuItem, ShareMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -61,7 +31,7 @@ import { WikiActions } from "../wiki/wiki-actions";
         @for (segment of folders(); track $index) {
           <span class="row crumb-row"
             ><span class="crumb">{{ segment }}</span
-            ><svg lucideChevronRight [size]="12" class="crumb-sep" aria-hidden="true"></svg
+            ><svg gd-icon name="chevron-right" [size]="12" class="crumb-sep"></svg
           ></span>
         }
         <span>{{ name() }}</span>
@@ -73,10 +43,10 @@ import { WikiActions } from "../wiki/wiki-actions";
       @if (markdown()) {
         <div class="segmented" role="radiogroup" aria-label="Mode">
           <button type="button" role="radio" [attr.aria-checked]="!preview()" [class.is-active]="!preview()" (click)="preview.set(false)">
-            <svg lucidePencil [size]="12" aria-hidden="true"></svg> Edit
+            <svg gd-icon name="pencil" [size]="12"></svg> Edit
           </button>
           <button type="button" role="radio" [attr.aria-checked]="preview()" [class.is-active]="preview()" (click)="preview.set(true)">
-            <svg lucideEye [size]="12" aria-hidden="true"></svg> Preview
+            <svg gd-icon name="eye" [size]="12"></svg> Preview
           </button>
         </div>
       }
@@ -99,32 +69,30 @@ import { WikiActions } from "../wiki/wiki-actions";
         #trigger="cdkMenuTriggerFor"
         [class.is-active]="trigger.isOpen()"
       >
-        <svg lucideEllipsis [size]="16" aria-hidden="true"></svg>
+        <svg gd-icon name="ellipsis" [size]="16"></svg>
       </button>
     </header>
     <ng-template #actions>
       <div class="menu" cdkMenu>
-        <button gd-menu-item (selected)="copyPath()"><svg icon lucideCopy [size]="14" aria-hidden="true"></svg>Copy path</button>
+        <button gd-menu-item (selected)="copyPath()"><svg icon gd-icon name="copy" [size]="14"></svg>Copy path</button>
         <button
           gd-menu-item
           [disabled]="!!links.unavailable()"
           [attr.title]="links.unavailable()"
           (selected)="links.copyGitdeskLink(link())"
         >
-          <svg icon lucideLink [size]="14" aria-hidden="true"></svg>Copy GitDesk link
+          <svg icon gd-icon name="link" [size]="14"></svg>Copy GitDesk link
         </button>
         @if (links.webLink(link())) {
           <button gd-menu-item (selected)="links.copyWebLink(link())">
-            <svg icon lucideGlobe [size]="14" aria-hidden="true"></svg>Copy web link
+            <svg icon gd-icon name="globe" [size]="14"></svg>Copy web link
           </button>
         }
         <button gd-menu-item [disabled]="!changed()" (selected)="showChanges()">
-          <svg icon lucideFileDiff [size]="14" aria-hidden="true"></svg>Show changes
+          <svg icon gd-icon name="file-diff" [size]="14"></svg>Show changes
         </button>
         <div class="menu-separator"></div>
-        <button gd-menu-item [danger]="true" (selected)="remove()">
-          <svg icon lucideTrash2 [size]="14" aria-hidden="true"></svg>Delete file…
-        </button>
+        <button gd-menu-item [danger]="true" (selected)="remove()"><svg icon gd-icon name="trash-2" [size]="14"></svg>Delete file…</button>
       </div>
     </ng-template>
     @if (resource.changedOnDisk()) {
@@ -135,7 +103,7 @@ import { WikiActions } from "../wiki/wiki-actions";
     }
     @if (resource.error(); as error) {
       <gd-empty-state title="Can't open this file">
-        <svg icon lucideFile [size]="20" aria-hidden="true"></svg>
+        <svg icon gd-icon name="file" [size]="20"></svg>
         <p class="selectable">{{ error }}</p>
       </gd-empty-state>
     } @else if (resource.file()) {

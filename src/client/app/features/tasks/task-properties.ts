@@ -1,10 +1,10 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
-import { LucideFolder, LucidePlus, LucideShapes, LucideTag, LucideUser } from "@lucide/angular";
 import { PRIORITIES, type TaskInput } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { Session } from "../../core/session";
 import { Avatar } from "../../ui/avatar";
+import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { LabelChip, PriorityIcon, StatusIcon, TypeIcon } from "./task-icons";
 import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./task-model";
@@ -12,21 +12,7 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./tas
 /** Status, type, priority, assignee, labels and epic as compact menu buttons. */
 @Component({
   selector: "gd-task-properties",
-  imports: [
-    CdkMenu,
-    CdkMenuTrigger,
-    MenuItem,
-    Avatar,
-    LabelChip,
-    PriorityIcon,
-    StatusIcon,
-    TypeIcon,
-    LucideFolder,
-    LucidePlus,
-    LucideShapes,
-    LucideTag,
-    LucideUser,
-  ],
+  imports: [Avatar, CdkMenu, CdkMenuTrigger, Icon, LabelChip, MenuItem, PriorityIcon, StatusIcon, TypeIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-properties" },
   template: `
@@ -40,7 +26,7 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./tas
         @if (value().type) {
           <gd-type-icon [type]="value().type!" [decorative]="true" />{{ titleCase(value().type!) }}
         } @else {
-          <svg lucideShapes [size]="13" aria-hidden="true"></svg>No type
+          <svg gd-icon name="shapes" [size]="13"></svg>No type
         }
       </button>
     }
@@ -51,17 +37,17 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./tas
       @if (value().assignee) {
         <gd-avatar [name]="value().assignee" [size]="16" />{{ value().assignee }}
       } @else {
-        <svg lucideUser [size]="14" aria-hidden="true"></svg>Unassigned
+        <svg gd-icon name="user" [size]="14"></svg>Unassigned
       }
     </button>
     <button type="button" class="property" aria-label="Epic" [cdkMenuTriggerFor]="epicMenu">
-      <svg lucideFolder [size]="13" aria-hidden="true"></svg>{{ epicName(value().epic) }}
+      <svg gd-icon name="folder" [size]="13"></svg>{{ epicName(value().epic) }}
     </button>
     <button type="button" class="property" aria-label="Labels" [cdkMenuTriggerFor]="labelMenu">
       @for (label of value().labels; track label) {
         <gd-label-chip [name]="label" />
       } @empty {
-        <svg lucideTag [size]="13" aria-hidden="true"></svg>Labels
+        <svg gd-icon name="tag" [size]="13"></svg>Labels
       }
     </button>
 
@@ -77,7 +63,7 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./tas
     <ng-template #typeMenu>
       <div class="menu" cdkMenu>
         <button gd-menu-item [checked]="!value().type" (selected)="changed.emit({ type: '' })">
-          <svg icon lucideShapes [size]="13" aria-hidden="true"></svg>No type
+          <svg icon gd-icon name="shapes" [size]="13"></svg>No type
         </button>
         @for (type of types(); track type.name) {
           <button gd-menu-item [checked]="type.name === value().type" (selected)="changed.emit({ type: type.name })">
@@ -98,7 +84,7 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./tas
     <ng-template #assigneeMenu>
       <div class="menu" cdkMenu>
         <button gd-menu-item [checked]="!value().assignee" (selected)="changed.emit({ assignee: '' })">
-          <svg icon lucideUser [size]="14" aria-hidden="true"></svg>Unassigned
+          <svg icon gd-icon name="user" [size]="14"></svg>Unassigned
         </button>
         @for (person of people(); track person) {
           <button gd-menu-item [checked]="person === value().assignee" (selected)="changed.emit({ assignee: person })">
@@ -106,36 +92,34 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./tas
           </button>
         }
         <div class="menu-separator"></div>
-        <button gd-menu-item (selected)="assignSomeoneElse()">
-          <svg icon lucidePlus [size]="14" aria-hidden="true"></svg>Someone else…
-        </button>
+        <button gd-menu-item (selected)="assignSomeoneElse()"><svg icon gd-icon name="plus" [size]="14"></svg>Someone else…</button>
       </div>
     </ng-template>
     <ng-template #epicMenu>
       <div class="menu" cdkMenu>
         <button gd-menu-item [checked]="!value().epic" (selected)="changed.emit({ epic: '' })">
-          <svg icon lucideFolder [size]="13" aria-hidden="true"></svg>No epic
+          <svg icon gd-icon name="folder" [size]="13"></svg>No epic
         </button>
         @for (epic of epics(); track epic) {
           <button gd-menu-item [checked]="epic === value().epic" (selected)="changed.emit({ epic })">
-            <svg icon lucideFolder [size]="13" aria-hidden="true"></svg>{{ epic }}
+            <svg icon gd-icon name="folder" [size]="13"></svg>{{ epic }}
           </button>
         }
         <div class="menu-separator"></div>
-        <button gd-menu-item (selected)="newEpic()"><svg icon lucidePlus [size]="14" aria-hidden="true"></svg>New epic…</button>
+        <button gd-menu-item (selected)="newEpic()"><svg icon gd-icon name="plus" [size]="14"></svg>New epic…</button>
       </div>
     </ng-template>
     <ng-template #labelMenu>
       <div class="menu" cdkMenu>
         @for (label of labels(); track label) {
           <button gd-menu-item [checked]="value().labels.includes(label)" (selected)="toggleLabel(label)">
-            <svg icon lucideTag [size]="13" aria-hidden="true"></svg>{{ label }}
+            <svg icon gd-icon name="tag" [size]="13"></svg>{{ label }}
           </button>
         }
         @if (labels().length) {
           <div class="menu-separator"></div>
         }
-        <button gd-menu-item (selected)="addLabel()"><svg icon lucidePlus [size]="14" aria-hidden="true"></svg>New label…</button>
+        <button gd-menu-item (selected)="addLabel()"><svg icon gd-icon name="plus" [size]="14"></svg>New label…</button>
       </div>
     </ng-template>
   `,

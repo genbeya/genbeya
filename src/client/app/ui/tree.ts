@@ -1,7 +1,7 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { NgTemplateOutlet } from "@angular/common";
 import { ChangeDetectionStrategy, Component, computed, contentChild, input, output, signal, TemplateRef } from "@angular/core";
-import { LucideChevronRight } from "@lucide/angular";
+import { Icon } from "./icon";
 
 export interface TreeItem<T = unknown> {
   readonly key: string;
@@ -30,7 +30,7 @@ export function filterTree<T>(items: readonly TreeItem<T>[], query: string): Tre
  */
 @Component({
   selector: "gd-tree",
-  imports: [CdkContextMenuTrigger, NgTemplateOutlet, LucideChevronRight],
+  imports: [CdkContextMenuTrigger, Icon, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "tree", role: "tree", "[attr.aria-label]": "label()" },
   template: `
@@ -55,7 +55,7 @@ export function filterTree<T>(items: readonly TreeItem<T>[], query: string): Tre
         >
           <span class="tree-twisty" [class.is-leaf]="!parent" [class.is-open]="open">
             @if (parent) {
-              <svg lucideChevronRight [size]="12" aria-hidden="true"></svg>
+              <svg gd-icon name="chevron-right" [size]="12"></svg>
             }
           </span>
           <ng-container *ngTemplateOutlet="row(); context: { $implicit: item }" />
