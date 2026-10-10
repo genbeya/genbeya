@@ -83,14 +83,49 @@ export interface Task {
   readonly priority: string;
   readonly assignee: string;
   readonly labels: readonly string[];
+  /** The description: the Markdown above the comments. */
   readonly body: string;
   /** The folder below the task folder that holds the task ("Auth/Tokens"); "" for none. */
   readonly epic: string;
   /** Version of the file the task was read from; updates must name it. */
   readonly hash: string;
+  /** Oldest first, as they appear at the end of the file. */
+  readonly comments: readonly TaskComment[];
 }
 
 export type TaskInput = Pick<Task, "title" | "status" | "priority" | "assignee" | "labels" | "body" | "epic">;
+
+export interface TaskComment {
+  readonly author: string;
+  /** ISO 8601, to the minute, with the writer's UTC offset when the file has it. */
+  readonly date: string;
+  /** Markdown. */
+  readonly body: string;
+}
+
+/** A property whose change the activity of a task names with its old and new value. */
+export type TaskField = "title" | "status" | "priority" | "assignee" | "epic";
+
+/** One thing a commit changed about a task, derived from its file before and after. */
+export type TaskChange =
+  | { readonly kind: "created" }
+  | { readonly kind: "field"; readonly field: TaskField; readonly from: string; readonly to: string }
+  | { readonly kind: "labels"; readonly added: readonly string[]; readonly removed: readonly string[] }
+  | { readonly kind: "description" }
+  | { readonly kind: "comments"; readonly added: number; readonly edited: number; readonly removed: number }
+  /** Frontmatter fields GitDesk has no words for. */
+  | { readonly kind: "other"; readonly fields: readonly string[] };
+
+/** A commit that changed a task, or its edits not committed yet. */
+export interface TaskActivity {
+  /** Null for edits not committed yet. */
+  readonly commit: string | null;
+  readonly author: string;
+  /** ISO 8601; null for edits not committed yet. */
+  readonly date: string | null;
+  readonly subject: string;
+  readonly changes: readonly TaskChange[];
+}
 
 export interface Change {
   readonly path: string;

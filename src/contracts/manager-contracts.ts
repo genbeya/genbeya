@@ -26,6 +26,7 @@ import type {
   StorageMode,
   SyncAction,
   Task,
+  TaskActivity,
   TaskInput,
   TerminalOutput,
 } from "./model";
@@ -69,6 +70,18 @@ export interface ContentManagerContract {
   createTask(workspace: string, input: TaskInput): Promise<Task>;
   updateTask(workspace: string, path: string, input: TaskInput, expectedHash: string): Promise<Task>;
   deleteTask(workspace: string, path: string): Promise<void>;
+  /**
+   * Who changed the task and how, newest first, from the Git history of its
+   * file, following moves between epics. Edits not committed yet come first.
+   */
+  taskActivity(workspace: string, path: string): Promise<readonly TaskActivity[]>;
+  /** The name new comments are signed with: Git's user name in the repository. */
+  commentAuthor(workspace: string): Promise<string>;
+  /** Appends a comment to the task's file, whatever else changed in it meanwhile. */
+  addComment(workspace: string, path: string, text: string): Promise<Task>;
+  /** Changes one of the user's own comments; `index` counts the comments of the version `expectedHash`. */
+  editComment(workspace: string, path: string, index: number, text: string, expectedHash: string): Promise<Task>;
+  deleteComment(workspace: string, path: string, index: number, expectedHash: string): Promise<Task>;
   saveSettings(workspace: string, settings: Settings, expectedHash: string | null): Promise<void>;
   /** Keeps wiki and tasks in the checkout, or on a dedicated branch shared by all code branches. */
   setStorage(workspace: string, mode: StorageMode): Promise<void>;
@@ -152,6 +165,11 @@ export const MANAGER_METHODS = {
     "createTask",
     "updateTask",
     "deleteTask",
+    "taskActivity",
+    "commentAuthor",
+    "addComment",
+    "editComment",
+    "deleteComment",
     "saveSettings",
     "setStorage",
     "syncContent",

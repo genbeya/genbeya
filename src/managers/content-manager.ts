@@ -12,6 +12,7 @@ import {
   type Settings,
   type StorageMode,
   type Task,
+  type TaskActivity,
   type TaskInput,
 } from "../contracts/model";
 import { IMAGE_LIMIT, type VersionedFile } from "../access/files/file-store";
@@ -19,7 +20,7 @@ import { isMissing } from "../access/hosts/host";
 import type { AgentEngine } from "../engines/agent-engine";
 import type { LinkEngine, LinkRewrite } from "../engines/link-engine";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
-import type { TaskEngine } from "../engines/task-engine";
+import type { TaskEngine, TaskVersion } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { toBase64 } from "../utilities/bytes";
 import { referenceIndex } from "../utilities/references";
@@ -37,6 +38,13 @@ const IMAGE_TYPES: Readonly<Record<string, string>> = {
 };
 
 const STORAGE_MODES: readonly StorageMode[] = ["worktree", "branch"];
+/** Commits a task's activity lists at most. */
+const ACTIVITY_LIMIT = 100;
+/** Larger task files list their commits without what changed, so the history stays small. */
+const ACTIVITY_CONTENT_LIMIT = 256 * 1024;
+
+/** Equal apart from line endings, which Git may convert on checkout. */
+const sameText = (a: string | null, b: string) => a !== null && a.replace(/\r\n/g, "\n") === b.replace(/\r\n/g, "\n");
 
 export class ContentManager implements ContentManagerContract {
   constructor(
@@ -195,6 +203,112 @@ export class ContentManager implements ContentManagerContract {
       await files.remove(relative);
       await workspace.content.record([relative], `Delete ${taskId}`);
     });
+  }
+
+  taskActivity(id: unknown, path: unknown): Promise<readonly TaskActivity[]> {
+    return this.on(id, async (workspace) => {
+      const { relative, settings } = await this.taskPath(workspace, path);
+      const current = await (await workspace.content.locate()).files.read(relative);
+      const committed = await this.lastCommitted(workspace, relative, settings.taskRoot);
+      const contents = current.content.length <= ACTIVITY_CONTENT_LIMIT;
+      const revisions = committed ? await workspace.content.history(committed.path, ACTIVITY_LIMIT, contents) : [];
+      const activity: TaskActivity[] = revisions.map((revision) => ({
+        commit: revision.hash,
+        author: revision.author,
+        date: revision.date,
+        subject: revision.subject,
+        changes: this.engines.tasks.changesBetween(
+          revision.oldPath === null ? null : { path: revision.oldPath, content: revision.before },
+          { path: revision.path, content: revision.after },
+          settings.taskRoot,
+        ),
+      }));
+      const now = { path: relative, content: current.content };
+      if (!committed || committed.path !== relative || !sameText(committed.content, current.content))
+        activity.unshift({
+          commit: null,
+          author: (await workspace.content.author()) ?? "",
+          date: null,
+          subject: "",
+          changes: this.engines.tasks.changesBetween(committed, now, settings.taskRoot),
+        });
+      return activity;
+    });
+  }
+
+  commentAuthor(id: unknown): Promise<string> {
+    return this.on(id, (workspace) => this.author(workspace));
+  }
+
+  addComment(id: unknown, path: unknown, text: unknown): Promise<Task> {
+    return this.on(id, async (workspace) => {
+      const { relative, settings } = await this.taskPath(workspace, path);
+      const comment = this.engines.tasks.validComment(text);
+      const author = await this.author(workspace);
+      const { files } = await workspace.content.locate();
+      // Comments go last whatever changed meanwhile, so adding one needs no version.
+      const original = await files.read(relative);
+      const task = this.engines.tasks.parse(relative, original.content, original.hash, settings.taskRoot);
+      const file = await files.write(relative, this.engines.tasks.addComment(original.content, author, new Date(), comment), original.hash);
+      await workspace.content.record([relative], `Comment on ${task.id}`);
+      return this.engines.tasks.parse(relative, file.content, file.hash, settings.taskRoot);
+    });
+  }
+
+  editComment(id: unknown, path: unknown, index: unknown, text: unknown, expectedHash: unknown): Promise<Task> {
+    return this.changeComment(id, path, index, expectedHash, "Edit a comment on", (content, at) =>
+      this.engines.tasks.editComment(content, at, this.engines.tasks.validComment(text)),
+    );
+  }
+
+  deleteComment(id: unknown, path: unknown, index: unknown, expectedHash: unknown): Promise<Task> {
+    return this.changeComment(id, path, index, expectedHash, "Delete a comment on", (content, at) =>
+      this.engines.tasks.removeComment(content, at),
+    );
+  }
+
+  /** Changes comment `index` of the version `expectedHash` of a task, if the user wrote it. */
+  private changeComment(
+    id: unknown,
+    path: unknown,
+    index: unknown,
+    expectedHash: unknown,
+    message: string,
+    change: (content: string, index: number) => string,
+  ): Promise<Task> {
+    return this.on(id, async (workspace) => {
+      const { relative, settings } = await this.taskPath(workspace, path);
+      if (!Number.isInteger(index) || (index as number) < 0) throw new Error("Invalid comment.");
+      const { files } = await workspace.content.locate();
+      const original = await files.read(relative);
+      if (original.hash !== expectedHash) throw new Error("This task changed on disk. Reopen it to see the latest version.");
+      const task = this.engines.tasks.parse(relative, original.content, original.hash, settings.taskRoot);
+      const comment = task.comments[index as number];
+      if (!comment) throw new Error("This comment no longer exists. Reopen the task to see the latest version.");
+      if (comment.author !== (await this.author(workspace))) throw new Error("You can only change your own comments.");
+      const file = await files.write(relative, change(original.content, index as number), original.hash);
+      await workspace.content.record([relative], `${message} ${task.id}`);
+      return this.engines.tasks.parse(relative, file.content, file.hash, settings.taskRoot);
+    });
+  }
+
+  /** The name comments are signed with. */
+  private async author(workspace: Workspace): Promise<string> {
+    const name = this.engines.tasks.commentAuthor((await workspace.content.author()) ?? "");
+    if (!name) throw new Error('Tell Git your name first: git config user.name "Your Name"');
+    return name;
+  }
+
+  /**
+   * The task file as last committed: at its path, or, for a task moved to
+   * another epic since, the committed file with its name (IDs are unique).
+   */
+  private async lastCommitted(workspace: Workspace, relative: string, taskRoot: string): Promise<TaskVersion | null> {
+    const content = await workspace.content.committed(relative);
+    if (content !== null) return { path: relative, content };
+    const name = baseName(relative);
+    const moved = (await workspace.content.committedFiles(taskRoot)).find((file) => baseName(file) === name);
+    return moved ? { path: moved, content: await workspace.content.committed(moved) } : null;
   }
 
   saveSettings(id: unknown, settings: unknown, expectedHash: unknown): Promise<void> {

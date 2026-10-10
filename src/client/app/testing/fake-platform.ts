@@ -28,6 +28,7 @@ export function task(id: string, change: Partial<Task> = {}): Task {
     body: "",
     epic: "",
     hash: `hash-${id}`,
+    comments: [],
     ...change,
   };
 }
