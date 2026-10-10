@@ -17,6 +17,12 @@ export interface Row {
   readonly action: RebaseAction;
   /** The new message of a reworded commit, or of the commit a squash joins. */
   readonly message: string;
+  /**
+   * The user wrote the message. A squash's message is otherwise the joined
+   * messages of the commits it joins as they are now, so it follows
+   * reordering and rewording; the backend joins them the same way.
+   */
+  readonly edited?: boolean;
 }
 
 const LABELS: Readonly<Record<RebaseAction, string>> = {
@@ -35,6 +41,14 @@ export function squashMessage(rows: readonly Row[], index: number): string {
     if (action === "reword" || action === "squash") return `${message}\n\n${rows[index]!.commit.message}`;
   }
   return rows[index]!.commit.message;
+}
+
+/** `rows` with the messages of squashes the user has not written joined from the rows before them. */
+export function withSquashMessages(rows: readonly Row[]): Row[] {
+  const result: Row[] = [];
+  for (const row of rows)
+    result.push(row.action === "squash" && !row.edited ? { ...row, message: squashMessage([...result, row], result.length) } : row);
+  return result;
 }
 
 /** Why the rows cannot run as they are, or null. */
@@ -60,7 +74,7 @@ export function problemOf(rows: readonly Row[]): string | null {
     <gd-dialog-frame [title]="'Rebase ' + request.branch + ' interactively'" [width]="680" (submitted)="submit()">
       <p class="dialog-hint rebase-hint">Oldest first. Drag to reorder; squash and fixup join a commit to the one above it.</p>
       <ol class="rebase-rows" cdkDropList aria-label="Commits" (cdkDropListDropped)="move($event)">
-        @for (row of rows(); track row.commit.hash; let index = $index) {
+        @for (row of shown(); track row.commit.hash; let index = $index) {
           <li class="rebase-row" cdkDrag [class.is-dropped]="row.action === 'drop'">
             <div class="rebase-line">
               <span class="rebase-handle" cdkDragHandle aria-hidden="true"><svg gd-icon name="grip-vertical" [size]="14"></svg></span>
@@ -118,7 +132,8 @@ export class RebaseDialog {
   protected readonly rows = signal<readonly Row[]>(
     this.request.plan.commits.map((commit) => ({ commit, action: "pick", message: commit.message })),
   );
-  protected readonly problem = computed(() => problemOf(this.rows()));
+  protected readonly shown = computed(() => withSquashMessages(this.rows()));
+  protected readonly problem = computed(() => problemOf(this.shown()));
 
   protected move(event: CdkDragDrop<unknown>) {
     const rows = [...this.rows()];
@@ -130,23 +145,23 @@ export class RebaseDialog {
     this.rows.update((rows) => {
       const next = [...rows];
       const row = next[index]!;
-      next[index] = { ...row, action, message: row.commit.message };
-      if (action === "squash") next[index] = { ...next[index]!, message: squashMessage(next, index) };
+      next[index] = { ...row, action, message: row.commit.message, edited: false };
       return next;
     });
   }
 
   protected setMessage(index: number, message: string) {
-    this.rows.update((rows) => rows.map((row, i) => (i === index ? { ...row, message } : row)));
+    this.rows.update((rows) => rows.map((row, i) => (i === index ? { ...row, message, edited: true } : row)));
   }
 
   protected submit() {
     if (this.problem()) return;
     this.dialog.close(
-      this.rows().map(({ commit, action, message }) => ({
+      // A squash message the user did not write is left to the backend, which joins the messages in the final order.
+      this.rows().map(({ commit, action, message, edited }) => ({
         hash: commit.hash,
         action,
-        ...(action === "reword" || action === "squash" ? { message: message.trim() } : {}),
+        ...(action === "reword" || (action === "squash" && edited) ? { message: message.trim() } : {}),
       })),
     );
   }
