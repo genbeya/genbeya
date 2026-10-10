@@ -2,6 +2,7 @@ import GithubSlugger from "github-slugger";
 import { toString } from "mdast-util-to-string";
 import { SKIP, visit } from "unist-util-visit";
 import type { Blockquote, Heading, Link, List, ListItem, Paragraph, PhrasingContent, Root, Text } from "mdast";
+import { WIKILINK } from "../../../utilities/references";
 import { normalizeTitle, referenceTargets, resolveReference, type Reference, type ReferenceSources } from "./references";
 
 export interface PageRef {
@@ -28,7 +29,6 @@ interface Entry {
 // `[[_TOC_]]` parses as `[[` + emphasis + `]]`, so match the paragraph's plain text.
 const TOC = /^\[(?:TOC|\[_?TOC_?\])\]$/i;
 const SUBPAGES = /^\[(?:SUBPAGES|\[_?TOSP_?\])\]$/i;
-const WIKILINK = /\[\[([^\]|\n]+)(?:\|([^\]\n]+))?\]\]/g;
 /** `![[path#L1-L9]]` alone in a paragraph embeds those lines of a file. */
 const EMBED = /^!\[\[([^\]|\n]+)\]\]$/;
 const TASK_ID = /\b[A-Z][A-Z0-9]*-\d+\b/g;

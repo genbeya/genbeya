@@ -43,3 +43,32 @@ export const within = (path: string, root: string): boolean => root === "" || ro
 export const parentOf = (path: string): string => path.slice(0, Math.max(0, path.lastIndexOf("/")));
 
 export const baseName = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
+
+/**
+ * The repository path a link in the file `from` points to: relative to its
+ * folder, or to the repository root when it starts with `/`. Nothing climbs
+ * above the root.
+ */
+export function resolveLinkPath(from: string, target: string): string {
+  const segments = target.startsWith("/") ? [] : from.split("/").slice(0, -1);
+  for (const part of target.split("/")) {
+    if (part === "..") segments.pop();
+    else if (part && part !== ".") segments.push(part);
+  }
+  return segments.join("/");
+}
+
+/** The relative link from the file `from` to the path `to`. */
+export function relativeLinkPath(from: string, to: string): string {
+  const folder = from.split("/").slice(0, -1);
+  const target = to.split("/");
+  let shared = 0;
+  while (shared < folder.length && shared < target.length - 1 && folder[shared] === target[shared]) shared++;
+  return [...folder.slice(shared).map(() => ".."), ...target.slice(shared)].join("/");
+}
+
+/** Where `path` is after `moves` (entries moved from → to, with everything below them); null when it stays. */
+export function relocate(path: string, moves: readonly (readonly [string, string])[]): string | null {
+  for (const [from, to] of moves) if (path === from || within(path, from)) return to + path.slice(from.length);
+  return null;
+}
