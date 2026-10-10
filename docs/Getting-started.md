@@ -44,9 +44,14 @@ statuses:            # board columns; the last one means done
   - todo
   - in-progress
   - review
-  - done
+  - name: done       # a state with its own icon
+    icon: circle-check
 hiddenColumns:       # states the board leaves out
   - backlog
+types: [bug, feature, improvement, chore]  # task types
+fields:              # custom task fields
+  - name: estimate
+    type: number
 ```
 
-Edit them in **Settings**; unknown keys and comments in the file are preserved.
+Edit them in **Settings**; unknown keys and comments in the file are preserved, and keys you did not change keep their spelling. See [[Tasks]] for types, fields and templates.
