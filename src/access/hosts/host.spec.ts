@@ -220,6 +220,27 @@ describe("WSL", async () => {
   const ubuntu = (await new HostFactory(machine).distributions()).includes("Ubuntu");
   if (ubuntu) describeSessionCleanup("WSL (Ubuntu)", "wsl.exe", ["-d", "Ubuntu", "-e", "sh"]);
   else it.skip("needs the Ubuntu distribution", () => undefined);
+
+  it.skipIf(!ubuntu)("opens a terminal in the repository's folder", async () => {
+    const root = "/tmp/gitdesk terminal's test";
+    const host = new HostFactory(machine).connect({ kind: "wsl", distro: "Ubuntu", path: root });
+    await host.run("mkdir", ["-p", root], { cwd: "/" });
+    const { command, args } = await host.terminalCommand(root);
+    const terminal = await machine.terminals!.open(command, args, { cols: 120, rows: 30 });
+    onTestFinished(async () => {
+      terminal.kill();
+      await host.run("rm", ["-rf", root], { cwd: "/" });
+      host.dispose();
+    });
+    let output = "";
+    terminal.onData((data) => (output += data));
+    const exit = new Promise<number>((resolve) => terminal.onExit(resolve));
+    // The folder is printed in a form that differs from the typed command.
+    terminal.write("pwd | tr a-z A-Z\r");
+    await expect.poll(() => output, { timeout: 20_000 }).toContain("/TMP/GITDESK TERMINAL'S TEST");
+    terminal.write("exit\r");
+    expect(await exit).toBe(0);
+  });
 });
 describe.skipIf(!shell)("shell transport", () => {
   describeHost("ShellHost", async () => {

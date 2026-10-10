@@ -28,6 +28,22 @@ describeMachine("Node", () => ({
   },
 }));
 
+describe("nodeMachine terminals", () => {
+  it("pass arguments with quotes and spaces unchanged, as the SSH terminal command needs", async () => {
+    const remote = `cd '/srv/it'\\''s here' && exec "$SHELL" -l`;
+    const script = "process.stdout.write(JSON.stringify(process.argv.slice(1)))";
+    const terminal = await nodeMachine().terminals!.open(process.execPath, ["-e", script, "--", "-t", remote], {
+      cwd: await temporaryFolder("terminal-"),
+      cols: 300,
+      rows: 10,
+    });
+    let output = "";
+    terminal.onData((data) => (output += data));
+    await new Promise((resolve) => terminal.onExit(resolve));
+    expect(output).toContain(JSON.stringify(["-t", remote]));
+  });
+});
+
 describe("defaultShell", () => {
   const on =
     (...programs: string[]) =>
