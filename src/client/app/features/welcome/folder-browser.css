@@ -1,0 +1,107 @@
+.browser-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.browser-bar .input {
+  flex: 1;
+  min-width: 0;
+  margin-left: 6px;
+}
+
+.browser-pane {
+  position: relative;
+  height: 300px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  transition:
+    border-color 80ms,
+    box-shadow 80ms;
+}
+
+.browser-pane:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.browser-list {
+  height: 100%;
+  overflow: auto;
+  padding: 4px;
+  outline: none;
+}
+
+.browser-pane.is-loading .browser-list {
+  opacity: 0.5;
+}
+
+.browser-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--text);
+  text-align: left;
+}
+
+.browser-item:hover {
+  background: var(--bg-hover);
+}
+
+.browser-item.is-active {
+  background: var(--bg-selected);
+}
+
+.browser-icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.browser-icon.is-repository {
+  color: var(--accent-text);
+}
+
+.browser-name {
+  flex: 1;
+}
+
+.browser-repo {
+  flex: none;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+
+.browser-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  color: var(--text-3);
+  text-align: center;
+  pointer-events: none;
+}
+
+.browser-message.dialog-error {
+  color: var(--red);
+}
+
+.browser-status {
+  min-height: 1.4em;
+  margin: -8px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.browser-hidden {
+  margin-right: auto;
+}

@@ -1,9 +1,10 @@
 /**
  * Recently opened repositories and where new ones can come from: the
- * folder picker and the WSL distributions of this machine.
+ * folder picker, the WSL distributions of this machine, and the folders on
+ * WSL and SSH.
  */
 import { effect, Injectable, inject, signal } from "@angular/core";
-import type { Location, RecentEntry } from "../../../contracts/model";
+import type { FolderListing, Location, RecentEntry, RemoteLocation } from "../../../contracts/model";
 import { MANAGERS, SHELL } from "../platform/platform";
 import { Notifications } from "./notifications";
 import { Session } from "./session";
@@ -41,6 +42,11 @@ export class Repositories {
 
   pickFolder(): Promise<Location | null> {
     return this.shell.pickFolder();
+  }
+
+  /** The subfolders of a folder on WSL or SSH; an empty path is the home folder. Rejects with a message to show. */
+  browse(location: RemoteLocation): Promise<FolderListing> {
+    return this.managers.workspace.browse(location);
   }
 
   private async refresh() {

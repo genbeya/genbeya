@@ -1,16 +1,19 @@
 /** Dialogs that name a repository elsewhere: on WSL or SSH, or a URL to clone. */
 import { DialogRef } from "@angular/cdk/dialog";
-import { ChangeDetectionStrategy, Component, computed, inject, input, model, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject, input, model, output, signal } from "@angular/core";
 import { LucideFolderOpen } from "@lucide/angular";
-import { describeLocation, type Location } from "../../../../contracts/model";
+import { describeLocation, type Location, type RemoteLocation } from "../../../../contracts/model";
+import { Dialogs } from "../../core/dialogs";
 import { Repositories } from "../../core/repositories";
 import { DialogFrame } from "../../ui/dialog-frame";
+import { FolderBrowser, type FolderBrowserOptions, type FolderChoice } from "./folder-browser";
 
 type Kind = "wsl" | "ssh";
 
 /** Distribution or host, and a path; shared by both dialogs. */
 @Component({
   selector: "gd-remote-fields",
+  imports: [LucideFolderOpen],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: contents" },
   template: `
@@ -56,25 +59,38 @@ type Kind = "wsl" | "ssh";
         />
       </label>
     }
-    <label class="field">
+    <div class="field">
       {{ pathLabel() }}
-      <input
-        class="input mono"
-        spellcheck="false"
-        placeholder="/home/me/project"
-        [value]="path()"
-        (input)="path.set($any($event.target).value)"
-      />
-    </label>
+      <div class="row">
+        <input
+          class="input mono grow"
+          spellcheck="false"
+          placeholder="/home/me/project"
+          [attr.aria-label]="pathLabel()"
+          [value]="path()"
+          (input)="path.set($any($event.target).value)"
+        />
+        <button type="button" class="btn btn-default btn-m" [disabled]="!machine()" (click)="browse()">
+          <svg lucideFolderOpen [size]="14" aria-hidden="true"></svg><span>Browse…</span>
+        </button>
+      </div>
+    </div>
   `,
 })
 export class RemoteFields {
+  private readonly dialogs = inject(Dialogs);
   readonly pathLabel = input.required<string>();
+  /** Lets the folder browser open a Git repository right away, through {@link openRepository}. */
+  readonly openRepositories = input(false);
   readonly kind = model<Kind>("wsl");
   readonly distro = model("");
   readonly host = model("");
   readonly path = model("");
+  /** The folder browser chose a repository to open; it is in {@link path}. */
+  readonly openRepository = output();
   protected readonly distributions = signal<readonly string[]>([]);
+  /** The machine to browse, or null until it is named. */
+  protected readonly machine = computed(() => remoteLocation(this.kind(), this.distro(), this.host(), "/"));
 
   constructor() {
     void inject(Repositories)
@@ -85,10 +101,25 @@ export class RemoteFields {
         if (!names.length) this.kind.set("ssh");
       });
   }
+
+  /** Browses from the typed folder, or from the home folder. */
+  protected async browse() {
+    const machine = this.machine();
+    if (!machine) return;
+    const typed = this.path().trim();
+    const location = { ...machine, path: /^(\/|~(\/|$))/.test(typed) ? typed : "" };
+    const choice = await this.dialogs.open<FolderChoice, FolderBrowserOptions>(FolderBrowser, {
+      location,
+      openRepositories: this.openRepositories(),
+    });
+    if (!choice) return;
+    this.path.set(choice.path);
+    if (choice.open) this.openRepository.emit();
+  }
 }
 
 /** The location the fields describe, or null while incomplete. */
-function remoteLocation(kind: Kind, distro: string, host: string, path: string): Location | null {
+function remoteLocation(kind: Kind, distro: string, host: string, path: string): RemoteLocation | null {
   const trimmed = path.trim();
   if (!trimmed.startsWith("/")) return null;
   if (kind === "wsl") return distro ? { kind, distro, path: trimmed } : null;
@@ -101,7 +132,15 @@ function remoteLocation(kind: Kind, distro: string, host: string, path: string):
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <gd-dialog-frame title="Open a repository on WSL or SSH" [width]="480" (submitted)="submit()">
-      <gd-remote-fields pathLabel="Repository path" [(kind)]="kind" [(distro)]="distro" [(host)]="host" [(path)]="path" />
+      <gd-remote-fields
+        pathLabel="Repository path"
+        [openRepositories]="true"
+        [(kind)]="kind"
+        [(distro)]="distro"
+        [(host)]="host"
+        [(path)]="path"
+        (openRepository)="submit()"
+      />
       <p class="dialog-hint">
         Git runs on the remote machine. SSH uses your <code>ssh</code> configuration and agent; connect once in a terminal so the host key
         is trusted.

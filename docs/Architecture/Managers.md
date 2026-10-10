@@ -4,7 +4,7 @@ Three managers implement everything the client can do with a repository. Their c
 
 | Manager | Use cases |
 | --- | --- |
-| `workspace` | Open, clone, restore and close repositories; snapshots; recent repositories; app preferences |
+| `workspace` | Open, clone, restore and close repositories; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
 | `content` | Files, wiki pages, tasks, `.gitdesk.yml`, and the [[Content branch]] |
 | `versionControl` | Diffs, staging, commits, branches, remotes, fetch/pull/push, history |
 
@@ -24,6 +24,12 @@ One snapshot costs a handful of Git calls:
 - `git ls-files` for the tree, which also hides everything `.gitignore` excludes
 - `for-each-ref` and `remote -v` for branches and remotes
 - a single batched read for all task files
+
+## Remote folders
+
+`workspace.browse({ kind, distro | host, path })` lists the subfolders of a folder on WSL or SSH, for the folder browser of the open and clone dialogs. An empty path, `~` or `~/…` starts in the home folder. The listing has the folder's absolute path (links resolved), its parent (null at `/`) and up to 2000 subfolders, sorted by name ignoring case with hidden ones last; each says whether it is a Git repository (holds `.git`), and `truncated` says when there were more. Folders on this computer use the system folder dialog instead.
+
+Connection failures name the machine: `Can't connect to <host>: <ssh's reason>`, or `WSL has no distribution named <distro>.` See [[Hosts]] for how one listing travels.
 
 ## Writes
 

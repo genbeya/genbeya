@@ -31,4 +31,12 @@ describe("Repositories", () => {
     expect(TestBed.inject(Notifications).visible()[0]?.message).toBe("Disk full.");
     expect(await repositories.distributions()).toEqual([]);
   });
+
+  it("browses folders on remote machines", async () => {
+    const { managers, repositories } = setup();
+    const listing = { path: "/home/me", parent: "/home", folders: [], truncated: false };
+    managers.workspace.browse.mockResolvedValue(listing);
+    expect(await repositories.browse({ kind: "wsl", distro: "Ubuntu", path: "" })).toBe(listing);
+    expect(managers.workspace.browse).toHaveBeenCalledWith({ kind: "wsl", distro: "Ubuntu", path: "" });
+  });
 });
