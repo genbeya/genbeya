@@ -26,6 +26,11 @@ describe("TaskPanel", () => {
     expect(element.querySelectorAll(".md-check.is-interactive")).toHaveLength(2);
   });
 
+  it("takes focus when it opens a task", async () => {
+    const { fixture } = await render({ task: first });
+    expect(document.activeElement).toBe(fixture.nativeElement);
+  });
+
   it("saves checkbox clicks in order, each on the newest version", async () => {
     const { element, managers, fixture } = await render({ task: first });
     managers.content.updateTask

@@ -1,12 +1,13 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import {
+  afterNextRender,
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
   DestroyRef,
   effect,
-  type ElementRef,
+  ElementRef,
   inject,
   input,
   signal,
@@ -87,7 +88,7 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
   selector: "gd-task-panel",
   imports: [CdkMenu, CdkMenuTrigger, CodeEditor, Icon, MarkdownView, MenuItem, TaskActivity, TaskComments, TaskFields, TaskProperties],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: "task-panel", role: "dialog", "[attr.aria-label]": "task() ? 'Task ' + task()!.id : 'New task'" },
+  host: { class: "task-panel", role: "dialog", tabindex: "-1", "[attr.aria-label]": "task() ? 'Task ' + task()!.id : 'New task'" },
   template: `
     <header class="task-panel-header">
       <span class="task-panel-id mono">{{ task() ? displayId(task()!.id) : "New task" }}</span>
@@ -303,6 +304,11 @@ ${this.task()!.hash}`,
     // A new task starts with its title; an edit starts in the description.
     afterRenderEffect(() => {
       if (!this.task()) this.titleField()?.nativeElement.focus();
+    });
+    // An opened task takes focus, so the keyboard goes on in the panel rather than on the card that opened it.
+    const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    afterNextRender(() => {
+      if (this.task() && !host.contains(document.activeElement)) host.focus();
     });
     trackUnsaved(this.dirty);
     // Field changes still resting are saved when the panel closes.
