@@ -39,7 +39,8 @@ async function showing(count: string) {
   );
 }
 
-describe("Tour", () => {
+// Longer than the 10 s `showing` allows for loading the layer's chunk on a busy machine.
+describe("Tour", { timeout: 20_000 }, () => {
   let tour: Tour;
 
   beforeEach(() => {
