@@ -29,6 +29,7 @@ function inCode(before: string): boolean {
 @Directive({
   selector: "textarea[gdTextCompletion]",
   host: {
+    role: "combobox",
     "aria-autocomplete": "list",
     "aria-expanded": "false",
     "(input)": "update()",
@@ -84,7 +85,8 @@ export class TextareaCompletion {
   }
 
   protected key(event: KeyboardEvent) {
-    if (!this.list) return;
+    // Enter and the arrows belong to an input method while it composes.
+    if (!this.list || event.isComposing) return;
     const count = this.suggestions.length;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       this.active = (this.active + (event.key === "ArrowDown" ? 1 : count - 1)) % count;
@@ -160,10 +162,19 @@ export class TextareaCompletion {
     });
   }
 
-  /** Replaces the text as typing would, so the field's (input) listeners see it. */
+  /**
+   * Replaces the text as typing does: the browser's insertText command
+   * reports the input and keeps the change on the field's undo stack
+   * (Chromium and WebKit both have it). Without it, as in tests, the text
+   * is set directly.
+   */
   private replace(from: number, to: number, text: string) {
-    this.field.setRangeText(text, from, to, "end");
-    this.field.dispatchEvent(new Event("input", { bubbles: true }));
+    this.field.setSelectionRange(from, to);
+    const typed = typeof document.execCommand === "function" && document.execCommand("insertText", false, text);
+    if (!typed) {
+      this.field.setRangeText(text, from, to, "end");
+      this.field.dispatchEvent(new Event("input", { bubbles: true }));
+    }
     this.close();
   }
 }

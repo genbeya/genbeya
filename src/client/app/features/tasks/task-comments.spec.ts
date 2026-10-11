@@ -84,6 +84,43 @@ describe("TaskComments", () => {
     expect(managers.content.addComment).not.toHaveBeenCalled();
   });
 
+  it("leaves Enter to an input method while it composes, and names the list for screen readers", async () => {
+    const { composer, type } = await render(commented, [grace]);
+    const field = composer();
+    expect(field.getAttribute("role")).toBe("combobox");
+    expect(field.getAttribute("aria-autocomplete")).toBe("list");
+    field.focus();
+    type(field, "Thanks @gra");
+    const list = document.querySelector(".text-completion")!;
+    expect(field.getAttribute("aria-controls")).toBe(list.id);
+    const enter = new KeyboardEvent("keydown", { key: "Enter", isComposing: true, bubbles: true, cancelable: true });
+    field.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(false);
+    expect(field.value).toBe("Thanks @gra");
+  });
+
+  it("inserts a suggestion as typing does, so it can be undone", async () => {
+    const { composer, type, fixture } = await render(commented, [grace]);
+    const field = composer();
+    // As the browser's command does: replaces the selection and reports the input.
+    const insertText = vi.fn((_command: string, _ui: boolean, text: string) => {
+      field.setRangeText(text, field.selectionStart, field.selectionEnd, "end");
+      field.dispatchEvent(new InputEvent("input", { inputType: "insertText", data: text }));
+      return true;
+    });
+    Object.assign(document, { execCommand: insertText });
+    try {
+      field.focus();
+      type(field, "Thanks @gra");
+      field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+      await settle(fixture);
+      expect(insertText).toHaveBeenCalledWith("insertText", false, "@grace ");
+      expect(field.value).toBe("Thanks @grace ");
+    } finally {
+      delete (document as Partial<Document>).execCommand;
+    }
+  });
+
   it("offers editing and deleting only on the user's own comments", async () => {
     const { element } = await render();
     const [bob, ada] = element.querySelectorAll(".task-comment");
