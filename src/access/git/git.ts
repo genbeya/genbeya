@@ -1,9 +1,10 @@
 /** Runs git in one working tree with settings that keep app-issued commands predictable. */
 import type { Change, Head, OperationOutcome } from "../../contracts/model";
 import { decodeLenient } from "../../utilities/bytes";
+import { compareVersions, type Version } from "../../utilities/version";
 import type { Host } from "../hosts/host";
 import type { RunResult } from "../ports";
-import { parseStatus } from "./git-parsers";
+import { parseGitVersion, parseStatus } from "./git-parsers";
 
 export class GitError extends Error {}
 
@@ -31,6 +32,8 @@ export interface GitOptions {
 }
 
 export class Git {
+  private versionRead: Promise<Version | null> | null = null;
+
   constructor(
     readonly host: Host,
     readonly cwd: string,
@@ -130,6 +133,18 @@ export class Git {
 
   async config(key: string): Promise<string | null> {
     return (await this.attempt(["config", "--get", key]))?.trim() || null;
+  }
+
+  /** The version of git on the host, read once; null when it cannot be read. */
+  version(): Promise<Version | null> {
+    this.versionRead ??= this.attempt(["version"]).then((output) => (output === null ? null : parseGitVersion(output)));
+    return this.versionRead;
+  }
+
+  /** Whether git on the host is `minimum` or newer, for options older versions lack. */
+  async supports(minimum: Version): Promise<boolean> {
+    const version = await this.version();
+    return version !== null && compareVersions(version, minimum) >= 0;
   }
 
   async hasRef(ref: string): Promise<boolean> {

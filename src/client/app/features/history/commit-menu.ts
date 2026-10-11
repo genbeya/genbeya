@@ -6,15 +6,17 @@ import { ShareLinks } from "../../core/share-links";
 import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { OperationActions } from "../operations/operation-actions";
+import { PushActions } from "../push/push-actions";
 import { RepositoryActions } from "../shell/repository-actions";
 import { RefActions } from "./ref-actions";
+import { ResetActions } from "./reset-actions";
 import { parseRefs, type Ref } from "./ref-chips";
 
 /**
  * The context menu of a commit: create branches and tags there; cherry-pick,
- * revert or rebase interactively from it; act on the branches and tags
- * pointing at it (a group each: merge, rebase, switch, rename, delete…); and
- * copy its links. Declare it once per view and point rows at it:
+ * revert, rebase interactively from it or reset the current branch to it;
+ * act on the branches and tags pointing at it (a group each: merge, rebase,
+ * switch, rename, push, delete…); and copy its links. Declare it once per view and point rows at it:
  * `[cdkContextMenuTriggerFor]="commitMenu.menu()" [cdkContextMenuTriggerData]="{ $implicit: commit }"`.
  */
 @Component({
@@ -44,6 +46,9 @@ import { parseRefs, type Ref } from "./ref-chips";
           <button gd-menu-item (selected)="operations.rebaseInteractive(commit)">
             <svg icon gd-icon name="list-restart" [size]="14"></svg>Rebase interactively from here…
           </button>
+          <button gd-menu-item (selected)="resets.resetTo(commit)">
+            <svg icon gd-icon name="history" [size]="14"></svg>Reset {{ branch }} to here…
+          </button>
         }
         @for (ref of refsOf(commit); track ref.raw) {
           <div class="menu-separator"></div>
@@ -68,6 +73,9 @@ import { parseRefs, type Ref } from "./ref-chips";
               @if (remote()) {
                 <button gd-menu-item (selected)="refs.setUpstream(ref.name)">
                   <svg icon gd-icon name="cloud-upload" [size]="14"></svg>Set upstream of {{ ref.name }}…
+                </button>
+                <button gd-menu-item (selected)="pushes.pushTo(ref.name)">
+                  <svg icon gd-icon name="arrow-up-from-line" [size]="14"></svg>Push {{ ref.name }} to…
                 </button>
               }
               @if (!ref.head) {
@@ -128,6 +136,8 @@ export class CommitMenu {
   protected readonly refs = inject(RefActions);
   protected readonly repository = inject(RepositoryActions);
   protected readonly operations = inject(OperationActions);
+  protected readonly resets = inject(ResetActions);
+  protected readonly pushes = inject(PushActions);
   protected readonly links = inject(ShareLinks);
   private readonly session = inject(Session);
   protected readonly remote = computed(() => this.repository.remote());

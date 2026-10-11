@@ -409,6 +409,86 @@ export interface CommitDetail {
 export type SyncAction = "fetch" | "pull" | "push";
 
 /**
+ * What a reset keeps: `soft` the changes of the commits it leaves, staged;
+ * `mixed` the same, unstaged; `hard` nothing, not even uncommitted changes;
+ * `keep` uncommitted changes, refusing when the reset would overwrite them.
+ */
+export const RESET_MODES = ["soft", "mixed", "hard", "keep"] as const;
+export type ResetMode = (typeof RESET_MODES)[number];
+
+/** What resetting the current branch to a commit would do. */
+export interface ResetPlan {
+  readonly branch: string;
+  /** The commit the branch is at, which the reset expects it still to be at. */
+  readonly head: string;
+  readonly target: string;
+  /** Commits the branch would no longer contain. */
+  readonly commits: number;
+  readonly upstream: string | null;
+  /** How many of those commits the upstream already has: they would come back as "behind". */
+  readonly pushed: number;
+  /** Tracked files with uncommitted changes, which a hard reset discards. */
+  readonly uncommitted: readonly string[];
+}
+
+/** Where a reset moved the branch from and to, for undoing it. */
+export interface ResetResult {
+  readonly from: string;
+  readonly to: string;
+}
+
+/** A remote to push to, as far as the last fetch knows it. */
+export interface PushTarget {
+  readonly remote: string;
+  /** The branch the remote's HEAD names; null when unknown. */
+  readonly defaultBranch: string | null;
+  /** Its branches, as of the last fetch. */
+  readonly branches: readonly string[];
+}
+
+/** Where a local branch can be pushed, and where it is set to push. */
+export interface PushPlan {
+  readonly branch: string;
+  readonly upstream: { readonly remote: string; readonly branch: string } | null;
+  readonly remotes: readonly PushTarget[];
+}
+
+/** Pushes local `branch` to `remoteBranch` on `remote`, whatever their names. */
+export interface PushRequest {
+  readonly branch: string;
+  readonly remote: string;
+  readonly remoteBranch: string;
+  /** Makes the remote branch the upstream of `branch`. */
+  readonly setUpstream: boolean;
+  /**
+   * Replaces the remote branch, but only while it is still at `expected`:
+   * the commit of its remote-tracking branch the user reviewed (null when
+   * there was none). Refused for the remote's default branch unless
+   * `defaultBranch` is set.
+   */
+  readonly force?: { readonly expected: string | null; readonly defaultBranch: boolean };
+}
+
+/** `rejected`: the remote has commits the pushed branch lacks, so only a force push could replace them. */
+export type PushOutcome = "done" | "rejected";
+
+/** What force pushing a branch would replace. */
+export interface ForcePushPlan {
+  /** The remote branch's commit as last fetched, which the push expects; null when the last fetch saw no such branch. */
+  readonly expected: string | null;
+  /** Commits on the remote branch that the local branch lacks, newest first, up to 100: what others lose. */
+  readonly removed: readonly Commit[];
+  /** How many there are in all. */
+  readonly total: number;
+  /** Whether the remote branch is the remote's default branch. */
+  readonly defaultBranch: boolean;
+}
+
+/** Whether `branch` is the remote's default branch; while that is unknown, main and master count as it. */
+export const isDefaultBranch = (branch: string, defaultBranch: string | null): boolean =>
+  defaultBranch === null ? branch === "main" || branch === "master" : branch === defaultBranch;
+
+/**
  * Files that teach coding agents to use GitDesk's tasks and wiki: the skill
  * where Claude Code and where other agents look for it, and the instruction
  * files AGENTS.md, CLAUDE.md and Copilot's.

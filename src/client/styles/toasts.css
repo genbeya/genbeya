@@ -59,6 +59,14 @@
   color: var(--text);
 }
 
+.toast .toast-action {
+  width: auto;
+  padding: 0 6px;
+  color: var(--accent-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;
