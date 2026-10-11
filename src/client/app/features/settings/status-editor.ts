@@ -17,7 +17,7 @@ import { statusColor, titleCase } from "../tasks/task-model";
           [value]="icons()[status] ?? null"
           [label]="'Icon of ' + titleCase(status)"
           [color]="statusColor(index, value().length)"
-          noneLabel="Progress ring"
+          noneLabel="Automatic"
           (changed)="setIcon(status, $event)"
         >
           <gd-status-icon none [status]="status" [statuses]="value()" />
