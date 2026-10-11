@@ -274,6 +274,11 @@ export class ContentStore {
     const [from, to, index] = mode === "branch" ? [this.repository, content, ["--staged"]] : [content, this.repository, []];
     const source = await from.objectId("HEAD");
     if (source && (await this.holds(source, path))) await to.text(["restore", `--source=${source}`, ...index, "--worktree", "--", path]);
+    // Where that commit has no such files, the files here go as well.
+    else if (await to.text(["ls-files", "-z", "--", path])) {
+      await to.text(["rm", "-r", "-q", "--", path]);
+      if (!index.length) await to.text(["reset", "-q", "--", path]);
+    }
   }
 
   private async holds(commit: string, path: string): Promise<boolean> {
