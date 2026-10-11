@@ -5,10 +5,11 @@
  * session compares them with: HEAD, or its parent while amending.
  */
 import { Injectable, inject } from "@angular/core";
-import type { Change, Diff, IgnoreKind, LinePatch, LineSelection } from "../../../../contracts/model";
+import type { Change, IgnoreKind, LinePatch, LineSelection } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
+import type { DiffActionOutcome } from "../diff/diff-pane";
 import type { IgnoreChoice, IgnoreRequest } from "./ignore-dialog";
 
 /** What can be done with lines of a diff. */
@@ -48,9 +49,9 @@ export class ChangeActions {
 
   /**
    * Stages, unstages or discards `lines` of the diff of `change` the user
-   * looked at; discarding asks first. Resolves to false when cancelled.
+   * looked at, in its version `version`; discarding asks first.
    */
-  async lines(action: LineAction, change: Change, lines: LineSelection, diff: Diff, hunk: boolean): Promise<boolean> {
+  async lines(action: LineAction, change: Change, lines: LineSelection, version: string, hunk: boolean): Promise<DiffActionOutcome> {
     if (action === "discard") {
       const confirmed = await this.dialogs.confirm({
         title: hunk ? "Discard change" : "Discard lines",
@@ -58,14 +59,19 @@ export class ChangeActions {
         confirm: "Discard",
         danger: true,
       });
-      if (!confirmed) return false;
+      if (!confirmed) return "cancelled";
     }
     const versionControl = this.api.versionControl;
-    const patch: LinePatch = { path: change.path, version: diff.version, lines };
-    if (action === "stage") return this.session.succeeded(() => versionControl.stageLines(patch));
-    if (action === "discard") return this.session.succeeded(() => versionControl.discardLines(patch));
+    const patch: LinePatch = { path: change.path, version, lines };
     const base = this.session.changeBase();
-    return this.session.succeeded(() => versionControl.unstageLines(change.oldPath ? { ...patch, oldPath: change.oldPath } : patch, base));
+    const succeeded = await this.session.succeeded(() =>
+      action === "stage"
+        ? versionControl.stageLines(patch)
+        : action === "discard"
+          ? versionControl.discardLines(patch)
+          : versionControl.unstageLines(change.oldPath ? { ...patch, oldPath: change.oldPath } : patch, base),
+    );
+    return succeeded ? "done" : "failed";
   }
 
   /**

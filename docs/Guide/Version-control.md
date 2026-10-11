@@ -24,8 +24,9 @@ To act on single lines, select them: click a line number, `Shift`+click another 
 
 - Staging part of an untracked file adds the file with just those lines.
 - Discarding asks first and cannot be undone.
-- Binary files are staged as a whole.
-- When the file changed since its diff was shown, GitDesk refuses, shows the new diff, and you choose again.
+- Binary files, and files Git does not compare line by line, are staged as a whole.
+- When the file changed since its diff was shown, GitDesk refuses, shows the new diff, and you choose again. The diff is also shown anew when you come back to GitDesk from another app.
+- Inline, a click next to the removed lines of a change selects the lines that replace them, which brings the removed ones along.
 
 ### Tree
 

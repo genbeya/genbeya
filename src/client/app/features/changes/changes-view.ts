@@ -1,7 +1,7 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from "@angular/core";
 import { Router } from "@angular/router";
-import type { Change, ConflictKind, Diff, LineSelection } from "../../../../contracts/model";
+import type { Change, ConflictKind } from "../../../../contracts/model";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
@@ -10,7 +10,7 @@ import { Icon } from "../../ui/icon";
 import { relativeTime } from "../../ui/relative-time";
 import { recall, remember } from "../../ui/remembered";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
-import { DiffPane, type DiffAction } from "../diff/diff-pane";
+import { DiffPane, type DiffAction, type DiffActionHandler } from "../diff/diff-pane";
 import { ChangeActions, type LineAction } from "./change-actions";
 import { ChangeMenu } from "./change-menu";
 import { ChangeRow } from "./change-row";
@@ -124,9 +124,9 @@ export class ChangesView {
     return () => this.api.versionControl.diff(file!, staged ? "index" : "worktree", oldPath, staged ? base : undefined);
   });
   protected readonly diffActions = computed(() => (this.showsStaged() ? STAGED_ACTIONS : UNSTAGED_ACTIONS));
-  protected readonly applyLines = (action: string, lines: LineSelection, diff: Diff, hunk: boolean): Promise<boolean> => {
+  protected readonly applyLines: DiffActionHandler = (action, lines, version, hunk) => {
     const change = this.current();
-    return change ? this.actions.lines(action as LineAction, change, lines, diff, hunk) : Promise.resolve(false);
+    return change ? this.actions.lines(action as LineAction, change, lines, version, hunk) : Promise.resolve("cancelled");
   };
 
   constructor() {

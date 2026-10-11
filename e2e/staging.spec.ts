@@ -33,6 +33,43 @@ test.describe("staging parts of files, the tree, .gitignore and amending", () =>
     await expect.poll(() => repository.git("show", ":f.txt")).toBe(numbered(20, { 3: "line 3\nnew B" }));
   });
 
+  // With repeated lines, CodeMirror's own diff shows these changes a line away from where git has them.
+  test("stages and discards hunks of a file with repeated lines exactly as shown", async ({ window, repository }) => {
+    const text = (...rows: string[]) => rows.map((row) => `${row}\n`).join("");
+    repository.write("blocks.ts", text("  x();", "{", "}", "{", "", "if (a) {", "  y();", "", "return;", "if (a) {"));
+    repository.git("add", "blocks.ts");
+    repository.git("commit", "-q", "-m", "Add blocks");
+    repository.write("blocks.ts", text("  x();", "{", "  y();", "{", "}", "{", "{", "", "if (a) {", "  y();", "return;", "if (a) {"));
+    await window.keyboard.press(`${MOD}+4`);
+    await window.locator("gd-change-row", { hasText: "blocks.ts" }).click();
+    const bars = window.locator(".cm-hunkBar");
+    await expect(bars).toHaveCount(3);
+    await bars.first().getByRole("button", { name: "Stage hunk" }).click();
+    await expect
+      .poll(() => repository.git("show", ":blocks.ts"))
+      .toBe(text("  x();", "{", "  y();", "{", "}", "{", "", "if (a) {", "  y();", "", "return;", "if (a) {"));
+    await expect(bars).toHaveCount(2);
+    await bars.last().getByRole("button", { name: "Discard hunk" }).click();
+    await window.getByRole("dialog").getByRole("button", { name: "Discard" }).click();
+    await expect
+      .poll(() => repository.read("blocks.ts"))
+      .toBe(text("  x();", "{", "  y();", "{", "}", "{", "{", "", "if (a) {", "  y();", "", "return;", "if (a) {"));
+    await expect(bars).toHaveCount(1);
+  });
+
+  test("selects a replaced line with a click next to its removed version, inline", async ({ window, repository }) => {
+    repository.write("f.txt", numbered(20, { 5: "five\nmore" }));
+    await window.keyboard.press(`${MOD}+4`);
+    await window.locator("gd-change-row", { hasText: "f.txt" }).click();
+    await window.getByRole("button", { name: "Inline" }).click();
+    const removed = (await window.locator(".cm-deletedChunk").boundingBox())!;
+    const gutter = (await window.locator(".cm-gutters").first().boundingBox())!;
+    await window.mouse.click(gutter.x + gutter.width / 2, removed.y + removed.height / 2);
+    await expect(window.getByRole("toolbar", { name: "Selected lines" })).toContainText("3 lines selected");
+    await window.getByRole("button", { name: "Stage selected lines" }).click();
+    await expect.poll(() => repository.git("show", ":f.txt")).toBe(numbered(20, { 5: "five\nmore" }));
+  });
+
   test("shows changes as a tree and stages a folder", async ({ window, repository }) => {
     repository.write("src/a.ts", "A\n");
     repository.write("src/b.ts", "B\n");

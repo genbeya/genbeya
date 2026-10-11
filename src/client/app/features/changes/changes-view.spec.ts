@@ -1,7 +1,8 @@
 import { TestBed } from "@angular/core/testing";
-import type { Change, Diff, LineSelection } from "../../../../contracts/model";
+import type { Change, LineSelection } from "../../../../contracts/model";
 import { openRepository, settle } from "../../testing/component-harness";
 import { snapshot } from "../../testing/fake-platform";
+import type { DiffActionHandler } from "../diff/diff-pane";
 import { ChangesView } from "./changes-view";
 
 async function render(changes: Change[]) {
@@ -240,22 +241,21 @@ describe("ChangesView", () => {
 
   it("stages, unstages and discards lines of the diff it shows, asking before discarding", async () => {
     const { fixture, managers, dialogs, session } = await render([{ path: "a.ts", oldPath: "old.ts", index: "R", worktree: "M" }]);
-    const view = fixture.componentInstance as unknown as {
-      applyLines(action: string, lines: LineSelection, diff: Diff, hunk: boolean): Promise<boolean>;
-    };
+    const view = fixture.componentInstance as unknown as { applyLines: DiffActionHandler };
     fixture.componentRef.setInput("file", "a.ts");
     const lines: LineSelection = { original: [{ from: 2, to: 2 }], modified: [] };
-    const diff: Diff = { path: "a.ts", original: "", modified: "", binary: false, version: "v" };
-    expect(await view.applyLines("stage", lines, diff, false)).toBe(true);
+    expect(await view.applyLines("stage", lines, "v", false)).toBe("done");
     expect(managers.versionControl.stageLines).toHaveBeenCalledWith("w1", { path: "a.ts", version: "v", lines });
     dialogs.confirm.mockResolvedValueOnce(false);
-    expect(await view.applyLines("discard", lines, diff, true)).toBe(false);
+    expect(await view.applyLines("discard", lines, "v", true)).toBe("cancelled");
     expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Discard change", danger: true }));
     expect(managers.versionControl.discardLines).not.toHaveBeenCalled();
-    await view.applyLines("discard", lines, diff, false);
+    managers.versionControl.stageLines.mockRejectedValueOnce(new Error("a.ts changed since its diff was shown."));
+    expect(await view.applyLines("stage", lines, "v", false)).toBe("failed");
+    await view.applyLines("discard", lines, "v", false);
     expect(managers.versionControl.discardLines).toHaveBeenCalledWith("w1", { path: "a.ts", version: "v", lines });
     await session.compareWith("parent");
-    await view.applyLines("unstage", lines, diff, false);
+    await view.applyLines("unstage", lines, "v", false);
     expect(managers.versionControl.unstageLines).toHaveBeenCalledWith(
       "w1",
       { path: "a.ts", oldPath: "old.ts", version: "v", lines },
