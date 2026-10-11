@@ -48,10 +48,22 @@ for (const format of formats) {
     "dist/deno/main.js",
   ];
   console.log(`Packaging ${output}`);
-  const { status, error } = spawnSync(process.execPath, [deno, ...args], { stdio: "inherit" });
-  if (error) throw error;
+  let status = run(args);
+  // hdiutil now and then fails to create a DMG ("No space left on device") with plenty of space left.
+  if (status !== 0 && format === "dmg") {
+    console.log(`Packaging ${output} failed; trying once more.`);
+    rmSync(output, { force: true });
+    status = run(args);
+  }
   if (status !== 0) process.exit(status ?? 1);
   if (format === "msi") upgradeOlderVersions(output);
+}
+
+/** Runs `deno` with `args`; resolves to its exit status. */
+function run(args) {
+  const { status, error } = spawnSync(process.execPath, [deno, ...args], { stdio: "inherit" });
+  if (error) throw error;
+  return status;
 }
 
 /** Lets the MSI replace an installed older version instead of installing next to it. */
