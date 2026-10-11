@@ -46,7 +46,7 @@ test.describe("task types, fields and state icons", () => {
   test("changes a column icon in settings", async ({ window, repository }) => {
     await window.keyboard.press(`${MOD}+,`);
     await window.getByRole("button", { name: "Icon of Done" }).click();
-    await window.getByRole("menuitem", { name: "Flag" }).click();
+    await window.getByRole("menuitemradio", { name: "Flag" }).click();
     await window.getByRole("button", { name: /Save changes/ }).click();
     await expect.poll(() => repository.read(".gitdesk.yml")).toContain("  - name: done\n    icon: flag\n");
     // The save is done once the form is clean again.
