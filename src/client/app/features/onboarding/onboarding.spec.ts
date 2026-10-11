@@ -37,8 +37,11 @@ async function setup(preferences: Partial<Preferences> = {}, dialogResult?: "tou
 describe("Onboarding", () => {
   it("shows what's new once after an update, then remembers the version", async () => {
     const { dialogs, preferences } = await setup({ lastSeenVersion: "0.0.0" });
-    expect(dialogs.open).toHaveBeenCalledWith(WhatsNewDialog, { releases: news(CHANGELOG, APP_VERSION, "0.0.0"), tour: false });
-    expect(preferences().lastSeenVersion).toBe(APP_VERSION);
+    // The news load on demand, so the dialog opens after an import that may take a while.
+    await vi.waitFor(() =>
+      expect(dialogs.open).toHaveBeenCalledWith(WhatsNewDialog, { releases: news(CHANGELOG, APP_VERSION, "0.0.0"), tour: false }),
+    );
+    await vi.waitFor(() => expect(preferences().lastSeenVersion).toBe(APP_VERSION));
   });
 
   it("tours the news that point at something, when asked to", async () => {
@@ -51,8 +54,8 @@ describe("Onboarding", () => {
 
   it("shows no news to first-time users, who get the welcome card", async () => {
     const { dialogs, onboarding, preferences } = await setup(NEW_USER);
+    await vi.waitFor(() => expect(preferences().lastSeenVersion).toBe(APP_VERSION));
     expect(dialogs.open).not.toHaveBeenCalled();
-    expect(preferences().lastSeenVersion).toBe(APP_VERSION);
     expect(onboarding.introduce()).toBe(true);
   });
 
