@@ -42,6 +42,16 @@
   --cyan: #4fb3c4;
   --gray: #8b8c96;
 
+  /* Avatars: a person keeps their colour in both themes. */
+  --avatar-0: #7c7ff2;
+  --avatar-1: #4cb782;
+  --avatar-2: #e8955a;
+  --avatar-3: #5e9eef;
+  --avatar-4: #d46aa8;
+  --avatar-5: #ddb345;
+  --avatar-6: #a77ee6;
+  --avatar-7: #3fb5b5;
+
   --shadow-pop: 0 0 0 1px var(--line-strong), 0 12px 32px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25);
 
