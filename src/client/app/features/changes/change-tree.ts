@@ -1,5 +1,16 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
-import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, input, output, signal, type TemplateRef } from "@angular/core";
+import {
+  afterRenderEffect,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  input,
+  output,
+  signal,
+  type TemplateRef,
+} from "@angular/core";
 import type { Change } from "../../../../contracts/model";
 import { Icon } from "../../ui/icon";
 import { changeTree, type ChangeNode } from "./change-nodes";
@@ -22,14 +33,23 @@ const keyOf = (node: ChangeNode) => (node.kind === "folder" ? `folder:${node.pat
  * on everything in them. A tree as ARIA describes it: one row is tabbable,
  * the arrows move between rows, Right and Left open and close folders or
  * go to the first child and the parent, Home and End to the first and last
- * row, Enter or Space selects a file or toggles a folder.
+ * row, Enter or Space selects a file or toggles a folder. S stages or
+ * unstages the focused file or folder and Delete discards it, as its
+ * buttons do. When the focused row goes, as after staging it, the focus
+ * stays at its place.
  */
 @Component({
   selector: "gd-change-tree",
   imports: [CdkContextMenuTrigger, ChangeRow, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./change-tree.css",
-  host: { role: "tree", class: "change-tree", "[attr.aria-label]": "label()", "(focusin)": "focused($event)" },
+  host: {
+    role: "tree",
+    class: "change-tree",
+    "[attr.aria-label]": "label()",
+    "(focusin)": "focused($event)",
+    "(focusout)": "unfocused($event)",
+  },
   template: `
     @for (row of rows(); track row.key) {
       @if (row.node.kind === "folder") {
@@ -41,6 +61,7 @@ const keyOf = (node: ChangeNode) => (node.kind === "folder" ? `folder:${node.pat
           [attr.aria-expanded]="row.open"
           aria-selected="false"
           [attr.tabindex]="row.key === tabbable() ? 0 : -1"
+          [attr.aria-keyshortcuts]="shortcuts()"
           [style.padding-left.px]="4 + row.level * 14"
           [title]="row.node.path"
           [cdkContextMenuTriggerFor]="menu()"
@@ -85,6 +106,7 @@ const keyOf = (node: ChangeNode) => (node.kind === "folder" ? `folder:${node.pat
           [selected]="row.node.change.path === selected()"
           [level]="row.level"
           [tabbable]="row.key === tabbable()"
+          [attr.aria-keyshortcuts]="shortcuts()"
           [cdkContextMenuTriggerFor]="menu()"
           [cdkContextMenuTriggerData]="{ $implicit: target(row.node) }"
           [cdkContextMenuDisabled]="!menu()"
@@ -114,6 +136,18 @@ export class ChangeTree {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly closed = signal<ReadonlySet<string>>(new Set());
   private readonly focusedKey = signal<string | null>(null);
+  /** Where the focused row was, while the focus is in the tree. */
+  private focusedIndex: number | null = null;
+  protected readonly shortcuts = computed(() => (this.staged() ? "S" : "S Delete"));
+
+  constructor() {
+    afterRenderEffect(() => {
+      const count = this.rows().length;
+      // The focused row went (staged, discarded): the focus stays at its place instead of leaving the tree.
+      const lost = !document.activeElement || document.activeElement === document.body;
+      if (this.focusedIndex !== null && lost && count) this.focus(Math.min(this.focusedIndex, count - 1));
+    });
+  }
 
   protected readonly rows = computed(() => {
     const rows: Row[] = [];
@@ -156,7 +190,18 @@ export class ChangeTree {
   protected focused(event: FocusEvent): void {
     const element = (event.target as Element).closest<HTMLElement>("[data-tree-row]");
     const index = element ? this.elements().indexOf(element) : -1;
-    if (index >= 0) this.focusedKey.set(this.rows()[index]!.key);
+    if (index < 0) return;
+    this.focusedKey.set(this.rows()[index]!.key);
+    this.focusedIndex = index;
+  }
+
+  /** The focus left the tree, unless only because its row was removed. */
+  protected unfocused(event: FocusEvent): void {
+    if (this.host.contains(event.relatedTarget as Node | null)) return;
+    const row = event.target as Element;
+    queueMicrotask(() => {
+      if (row.isConnected) this.focusedIndex = null;
+    });
   }
 
   private elements(): HTMLElement[] {
@@ -200,6 +245,15 @@ export class ChangeTree {
         // Files select themselves.
         if (!folder) return;
         this.toggle(folder.path);
+        break;
+      case "s":
+      case "S":
+        if (event.ctrlKey || event.metaKey || event.altKey) return;
+        this.toggleStaged.emit(this.target(row.node));
+        break;
+      case "Delete":
+        if (this.staged()) return;
+        this.discard.emit(this.target(row.node));
         break;
       default:
         return;
