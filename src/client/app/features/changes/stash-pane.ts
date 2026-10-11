@@ -1,19 +1,19 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideArchiveRestore, LucideGitBranchPlus, LucideTrash2 } from "@lucide/angular";
 import type { Stash, StashDetail } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
+import { relativeTime } from "../../ui/relative-time";
 import { DiffPane } from "../diff/diff-pane";
-import { relativeTime } from "../history/commit-graph";
 import { StashActions } from "./stash-actions";
 
 /** A stash: its message, actions, files, and the selected file's diff. */
 @Component({
   selector: "gd-stash-pane",
-  imports: [DiffPane, EmptyState, LucideArchiveRestore, LucideGitBranchPlus, LucideTrash2],
+  imports: [DiffPane, EmptyState, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./stash-pane.css",
   host: { class: "view" },
@@ -23,17 +23,17 @@ import { StashActions } from "./stash-actions";
       <div class="stash-meta faint">{{ ref() }} · {{ stash().branch ?? "detached HEAD" }} · {{ relativeTime(stash().date) }}</div>
       <div class="stash-actions">
         <button type="button" class="btn btn-primary btn-s" [disabled]="session.busy()" (click)="actions.apply(stash(), true)">
-          <svg lucideArchiveRestore [size]="14" aria-hidden="true"></svg><span>Pop</span>
+          <svg gd-icon name="archive-restore" [size]="14"></svg><span>Pop</span>
         </button>
         <button type="button" class="btn btn-default btn-s" [disabled]="session.busy()" (click)="actions.apply(stash(), false)">
           <span>Apply</span>
         </button>
         <button type="button" class="btn btn-default btn-s" [disabled]="session.busy()" (click)="actions.branch(stash())">
-          <svg lucideGitBranchPlus [size]="14" aria-hidden="true"></svg><span>Branch…</span>
+          <svg gd-icon name="git-branch-plus" [size]="14"></svg><span>Branch…</span>
         </button>
         <span class="grow"></span>
         <button type="button" class="btn btn-ghost btn-s" [disabled]="session.busy()" (click)="actions.drop(stash())">
-          <svg lucideTrash2 [size]="14" aria-hidden="true"></svg><span>Drop…</span>
+          <svg gd-icon name="trash-2" [size]="14"></svg><span>Drop…</span>
         </button>
       </div>
       <div class="stash-files" role="list" aria-label="Stashed files">

@@ -1,17 +1,17 @@
 import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
-import { LucideCompass } from "@lucide/angular";
+import { Icon } from "../../ui/icon";
 import { Onboarding } from "./onboarding";
 
 /** Offers the tour in the sidebar of a repository opened for the first time; it waits there without getting in the way. */
 @Component({
   selector: "gd-tour-offer",
-  imports: [LucideCompass],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div aria-live="polite">
       @if (onboarding.offer()) {
         <section class="tour-offer" aria-labelledby="tour-offer-title">
-          <h2 id="tour-offer-title"><svg lucideCompass [size]="14" aria-hidden="true"></svg>New to GitDesk?</h2>
+          <h2 id="tour-offer-title"><svg gd-icon name="compass" [size]="14"></svg>New to GitDesk?</h2>
           <p>A short tour shows where everything is.</p>
           <div class="row">
             <button type="button" class="btn btn-primary btn-s" (click)="onboarding.startTour()"><span>Show me around</span></button>

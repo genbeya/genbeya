@@ -1,9 +1,9 @@
 import { CdkDrag, type CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from "@angular/cdk/drag-drop";
 import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from "@angular/core";
-import { LucideGripVertical, LucideTriangleAlert } from "@lucide/angular";
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, inject, Injector, signal } from "@angular/core";
 import { REBASE_ACTIONS, type RebaseAction, type RebaseCommit, type RebasePlan, type RebaseStep } from "../../../../contracts/model";
 import { DialogFrame } from "../../ui/dialog-frame";
+import { Icon } from "../../ui/icon";
 
 export interface RebaseRequest {
   readonly plan: RebasePlan;
@@ -17,6 +17,12 @@ export interface Row {
   readonly action: RebaseAction;
   /** The new message of a reworded commit, or of the commit a squash joins. */
   readonly message: string;
+  /**
+   * The user wrote the message. A squash's message is otherwise the joined
+   * messages of the commits it joins as they are now, so it follows
+   * reordering and rewording; the backend joins them the same way.
+   */
+  readonly edited?: boolean;
 }
 
 const LABELS: Readonly<Record<RebaseAction, string>> = {
@@ -37,6 +43,14 @@ export function squashMessage(rows: readonly Row[], index: number): string {
   return rows[index]!.commit.message;
 }
 
+/** `rows` with the messages of squashes the user has not written joined from the rows before them. */
+export function withSquashMessages(rows: readonly Row[]): Row[] {
+  const result: Row[] = [];
+  for (const row of rows)
+    result.push(row.action === "squash" && !row.edited ? { ...row, message: squashMessage([...result, row], result.length) } : row);
+  return result;
+}
+
 /** Why the rows cannot run as they are, or null. */
 export function problemOf(rows: readonly Row[]): string | null {
   const first = rows.find((row) => row.action !== "drop");
@@ -53,17 +67,22 @@ export function problemOf(rows: readonly Row[]): string | null {
  */
 @Component({
   selector: "gd-rebase-dialog",
-  imports: [CdkDrag, CdkDragHandle, CdkDropList, DialogFrame, LucideGripVertical, LucideTriangleAlert],
+  imports: [CdkDrag, CdkDragHandle, CdkDropList, DialogFrame, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./rebase-dialog.css",
+  // Alt+Up and Alt+Down move the commit whose row has focus.
+  host: { "(keydown.alt.arrowup)": "rowKey($event, -1)", "(keydown.alt.arrowdown)": "rowKey($event, 1)" },
   template: `
     <gd-dialog-frame [title]="'Rebase ' + request.branch + ' interactively'" [width]="680" (submitted)="submit()">
-      <p class="dialog-hint rebase-hint">Oldest first. Drag to reorder; squash and fixup join a commit to the one above it.</p>
+      <p class="dialog-hint rebase-hint">
+        Oldest first. Drag to reorder, or move a commit with its arrows or Alt+↑ and Alt+↓; squash and fixup join a commit to the one above
+        it.
+      </p>
       <ol class="rebase-rows" cdkDropList aria-label="Commits" (cdkDropListDropped)="move($event)">
-        @for (row of rows(); track row.commit.hash; let index = $index) {
+        @for (row of shown(); track row.commit.hash; let index = $index, first = $first, last = $last) {
           <li class="rebase-row" cdkDrag [class.is-dropped]="row.action === 'drop'">
             <div class="rebase-line">
-              <span class="rebase-handle" cdkDragHandle aria-hidden="true"><svg lucideGripVertical [size]="14"></svg></span>
+              <span class="rebase-handle" cdkDragHandle aria-hidden="true"><svg gd-icon name="grip-vertical" [size]="14"></svg></span>
               <select
                 #action
                 class="select rebase-action"
@@ -77,6 +96,26 @@ export function problemOf(rows: readonly Row[]): string | null {
               </select>
               <span class="rebase-subject ellipsis" [title]="row.commit.subject">{{ row.commit.subject }}</span>
               <span class="rebase-hash mono">{{ row.commit.hash.slice(0, 7) }}</span>
+              <button
+                type="button"
+                class="icon-btn"
+                [attr.aria-label]="'Move ' + row.commit.subject + ' up'"
+                title="Move up (Alt+↑)"
+                [disabled]="first"
+                (click)="moveBy(index, -1, $event)"
+              >
+                <svg gd-icon name="arrow-up" [size]="13"></svg>
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                [attr.aria-label]="'Move ' + row.commit.subject + ' down'"
+                title="Move down (Alt+↓)"
+                [disabled]="last"
+                (click)="moveBy(index, 1, $event)"
+              >
+                <svg gd-icon name="arrow-down" [size]="13"></svg>
+              </button>
             </div>
             @if (row.action === "reword" || row.action === "squash") {
               <textarea
@@ -93,7 +132,7 @@ export function problemOf(rows: readonly Row[]): string | null {
       </ol>
       @if (request.plan.pushed.length) {
         <p class="rebase-warning" role="alert">
-          <svg lucideTriangleAlert [size]="14" aria-hidden="true"></svg>
+          <svg gd-icon name="triangle-alert" [size]="14"></svg>
           Some of these commits are already on {{ request.plan.pushed.join(", ") }}. Rewriting them means you will have to force-push.
         </p>
       }
@@ -113,12 +152,14 @@ export function problemOf(rows: readonly Row[]): string | null {
 export class RebaseDialog {
   protected readonly request = inject<RebaseRequest>(DIALOG_DATA);
   protected readonly dialog = inject<DialogRef<RebaseStep[]>>(DialogRef);
+  private readonly injector = inject(Injector);
   protected readonly actions = REBASE_ACTIONS;
   protected readonly labels = LABELS;
   protected readonly rows = signal<readonly Row[]>(
     this.request.plan.commits.map((commit) => ({ commit, action: "pick", message: commit.message })),
   );
-  protected readonly problem = computed(() => problemOf(this.rows()));
+  protected readonly shown = computed(() => withSquashMessages(this.rows()));
+  protected readonly problem = computed(() => problemOf(this.shown()));
 
   protected move(event: CdkDragDrop<unknown>) {
     const rows = [...this.rows()];
@@ -126,27 +167,54 @@ export class RebaseDialog {
     this.rows.set(rows);
   }
 
+  protected rowKey(event: Event, step: -1 | 1) {
+    const row = (event.target as HTMLElement).closest(".rebase-row");
+    if (row) this.moveBy([...row.parentElement!.children].indexOf(row), step, event);
+  }
+
+  /** Moves a row by one, from the keyboard or its arrows; the control that had focus keeps it. */
+  protected moveBy(index: number, step: -1 | 1, event: Event) {
+    const to = index + step;
+    if (to < 0 || to >= this.rows().length) return;
+    event.preventDefault();
+    const row = (event.target as HTMLElement).closest(".rebase-row")!;
+    const focused = document.activeElement instanceof HTMLElement && row.contains(document.activeElement) ? document.activeElement : null;
+    this.rows.update((rows) => {
+      const next = [...rows];
+      moveItemInArray(next, index, to);
+      return next;
+    });
+    // The row's elements move with it, which takes focus away; a button that is now disabled hands it to the row's action.
+    afterNextRender(
+      () => {
+        const target = focused && !(focused as HTMLButtonElement).disabled ? focused : row.querySelector<HTMLElement>(".rebase-action");
+        target?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
   protected setAction(index: number, action: RebaseAction) {
     this.rows.update((rows) => {
       const next = [...rows];
       const row = next[index]!;
-      next[index] = { ...row, action, message: row.commit.message };
-      if (action === "squash") next[index] = { ...next[index]!, message: squashMessage(next, index) };
+      next[index] = { ...row, action, message: row.commit.message, edited: false };
       return next;
     });
   }
 
   protected setMessage(index: number, message: string) {
-    this.rows.update((rows) => rows.map((row, i) => (i === index ? { ...row, message } : row)));
+    this.rows.update((rows) => rows.map((row, i) => (i === index ? { ...row, message, edited: true } : row)));
   }
 
   protected submit() {
     if (this.problem()) return;
     this.dialog.close(
-      this.rows().map(({ commit, action, message }) => ({
+      // A squash message the user did not write is left to the backend, which joins the messages in the final order.
+      this.rows().map(({ commit, action, message, edited }) => ({
         hash: commit.hash,
         action,
-        ...(action === "reword" || action === "squash" ? { message: message.trim() } : {}),
+        ...(action === "reword" || (action === "squash" && edited) ? { message: message.trim() } : {}),
       })),
     );
   }

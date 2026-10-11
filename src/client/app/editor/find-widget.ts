@@ -18,23 +18,11 @@ import {
   selectMatches,
   setSearchQuery,
 } from "@codemirror/search";
-import { EditorSelection, type EditorState, type Extension, StateEffect, StateField } from "@codemirror/state";
+import { EditorSelection, type EditorState, type Extension, StateEffect, StateField, type Text } from "@codemirror/state";
 import { type Command, Decoration, EditorView, type KeyBinding, type Panel, runScopeHandlers, type ViewUpdate } from "@codemirror/view";
-import {
-  LucideArrowDown,
-  LucideArrowUp,
-  LucideCaseSensitive,
-  LucideChevronRight,
-  LucideRegex,
-  LucideReplace,
-  LucideReplaceAll,
-  LucideScanText,
-  LucideWholeWord,
-  LucideX,
-  type LucideIconData,
-} from "@lucide/angular";
 import { isMac, MOD_KEY } from "../core/hotkeys";
-import { iconElement } from "./icon";
+import { iconElement } from "../ui/icon";
+import type { IconName } from "../ui/icon-data";
 
 /** Counting stops here, so a pattern that matches everywhere in a huge file stays fast. */
 export const MATCH_LIMIT = 2000;
@@ -47,21 +35,52 @@ export interface MatchCount {
   readonly current: number;
 }
 
-export function countMatches(state: EditorState, query: SearchQuery, limit = MATCH_LIMIT): MatchCount {
-  const { from, to } = state.selection.main;
-  const cursor = query.getCursor(state);
-  let total = 0;
-  let current = 0;
-  for (let next = cursor.next(); !next.done; next = cursor.next()) {
-    if (total === limit) return { total, capped: true, current };
-    total++;
-    if (next.value.from === from && next.value.to === to) current = total;
-  }
-  return { total, capped: false, current };
+interface Range {
+  readonly from: number;
+  readonly to: number;
 }
+
+/** The matches of a query in the document, in order, up to the limit. */
+export interface Matches {
+  readonly ranges: readonly Range[];
+  /** More matches exist than were found. */
+  readonly capped: boolean;
+}
+
+export function findMatches(state: EditorState, query: SearchQuery, limit = MATCH_LIMIT): Matches {
+  const ranges: Range[] = [];
+  const cursor = query.getCursor(state);
+  for (let next = cursor.next(); !next.done; next = cursor.next()) {
+    if (ranges.length === limit) return { ranges, capped: true };
+    ranges.push({ from: next.value.from, to: next.value.to });
+  }
+  return { ranges, capped: false };
+}
+
+/** The count, with the match `selection` is on found by binary search: matches are in document order. */
+export function countOf({ ranges, capped }: Matches, selection: Range): MatchCount {
+  let low = 0;
+  let high = ranges.length - 1;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    const { from, to } = ranges[middle]!;
+    if (from < selection.from) low = middle + 1;
+    else if (from > selection.from) high = middle - 1;
+    else return { total: ranges.length, capped, current: to === selection.to ? middle + 1 : 0 };
+  }
+  return { total: ranges.length, capped, current: 0 };
+}
+
+export const countMatches = (state: EditorState, query: SearchQuery, limit = MATCH_LIMIT): MatchCount =>
+  countOf(findMatches(state, query, limit), state.selection.main);
 
 export function describeCount({ total, capped, current }: MatchCount): string {
   return total ? `${current || "?"} of ${total}${capped ? "+" : ""}` : "No results";
+}
+
+/** What screen readers hear: the number of results, without the position, which every cursor move changes. */
+export function announceCount({ total, capped }: MatchCount): string {
+  return total ? `${total}${capped ? "+" : ""} ${total === 1 && !capped ? "result" : "results"}` : "No results";
 }
 
 interface Scope {
@@ -121,7 +140,7 @@ type Toggle = "caseSensitive" | "wholeWord" | "regexp" | "scoped";
 /** The open panel of each editor, for the commands. */
 const panels = new WeakMap<EditorView, FindPanel>();
 
-function button(label: string, icon: LucideIconData, onClick: () => void, pressed?: boolean): HTMLButtonElement {
+function button(label: string, icon: IconName, onClick: () => void, pressed?: boolean): HTMLButtonElement {
   const element = document.createElement("button");
   element.type = "button";
   element.title = label;
@@ -162,28 +181,31 @@ class FindPanel implements Panel {
   private readonly replaceRow: HTMLElement;
   private readonly findBox: HTMLElement;
   private readonly count = document.createElement("span");
+  private readonly announcer = document.createElement("span");
+  /** The matches of the query in the text they were found in; moving the cursor only looks the selected one up. */
+  private found: { readonly doc: Text; readonly query: SearchQuery; readonly scope: Scope | null; readonly matches: Matches } | null = null;
   private readonly toggles: Record<Toggle, HTMLButtonElement>;
   private readonly matchButtons: HTMLButtonElement[];
 
   constructor(private readonly view: EditorView) {
-    const toggle = (option: Toggle, label: string, icon: LucideIconData) => button(label, icon, () => this.toggle(option), false);
+    const toggle = (option: Toggle, label: string, icon: IconName) => button(label, icon, () => this.toggle(option), false);
     this.toggles = {
-      caseSensitive: toggle("caseSensitive", `Match case (${keys("Alt+C", "⌥⌘C")})`, LucideCaseSensitive.icon),
-      wholeWord: toggle("wholeWord", `Match whole word (${keys("Alt+W", "⌥⌘W")})`, LucideWholeWord.icon),
-      regexp: toggle("regexp", `Use regular expression (${keys("Alt+R", "⌥⌘R")})`, LucideRegex.icon),
-      scoped: toggle("scoped", `Find in selection (${keys("Alt+L", "⌥⌘L")})`, LucideScanText.icon),
+      caseSensitive: toggle("caseSensitive", `Match case (${keys("Alt+C", "⌥⌘C")})`, "case-sensitive"),
+      wholeWord: toggle("wholeWord", `Match whole word (${keys("Alt+W", "⌥⌘W")})`, "whole-word"),
+      regexp: toggle("regexp", `Use regular expression (${keys("Alt+R", "⌥⌘R")})`, "regex"),
+      scoped: toggle("scoped", `Find in selection (${keys("Alt+L", "⌥⌘L")})`, "scan-text"),
     };
-    const previous = button("Previous match (Shift+Enter)", LucideArrowUp.icon, () => findPrevious(view));
-    const next = button("Next match (Enter)", LucideArrowDown.icon, () => findNext(view));
-    const replace = button("Replace (Enter)", LucideReplace.icon, () => replaceNext(view));
-    const replaceEverything = button(`Replace all (${MOD_KEY}+Alt+Enter)`, LucideReplaceAll.icon, () => replaceAll(view));
+    const previous = button("Previous match (Shift+Enter)", "arrow-up", () => findPrevious(view));
+    const next = button("Next match (Enter)", "arrow-down", () => findNext(view));
+    const replace = button("Replace (Enter)", "replace", () => replaceNext(view));
+    const replaceEverything = button(`Replace all (${MOD_KEY}+Alt+Enter)`, "replace-all", () => replaceAll(view));
     this.matchButtons = [previous, next, replace, replaceEverything];
-    this.expander = button("Toggle replace", LucideChevronRight.icon, () => this.showReplace(!!this.replaceRow.hidden));
+    this.expander = button("Toggle replace", "chevron-right", () => this.showReplace(!!this.replaceRow.hidden));
     this.expander.classList.add("cm-find-expander");
     this.expander.setAttribute("aria-expanded", "false");
     this.count.className = "cm-find-count";
-    this.count.setAttribute("role", "status");
-    this.count.setAttribute("aria-live", "polite");
+    this.announcer.className = "sr-only";
+    this.announcer.setAttribute("role", "status");
     this.findBox = div("cm-find-field", this.findField, this.toggles.caseSensitive, this.toggles.wholeWord, this.toggles.regexp);
     const findRow = div(
       "cm-find-row",
@@ -192,11 +214,11 @@ class FindPanel implements Panel {
       previous,
       next,
       this.toggles.scoped,
-      button("Close (Escape)", LucideX.icon, () => closeFind(view)),
+      button("Close (Escape)", "x", () => closeFind(view)),
     );
     this.replaceRow = div("cm-find-row", div("cm-find-field", this.replaceField), replace, replaceEverything);
     this.replaceRow.hidden = true;
-    this.dom = div("cm-find", this.expander, div("cm-find-rows", findRow, this.replaceRow));
+    this.dom = div("cm-find", this.expander, div("cm-find-rows", findRow, this.replaceRow), this.announcer);
     this.dom.setAttribute("role", "search");
     this.dom.setAttribute("aria-label", "Find and replace");
     this.dom.addEventListener("keydown", (event) => this.keydown(event));
@@ -291,11 +313,18 @@ class FindPanel implements Panel {
   }
 
   private refreshCount(query: SearchQuery) {
+    const { state } = this.view;
     const invalid = !!query.search && !query.valid;
-    const count = query.valid ? countMatches(this.view.state, query) : null;
+    const scope = state.field(scopeField, false) ?? null;
+    const found = this.found;
+    if (query.valid && (!found || found.doc !== state.doc || found.query !== query || found.scope !== scope))
+      this.found = { doc: state.doc, query, scope, matches: findMatches(state, query) };
+    const count = query.valid ? countOf(this.found!.matches, state.selection.main) : null;
     this.findBox.classList.toggle("is-invalid", invalid);
     this.findField.setAttribute("aria-invalid", String(invalid));
     this.count.textContent = invalid ? "Invalid pattern" : count ? describeCount(count) : "";
+    const announcement = invalid ? "Invalid pattern" : count && query.search ? announceCount(count) : "";
+    if (this.announcer.textContent !== announcement) this.announcer.textContent = announcement;
     this.count.classList.toggle("is-empty", invalid || count?.total === 0);
     for (const element of this.matchButtons) element.disabled = !count?.total;
   }

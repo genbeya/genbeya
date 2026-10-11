@@ -5,7 +5,7 @@ import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
-import { relativeTime } from "../history/commit-graph";
+import { relativeTime } from "../../ui/relative-time";
 import { epicName, titleCase } from "./task-model";
 
 const valueText = (field: TaskField, value: string): string =>

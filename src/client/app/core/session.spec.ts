@@ -131,6 +131,15 @@ describe("Session", () => {
     expect(session.busy()).toBe(false);
   });
 
+  it("takes away an error once a later action succeeds", async () => {
+    const { session, notifications } = setup();
+    await session.open({ kind: "local", path: "/repo" });
+    await session.run(() => Promise.reject(new Error("Push failed")));
+    expect(notifications.visible().map((n) => n.message)).toEqual(["Push failed"]);
+    await session.run(async () => undefined);
+    expect(notifications.visible()).toEqual([]);
+  });
+
   it("syncs content edits shortly after when the content branch syncs automatically", async () => {
     vi.useFakeTimers();
     const { session, managers } = setup();

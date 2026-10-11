@@ -105,6 +105,31 @@ describe("find widget", () => {
     expect(dom.querySelector(".cm-find-field")!.classList).toContain("is-invalid");
   });
 
+  it("searches the text once per change; moving between matches only looks the selected one up", () => {
+    const view = editor("one two one one");
+    const { find, type, count, dom } = open(view);
+    type(find, "one");
+    const announcer = dom.querySelector("[role=status]")!;
+    expect(announcer.textContent).toBe("3 results");
+    const searches = vi.spyOn(SearchQuery.prototype, "getCursor");
+    onTestFinished(() => searches.mockRestore());
+    press(find, "Enter");
+    press(find, "Enter");
+    expect(count()).toBe("3 of 3");
+    view.dispatch({ selection: { anchor: 1 } });
+    expect(count()).toBe("? of 3");
+    // findNext searches from the cursor itself; the count does not search again.
+    const counting = searches.mock.calls.length;
+    view.dispatch({ selection: { anchor: 8, head: 11 } });
+    expect(count()).toBe("2 of 3");
+    expect(searches.mock.calls.length).toBe(counting);
+    // Moving the cursor is not announced; a change to the results is.
+    expect(announcer.textContent).toBe("3 results");
+    view.dispatch({ changes: { from: 0, to: 3, insert: "two" } });
+    expect(searches.mock.calls.length).toBe(counting + 1);
+    expect(announcer.textContent).toBe("2 results");
+  });
+
   it("replaces all matches of a regular expression, with groups, after Ctrl+H", () => {
     const view = editor("ada@home bob@work");
     const { dom, find, replace, type, button } = open(view, "h");

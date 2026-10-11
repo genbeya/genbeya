@@ -7,9 +7,12 @@ import { WorkspaceApi } from "../../core/workspace-api";
 const DESCRIPTIONS: Readonly<Record<AgentTarget, { title: string; hint: string }>> = {
   claudeSkill: {
     title: "Skill for Claude Code",
-    hint: "Claude Code loads it when a task calls for it; GitHub Copilot and Cursor read it too.",
+    hint: "Claude Code loads it when a task calls for it; GitHub Copilot, Cursor and OpenCode read it too.",
   },
-  agentsSkill: { title: "Skill for other agents", hint: "The shared skill folder of Codex, Gemini CLI, Cursor, OpenCode and others." },
+  agentsSkill: {
+    title: "Skill for other agents",
+    hint: "The shared skill folder of Codex, Gemini CLI, GitHub Copilot, Cursor, OpenCode and others.",
+  },
   agents: {
     title: "Instructions for all agents",
     hint: "Codex, Copilot, Cursor and most other agents read it in every session. GitDesk adds a marked section.",
@@ -81,6 +84,19 @@ export class AgentFiles {
   protected readonly files = signal<readonly AgentFile[]>([]);
   protected readonly error = signal<string | null>(null);
   private request = 0;
+  /**
+   * What the files' states depend on: the settings, the checked-out commit
+   * and uncommitted changes to the files. Other snapshots change none of it.
+   */
+  private readonly inputs = computed(() => {
+    const snapshot = this.session.snapshot();
+    if (!snapshot) return "";
+    const paths = this.files().map((file) => file.path);
+    // Untracked folders show as one change, such as ".claude/".
+    const touches = (path: string) => paths.some((file) => file === path || (path.endsWith("/") && file.startsWith(path)));
+    const changes = snapshot.changes.filter((change) => touches(change.path));
+    return JSON.stringify([snapshot.settingsHash, snapshot.settings, snapshot.head.commit, changes]);
+  });
 
   protected readonly action = computed(() => {
     const chosen = this.files().filter((file) => this.selected().includes(file.target));
@@ -91,9 +107,9 @@ export class AgentFiles {
   });
 
   constructor() {
-    // Settings and files change with every snapshot; the choice changes what the files say about each other.
+    // The choice changes what the files say about each other.
     effect(() => {
-      this.session.snapshot();
+      this.inputs();
       const targets = this.selected();
       untracked(() => void this.load(targets));
     });

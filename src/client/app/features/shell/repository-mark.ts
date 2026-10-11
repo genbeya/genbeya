@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from "@angular/core";
-import { LucideFolderOpen, LucideMonitor, LucideServer } from "@lucide/angular";
 import type { Location } from "../../../../contracts/model";
+import { Icon } from "../../ui/icon";
 
 /** "GitDesk" → "GD", "my project" → "MP", "atlas" → "AT". */
 export function initials(name: string): string {
@@ -14,19 +14,19 @@ export function initials(name: string): string {
 /** The icon of where a repository lives: this computer, WSL or SSH. */
 @Component({
   selector: "gd-host-icon",
-  imports: [LucideFolderOpen, LucideMonitor, LucideServer],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: contents" },
   template: `
     @switch (kind()) {
       @case ("ssh") {
-        <svg lucideServer [size]="size()" aria-hidden="true"></svg>
+        <svg gd-icon name="server" [size]="size()"></svg>
       }
       @case ("wsl") {
-        <svg lucideMonitor [size]="size()" aria-hidden="true"></svg>
+        <svg gd-icon name="monitor" [size]="size()"></svg>
       }
       @default {
-        <svg lucideFolderOpen [size]="size()" aria-hidden="true"></svg>
+        <svg gd-icon name="folder-open" [size]="size()"></svg>
       }
     }
   `,

@@ -41,6 +41,10 @@ describe("palette items", () => {
     expect(rank(items, "", false).some((item) => item.group === "Files")).toBe(false);
   });
 
+  it("leaves out everything a query matches nowhere", () => {
+    expect(rank(items, "xyzzy", false)).toEqual([]);
+  });
+
   it("toggles the terminal with Ctrl, also on macOS", () => {
     const toggle = items.find((item) => item.label === "Toggle terminal")!;
     expect(toggle.hint).toBe("⌃ `");

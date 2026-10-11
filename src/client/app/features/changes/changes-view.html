@@ -47,7 +47,7 @@
             Staged <span class="count">{{ stagedChanges().length }}</span>
             <span class="grow"></span>
             <button type="button" class="icon-btn" aria-label="Unstage all" title="Unstage all" (click)="unstage(pathsOf(stagedChanges()))">
-              <svg lucideMinus [size]="13" aria-hidden="true"></svg>
+              <svg gd-icon name="minus" [size]="13"></svg>
             </button>
           </div>
           @for (change of stagedChanges(); track change.path) {
@@ -68,7 +68,7 @@
           <span class="grow"></span>
           @if (snapshot().changes.length) {
             <button type="button" class="icon-btn" aria-label="Stash changes" title="Stash changes…" (click)="stashes.create()">
-              <svg lucideArchive [size]="13" aria-hidden="true"></svg>
+              <svg gd-icon name="archive" [size]="13"></svg>
             </button>
           }
           @if (unstagedChanges().length) {
@@ -79,10 +79,10 @@
               title="Discard all"
               (click)="discard(pathsOf(unstagedChanges()))"
             >
-              <svg lucideUndo2 [size]="13" aria-hidden="true"></svg>
+              <svg gd-icon name="undo-2" [size]="13"></svg>
             </button>
             <button type="button" class="icon-btn" aria-label="Stage all" title="Stage all" (click)="stage(pathsOf(unstagedChanges()))">
-              <svg lucidePlus [size]="13" aria-hidden="true"></svg>
+              <svg gd-icon name="plus" [size]="13"></svg>
             </button>
           }
         </div>
@@ -137,7 +137,7 @@
       }
     } @else {
       <gd-empty-state title="Working tree clean">
-        <svg icon lucideCheckCheck [size]="20" aria-hidden="true"></svg>
+        <svg icon gd-icon name="check-check" [size]="20"></svg>
         <p>Nothing to commit on {{ snapshot().head.branch ?? "this checkout" }}.</p>
       </gd-empty-state>
     }

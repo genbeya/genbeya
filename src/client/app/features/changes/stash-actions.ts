@@ -7,6 +7,9 @@ import { Notifications } from "../../core/notifications";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 
+/** How a stash is named in questions: its message, or its place in the list when it has none. */
+const stashName = (stash: Stash): string => (stash.message ? `“${stash.message}”` : `stash@{${stash.index}}`);
+
 const CONFLICTS = "The stash conflicts with your changes. Resolve the conflicted files; the stash stays in the list.";
 
 @Injectable({ providedIn: "root" })
@@ -36,7 +39,7 @@ export class StashActions {
   async drop(stash: Stash): Promise<void> {
     const confirmed = await this.dialogs.confirm({
       title: "Drop stash",
-      message: `Drop "${stash.message}"? Its changes are lost.`,
+      message: `Drop ${stashName(stash)}? Its changes are lost.`,
       confirm: "Drop",
       danger: true,
     });

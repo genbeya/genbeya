@@ -1,23 +1,23 @@
 /** The small graphics of tasks: status rings, type icons, priority bars, label chips. */
 import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
-import { LucideCircleCheck, LucideCircleDashed, LucideDynamicIcon } from "@lucide/angular";
 import { Session } from "../../core/session";
+import { Icon } from "../../ui/icon";
 import { iconFor, knownIcon } from "../../ui/icons";
 import { labelColor, statusColor, titleCase, toneColor, typeLook } from "./task-model";
 
 /** The state's configured icon, or a ring that fills as the status advances; the final state is a check. */
 @Component({
   selector: "gd-status-icon",
-  imports: [LucideCircleCheck, LucideCircleDashed, LucideDynamicIcon],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: inline-flex" },
   template: `
     @if (configured(); as configured) {
-      <svg [lucideIcon]="configured" [size]="size()" [color]="color()" [strokeWidth]="2.2" aria-hidden="true"></svg>
+      <svg gd-icon [name]="configured" [size]="size()" [color]="color()" [strokeWidth]="2.2"></svg>
     } @else if (index() === statuses().length - 1) {
-      <svg lucideCircleCheck [size]="size()" [color]="color()" [strokeWidth]="2.2" aria-hidden="true"></svg>
+      <svg gd-icon name="circle-check" [size]="size()" [color]="color()" [strokeWidth]="2.2"></svg>
     } @else if (index() <= 0) {
-      <svg lucideCircleDashed [size]="size()" [color]="color()" [strokeWidth]="2.2" aria-hidden="true"></svg>
+      <svg gd-icon name="circle-dashed" [size]="size()" [color]="color()" [strokeWidth]="2.2"></svg>
     } @else {
       <svg [attr.width]="size()" [attr.height]="size()" viewBox="0 0 14 14" aria-hidden="true">
         <circle cx="7" cy="7" r="6" fill="none" [attr.stroke]="color()" stroke-width="1.6" />
@@ -56,7 +56,7 @@ export class StatusIcon {
  */
 @Component({
   selector: "gd-type-icon",
-  imports: [LucideDynamicIcon],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     style: "display: inline-flex",
@@ -66,7 +66,7 @@ export class StatusIcon {
   },
   template: `
     @if (type()) {
-      <svg [lucideIcon]="iconFor(look().icon)" [size]="size()" [color]="toneColor(look().tone)" aria-hidden="true"></svg>
+      <svg gd-icon [name]="iconFor(look().icon)" [size]="size()" [color]="toneColor(look().tone)"></svg>
     }
   `,
 })

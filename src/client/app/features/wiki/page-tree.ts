@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, type ElementRef, inject, input, signal, viewChild } from "@angular/core";
-import { LucideFilePlus2, LucideFileText, LucideFolder, LucidePlus, LucideSearch } from "@lucide/angular";
 import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import type { WikiNode } from "../../../../contracts/model";
 import { hotkey } from "../../core/hotkeys";
 import { Session } from "../../core/session";
+import { Icon } from "../../ui/icon";
 import { filterTree, Tree, type TreeItem } from "../../ui/tree";
 import { ShareMenu } from "../share/share-menu";
 import { PageMenu } from "./page-menu";
@@ -13,13 +13,13 @@ import { nodeKey } from "./wiki-pages";
 /** The page tree with its filter; `/` focuses the filter. */
 @Component({
   selector: "gd-page-tree",
-  imports: [Tree, PageMenu, ShareMenu, LucideFilePlus2, LucideFileText, LucideFolder, LucidePlus, LucideSearch],
+  imports: [Icon, PageMenu, ShareMenu, Tree],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: contents" },
   template: `
     <div class="row panel-toolbar">
       <label class="filter grow">
-        <svg lucideSearch [size]="13" aria-hidden="true"></svg>
+        <svg gd-icon name="search" [size]="13"></svg>
         <input
           #filter
           placeholder="Filter pages"
@@ -30,7 +30,7 @@ import { nodeKey } from "./wiki-pages";
         />
       </label>
       <button type="button" class="icon-btn" aria-label="New page (N)" title="New page (N)" (click)="wiki.createPage()">
-        <svg lucideFilePlus2 [size]="15" aria-hidden="true"></svg>
+        <svg gd-icon name="file-plus-2" [size]="15"></svg>
       </button>
     </div>
     <div class="side-panel-scroll">
@@ -48,9 +48,9 @@ import { nodeKey } from "./wiki-pages";
         <ng-template let-item>
           <span class="tree-icon">
             @if (item.data.path) {
-              <svg lucideFileText [size]="14" aria-hidden="true"></svg>
+              <svg gd-icon name="file-text" [size]="14"></svg>
             } @else {
-              <svg lucideFolder [size]="14" aria-hidden="true"></svg>
+              <svg gd-icon name="folder" [size]="14"></svg>
             }
           </span>
           <span class="tree-label">{{ item.label }}</span>
@@ -62,7 +62,7 @@ import { nodeKey } from "./wiki-pages";
               [title]="'New page in ' + item.label"
               (click)="$event.stopPropagation(); wiki.createPage(item.data.path ?? item.data.folder + '.md')"
             >
-              <svg lucidePlus [size]="13" aria-hidden="true"></svg>
+              <svg gd-icon name="plus" [size]="13"></svg>
             </button>
             @if (item.data.path) {
               <gd-page-menu [path]="item.data.path" [compact]="true" />

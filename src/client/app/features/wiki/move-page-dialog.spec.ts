@@ -74,6 +74,18 @@ describe("MovePageDialog", () => {
     expect(close).toHaveBeenCalledWith({ to: "docs/Archive/Guide.md", updateLinks: false });
   });
 
+  it("updates no links the user has not seen: before the lookup finished, or when it failed", async () => {
+    const { managers, field, rename, submit, close } = await render(LINKS);
+    field.value = "Manual";
+    field.dispatchEvent(new Event("input"));
+    await submit();
+    expect(close).toHaveBeenLastCalledWith({ to: "docs/Manual.md", updateLinks: false });
+    managers.content.pageLinks.mockRejectedValue(new Error("Offline"));
+    await rename("Handbook");
+    await submit();
+    expect(close).toHaveBeenLastCalledWith({ to: "docs/Handbook.md", updateLinks: false });
+  });
+
   it("shows nothing more when no links point at the page", async () => {
     const { element, rename } = await render([]);
     await rename("Manual");

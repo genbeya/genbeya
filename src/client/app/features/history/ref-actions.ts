@@ -18,25 +18,38 @@ export class RefActions {
   private readonly notifications = inject(Notifications);
   private readonly repository = inject(RepositoryActions);
 
+  // A name Git refuses, or one that exists, is reported in the dialog, which stays open to correct it.
+
   async createBranch(commit: Commit): Promise<void> {
-    const branch = await this.ask({ kind: "branch", at: describe(commit) });
-    if (!branch) return;
-    await this.session.succeeded(
-      () => this.api.versionControl.createBranch(branch.name, commit.hash, branch.checkout),
-      branch.checkout ? `Switched to ${branch.name}` : `Created ${branch.name}`,
-    );
+    await this.ask({
+      kind: "branch",
+      at: describe(commit),
+      accept: (branch) =>
+        this.session.attempt(
+          () => this.api.versionControl.createBranch(branch.name, commit.hash, branch.checkout),
+          branch.checkout ? `Switched to ${branch.name}` : `Created ${branch.name}`,
+        ),
+    });
   }
 
   async createTag(commit: Commit): Promise<void> {
-    const tag = await this.ask({ kind: "tag", at: describe(commit) });
-    if (tag)
-      await this.session.succeeded(() => this.api.versionControl.createTag(tag.name, commit.hash, tag.message), `Tagged ${tag.name}`);
+    await this.ask({
+      kind: "tag",
+      at: describe(commit),
+      accept: (tag) =>
+        this.session.attempt(() => this.api.versionControl.createTag(tag.name, commit.hash, tag.message), `Tagged ${tag.name}`),
+    });
   }
 
   async renameBranch(name: string): Promise<void> {
-    const newName = await this.dialogs.prompt({ title: "Rename branch", label: "New name", initial: name, confirm: "Rename" });
-    if (newName && newName !== name)
-      await this.session.succeeded(() => this.api.versionControl.renameBranch(name, newName), `Renamed to ${newName}`);
+    await this.dialogs.prompt({
+      title: "Rename branch",
+      label: "New name",
+      initial: name,
+      confirm: "Rename",
+      accept: async (newName) =>
+        newName === name ? null : this.session.attempt(() => this.api.versionControl.renameBranch(name, newName), `Renamed to ${newName}`),
+    });
   }
 
   /** Asks first, and again with a warning when the branch has commits no other branch has. */

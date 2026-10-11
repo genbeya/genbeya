@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing";
 import type { TaskInput } from "../../../../contracts/model";
 import { openRepository, settle } from "../../testing/component-harness";
 import { SETTINGS, task } from "../../testing/fake-platform";
-import { TaskFields } from "./task-fields";
+import { type FieldChange, TaskFields } from "./task-fields";
 import { inputOf } from "./task-model";
 
 const fields = [
@@ -16,7 +16,7 @@ async function render(values: TaskInput["fields"]) {
   await openRepository({ settings: { ...SETTINGS, fields } });
   const fixture = TestBed.createComponent(TaskFields);
   fixture.componentRef.setInput("value", inputOf(task("TP-1", { fields: values })));
-  const changes: Partial<TaskInput>[] = [];
+  const changes: FieldChange[] = [];
   fixture.componentInstance.changed.subscribe((change) => changes.push(change));
   await settle(fixture);
   const element = fixture.nativeElement as HTMLElement;
@@ -43,16 +43,24 @@ describe("TaskFields", () => {
     expect(control("Notes").value).toBe("");
   });
 
-  it("emits all fields with the changed one: numbers as numbers, emptied ones as empty text", async () => {
+  it("emits the changed field alone: numbers as numbers, emptied ones as empty text", async () => {
     const { change, changes } = await render({ estimate: 3, area: "ui" });
     change("Estimate", "5");
     change("Area", "");
     change("Notes", "Call Bob");
+    change("Notes", "");
     expect(changes).toEqual([
-      { fields: { estimate: 5, area: "ui" } },
-      { fields: { estimate: 3, area: "" } },
-      { fields: { estimate: 3, area: "ui", notes: "Call Bob" } },
+      { name: "estimate", value: 5 },
+      { name: "area", value: "" },
+      { name: "notes", value: "Call Bob" },
     ]);
+  });
+
+  it("takes a date only once it is whole, not the years typing passes through", async () => {
+    const { change, changes } = await render({});
+    for (const value of ["0002-12-24", "0020-12-24", "0202-12-24", "2026-12-24"]) change("Due", value);
+    change("Due", "");
+    expect(changes).toEqual([{ name: "due", value: "2026-12-24" }]);
   });
 
   it("keeps a choice that is not an option, and shows fields the settings do not configure", async () => {

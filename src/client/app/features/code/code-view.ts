@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, type ElementRef, inject, input, signal, viewChild } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideCodeXml, LucideFile, LucideFilePlus2, LucideFolder, LucideSearch } from "@lucide/angular";
 import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import type { FileNode } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
@@ -9,6 +8,7 @@ import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { parseLines } from "../../markdown/references";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { filterTree, Tree, type TreeItem } from "../../ui/tree";
 import { ShareMenu } from "../share/share-menu";
@@ -17,19 +17,7 @@ import { FileEditor } from "./file-editor";
 /** The repository's files: a tree with change markers, and the open file (`?file=`). */
 @Component({
   selector: "gd-code-view",
-  imports: [
-    EmptyState,
-    FileEditor,
-    Resizable,
-    ResizeHandle,
-    ShareMenu,
-    Tree,
-    LucideCodeXml,
-    LucideFile,
-    LucideFilePlus2,
-    LucideFolder,
-    LucideSearch,
-  ],
+  imports: [EmptyState, FileEditor, Icon, Resizable, ResizeHandle, ShareMenu, Tree],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -37,7 +25,7 @@ import { FileEditor } from "./file-editor";
       <aside class="side-panel" gdResizable="code-tree" [initial]="270" #panel="gdResizable" data-tour="code-tree">
         <div class="row panel-toolbar">
           <label class="filter grow">
-            <svg lucideSearch [size]="13" aria-hidden="true"></svg>
+            <svg gd-icon name="search" [size]="13"></svg>
             <input
               #filter
               placeholder="Filter files"
@@ -48,7 +36,7 @@ import { FileEditor } from "./file-editor";
             />
           </label>
           <button type="button" class="icon-btn" aria-label="New file" title="New file" (click)="createFile()">
-            <svg lucideFilePlus2 [size]="15" aria-hidden="true"></svg>
+            <svg gd-icon name="file-plus-2" [size]="15"></svg>
           </button>
         </div>
         <div class="side-panel-scroll code-tree">
@@ -65,9 +53,9 @@ import { FileEditor } from "./file-editor";
             <ng-template let-item>
               <span class="tree-icon">
                 @if (item.children) {
-                  <svg lucideFolder [size]="14" aria-hidden="true"></svg>
+                  <svg gd-icon name="folder" [size]="14"></svg>
                 } @else {
-                  <svg lucideFile [size]="14" aria-hidden="true"></svg>
+                  <svg gd-icon name="file" [size]="14"></svg>
                 }
               </span>
               <span class="tree-label">{{ item.label }}</span>
@@ -91,7 +79,7 @@ import { FileEditor } from "./file-editor";
           }
         } @else {
           <gd-empty-state title="Open a file">
-            <svg icon lucideCodeXml [size]="20" aria-hidden="true"></svg>
+            <svg icon gd-icon name="code-xml" [size]="20"></svg>
             <p>Pick one from the tree, or press {{ mod }}+P to search.</p>
           </gd-empty-state>
         }

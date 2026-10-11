@@ -1,14 +1,15 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked, ViewEncapsulation } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideGitCommitHorizontal } from "@lucide/angular";
 import type { Commit } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
+import { relativeTime } from "../../ui/relative-time";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
-import { layoutGraph, relativeTime } from "./commit-graph";
+import { layoutGraph } from "./commit-graph";
 import { CommitMenu } from "./commit-menu";
 import { CommitPane } from "./commit-pane";
 import { GraphLines, LANE_WIDTH } from "./graph-lines";
@@ -24,17 +25,7 @@ const MAX_LANES = 12;
  */
 @Component({
   selector: "gd-history-view",
-  imports: [
-    CdkContextMenuTrigger,
-    CommitMenu,
-    CommitPane,
-    EmptyState,
-    GraphLines,
-    RefChips,
-    Resizable,
-    ResizeHandle,
-    LucideGitCommitHorizontal,
-  ],
+  imports: [CdkContextMenuTrigger, CommitMenu, CommitPane, EmptyState, GraphLines, Icon, RefChips, Resizable, ResizeHandle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./history.css",
@@ -48,7 +39,7 @@ const MAX_LANES = 12;
       <div class="editor-loading"><span class="spinner" aria-label="Loading"></span></div>
     } @else if (!commits()!.length) {
       <gd-empty-state title="No commits yet">
-        <svg icon lucideGitCommitHorizontal [size]="20" aria-hidden="true"></svg>
+        <svg icon gd-icon name="git-commit-horizontal" [size]="20"></svg>
         <p>Commit your first changes in Changes.</p>
       </gd-empty-state>
     } @else {
@@ -62,7 +53,7 @@ const MAX_LANES = 12;
           #panel="gdResizable"
           data-tour="history"
         >
-          <gd-commit-menu #commitMenu="gdCommitMenu" />
+          <gd-commit-menu #commitMenu="gdCommitMenu" [onHead]="onHead()" />
           <div class="side-panel-scroll" role="list" aria-label="Commits">
             <!-- A row whose refs changed is made anew: its context menu keeps the data it first opened with. -->
             @for (row of graph().rows; track row.commit.hash + row.commit.refs.join()) {
@@ -120,6 +111,21 @@ export class HistoryView {
   private ticket = 0;
   protected readonly graph = computed(() => layoutGraph(this.commits() ?? []));
   protected readonly graphWidth = computed(() => Math.min(this.graph().lanes, MAX_LANES) * LANE_WIDTH + 12);
+  /** The loaded commits HEAD contains: HEAD's and those its parents reach among them. */
+  protected readonly onHead = computed(() => {
+    const commits = this.commits() ?? [];
+    const head = this.session.snapshot()!.head.commit;
+    const byHash = new Map(commits.map((commit) => [commit.hash, commit]));
+    const reached = new Set<string>();
+    // The snapshot names HEAD by its short hash.
+    const pending = head ? commits.filter((commit) => commit.hash.startsWith(head)).map((commit) => commit.hash) : [];
+    for (let hash = pending.pop(); hash !== undefined; hash = pending.pop()) {
+      if (reached.has(hash)) continue;
+      reached.add(hash);
+      for (const parent of byHash.get(hash)?.parents ?? []) if (byHash.has(parent)) pending.push(parent);
+    }
+    return reached;
+  });
   /** Changes when HEAD or any branch moves, and when tags come and go. */
   private readonly refsKey = computed(() => {
     const snapshot = this.session.snapshot()!;

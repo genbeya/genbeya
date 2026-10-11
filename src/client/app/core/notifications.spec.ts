@@ -22,6 +22,14 @@ describe("Notifications", () => {
     expect(notifications.visible().map((n) => n.message)).toEqual(["a", "c", "d", "e"]);
   });
 
+  it("takes away the errors shown before a mark, not those after", () => {
+    notifications.error("Push failed");
+    const mark = notifications.mark();
+    notifications.error("Fetch failed");
+    notifications.clearErrors(mark);
+    expect(notifications.visible().map((n) => n.message)).toEqual(["Fetch failed"]);
+  });
+
   it("dismisses on request", () => {
     notifications.error("x");
     notifications.dismiss(notifications.visible()[0]!.id);

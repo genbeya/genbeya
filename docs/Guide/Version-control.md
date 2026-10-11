@@ -63,9 +63,9 @@ Uncommitted changes are stashed while a rebase runs and put back afterwards; if 
 
 Right-click a commit of the current branch and choose **Rebase interactively from here…** to rewrite the commits after it. The dialog lists them oldest first:
 
-- Drag a commit by its handle to reorder.
+- Drag a commit by its handle to reorder, or use its arrows or `Alt+↑` / `Alt+↓`.
 - **Pick** keeps a commit, **Reword** keeps it with a new message, **Drop** leaves it out.
-- **Squash** joins a commit to the one above it; the message box starts with both messages, ready to edit. **Fixup** joins it and keeps the message above.
+- **Squash** joins a commit to the one above it; the message box shows both messages, and follows reordering until you edit it. **Fixup** joins it and keeps the message above.
 
 **Rebase** runs it all; no editor opens. Merge commits can't be rewritten this way — GitDesk refuses and suggests the terminal. Conflicts stop the rebase as described below.
 
@@ -79,7 +79,7 @@ When a merge, rebase, cherry-pick or revert conflicts, Git stops halfway. A bann
 
 - **Resolve**, while conflicts are left: goes to **Changes**, where they are listed.
 - **Continue**, once every conflict is resolved: finishes the merge with its prepared message, or goes on with the next commit of a rebase.
-- **Skip** (rebase, cherry-pick and revert): leaves out the commit Git stopped at.
+- **Skip** (rebase, cherry-pick and revert): leaves out the commit Git stopped at, after asking.
 - **Abort**: puts everything back as it was before the operation started. GitDesk asks first; resolutions made so far are lost.
 
 Conflicted files are listed under **Conflicts** at the top of **Changes**. Select one to resolve it:

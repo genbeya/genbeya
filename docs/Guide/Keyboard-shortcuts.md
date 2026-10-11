@@ -8,7 +8,7 @@ On macOS, use `⌘` where this page says `Ctrl`, except for `` Ctrl+` ``: macOS 
 | --- | --- |
 | `Ctrl+K`, `Ctrl+P` | Find pages, tasks, files and commands; paste a GitDesk link to open it |
 | `Ctrl+Shift+F`, or `/` first in the `Ctrl+K` palette | [Search](Search.md) inside pages, tasks and files |
-| `Alt+C`, `Alt+W`, `Alt+R` | While searching inside files: match case, whole words, regular expression |
+| `Alt+C`, `Alt+W`, `Alt+R` (on macOS `⌥⌘C`, `⌥⌘W`, `⌥⌘R`) | While searching inside files: match case, whole words, regular expression |
 | `Ctrl+1` … `Ctrl+5` | Wiki, Tasks, Code, Changes, History |
 | `Ctrl+,` | Settings |
 | `` Ctrl+` `` | Show or hide the [Terminal](Terminal.md) |

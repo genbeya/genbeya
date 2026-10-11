@@ -6,6 +6,8 @@ export interface RefDialogOptions {
   readonly kind: "branch" | "tag";
   /** Where the ref will point, as shown to the user, such as "a1b2c3d Fix the build". */
   readonly at: string;
+  /** Creates the ref before the dialog closes; a failure's message keeps it open to correct the name. */
+  readonly accept?: (ref: NewRef) => Promise<string | null>;
 }
 
 /** A new branch (and whether to switch to it) or tag (and its message). */
@@ -30,7 +32,7 @@ export interface NewRef {
           spellcheck="false"
           [placeholder]="branch ? 'feature/my-change' : 'v1.0.0'"
           [value]="name()"
-          (input)="name.set(field.value)"
+          (input)="name.set(field.value); error.set(null)"
         />
       </label>
       @if (branch) {
@@ -51,10 +53,13 @@ export interface NewRef {
           ></textarea>
         </label>
       }
+      @if (error(); as message) {
+        <p class="dialog-error" role="alert">{{ message }}</p>
+      }
       <p class="dialog-hint">At {{ options.at }}</p>
       <footer>
         <button type="button" class="btn btn-default btn-m" (click)="dialog.close()"><span>Cancel</span></button>
-        <button type="submit" class="btn btn-primary btn-m" [disabled]="empty()"><span>Create</span></button>
+        <button type="submit" class="btn btn-primary btn-m" [disabled]="empty() || accepting()"><span>Create</span></button>
       </footer>
     </gd-dialog-frame>
   `,
@@ -67,14 +72,22 @@ export class RefDialog {
   protected readonly checkout = signal(true);
   protected readonly message = signal("");
   protected readonly empty = computed(() => !this.name().trim());
+  protected readonly error = signal<string | null>(null);
+  protected readonly accepting = signal(false);
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>("field");
 
   constructor() {
     afterNextRender(() => this.field().nativeElement.focus());
   }
 
-  protected submit() {
-    if (this.empty()) return;
-    this.dialog.close({ name: this.name().trim(), checkout: this.checkout(), message: this.message().trim() });
+  protected async submit() {
+    if (this.empty() || this.accepting()) return;
+    const ref = { name: this.name().trim(), checkout: this.checkout(), message: this.message().trim() };
+    if (this.options.accept) {
+      this.accepting.set(true);
+      const failure = await this.options.accept(ref).finally(() => this.accepting.set(false));
+      if (failure) return this.error.set(failure);
+    }
+    this.dialog.close(ref);
   }
 }

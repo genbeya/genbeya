@@ -4,6 +4,7 @@ import { TestBed } from "@angular/core/testing";
 import type { Commit, Snapshot } from "../../../../contracts/model";
 import { openRepository, settle } from "../../testing/component-harness";
 import { CommitMenu } from "./commit-menu";
+import type { NewRef, RefDialogOptions } from "./ref-dialog";
 
 const COMMIT: Commit = {
   hash: "c".repeat(40),
@@ -19,7 +20,7 @@ const COMMIT: Commit = {
   imports: [CdkContextMenuTrigger, CommitMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <gd-commit-menu #commitMenu="gdCommitMenu" />
+    <gd-commit-menu #commitMenu="gdCommitMenu" [onHead]="onHead" />
     <div class="row" tabindex="0" [cdkContextMenuTriggerFor]="commitMenu.menu()" [cdkContextMenuTriggerData]="{ $implicit: commit }">
       commit
     </div>
@@ -27,13 +28,14 @@ const COMMIT: Commit = {
 })
 class Host {
   readonly commit = COMMIT;
+  onHead: ReadonlySet<string> = new Set();
 }
 
 const menuItems = () => [...document.querySelectorAll<HTMLElement>(".cdk-overlay-container [role=menuitem]")];
 const label = (item: HTMLElement) => item.textContent!.replace(/[\s›]+/g, " ").trim();
 const named = (name: string) => menuItems().find((item) => label(item) === name);
 
-async function rightClick(change: Partial<Snapshot> = {}) {
+async function rightClick(change: Partial<Snapshot> = {}, onHead: ReadonlySet<string> = new Set()) {
   const harness = await openRepository({
     branches: ["feature", "main"],
     remotes: [{ name: "origin", url: "https://github.com/acme/demo.git" }],
@@ -41,6 +43,7 @@ async function rightClick(change: Partial<Snapshot> = {}) {
     ...change,
   });
   const fixture = TestBed.createComponent(Host);
+  fixture.componentInstance.onHead = onHead;
   await settle(fixture);
   const row = (fixture.nativeElement as HTMLElement).querySelector(".row")!;
   const contextMenu = async () => {
@@ -57,7 +60,17 @@ async function rightClick(change: Partial<Snapshot> = {}) {
   return { ...harness, fixture, choose };
 }
 
+/** The ref dialog creates the ref with its answer before it closes. */
+const answer = (dialogs: { open: ReturnType<typeof vi.fn> }, ref: NewRef) =>
+  dialogs.open.mockImplementation(async (_: unknown, options: RefDialogOptions) => ((await options.accept?.(ref)) ? undefined : ref));
+
 describe("CommitMenu", () => {
+  it("offers no cherry-pick of a commit the branch contains", async () => {
+    await rightClick({}, new Set([COMMIT.hash]));
+    expect(named("Cherry-pick onto main")).toBeUndefined();
+    expect(named("Revert…")).toBeDefined();
+  });
+
   afterEach(() => document.querySelector(".cdk-overlay-container")?.replaceChildren());
 
   it("offers branches and tags here, and acts on the refs pointing at the commit, without HEADs", async () => {
@@ -91,14 +104,14 @@ describe("CommitMenu", () => {
 
   it("creates a branch at the commit with the dialog's answer", async () => {
     const { dialogs, managers } = await rightClick();
-    dialogs.open.mockResolvedValue({ name: "topic", checkout: false, message: "" });
+    answer(dialogs, { name: "topic", checkout: false, message: "" });
     named("Create branch here…")!.click();
     await vi.waitFor(() => expect(managers.versionControl.createBranch).toHaveBeenCalledWith("w1", "topic", COMMIT.hash, false));
   });
 
   it("creates an annotated tag at the commit", async () => {
     const { dialogs, managers } = await rightClick();
-    dialogs.open.mockResolvedValue({ name: "v2", checkout: true, message: "Notes" });
+    answer(dialogs, { name: "v2", checkout: true, message: "Notes" });
     named("Create tag here…")!.click();
     await vi.waitFor(() => expect(managers.versionControl.createTag).toHaveBeenCalledWith("w1", "v2", COMMIT.hash, "Notes"));
   });

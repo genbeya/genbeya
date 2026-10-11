@@ -3,12 +3,12 @@
   <span class="faint" aria-label="Tasks shown">{{ tasks().length }}</span>
   @for (chip of chips(); track chip.key) {
     <button type="button" class="filter-chip" [attr.aria-label]="'Remove filter ' + chip.text" (click)="clearFilter(chip.key)">
-      {{ chip.text }}<svg lucideX [size]="12" aria-hidden="true"></svg>
+      {{ chip.text }}<svg gd-icon name="x" [size]="12"></svg>
     </button>
   }
   <span class="grow"></span>
   <label class="filter header-filter">
-    <svg lucideSearch [size]="13" aria-hidden="true"></svg>
+    <svg gd-icon name="search" [size]="13"></svg>
     <input
       #search
       placeholder="Filter"
@@ -27,7 +27,7 @@
     #trigger="cdkMenuTriggerFor"
     [class.is-active]="trigger.isOpen() || chips().length > 0"
   >
-    <svg lucideListFilter [size]="15" aria-hidden="true"></svg>
+    <svg gd-icon name="list-filter" [size]="15"></svg>
   </button>
   @if (layout() === "board" && epics().length) {
     <button
@@ -39,7 +39,7 @@
       [class.is-active]="swimlanes()"
       (click)="toggleSwimlanes()"
     >
-      <svg lucideRows3 [size]="15" aria-hidden="true"></svg>
+      <svg gd-icon name="rows-3" [size]="15"></svg>
     </button>
   }
   <div class="segmented" role="radiogroup" aria-label="Layout" data-tour="task-layout">
@@ -51,7 +51,7 @@
       [class.is-active]="layout() === 'board'"
       (click)="setLayout('board')"
     >
-      <svg lucideColumns3 [size]="14" aria-hidden="true"></svg>
+      <svg gd-icon name="columns-3" [size]="14"></svg>
     </button>
     <button
       type="button"
@@ -61,11 +61,11 @@
       [class.is-active]="layout() === 'list'"
       (click)="setLayout('list')"
     >
-      <svg lucideLayoutList [size]="14" aria-hidden="true"></svg>
+      <svg gd-icon name="layout-list" [size]="14"></svg>
     </button>
   </div>
   <button type="button" class="btn btn-primary btn-m" data-tour="new-task" (click)="startTask()">
-    <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>New task</span><kbd class="kbd">C</kbd>
+    <svg gd-icon name="plus" [size]="14"></svg><span>New task</span><kbd class="kbd">C</kbd>
   </button>
 </header>
 
@@ -79,23 +79,23 @@
         </button>
       }
       <button gd-menu-item [checked]="filters().type === ''" (selected)="toggleFilter('type', '')">
-        <svg icon lucideShapes [size]="13" aria-hidden="true"></svg>No type
+        <svg icon gd-icon name="shapes" [size]="13"></svg>No type
       </button>
     }
     @if (epics().length) {
       <div class="menu-heading">Epic</div>
       @for (epic of epics(); track epic) {
         <button gd-menu-item [checked]="filters().epic === epic" (selected)="toggleFilter('epic', epic)">
-          <svg icon lucideFolder [size]="13" aria-hidden="true"></svg>{{ epic }}
+          <svg icon gd-icon name="folder" [size]="13"></svg>{{ epic }}
         </button>
       }
       <button gd-menu-item [checked]="filters().epic === ''" (selected)="toggleFilter('epic', '')">
-        <svg icon lucideFolder [size]="13" aria-hidden="true"></svg>No epic
+        <svg icon gd-icon name="folder" [size]="13"></svg>No epic
       </button>
     }
     <div class="menu-heading">Assignee</div>
     <button gd-menu-item [checked]="filters().assignee === unassigned" (selected)="toggleFilter('assignee', unassigned)">
-      <svg icon lucideUser [size]="14" aria-hidden="true"></svg>Unassigned
+      <svg icon gd-icon name="user" [size]="14"></svg>Unassigned
     </button>
     @for (person of people(); track person) {
       <button gd-menu-item [checked]="filters().assignee === person" (selected)="toggleFilter('assignee', person)">
@@ -112,7 +112,7 @@
       <div class="menu-heading">Label</div>
       @for (label of labels(); track label) {
         <button gd-menu-item [checked]="filters().label === label" (selected)="toggleFilter('label', label)">
-          <svg icon lucideTag [size]="13" aria-hidden="true"></svg>{{ label }}
+          <svg icon gd-icon name="tag" [size]="13"></svg>{{ label }}
         </button>
       }
     }
@@ -122,10 +122,10 @@
 <div class="tasks-body" data-tour="task-board">
   @if (!snapshot().tasks.length) {
     <gd-empty-state title="No tasks yet">
-      <svg icon lucideColumns3 [size]="20" aria-hidden="true"></svg>
+      <svg icon gd-icon name="columns-3" [size]="20"></svg>
       <p>Each task is a Markdown file in {{ snapshot().settings.taskRoot }}/.</p>
       <button type="button" class="btn btn-primary btn-m" (click)="startTask()">
-        <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create the first task</span>
+        <svg gd-icon name="plus" [size]="14"></svg><span>Create the first task</span>
       </button>
     </gd-empty-state>
   } @else if (layout() === "board") {
@@ -143,7 +143,7 @@
       />
     } @else {
       <gd-empty-state title="Every column is hidden">
-        <svg icon lucideColumns3 [size]="20" aria-hidden="true"></svg>
+        <svg icon gd-icon name="columns-3" [size]="20"></svg>
         <p>Choose the columns the board shows with the checkboxes in the list.</p>
         <button type="button" class="btn btn-default btn-m" (click)="setLayout('list')"><span>Show the list</span></button>
       </gd-empty-state>

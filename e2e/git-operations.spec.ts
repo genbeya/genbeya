@@ -55,8 +55,8 @@ test.describe("stashes, branches, tags, merges and rebases", () => {
     await window.getByRole("menuitem", { name: "Merge feature into main…" }).click();
     await window.getByRole("dialog", { name: "Merge feature into main" }).getByRole("button", { name: "Merge" }).click();
 
-    const banner = window.getByRole("status", { name: "Merging feature into main" });
-    await expect(banner).toContainText("1 conflict");
+    const banner = window.getByRole("region", { name: "Merge in progress" });
+    await expect(banner.getByRole("status")).toHaveText(/Merging feature into main\s+— 1 conflict/);
     await expect(window.getByRole("region", { name: "Conflicts" })).toContainText("src/index.ts");
     await expect(window.locator(".conflict-count")).toHaveText("Conflict 1 of 1");
     await window.getByRole("button", { name: "Accept incoming" }).click();

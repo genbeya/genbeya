@@ -1,8 +1,8 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, inject, Injector, input, output } from "@angular/core";
-import { LucideFolder } from "@lucide/angular";
 import type { Task } from "../../../../contracts/model";
 import { Avatar } from "../../ui/avatar";
+import { Icon } from "../../ui/icon";
 import { ShareMenu } from "../share/share-menu";
 import { LabelChip, PriorityIcon, StatusIcon, TypeIcon } from "./task-icons";
 import { displayId, titleCase } from "./task-model";
@@ -13,7 +13,7 @@ import { displayId, titleCase } from "./task-model";
  */
 @Component({
   selector: "gd-task-list",
-  imports: [Avatar, CdkContextMenuTrigger, LabelChip, PriorityIcon, ShareMenu, StatusIcon, TypeIcon, LucideFolder],
+  imports: [Avatar, CdkContextMenuTrigger, Icon, LabelChip, PriorityIcon, ShareMenu, StatusIcon, TypeIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-list" },
   template: `
@@ -57,9 +57,7 @@ import { displayId, titleCase } from "./task-model";
             <span class="task-row-title ellipsis">{{ task.title }}</span>
             <span class="grow"></span>
             @if (task.epic) {
-              <span class="epic-chip" [title]="'Epic ' + task.epic"
-                ><svg lucideFolder [size]="11" aria-hidden="true"></svg>{{ task.epic }}</span
-              >
+              <span class="epic-chip" [title]="'Epic ' + task.epic"><svg gd-icon name="folder" [size]="11"></svg>{{ task.epic }}</span>
             }
             @for (label of task.labels; track label) {
               <gd-label-chip [name]="label" />

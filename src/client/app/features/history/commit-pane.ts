@@ -1,7 +1,6 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from "@angular/core";
 import { Router } from "@angular/router";
-import { LucideCodeXml, LucideCopy, LucideGitMerge } from "@lucide/angular";
 import type { CommitDetail } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Clipboard } from "../../core/clipboard";
@@ -9,15 +8,16 @@ import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
+import { relativeTime } from "../../ui/relative-time";
 import { DiffPane } from "../diff/diff-pane";
-import { relativeTime } from "./commit-graph";
 import { CommitMenu } from "./commit-menu";
 import { RefChips } from "./ref-chips";
 
 /** A commit: message, author, files, and the selected file's diff against the (first) parent. */
 @Component({
   selector: "gd-commit-pane",
-  imports: [Avatar, CdkContextMenuTrigger, CommitMenu, DiffPane, EmptyState, RefChips, LucideCodeXml, LucideCopy, LucideGitMerge],
+  imports: [Avatar, CdkContextMenuTrigger, CommitMenu, DiffPane, EmptyState, Icon, RefChips],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -30,7 +30,7 @@ import { RefChips } from "./ref-chips";
       <div class="commit-head" [cdkContextMenuTriggerFor]="commitMenu.menu()" [cdkContextMenuTriggerData]="{ $implicit: detail.commit }">
         <div class="commit-title selectable">
           @if (detail.commit.parents.length > 1) {
-            <svg lucideGitMerge [size]="16" class="faint" aria-label="Merge commit"></svg>
+            <svg gd-icon name="git-merge" [size]="16" class="faint" aria-label="Merge commit"></svg>
           }
           <h2>{{ detail.commit.subject }}</h2>
         </div>
@@ -44,7 +44,7 @@ import { RefChips } from "./ref-chips";
           <span class="grow"></span>
           <gd-ref-chips [refs]="detail.commit.refs" />
           <button type="button" class="hash-chip mono" title="Copy commit ID" (click)="copyHash(detail.commit.hash)">
-            {{ detail.commit.hash.slice(0, 8) }}<svg lucideCopy [size]="11" aria-hidden="true"></svg>
+            {{ detail.commit.hash.slice(0, 8) }}<svg gd-icon name="copy" [size]="11"></svg>
           </button>
         </div>
         <div class="commit-files" role="list" aria-label="Changed files">
@@ -74,7 +74,7 @@ import { RefChips } from "./ref-chips";
               [load]="loadDiff()"
             >
               <button type="button" class="icon-btn" aria-label="Open in code" title="Open in code" (click)="openFile(changed.path)">
-                <svg lucideCodeXml [size]="15" aria-hidden="true"></svg>
+                <svg gd-icon name="code-xml" [size]="15"></svg>
               </button>
             </gd-diff-pane>
           }
@@ -91,9 +91,16 @@ export class CommitPane {
 
   private readonly api = inject(WorkspaceApi);
   private readonly session = inject(Session);
+  /**
+   * What can change the refs shown on this commit: HEAD being on it, and the
+   * branches and tags there are. New commits elsewhere change none of them.
+   */
   private readonly refs = computed(() => {
     const snapshot = this.session.snapshot();
-    return [snapshot?.head.commit, ...(snapshot?.branches ?? []), ...(snapshot?.tags ?? [])].join(" ");
+    // The snapshot names HEAD by its short hash.
+    const at = snapshot?.head.commit && this.hash().startsWith(snapshot.head.commit);
+    const head = at ? `HEAD ${snapshot.head.branch}` : "";
+    return [head, ...(snapshot?.branches ?? []), ...(snapshot?.tags ?? [])].join(" ");
   });
   private readonly router = inject(Router);
   private readonly clipboard = inject(Clipboard);

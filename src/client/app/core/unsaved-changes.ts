@@ -3,24 +3,33 @@
  * navigation, repository switches and closing the window ask before
  * discarding it.
  */
-import { DestroyRef, effect, Injectable, inject, signal, type Signal } from "@angular/core";
+import { DestroyRef, Injectable, inject, signal, type Signal } from "@angular/core";
 import type { CanDeactivateFn, Route } from "@angular/router";
 import { Dialogs } from "./dialogs";
 
 @Injectable({ providedIn: "root" })
 export class UnsavedChanges {
   private readonly dialogs = inject(Dialogs);
-  private readonly owners = signal<ReadonlySet<object>>(new Set());
-  readonly any = () => this.owners().size > 0;
+  /** Whether each owner has unsaved work; read when asked, so a discard counts at once. */
+  private readonly owners = signal<ReadonlyMap<object, () => boolean>>(new Map());
+  readonly any = () => [...this.owners().values()].some((dirty) => dirty());
 
-  mark(owner: object, dirty: boolean): void {
+  /** Reports `owner`'s unsaved work until it is untracked. */
+  track(owner: object, dirty: () => boolean): void {
+    this.owners.update((owners) => new Map(owners).set(owner, dirty));
+  }
+
+  untrack(owner: object): void {
     this.owners.update((owners) => {
-      if (owners.has(owner) === dirty) return owners;
-      const next = new Set(owners);
-      if (dirty) next.add(owner);
-      else next.delete(owner);
+      const next = new Map(owners);
+      next.delete(owner);
       return next;
     });
+  }
+
+  mark(owner: object, dirty: boolean): void {
+    if (dirty) this.track(owner, () => true);
+    else this.untrack(owner);
   }
 
   /**
@@ -43,8 +52,8 @@ export class UnsavedChanges {
 export function trackUnsaved(dirty: Signal<boolean>): void {
   const unsaved = inject(UnsavedChanges);
   const owner = {};
-  effect(() => unsaved.mark(owner, dirty()));
-  inject(DestroyRef).onDestroy(() => unsaved.mark(owner, false));
+  unsaved.track(owner, dirty);
+  inject(DestroyRef).onDestroy(() => unsaved.untrack(owner));
 }
 
 /** Leaving a route asks before discarding unsaved edits. */

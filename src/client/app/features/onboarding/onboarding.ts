@@ -2,7 +2,7 @@
  * Getting to know GitDesk: the welcome card and sample repository for new
  * users, the tour offered once in each repository until the user has seen
  * it, and what's new after an update. What the user has seen is kept in the
- * preferences.
+ * preferences. The tour's steps and the news load when they are shown.
  */
 import { computed, effect, Injectable, inject, signal, untracked } from "@angular/core";
 import { repositoryKey } from "../../../../contracts/model";
@@ -14,8 +14,7 @@ import { CTRL_KEY, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Tour } from "../../ui/tour/tour";
-import { CHANGELOG, news, newsTour, type Release } from "./changelog";
-import { appTour } from "./tour-steps";
+import type { Release } from "./changelog";
 
 export const DOCS_URL = "https://github.com/h3ll5ur7er/gitdesk/tree/main/docs";
 
@@ -54,6 +53,7 @@ export class Onboarding {
 
   async startTour(): Promise<void> {
     this.offered.set(false);
+    const { appTour } = await import("./tour-steps");
     await this.tour.start(appTour({ mod: MOD_KEY, ctrl: CTRL_KEY }));
     await this.session.setPreferences({ tourSeen: true });
   }
@@ -63,7 +63,9 @@ export class Onboarding {
   }
 
   /** Shows `releases`, by default all news up to this version; "Show me" tours the items that point at something. */
-  async showWhatsNew(releases: readonly Release[] = news(CHANGELOG, APP_VERSION)): Promise<void> {
+  async showWhatsNew(shown?: readonly Release[]): Promise<void> {
+    const { CHANGELOG, news, newsTour } = await import("./changelog");
+    const releases = shown ?? news(CHANGELOG, APP_VERSION);
     if (!releases.length) return;
     const tour = newsTour(releases);
     const { WhatsNewDialog } = await import("./whats-new-dialog");
@@ -92,7 +94,10 @@ export class Onboarding {
     const { lastSeenVersion } = this.session.preferences();
     const seen = parseVersion(lastSeenVersion);
     if (seen && compareVersions(seen, parseVersion(APP_VERSION)!) >= 0) return;
-    if (seen) await this.showWhatsNew(news(CHANGELOG, APP_VERSION, lastSeenVersion!));
+    if (seen) {
+      const { CHANGELOG, news } = await import("./changelog");
+      await this.showWhatsNew(news(CHANGELOG, APP_VERSION, lastSeenVersion!));
+    }
     await this.session.setPreferences({ lastSeenVersion: APP_VERSION });
   }
 

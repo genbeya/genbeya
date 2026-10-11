@@ -13,10 +13,11 @@ import {
 } from "@angular/core";
 import { Router } from "@angular/router";
 import type { SearchOptions } from "../../../../contracts/model";
-import { CTRL_KEY, MOD_KEY, SHIFT_KEY } from "../../core/hotkeys";
+import { CTRL_KEY, isMac, MOD_KEY, SHIFT_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
+import { ContentFiles } from "../code/content-files";
 import { Onboarding } from "../onboarding/onboarding";
 import { WikiActions } from "../wiki/wiki-actions";
 import { MarkedText } from "./marked-text";
@@ -28,12 +29,24 @@ import { describeResults, SEARCH_PREFIX, searchItems, searchText, type PaletteRo
 import { ShellUi, type PaletteMode } from "./shell-ui";
 import { textSearch } from "./text-search";
 
-/** Search options, toggled with Alt and their letter. */
+/**
+ * Search options, toggled with Alt and their letter; on macOS with ⌥⌘, since
+ * Option and a letter types a character there (⌥C is ç), as in the editor's find.
+ */
 const TOGGLES: readonly { key: keyof SearchOptions; text: string; label: string; code: string }[] = [
   { key: "caseSensitive", text: "Aa", label: "Match case", code: "KeyC" },
   { key: "wholeWord", text: "ab", label: "Whole word", code: "KeyW" },
   { key: "regex", text: ".*", label: "Regular expression", code: "KeyR" },
 ];
+
+/** The search option `event` toggles, if any. */
+export function toggledOption(event: KeyboardEvent, mac = isMac): keyof SearchOptions | undefined {
+  if (!event.altKey || event.ctrlKey || event.metaKey !== mac) return undefined;
+  return TOGGLES.find((option) => option.code === event.code)?.key;
+}
+
+/** How the shortcut of the option with `code` reads on this platform. */
+const toggleKeys = (code: string) => (isMac ? "⌥⌘" : "Alt+") + code.slice(3);
 
 /** Search and commands (Ctrl+K), full-text search ("/" or Ctrl+Shift+F), or the branch switcher. */
 @Component({
@@ -66,7 +79,7 @@ const TOGGLES: readonly { key: keyof SearchOptions; text: string; label: string;
                 class="palette-toggle"
                 [attr.aria-pressed]="text.options()[toggle.key]"
                 [attr.aria-label]="toggle.label"
-                [title]="toggle.label + ' (Alt+' + toggle.code.slice(3) + ')'"
+                [title]="toggle.label + ' (' + toggleKeys(toggle.code) + ')'"
                 (click)="flip(toggle.key)"
               >
                 {{ toggle.text }}
@@ -160,6 +173,7 @@ export class Palette {
   private readonly ui = inject(ShellUi);
   private readonly terminals = inject(Terminals);
   private readonly onboarding = inject(Onboarding);
+  private readonly contentFiles = inject(ContentFiles);
   protected readonly label =
     this.mode === "branches"
       ? "Switch branch"
@@ -208,11 +222,14 @@ export class Palette {
     openDocs: () => void this.onboarding.openDocs(),
   };
 
-  /** Pages scroll to the heading above the line, code selects it. */
+  /** Pages scroll to the heading above the line, code selects it; the code view cannot show files on the content branch. */
   private readonly found: SearchCommands = {
     openPage: (page, line) => void this.router.navigate(["/wiki"], { queryParams: { page, line } }),
     openTask: (task) => this.commands.openTask(task),
-    openFile: (file, line) => void this.router.navigate(["/code"], { queryParams: { file, lines: line } }),
+    openFile: (file, line, scope) =>
+      void (scope === "content"
+        ? this.contentFiles.explain(file, file.split("/").at(-1)!)
+        : this.router.navigate(["/code"], { queryParams: { file, lines: line } })),
   };
 
   /** The text after "/", which searches inside files; null for the other modes. */
@@ -248,8 +265,10 @@ export class Palette {
     if (this.mode === "rebase") return `Rebase ${branch} onto…`;
     return this.fullText() !== null ? "Search in pages, tasks and files…" : "Search pages, tasks, files and commands…";
   });
+  protected readonly toggleKeys = toggleKeys;
   protected readonly status = computed(() => {
-    if (!this.fullText()?.trim()) return "Alt+C match case · Alt+W whole word · Alt+R regular expression";
+    if (!this.fullText()?.trim())
+      return `${toggleKeys("KeyC")} match case · ${toggleKeys("KeyW")} whole word · ${toggleKeys("KeyR")} regular expression`;
     if (this.text.loading()) return "Searching…";
     const results = this.text.results();
     return this.text.error() ?? (results ? describeResults(results) : "");
@@ -285,10 +304,10 @@ export class Palette {
 
   protected key(event: KeyboardEvent) {
     const count = Math.max(1, this.results().length);
-    const toggle = event.altKey && !event.ctrlKey && !event.metaKey && TOGGLES.find((option) => option.code === event.code);
+    const toggle = toggledOption(event);
     if (toggle && this.fullText() !== null) {
       event.preventDefault();
-      this.flip(toggle.key);
+      this.flip(toggle);
     } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       this.active.update((index) => (index + (event.key === "ArrowDown" ? 1 : -1) + count) % count);

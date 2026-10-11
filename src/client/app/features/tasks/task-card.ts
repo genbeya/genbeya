@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
 import { Avatar } from "../../ui/avatar";
-import { LucideFolder } from "@lucide/angular";
+import { Icon } from "../../ui/icon";
 import { LabelChip, PriorityIcon, TypeIcon } from "./task-icons";
 import { displayId, titleCase } from "./task-model";
 
 @Component({
   selector: "gd-task-card",
-  imports: [Avatar, LabelChip, PriorityIcon, TypeIcon, LucideFolder],
+  imports: [Avatar, Icon, LabelChip, PriorityIcon, TypeIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-card", "[class.is-selected]": "selected()" },
   template: `
@@ -25,9 +25,7 @@ import { displayId, titleCase } from "./task-model";
     @if (task().priority !== "none" || task().labels.length || (showEpic() && task().epic)) {
       <div class="task-card-meta">
         @if (showEpic() && task().epic) {
-          <span class="epic-chip" [title]="'Epic ' + task().epic"
-            ><svg lucideFolder [size]="11" aria-hidden="true"></svg>{{ task().epic }}</span
-          >
+          <span class="epic-chip" [title]="'Epic ' + task().epic"><svg gd-icon name="folder" [size]="11"></svg>{{ task().epic }}</span>
         }
         @if (task().priority !== "none") {
           <span class="priority-chip" [title]="titleCase(task().priority)"

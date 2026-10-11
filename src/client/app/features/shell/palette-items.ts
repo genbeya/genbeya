@@ -339,16 +339,13 @@ export function rank(items: readonly PaletteItem[], query: string, keepOrder: bo
   const needle = query.trim();
   if (!needle) return keepOrder ? [...items] : items.filter((item) => item.group !== "Files").slice(0, WITHOUT_QUERY);
   const scored = items
-    .map((item) => ({
-      item,
-      score:
-        Math.max(
-          fuzzyScore(item.label, needle),
-          fuzzyScore(item.keywords ?? "", needle) - 100,
-          fuzzyScore(item.detail ?? "", needle) - 200,
-        ) + (GROUP_WEIGHT[item.group] ?? 0),
-    }))
-    .filter(({ score }) => score >= 0)
+    .map((item) => {
+      // The label counts most, then the keywords, then the detail; an item none of them match is left out.
+      const scores = [fuzzyScore(item.label, needle), fuzzyScore(item.keywords ?? "", needle), fuzzyScore(item.detail ?? "", needle)];
+      const match = Math.max(...scores.map((score, index) => (score < 0 ? -Infinity : score - index * 100)));
+      return { item, score: match + (GROUP_WEIGHT[item.group] ?? 0) };
+    })
+    .filter(({ score }) => score > -Infinity)
     .sort((a, b) => b.score - a.score);
   const groups = new Map<string, PaletteItem[]>();
   for (const { item } of scored) {

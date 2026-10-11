@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from "@angular/core";
 import { RouterLink } from "@angular/router";
-import { LucideGitMerge } from "@lucide/angular";
 import type { Operation } from "../../../../contracts/model";
 import { Session } from "../../core/session";
-import { OperationActions } from "./operation-actions";
+import { Icon } from "../../ui/icon";
+import { OPERATION_NAMES, OperationActions } from "./operation-actions";
 
 /** What an operation in progress does, such as "Merging feature into main". */
 export function describeOperation({ kind, source, target, step, steps }: Operation): string {
@@ -19,10 +19,14 @@ export function describeOperation({ kind, source, target, step, steps }: Operati
   }
 }
 
-/** The merge, rebase, cherry-pick or revert in progress, its conflicts, and how to go on. */
+/**
+ * The merge, rebase, cherry-pick or revert in progress, its conflicts, and
+ * how to go on. A landmark, so it is easy to find; its text is announced when
+ * the conflicts or the step change.
+ */
 @Component({
   selector: "gd-operation-banner",
-  imports: [RouterLink, LucideGitMerge],
+  imports: [Icon, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host {
@@ -47,10 +51,10 @@ export function describeOperation({ kind, source, target, step, steps }: Operati
       font-weight: 400;
     }
   `,
-  host: { role: "status", "[attr.aria-label]": "description()" },
+  host: { role: "region", "[attr.aria-label]": "label()" },
   template: `
-    <svg lucideGitMerge [size]="15" aria-hidden="true"></svg>
-    <span class="operation-text ellipsis">
+    <svg gd-icon name="git-merge" [size]="15"></svg>
+    <span class="operation-text ellipsis" role="status">
       {{ description() }}
       <span class="operation-conflicts"
         >— {{ conflicts() ? conflicts() + (conflicts() === 1 ? " conflict" : " conflicts") : "no conflicts left" }}</span
@@ -79,5 +83,6 @@ export class OperationBanner {
   protected readonly actions = inject(OperationActions);
   protected readonly operation = computed(() => this.session.snapshot()!.operation!);
   protected readonly description = computed(() => describeOperation(this.operation()));
+  protected readonly label = computed(() => `${OPERATION_NAMES[this.operation().kind]} in progress`);
   protected readonly conflicts = computed(() => this.session.snapshot()!.changes.filter((change) => change.conflict).length);
 }

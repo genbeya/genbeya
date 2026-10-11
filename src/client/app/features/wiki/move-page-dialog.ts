@@ -95,6 +95,8 @@ export class MovePageDialog {
   protected readonly updateLinks = signal(true);
   /** The links of the last name looked up; stale ones are dropped. */
   protected readonly links = signal<readonly LinkUpdate[]>([]);
+  /** Where the shown links are for; null until a lookup succeeded. */
+  private readonly linksFor = signal<string | null>(null);
   protected readonly linkCount = computed(() =>
     count(
       this.links().reduce((sum, file) => sum + file.changes.length, 0),
@@ -116,12 +118,18 @@ export class MovePageDialog {
     effect(() => {
       const to = target();
       const ticket = ++request;
-      const show = (links: readonly LinkUpdate[]) => {
-        if (ticket === request) this.links.set(links);
+      const show = (links: readonly LinkUpdate[], found: string | null) => {
+        if (ticket !== request) return;
+        this.links.set(links);
+        this.linksFor.set(found);
       };
       // The move checks the links again; a failed lookup only shows none.
-      if (to && to !== this.options.path) this.api.content.pageLinks(this.options.path, to).then(show, () => show([]));
-      else show([]);
+      if (to && to !== this.options.path)
+        this.api.content.pageLinks(this.options.path, to).then(
+          (links) => show(links, to),
+          () => show([], null),
+        );
+      else show([], null);
     });
   }
 
@@ -135,6 +143,11 @@ export class MovePageDialog {
     if (!name) return;
     const problem = pageNameProblem(name);
     if (problem) this.error.set(problem);
-    else this.dialog.close({ to: pagePath(this.root, name), updateLinks: this.updateLinks() });
+    else {
+      const to = pagePath(this.root, name);
+      // Links are only updated when the user saw which, for this name.
+      const offered = this.linksFor() === to && this.links().length > 0;
+      this.dialog.close({ to, updateLinks: offered && this.updateLinks() });
+    }
   }
 }

@@ -5,7 +5,7 @@
  * too narrow to spare the room leave it out.
  */
 import { syntaxTree } from "@codemirror/language";
-import type { Extension } from "@codemirror/state";
+import type { Extension, Text } from "@codemirror/state";
 import { EditorView, type PluginValue, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
 import { SYNTAX_COLOURS, syntaxColours } from "./syntax";
@@ -47,6 +47,20 @@ export function minimapLayout(lines: number, height: number, ratio: number, visi
     sliderHeight,
     track: Math.max(1, Math.min(content, height) - sliderHeight),
   };
+}
+
+/**
+ * The parts of lines `first` to `last` the map draws: each line up to the
+ * last column there is room for (a character takes at least one), so long
+ * lines of minified code cost no more than short ones.
+ */
+export function drawnRanges(doc: Text, first: number, last: number): { from: number; to: number }[] {
+  const ranges = [];
+  for (let number = first; number <= last; number++) {
+    const line = doc.line(number);
+    ranges.push({ from: line.from, to: line.from + Math.min(line.length, COLUMNS) });
+  }
+  return ranges;
 }
 
 interface Measured {
@@ -153,15 +167,16 @@ class Minimap implements PluginValue {
     const { doc, tabSize } = state;
     const last = Math.min(doc.lines, layout.first + Math.ceil(height / LINE));
     if (layout.first > last) return;
-    const from = doc.line(layout.first).from;
+    const tree = syntaxTree(state);
     const spans: { from: number; to: number; colour: string }[] = [];
-    highlightTree(
-      syntaxTree(state),
-      syntaxColours,
-      (start, end, classes) => spans.push({ from: start, to: end, colour: colours.get(classes.split(" ")[0]!) ?? text }),
-      from,
-      doc.line(last).to,
-    );
+    for (const range of drawnRanges(doc, layout.first, last))
+      highlightTree(
+        tree,
+        syntaxColours,
+        (start, end, classes) => spans.push({ from: start, to: end, colour: colours.get(classes.split(" ")[0]!) ?? text }),
+        range.from,
+        range.to,
+      );
     const bars = new Map<string, Path2D>();
     const bar = (colour: string) => bars.get(colour) ?? bars.set(colour, new Path2D()).get(colour)!;
     let span = 0;

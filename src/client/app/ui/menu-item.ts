@@ -1,6 +1,6 @@
 import { CdkMenuItem } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, input } from "@angular/core";
-import { LucideCheck } from "@lucide/angular";
+import { Icon } from "./icon";
 
 /**
  * A row of a CDK menu: `<button gd-menu-item (selected)="…">`.
@@ -8,14 +8,14 @@ import { LucideCheck } from "@lucide/angular";
  */
 @Component({
   selector: "button[gd-menu-item]",
-  imports: [LucideCheck],
+  imports: [Icon],
   hostDirectives: [{ directive: CdkMenuItem, inputs: ["cdkMenuItemDisabled: disabled"], outputs: ["cdkMenuItemTriggered: selected"] }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { type: "button", class: "menu-item", "[class.is-danger]": "danger()" },
   template: `
     <span class="menu-icon">
       @if (checked()) {
-        <svg lucideCheck [size]="14" aria-hidden="true"></svg>
+        <svg gd-icon name="check" [size]="14"></svg>
       } @else {
         <ng-content select="[icon]" />
       }

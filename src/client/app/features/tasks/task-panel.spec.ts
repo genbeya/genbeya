@@ -1,8 +1,9 @@
 import { TestBed } from "@angular/core/testing";
 import { openRepository, settle } from "../../testing/component-harness";
 import type { TaskInput } from "../../../../contracts/model";
+import { UnsavedChanges } from "../../core/unsaved-changes";
 import { task } from "../../testing/fake-platform";
-import { TaskPanel } from "./task-panel";
+import { FIELD_DELAY, TaskPanel } from "./task-panel";
 
 const first = task("TP-1", { title: "First task", priority: "high", body: "- [ ] one\n- [ ] two\n" });
 
@@ -23,6 +24,11 @@ describe("TaskPanel", () => {
     const { element } = await render({ task: first });
     expect(element.querySelector("h1")!.textContent).toBe("First task");
     expect(element.querySelectorAll(".md-check.is-interactive")).toHaveLength(2);
+  });
+
+  it("takes focus when it opens a task", async () => {
+    const { fixture } = await render({ task: first });
+    expect(document.activeElement).toBe(fixture.nativeElement);
   });
 
   it("saves checkbox clicks in order, each on the newest version", async () => {
@@ -135,6 +141,25 @@ describe("TaskPanel", () => {
     document.querySelector(".cdk-overlay-container")?.replaceChildren();
   });
 
+  it("takes back a template's presets for a type without one, keeping what the user changed", async () => {
+    const { managers, fixture } = await render({ createStatus: "todo" });
+    managers.content.taskTemplate.mockImplementation(async (_: string, type: string) =>
+      type === "bug" ? { body: "## Steps\n", priority: "high", labels: ["bug"], fields: { area: "ui", severity: "major" } } : null,
+    );
+    const panel = fixture.componentInstance as unknown as {
+      patch(change: object): void;
+      setField(change: object): void;
+      draft(): TaskInput;
+    };
+    panel.patch({ type: "bug" });
+    await settle(fixture);
+    panel.patch({ priority: "low" });
+    panel.setField({ name: "area", value: "backend" });
+    panel.patch({ type: "chore" });
+    await settle(fixture);
+    expect(panel.draft()).toMatchObject({ type: "chore", body: "", priority: "low", labels: [], fields: { area: "backend" } });
+  });
+
   it("starts a new task of a type from the type's template, keeping a description written already", async () => {
     const { managers, fixture, element } = await render({ createStatus: "todo" });
     managers.content.taskTemplate.mockImplementation(async (_: string, type: string) =>
@@ -145,14 +170,15 @@ describe("TaskPanel", () => {
     await settle(fixture);
     expect(managers.content.taskTemplate).toHaveBeenCalledWith("w1", "bug");
     expect(panel.draft()).toMatchObject({ type: "bug", body: "## Steps\n", priority: "high", labels: ["bug"] });
-    // Another type replaces the template's description, but not one written by hand.
+    // Another type replaces what the first template put in: its description and presets.
     panel.patch({ type: "feature" });
     await settle(fixture);
-    expect(panel.draft()).toMatchObject({ body: "## Goal\n", priority: "high" });
+    expect(panel.draft()).toMatchObject({ body: "## Goal\n", priority: "none", labels: [] });
+    // A description written by hand stays; presets fill what is still unset.
     panel.patch({ body: "Mine" });
     panel.patch({ type: "bug" });
     await settle(fixture);
-    expect(panel.draft().body).toBe("Mine");
+    expect(panel.draft()).toMatchObject({ body: "Mine", priority: "high", labels: ["bug"] });
     expect(element.querySelector("button[aria-label='Type']")!.textContent).toContain("Bug");
   });
 
@@ -196,6 +222,108 @@ describe("TaskPanel", () => {
     await settle(fixture);
     expect(dialogs.discardEdits).toHaveBeenCalledWith("this comment");
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("asks only once before closing with an unsent comment, leaving nothing for the route to ask about", async () => {
+    const { element, dialogs, fixture, router } = await render({ task: first });
+    const unsaved = TestBed.inject(UnsavedChanges);
+    const navigate = vi.spyOn(router, "navigate").mockImplementation(async () => !unsaved.any());
+    const composer = element.querySelector<HTMLTextAreaElement>("textarea[aria-label='New comment']")!;
+    composer.value = "Unsent";
+    composer.dispatchEvent(new Event("input"));
+    await settle(fixture);
+    expect(unsaved.any()).toBe(true);
+    element.querySelector<HTMLButtonElement>("button[aria-label='Close (Esc)']")!.click();
+    await settle(fixture);
+    expect(dialogs.discardEdits).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(["/tasks"]);
+    expect(await navigate.mock.results[0]!.value).toBe(true);
+  });
+
+  it("asks once before cancelling a new task with a title, leaving nothing for the route to ask about", async () => {
+    const { element, dialogs, fixture, router, button } = await render({ createStatus: "todo" });
+    const unsaved = TestBed.inject(UnsavedChanges);
+    const navigate = vi.spyOn(router, "navigate").mockImplementation(async () => !unsaved.any());
+    const title = element.querySelector<HTMLTextAreaElement>("textarea[aria-label='Task title']")!;
+    title.value = "Half a thought";
+    title.dispatchEvent(new Event("input"));
+    await settle(fixture);
+    button("Cancel").click();
+    await settle(fixture);
+    expect(dialogs.discardEdits).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(["/tasks"]);
+    expect(await navigate.mock.results[0]!.value).toBe(true);
+  });
+
+  it("keeps an unsent comment while the task is edited", async () => {
+    const { element, fixture, button } = await render({ task: first });
+    const composer = () => element.querySelector<HTMLTextAreaElement>("textarea[aria-label='New comment']")!;
+    composer().value = "Unsent";
+    composer().dispatchEvent(new Event("input"));
+    button("Edit").click();
+    await settle(fixture);
+    expect(element.querySelector(".task-discussion")!.classList).toContain("is-hidden");
+    button("Cancel").click();
+    await settle(fixture);
+    expect(element.querySelector(".task-discussion")!.classList).not.toContain("is-hidden");
+    expect(composer().value).toBe("Unsent");
+  });
+
+  it("moves between comments and activity with the arrow keys", async () => {
+    const { element, managers, fixture } = await render({ task: first });
+    managers.content.taskActivity.mockResolvedValue([]);
+    const tabs = [...element.querySelectorAll<HTMLButtonElement>("[role=tab]")];
+    expect(tabs.map((tab) => element.querySelector(`#${tab.getAttribute("aria-controls")}`)!.getAttribute("role"))).toEqual([
+      "tabpanel",
+      "tabpanel",
+    ]);
+    expect(tabs.map((tab) => tab.tabIndex)).toEqual([0, -1]);
+    tabs[0]!.focus();
+    tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await settle(fixture);
+    expect(tabs[1]!.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tabs[1]);
+    expect(tabs.map((tab) => tab.tabIndex)).toEqual([-1, 0]);
+    tabs[1]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await settle(fixture);
+    expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("saves field changes once they rest, together, keeping each field changed meanwhile", async () => {
+    const { managers, fixture } = await render({ task: { ...first, fields: { due: "2026-01-01" } } });
+    vi.useFakeTimers();
+    onTestFinished(() => void vi.useRealTimers());
+    managers.content.updateTask
+      .mockResolvedValueOnce({ ...first, fields: { due: "2026-12-24", estimate: 5 }, hash: "h2" })
+      .mockResolvedValueOnce({ ...first, fields: { due: "2026-12-24", estimate: 5, area: "ui" }, hash: "h3" });
+    const panel = fixture.componentInstance as unknown as { setField(change: object): void; shown(): TaskInput };
+    // A date typed digit by digit, and an estimate, before anything is saved.
+    panel.setField({ name: "due", value: "2026-12-02" });
+    panel.setField({ name: "due", value: "2026-12-24" });
+    panel.setField({ name: "estimate", value: 5 });
+    expect(panel.shown().fields).toEqual({ due: "2026-12-24", estimate: 5 });
+    expect(managers.content.updateTask).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(FIELD_DELAY);
+    expect(managers.content.updateTask).toHaveBeenCalledTimes(1);
+    expect(managers.content.updateTask.mock.calls[0]!.slice(2)).toEqual([
+      expect.objectContaining({ fields: { due: "2026-12-24", estimate: 5 } }),
+      "hash-TP-1",
+    ]);
+    // Another field changed while that saves goes on the newest version, with both.
+    panel.setField({ name: "area", value: "ui" });
+    await vi.advanceTimersByTimeAsync(FIELD_DELAY);
+    expect(managers.content.updateTask.mock.calls[1]!.slice(2)).toEqual([
+      expect.objectContaining({ fields: { due: "2026-12-24", estimate: 5, area: "ui" } }),
+      "h2",
+    ]);
+  });
+
+  it("saves a field change still resting when the panel closes", async () => {
+    const { managers, fixture } = await render({ task: first });
+    managers.content.updateTask.mockResolvedValue({ ...first, fields: { estimate: 5 }, hash: "h2" });
+    (fixture.componentInstance as unknown as { setField(change: object): void }).setField({ name: "estimate", value: 5 });
+    fixture.destroy();
+    await vi.waitFor(() => expect(managers.content.updateTask).toHaveBeenCalledTimes(1));
   });
 
   it("changes properties at once while viewing", async () => {

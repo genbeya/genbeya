@@ -9,11 +9,18 @@ import type { Commit, MergeOptions, OperationKind, OperationOutcome, RebaseStep 
 import { Dialogs } from "../../core/dialogs";
 import { Notifications } from "../../core/notifications";
 import { Session } from "../../core/session";
+import { UnsavedChanges } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
 import type { MergeRequest } from "./merge-dialog";
 import type { RebaseRequest } from "./rebase-dialog";
 
-const NAMES: Readonly<Record<OperationKind, string>> = { merge: "Merge", rebase: "Rebase", "cherry-pick": "Cherry-pick", revert: "Revert" };
+/** The operations by name, as titles and messages use them. */
+export const OPERATION_NAMES: Readonly<Record<OperationKind, string>> = {
+  merge: "Merge",
+  rebase: "Rebase",
+  "cherry-pick": "Cherry-pick",
+  revert: "Revert",
+};
 
 @Injectable({ providedIn: "root" })
 export class OperationActions {
@@ -22,6 +29,7 @@ export class OperationActions {
   private readonly dialogs = inject(Dialogs);
   private readonly notifications = inject(Notifications);
   private readonly router = inject(Router);
+  private readonly unsaved = inject(UnsavedChanges);
 
   /** Asks for the message and whether to fast-forward, then merges `source` into the current branch. */
   async merge(source: string, kind: MergeRequest["kind"]): Promise<void> {
@@ -78,6 +86,15 @@ export class OperationActions {
     const dirty = this.dirty();
     const steps = await this.dialogs.open<RebaseStep[], RebaseRequest>(RebaseDialog, { plan, branch, dirty });
     if (!steps) return;
+    if (steps.every((step) => step.action === "drop")) {
+      const confirmed = await this.dialogs.confirm({
+        title: "Drop every commit",
+        message: `${branch} goes back to ${plan.base.slice(0, 7)}, without any of its ${steps.length} commits after it.`,
+        confirm: "Drop all",
+        danger: true,
+      });
+      if (!confirmed) return;
+    }
     this.report(await this.session.run(() => this.api.versionControl.rebaseInteractive(plan.base, steps, dirty)), `Rebased ${branch}`);
   }
 
@@ -99,8 +116,16 @@ export class OperationActions {
     this.report(await this.session.run(() => this.api.versionControl.continueOperation()), `${name} finished`);
   }
 
+  /** Leaves out the commit being applied, after confirming: its conflict resolutions are lost. */
   async skip(): Promise<void> {
     const name = this.name();
+    const confirmed = await this.dialogs.confirm({
+      title: "Skip commit",
+      message: this.withUnsaved("The commit being applied is left out, and the conflict resolutions made for it are lost."),
+      confirm: "Skip",
+      danger: true,
+    });
+    if (!confirmed) return;
     this.report(await this.session.run(() => this.api.versionControl.skipOperation()), `${name} finished`);
   }
 
@@ -108,7 +133,7 @@ export class OperationActions {
     const name = this.name();
     const confirmed = await this.dialogs.confirm({
       title: `Abort ${name.toLowerCase()}`,
-      message: "Everything goes back to how it was before it started. Conflict resolutions made so far are lost.",
+      message: this.withUnsaved("Everything goes back to how it was before it started. Conflict resolutions made so far are lost."),
       confirm: "Abort",
       danger: true,
     });
@@ -126,12 +151,17 @@ export class OperationActions {
     return !!this.session.snapshot()?.changes.some((change) => change.index !== "?");
   }
 
+  /** Skipping and aborting replace the conflicted files, and with them what the conflict editor has not saved. */
+  private withUnsaved(message: string): string {
+    return this.unsaved.any() ? `${message} So are your unsaved edits.` : message;
+  }
+
   private pushedWarning(pushed: readonly string[]): string {
     return pushed.length ? `Some of these commits are already on ${pushed.join(", ")}: you will have to force-push.` : "";
   }
 
   private name(): string {
     const kind = this.session.snapshot()?.operation?.kind;
-    return kind ? NAMES[kind] : "Operation";
+    return kind ? OPERATION_NAMES[kind] : "Operation";
   }
 }

@@ -1,194 +1,56 @@
-import { ChangeDetectionStrategy, Component, input } from "@angular/core";
-import {
-  LucideArrowDownToLine,
-  LucideArrowUpFromLine,
-  LucideBookMarked,
-  LucideBookOpen,
-  LucideCircleDot,
-  LucideCloudDownload,
-  LucideCodeXml,
-  LucideCompass,
-  LucideFileCode2,
-  LucideFileText,
-  LucideFolderOpen,
-  LucideGitBranch,
-  LucideGitBranchPlus,
-  LucideGitCommitHorizontal,
-  LucideGitMerge,
-  LucideGitPullRequestArrow,
-  LucideHistory,
-  LucideKeyboard,
-  LucideLayoutGrid,
-  LucideLink,
-  LucideMap,
-  LucideMonitor,
-  LucideMoon,
-  LucidePlus,
-  LucideRefreshCw,
-  LucideSearch,
-  LucideServer,
-  LucideSparkles,
-  LucideSquareTerminal,
-  LucideSun,
-  LucideSunMoon,
-  LucideX,
-} from "@lucide/angular";
-import type { PaletteIcon as Icon } from "./palette-items";
+import { ChangeDetectionStrategy, Component, computed, input } from "@angular/core";
+import { Icon } from "../../ui/icon";
+import type { IconName } from "../../ui/icon-data";
+import type { PaletteIcon as Kind } from "./palette-items";
+
+const ICONS: Readonly<Record<Kind, IconName>> = {
+  page: "book-open",
+  wiki: "book-open",
+  task: "file-text",
+  tasks: "layout-grid",
+  file: "file-code-2",
+  code: "code-xml",
+  changes: "git-commit-horizontal",
+  history: "history",
+  branch: "git-branch",
+  "current-branch": "circle-dot",
+  "remote-branch": "cloud-download",
+  "add-branch": "git-branch-plus",
+  merge: "git-merge",
+  rebase: "git-pull-request-arrow",
+  add: "plus",
+  fetch: "refresh-cw",
+  sync: "refresh-cw",
+  pull: "arrow-down-to-line",
+  push: "arrow-up-from-line",
+  folder: "folder-open",
+  local: "folder-open",
+  server: "server",
+  ssh: "server",
+  wsl: "monitor",
+  clone: "cloud-download",
+  close: "x",
+  dark: "moon",
+  light: "sun",
+  system: "sun-moon",
+  minimap: "map",
+  keyboard: "keyboard",
+  terminal: "square-terminal",
+  link: "link",
+  tour: "compass",
+  news: "sparkles",
+  docs: "book-marked",
+  search: "search",
+};
 
 @Component({
   selector: "gd-palette-icon",
-  imports: [
-    LucideArrowDownToLine,
-    LucideArrowUpFromLine,
-    LucideBookMarked,
-    LucideBookOpen,
-    LucideCircleDot,
-    LucideCloudDownload,
-    LucideCodeXml,
-    LucideCompass,
-    LucideFileCode2,
-    LucideFileText,
-    LucideFolderOpen,
-    LucideGitBranch,
-    LucideGitBranchPlus,
-    LucideGitCommitHorizontal,
-    LucideGitMerge,
-    LucideGitPullRequestArrow,
-    LucideHistory,
-    LucideKeyboard,
-    LucideLayoutGrid,
-    LucideLink,
-    LucideMap,
-    LucideMonitor,
-    LucideMoon,
-    LucidePlus,
-    LucideRefreshCw,
-    LucideSearch,
-    LucideServer,
-    LucideSparkles,
-    LucideSquareTerminal,
-    LucideSun,
-    LucideSunMoon,
-    LucideX,
-  ],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: contents" },
-  template: `
-    @switch (icon()) {
-      @case ("page") {
-        <svg lucideBookOpen [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("wiki") {
-        <svg lucideBookOpen [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("task") {
-        <svg lucideFileText [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("tasks") {
-        <svg lucideLayoutGrid [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("file") {
-        <svg lucideFileCode2 [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("code") {
-        <svg lucideCodeXml [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("changes") {
-        <svg lucideGitCommitHorizontal [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("history") {
-        <svg lucideHistory [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("branch") {
-        <svg lucideGitBranch [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("current-branch") {
-        <svg lucideCircleDot [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("remote-branch") {
-        <svg lucideCloudDownload [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("add-branch") {
-        <svg lucideGitBranchPlus [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("merge") {
-        <svg lucideGitMerge [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("rebase") {
-        <svg lucideGitPullRequestArrow [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("add") {
-        <svg lucidePlus [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("fetch") {
-        <svg lucideRefreshCw [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("sync") {
-        <svg lucideRefreshCw [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("pull") {
-        <svg lucideArrowDownToLine [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("push") {
-        <svg lucideArrowUpFromLine [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("folder") {
-        <svg lucideFolderOpen [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("local") {
-        <svg lucideFolderOpen [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("server") {
-        <svg lucideServer [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("ssh") {
-        <svg lucideServer [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("wsl") {
-        <svg lucideMonitor [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("clone") {
-        <svg lucideCloudDownload [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("close") {
-        <svg lucideX [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("dark") {
-        <svg lucideMoon [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("light") {
-        <svg lucideSun [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("system") {
-        <svg lucideSunMoon [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("minimap") {
-        <svg lucideMap [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("keyboard") {
-        <svg lucideKeyboard [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("terminal") {
-        <svg lucideSquareTerminal [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("link") {
-        <svg lucideLink [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("tour") {
-        <svg lucideCompass [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("news") {
-        <svg lucideSparkles [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("docs") {
-        <svg lucideBookMarked [size]="15" aria-hidden="true"></svg>
-      }
-      @case ("search") {
-        <svg lucideSearch [size]="15" aria-hidden="true"></svg>
-      }
-    }
-  `,
+  template: `<svg gd-icon [name]="name()" [size]="15"></svg>`,
 })
 export class PaletteIcon {
-  readonly icon = input.required<Icon>();
+  readonly icon = input.required<Kind>();
+  protected readonly name = computed(() => ICONS[this.icon()]);
 }

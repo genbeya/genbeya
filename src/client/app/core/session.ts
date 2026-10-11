@@ -8,7 +8,7 @@ import type { GitdeskLink } from "../../../contracts/gitdesk-link";
 import { syncsContentBranch, type Location, type Preferences, type Snapshot } from "../../../contracts/model";
 import { requestedLink, requestedLocation } from "../../../utilities/launch-request";
 import { MANAGERS, SHELL } from "../platform/platform";
-import { Notifications } from "./notifications";
+import { messageOf, Notifications } from "./notifications";
 import { UnsavedChanges } from "./unsaved-changes";
 
 export const POLL_INTERVAL = 4000;
@@ -125,14 +125,31 @@ export class Session {
    * and refreshes afterwards. Resolves to undefined when the action failed.
    */
   async run<T>(action: () => Promise<T>, success?: string): Promise<T | undefined> {
+    const outcome = await this.perform(action, success);
+    if ("error" in outcome) this.notifications.error(outcome.error);
+    return "value" in outcome ? outcome.value : undefined;
+  }
+
+  /**
+   * Like {@link run}, but a failure comes back as its message instead of a
+   * notification, for a dialog to show while it stays open; null on success.
+   */
+  async attempt(action: () => Promise<unknown>, success?: string): Promise<string | null> {
+    const outcome = await this.perform(action, success);
+    return "error" in outcome ? messageOf(outcome.error) : null;
+  }
+
+  private async perform<T>(action: () => Promise<T>, success?: string): Promise<{ value: T } | { error: unknown }> {
     this.pending.update((n) => n + 1);
+    // Errors from before an action that then succeeds are stale.
+    const mark = this.notifications.mark();
     try {
-      const result = await action();
+      const value = await action();
+      this.notifications.clearErrors(mark);
       if (success) this.notifications.success(success);
-      return result;
+      return { value };
     } catch (error) {
-      this.notifications.error(error);
-      return undefined;
+      return { error };
     } finally {
       await this.refresh().catch(() => undefined);
       this.pending.update((n) => n - 1);

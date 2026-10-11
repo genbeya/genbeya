@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, untracked, ViewEncapsulation } from "@angular/core";
-import { LucideBookOpen, LucidePlus } from "@lucide/angular";
 import { hotkey } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { FolderPage } from "./folder-page";
 import { PageTree } from "./page-tree";
@@ -19,7 +19,7 @@ import { WikiPage } from "./wiki-page";
  */
 @Component({
   selector: "gd-wiki-view",
-  imports: [EmptyState, FolderPage, PageTree, Resizable, ResizeHandle, WikiPage, LucideBookOpen, LucidePlus],
+  imports: [EmptyState, FolderPage, Icon, PageTree, Resizable, ResizeHandle, WikiPage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./wiki.css",
@@ -39,10 +39,10 @@ import { WikiPage } from "./wiki-page";
           <gd-folder-page [path]="path" />
         } @else if (!firstPage()) {
           <gd-empty-state title="No pages yet">
-            <svg icon lucideBookOpen [size]="20" aria-hidden="true"></svg>
+            <svg icon gd-icon name="book-open" [size]="20"></svg>
             <p>Pages are Markdown files in {{ root() }}/. Start with a home page.</p>
             <button type="button" class="btn btn-primary btn-m" (click)="createHome()">
-              <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create home page</span>
+              <svg gd-icon name="plus" [size]="14"></svg><span>Create home page</span>
             </button>
           </gd-empty-state>
         }

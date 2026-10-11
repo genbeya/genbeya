@@ -1,20 +1,20 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
-import { LucideChevronRight } from "@lucide/angular";
 import { Session } from "../../core/session";
+import { Icon } from "../../ui/icon";
 import { WikiActions } from "./wiki-actions";
 import { findPage, nodeKey } from "./wiki-pages";
 
 /** The pages above a page or folder, each a link, then its own title. */
 @Component({
   selector: "gd-breadcrumbs",
-  imports: [LucideChevronRight],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view-title" },
   template: `
     @for (node of trail(); track key(node)) {
       <span class="row crumb-row">
         <button type="button" class="crumb plain" (click)="wiki.openNode(node)">{{ node.title }}</button>
-        <svg lucideChevronRight [size]="13" class="crumb-sep" aria-hidden="true"></svg>
+        <svg gd-icon name="chevron-right" [size]="13" class="crumb-sep"></svg>
       </span>
     }
     <span class="ellipsis">{{ title() }}</span>

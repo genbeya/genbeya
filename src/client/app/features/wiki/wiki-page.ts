@@ -1,6 +1,5 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from "@angular/core";
-import { LucideColumns2, LucideFileText, LucidePencil, LucidePlus } from "@lucide/angular";
 import { Dialogs } from "../../core/dialogs";
 import { fileResource, stripFrontmatter } from "../../core/file-resource";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
@@ -12,6 +11,7 @@ import { CodeEditor } from "../../editor/code-editor";
 import { headingAt } from "../../markdown/headings";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { EmptyState } from "../../ui/empty-state";
+import { Icon } from "../../ui/icon";
 import { ShareMenu } from "../share/share-menu";
 import { Breadcrumbs } from "./breadcrumbs";
 import { PageMenu } from "./page-menu";
@@ -24,29 +24,16 @@ const PREVIEW_DELAY = 150;
 
 @Component({
   selector: "gd-wiki-page",
-  imports: [
-    Breadcrumbs,
-    CdkContextMenuTrigger,
-    CodeEditor,
-    EmptyState,
-    MarkdownView,
-    PageMenu,
-    PageOutline,
-    ShareMenu,
-    LucideColumns2,
-    LucideFileText,
-    LucidePencil,
-    LucidePlus,
-  ],
+  imports: [Breadcrumbs, CdkContextMenuTrigger, CodeEditor, EmptyState, Icon, MarkdownView, PageMenu, PageOutline, ShareMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
     @if (resource.error()) {
       <gd-empty-state title="This page does not exist">
-        <svg icon lucideFileText [size]="20" aria-hidden="true"></svg>
+        <svg icon gd-icon name="file-text" [size]="20"></svg>
         <p class="selectable">{{ path() }}</p>
         <button type="button" class="btn btn-primary btn-m" (click)="create()">
-          <svg lucidePlus [size]="14" aria-hidden="true"></svg><span>Create it</span>
+          <svg gd-icon name="plus" [size]="14"></svg><span>Create it</span>
         </button>
       </gd-empty-state>
     } @else {
@@ -72,7 +59,7 @@ const PREVIEW_DELAY = 150;
             [attr.aria-pressed]="preview()"
             (click)="preview.set(!preview())"
           >
-            <svg lucideColumns2 [size]="15" aria-hidden="true"></svg>
+            <svg gd-icon name="columns-2" [size]="15"></svg>
           </button>
           <button type="button" class="btn btn-ghost btn-m" (click)="cancel()"><span>Cancel</span></button>
           <button type="button" class="btn btn-primary btn-m" (click)="save(true)">
@@ -80,7 +67,7 @@ const PREVIEW_DELAY = 150;
           </button>
         } @else {
           <button type="button" class="btn btn-default btn-m" data-tour="wiki-edit" [disabled]="!resource.file()" (click)="edit()">
-            <svg lucidePencil [size]="13" aria-hidden="true"></svg><span>Edit</span><kbd class="kbd">E</kbd>
+            <svg gd-icon name="pencil" [size]="13"></svg><span>Edit</span><kbd class="kbd">E</kbd>
           </button>
           <gd-page-menu [path]="path()" />
         }

@@ -11,7 +11,7 @@ import type { LinkTarget } from "../../markdown/link-target";
 import { parseLines, referenceCandidates } from "../../markdown/references";
 import type { GitdeskOptions } from "../../markdown/markdown-pipeline";
 import { filePaths } from "../../../../utilities/file-tree";
-import { MovePageDialog, type MovePageOptions, type PageMoveChoice } from "./move-page-dialog";
+import type { MovePageOptions, PageMoveChoice } from "./move-page-dialog";
 import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
 
 @Injectable({ providedIn: "root" })
@@ -60,6 +60,7 @@ export class WikiActions {
   /** Asks for a name, below `parent` (a page) when given, and creates the page. */
   async createPage(parent?: string, name = ""): Promise<void> {
     const root = this.root();
+    let created: Awaited<ReturnType<WorkspaceApi["content"]["createPage"]>> | undefined;
     const value = await this.dialogs.prompt({
       title: "New page",
       label: "Page name",
@@ -68,16 +69,17 @@ export class WikiActions {
       confirm: "Create",
       hint: `Use / to nest pages. The page is saved as Markdown in ${root}/.`,
       validate: pageNameProblem,
+      // A page that exists already is reported in the dialog, which stays open for another name.
+      accept: (name) => this.session.attempt(async () => (created = await this.api.content.createPage(pagePath(root, name)))),
     });
-    if (!value) return;
-    const created = await this.session.run(() => this.api.content.createPage(pagePath(root, value)));
-    if (!created) return;
+    if (!value || !created) return;
     this.session.contentChanged();
     await this.openPage(created.path);
   }
 
   /** Asks for a new name and moves the page with its subpages, updating the links to them if wanted. */
   async movePage(path: string): Promise<void> {
+    const { MovePageDialog } = await import("./move-page-dialog");
     const choice = await this.dialogs.open<PageMoveChoice, MovePageOptions>(MovePageDialog, { path });
     if (!choice) return;
     const moved = await this.session.run(

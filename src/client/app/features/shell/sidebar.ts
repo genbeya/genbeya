@@ -1,30 +1,12 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject } from "@angular/core";
 import { RouterLink, RouterLinkActive } from "@angular/router";
-import {
-  LucideArrowDown,
-  LucideArrowUp,
-  LucideBookOpen,
-  LucideChevronsUpDown,
-  LucideCloudDownload,
-  LucideCodeXml,
-  LucideFolderOpen,
-  LucideGitBranch,
-  LucideGitCommitHorizontal,
-  LucideHistory,
-  LucideLayoutGrid,
-  LucideRefreshCw,
-  LucideSearch,
-  LucideServer,
-  LucideSettings,
-  LucideSquareTerminal,
-  LucideX,
-} from "@lucide/angular";
 import { CONTENT_AREAS, describeLocation, sameLocation, syncsContentBranch } from "../../../../contracts/model";
 import { CTRL_KEY, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
+import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { TourOffer } from "../onboarding/tour-offer";
 import { AREA_NAMES } from "../settings/content-areas";
@@ -37,32 +19,7 @@ export type View = (typeof VIEWS)[number];
 
 @Component({
   selector: "gd-sidebar",
-  imports: [
-    CdkMenu,
-    CdkMenuTrigger,
-    RouterLink,
-    RouterLinkActive,
-    MenuItem,
-    HostIcon,
-    TourOffer,
-    LucideArrowDown,
-    LucideArrowUp,
-    LucideBookOpen,
-    LucideChevronsUpDown,
-    LucideCloudDownload,
-    LucideCodeXml,
-    LucideFolderOpen,
-    LucideGitBranch,
-    LucideGitCommitHorizontal,
-    LucideHistory,
-    LucideLayoutGrid,
-    LucideRefreshCw,
-    LucideSearch,
-    LucideServer,
-    LucideSettings,
-    LucideSquareTerminal,
-    LucideX,
-  ],
+  imports: [CdkMenu, CdkMenuTrigger, HostIcon, Icon, MenuItem, RouterLink, RouterLinkActive, TourOffer],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./sidebar.css",
   host: { class: "sidebar" },

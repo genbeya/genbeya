@@ -62,6 +62,15 @@ describe("RebaseEngine", () => {
     ]);
   });
 
+  it("joins a squash without a message of its own from the commits before it in their new order, as reworded", () => {
+    expect(todo([...picks("c"), { hash: "a", action: "squash" }, { hash: "b", action: "squash" }, ...picks("d")]).messages).toEqual([
+      "Commit c\n\nCommit a\n\nCommit b",
+    ]);
+    expect(
+      todo([{ hash: "b", action: "reword", message: "Better" }, { hash: "a", action: "squash" }, ...picks("c", "d")]).messages,
+    ).toEqual(["Better\n\nCommit a"]);
+  });
+
   it("keeps the first commit's message for fixups alone", () => {
     expect(todo([...picks("a"), { hash: "b", action: "fixup" }, ...picks("c", "d")]).messages).toEqual([]);
   });

@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from "@angular/core";
-import { LucideFileCode2, LucideMinus, LucidePlus, LucideUndo2 } from "@lucide/angular";
 import type { Change } from "../../../../contracts/model";
+import { Icon } from "../../ui/icon";
 
 /** A changed file in the staged or unstaged list, with its actions on hover. */
 @Component({
   selector: "gd-change-row",
-  imports: [LucideFileCode2, LucideMinus, LucidePlus, LucideUndo2],
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./change-row.css",
   host: {
@@ -25,7 +25,7 @@ import type { Change } from "../../../../contracts/model";
     </span>
     <span class="change-actions">
       <button type="button" class="icon-btn" aria-label="Open file" title="Open file" (click)="$event.stopPropagation(); openFile.emit()">
-        <svg lucideFileCode2 [size]="13" aria-hidden="true"></svg>
+        <svg gd-icon name="file-code-2" [size]="13"></svg>
       </button>
       @if (!staged()) {
         <button
@@ -35,7 +35,7 @@ import type { Change } from "../../../../contracts/model";
           title="Discard changes"
           (click)="$event.stopPropagation(); discard.emit()"
         >
-          <svg lucideUndo2 [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="undo-2" [size]="13"></svg>
         </button>
       }
       <button
@@ -46,9 +46,9 @@ import type { Change } from "../../../../contracts/model";
         (click)="$event.stopPropagation(); toggleStaged.emit()"
       >
         @if (staged()) {
-          <svg lucideMinus [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="minus" [size]="13"></svg>
         } @else {
-          <svg lucidePlus [size]="13" aria-hidden="true"></svg>
+          <svg gd-icon name="plus" [size]="13"></svg>
         }
       </button>
     </span>

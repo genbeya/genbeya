@@ -1,21 +1,25 @@
-import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from "@angular/cdk/menu";
-import { ChangeDetectionStrategy, Component, input, output } from "@angular/core";
-import { LucideDynamicIcon } from "@lucide/angular";
+import { CdkMenu, CdkMenuItemRadio, CdkMenuTrigger } from "@angular/cdk/menu";
+import { ChangeDetectionStrategy, Component, input, output, viewChild } from "@angular/core";
+import { Icon } from "./icon";
 import { ICON_NAMES, iconFor } from "./icons";
 import { MenuItem } from "./menu-item";
 
+/** Icons per row of the grid. */
+const COLUMNS = 7;
+
 /**
  * A button showing an icon of the curated set; it opens a grid to choose
- * another. With `noneLabel`, the menu also offers no icon (null).
+ * another, with the arrow keys moving through rows and columns. With
+ * `noneLabel`, the menu also offers no icon (null).
  */
 @Component({
   selector: "gd-icon-picker",
-  imports: [CdkMenu, CdkMenuItem, CdkMenuTrigger, LucideDynamicIcon, MenuItem],
+  imports: [CdkMenu, CdkMenuItemRadio, CdkMenuTrigger, Icon, MenuItem],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .icon-grid {
       display: grid;
-      grid-template-columns: repeat(7, 30px);
+      grid-template-columns: repeat(var(--columns), 30px);
       gap: 2px;
       min-width: 0;
     }
@@ -56,27 +60,29 @@ import { MenuItem } from "./menu-item";
       [class.is-active]="trigger.isOpen()"
     >
       @if (value()) {
-        <svg [lucideIcon]="iconFor(value()!)" [size]="15" aria-hidden="true"></svg>
+        <svg gd-icon [name]="iconFor(value()!)" [size]="15"></svg>
       } @else {
         <ng-content select="[none]" />
       }
     </button>
     <ng-template #menu>
-      <div class="menu icon-grid" cdkMenu>
+      <div class="menu icon-grid" cdkMenu [style.--columns]="columns">
         @if (noneLabel()) {
           <button gd-menu-item [checked]="!value()" (selected)="changed.emit(null)">{{ noneLabel() }}</button>
         }
-        @for (name of names; track name) {
+        @for (name of names; track name; let index = $index) {
           <button
             type="button"
             class="icon-choice"
-            cdkMenuItem
+            cdkMenuItemRadio
+            [cdkMenuItemChecked]="name === value()"
             [attr.aria-label]="readable(name)"
             [title]="readable(name)"
             [class.is-active]="name === value()"
+            (keydown)="gridKey($event, index)"
             (cdkMenuItemTriggered)="changed.emit(name)"
           >
-            <svg [lucideIcon]="iconFor(name)" [size]="15" aria-hidden="true"></svg>
+            <svg gd-icon [name]="name" [size]="15"></svg>
           </button>
         }
       </div>
@@ -93,6 +99,23 @@ export class IconPicker {
   readonly changed = output<string | null>();
   protected readonly names = ICON_NAMES;
   protected readonly iconFor = iconFor;
+  protected readonly columns = COLUMNS;
+  private readonly menu = viewChild(CdkMenu);
+
+  /**
+   * Left and right move by one icon, up and down by a row; up from the first
+   * row goes to the no-icon item. The menu itself only knows up and down.
+   */
+  protected gridKey(event: KeyboardEvent, index: number) {
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -COLUMNS, ArrowDown: COLUMNS }[event.key];
+    if (step === undefined || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const none = this.noneLabel() ? 1 : 0;
+    const target = index + step;
+    if (target >= 0 && target < this.names.length) this.menu()?.setActiveMenuItem(none + target);
+    else if (target < 0 && none && event.key === "ArrowUp") this.menu()?.setActiveMenuItem(0);
+  }
 
   /** "circle-check" → "Circle check". */
   protected readable(name: string): string {

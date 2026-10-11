@@ -1,8 +1,8 @@
 import { CdkMenu } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, inject, type TemplateRef, viewChild } from "@angular/core";
-import { LucideGlobe, LucideLink } from "@lucide/angular";
 import type { LinkItem } from "../../../../contracts/gitdesk-link";
 import { ShareLinks } from "../../core/share-links";
+import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 
 /**
@@ -15,19 +15,17 @@ import { MenuItem } from "../../ui/menu-item";
 @Component({
   selector: "gd-share-menu",
   exportAs: "gdShareMenu",
-  imports: [CdkMenu, MenuItem, LucideGlobe, LucideLink],
+  imports: [CdkMenu, Icon, MenuItem],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: "display: none" },
   template: `
     <ng-template #menu let-item>
       <div class="menu" cdkMenu>
         <button gd-menu-item [disabled]="!!links.unavailable()" [attr.title]="links.unavailable()" (selected)="links.copyGitdeskLink(item)">
-          <svg icon lucideLink [size]="14" aria-hidden="true"></svg>Copy GitDesk link
+          <svg icon gd-icon name="link" [size]="14"></svg>Copy GitDesk link
         </button>
         @if (links.webLink(item)) {
-          <button gd-menu-item (selected)="links.copyWebLink(item)">
-            <svg icon lucideGlobe [size]="14" aria-hidden="true"></svg>Copy web link
-          </button>
+          <button gd-menu-item (selected)="links.copyWebLink(item)"><svg icon gd-icon name="globe" [size]="14"></svg>Copy web link</button>
         }
       </div>
     </ng-template>

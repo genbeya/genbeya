@@ -28,15 +28,16 @@ export class RepositoryActions {
   }
 
   async createBranch(initial = ""): Promise<void> {
-    const name = await this.dialogs.prompt({
+    await this.dialogs.prompt({
       title: "Create branch",
       label: "Branch name",
       initial,
       placeholder: "feature/my-change",
       confirm: "Create and switch",
       hint: "Starts from the current commit. Uncommitted changes come along.",
+      // A name Git refuses, or one that exists, is reported in the dialog.
+      accept: (name) => this.session.attempt(() => this.api.versionControl.createBranch(name), `Switched to ${name}`),
     });
-    if (name) await this.session.run(() => this.api.versionControl.createBranch(name), `Switched to ${name}`);
   }
 
   sync(action: SyncAction, remote: string): Promise<unknown> {
