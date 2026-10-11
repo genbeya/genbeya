@@ -76,6 +76,41 @@ describe("StashAccess", () => {
     expect(await repo.stashes.list()).toEqual([]);
   });
 
+  it("addresses stashes by commit, though a terminal pushed another meanwhile", async () => {
+    const repository = await createRepository();
+    const repo = await open(repository.root);
+    await repository.write("src/code.ts", "listed");
+    await repo.stashes.push({ ...options, message: "Listed" });
+    const [listed] = await repo.stashes.list();
+    const pushed = async (content: string) => {
+      await repository.write("src/code.ts", content);
+      await repository.git("stash", "push", "-q", "-m", content);
+    };
+
+    await pushed("pushed meanwhile");
+    expect(await repo.stashes.apply(listed!, false)).toBe("done");
+    expect(await repository.read("src/code.ts")).toBe("listed");
+    await repository.git("checkout", "--", "src/code.ts");
+
+    await pushed("pushed again");
+    expect(await repo.stashes.apply(listed!, true)).toBe("done");
+    expect(await repository.read("src/code.ts")).toBe("listed");
+    expect((await repo.stashes.list()).map((stash) => stash.message)).toEqual(["pushed again", "pushed meanwhile"]);
+    await repository.git("checkout", "--", "src/code.ts");
+
+    await repository.write("src/code.ts", "dropped");
+    await repo.stashes.push({ ...options, message: "Dropped" });
+    await repository.write("src/code.ts", "branched");
+    await repo.stashes.push({ ...options, message: "Branched" });
+    const [branched, dropped] = await repo.stashes.list();
+    await pushed("pushed last");
+    await repo.stashes.drop(dropped!);
+    await repo.stashes.branch(branched!, "from-stash");
+    expect(await repository.read("src/code.ts")).toBe("branched");
+    expect((await repo.stashes.list()).map((stash) => stash.message)).toEqual(["pushed last", "pushed again", "pushed meanwhile"]);
+    await expect(repo.stashes.drop(dropped!)).rejects.toThrow("This stash no longer exists.");
+  });
+
   it("stops with conflicts and keeps a popped stash", async () => {
     const repository = await createRepository();
     const repo = await open(repository.root);
