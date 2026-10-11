@@ -99,7 +99,17 @@ const fieldsOf = (input: TaskInput) => ({
 /** Flow lists keep the usual spelling, [a, b]. */
 const yamlText = (document: YAML.Document) => document.toString({ flowCollectionPadding: false });
 
-const compose = (frontmatter: string, body: string) => `---\n${frontmatter}---\n\n${body.replace(/^\s*\n/, "").trimEnd()}\n`;
+const compose = (frontmatter: string, body: string) => {
+  const text = body.replace(/^\s*\n/, "").trimEnd();
+  return `---\n${frontmatter}---\n${text && `\n${text}\n`}`;
+};
+
+/** The headings new templates of a type start with; other types get the last. */
+const OUTLINES: Readonly<Record<string, readonly string[]>> = {
+  bug: ["Steps to reproduce", "Expected", "Actual", "Environment"],
+  feature: ["Goal", "Proposal", "Done when"],
+  "": ["Context", "Done when"],
+};
 
 /** Markdown files below the task folder, outside folders whose names start with a dot such as the templates. */
 export const isTaskFile = (path: string, taskRoot: string): boolean =>
@@ -167,10 +177,7 @@ export class TaskEngine {
       "# priority, assignee, labels or custom fields, preset theirs too.",
       "---",
       "",
-      "## Context",
-      "",
-      "## Done when",
-      "",
+      ...(OUTLINES[type.toLowerCase()] ?? OUTLINES[""]!).flatMap((heading) => [`## ${heading}`, ""]),
     ].join("\n");
   }
 

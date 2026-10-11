@@ -237,6 +237,13 @@ describe("TaskEngine serialisation", () => {
     expect(engine.parse("t.md", engine.addComment(file, "Ada", new Date(), "Hi"), "h", "tasks").fields).toEqual({ notes });
   });
 
+  it("ends a task without a description right after its frontmatter", () => {
+    const file = engine.serializeNew("TP-1", { ...input, body: "" });
+    expect(file).toMatch(/\n {2}- backend\n---\n$/);
+    expect(engine.parse("t.md", file, "h", "tasks").body).toBe("");
+    expect(engine.serializeUpdate(file, { ...input, body: "\n\n" })).toBe(file);
+  });
+
   it("does not add a priority the file did not have", () => {
     const original = "---\nid: TP-1\ntitle: Old\nstatus: todo\n---\n";
     expect(engine.serializeUpdate(original, { ...input, priority: "none" })).not.toContain("priority");
@@ -280,6 +287,14 @@ describe("TaskEngine templates", () => {
     const starter = engine.newTemplate("bug");
     expect(starter).toMatch(/^---\n# .*bug/);
     expect(engine.parseTemplate(starter).body).toContain("##");
+  });
+
+  it("start with an outline that suits bugs and features", () => {
+    const headings = (type: string) => engine.parseTemplate(engine.newTemplate(type)).body.match(/^## .+$/gm);
+    expect(headings("bug")).toEqual(["## Steps to reproduce", "## Expected", "## Actual", "## Environment"]);
+    expect(headings("Bug")).toEqual(headings("bug"));
+    expect(headings("feature")).toEqual(["## Goal", "## Proposal", "## Done when"]);
+    expect(headings("chore")).toEqual(["## Context", "## Done when"]);
   });
 });
 
