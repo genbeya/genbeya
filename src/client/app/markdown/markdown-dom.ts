@@ -39,6 +39,7 @@ const ALLOWED = new Set([
   "sup",
   "sub",
   "section",
+  "kbd",
   "details",
   "summary",
 ]);

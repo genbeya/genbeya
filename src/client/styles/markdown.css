@@ -178,6 +178,43 @@
   transform: rotate(45deg) translate(-2px, -1px);
 }
 
+.markdown details.md-details {
+  margin: 0 0 1em;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.markdown details.md-details > summary {
+  margin: -8px -14px;
+  padding: 8px 14px;
+  font-weight: 600;
+}
+
+.markdown details.md-details[open] > summary {
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.markdown details.md-details > :last-child {
+  margin-bottom: 0;
+}
+
+/* Keys: <kbd>Ctrl</kbd> */
+.markdown kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0.05em 0.4em;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg-raised);
+  color: var(--text);
+  font: 500 0.8em/1.5 var(--font-ui);
+  text-align: center;
+  vertical-align: 0.1em;
+}
+
 .callout-note {
   --callout-fg: var(--blue);
   --callout-bg: var(--blue-soft);

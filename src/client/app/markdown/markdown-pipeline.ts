@@ -8,6 +8,7 @@ import { unified } from "unified";
 import { remarkCallouts } from "./callouts";
 import { rehypeCodeBlocks, remarkCodeBlocks } from "./code-blocks";
 import { remarkMath } from "./math";
+import { remarkRawHtml } from "./raw-html";
 import { remarkGitdesk, type GitdeskOptions } from "./remark-gitdesk";
 
 /** Languages whose code blocks are diagrams or plain text, never highlighted. */
@@ -18,10 +19,11 @@ export function parseMarkdown(source: string, options: GitdeskOptions = {}): Roo
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
+    // Other raw HTML in Markdown is dropped: pages render only what Markdown can express.
+    .use(remarkRawHtml)
     .use(remarkCallouts)
     .use(remarkCodeBlocks)
     .use(remarkGitdesk, options)
-    // Raw HTML in Markdown is dropped: pages render only what Markdown can express.
     .use(remarkRehype)
     .use(rehypeHighlight, { plainText: PLAIN, detect: false })
     .use(rehypeCodeBlocks);
