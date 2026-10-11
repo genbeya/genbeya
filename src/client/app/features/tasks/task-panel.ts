@@ -44,15 +44,40 @@ type Tab = (typeof TABS)[number];
 
 const empty = (status: string, epic = ""): TaskInput => ({ title: "", status, priority: "none", assignee: "", labels: [], body: "", epic });
 
-/** `draft` with the template's description, and its presets where the draft has none. */
-const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
-  ...draft,
-  body: template.body,
-  priority: draft.priority === "none" ? (template.priority ?? draft.priority) : draft.priority,
-  assignee: draft.assignee || (template.assignee ?? ""),
-  labels: draft.labels.length ? draft.labels : (template.labels ?? []),
-  fields: { ...template.fields, ...draft.fields },
-});
+/** What a template put into a new task's draft. */
+type FromTemplate = Partial<Pick<TaskInput, "body" | "priority" | "assignee" | "labels" | "fields">>;
+
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * `draft` with the template's description where it has none, and its presets
+ * where the draft has none; with what the template put in.
+ */
+function withTemplate(draft: TaskInput, template: TaskTemplate): { draft: TaskInput; applied: FromTemplate } {
+  const applied: { -readonly [K in keyof FromTemplate]: FromTemplate[K] } = {};
+  if (!draft.body.trim() && template.body) applied.body = template.body;
+  if (draft.priority === "none" && template.priority && template.priority !== "none") applied.priority = template.priority;
+  if (!draft.assignee && template.assignee) applied.assignee = template.assignee;
+  if (!draft.labels.length && template.labels?.length) applied.labels = template.labels;
+  const fields = Object.entries(template.fields ?? {}).filter(([name]) => (draft.fields?.[name] ?? "") === "");
+  if (fields.length) applied.fields = Object.fromEntries(fields);
+  return { draft: { ...draft, ...applied, fields: { ...draft.fields, ...applied.fields } }, applied };
+}
+
+/** `draft` without what a template put in, except what the user has changed since. */
+function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
+  const kept = <K extends keyof FromTemplate>(key: K, cleared: TaskInput[K]) =>
+    applied[key] !== undefined && sameValue(draft[key], applied[key]) ? cleared : draft[key];
+  const fields = Object.entries(draft.fields ?? {}).filter(([name, value]) => applied.fields?.[name] !== value);
+  return {
+    ...draft,
+    body: kept("body", "")!,
+    priority: kept("priority", "none")!,
+    assignee: kept("assignee", "")!,
+    labels: kept("labels", [])!,
+    ...(draft.fields ? { fields: Object.fromEntries(fields) } : {}),
+  };
+}
 
 /**
  * The task drawer. Viewing renders the description and saves property
@@ -257,8 +282,8 @@ ${this.task()!.hash}`,
   });
   /** The task an edit started from: saving fails if the file changed since. */
   private editBase: Task | null = null;
-  /** The description the last template gave a new task. */
-  private templateBody = "";
+  /** What the last template put into a new task, taken back when the type changes unless the user changed it since. */
+  private fromTemplate: FromTemplate = {};
   private saving = false;
   /** Property changes while viewing save one after another, each on the newest version. */
   private queue: Promise<unknown> = Promise.resolve();
@@ -414,15 +439,18 @@ ${this.task()!.hash}`,
   }
 
   /**
-   * A new task of a type starts from the type's template, unless someone wrote
-   * its description already. The template's fields fill those still unset.
+   * A new task of a type starts from the type's template: its description,
+   * unless someone wrote one already, and its presets where the task has
+   * none. Another type takes back what the previous template put in and the
+   * user left as it was.
    */
   private async applyTemplate(type: string) {
     const template = await this.session.run(() => this.api.content.taskTemplate(type));
-    const draft = this.draft();
-    if (!template || draft.type !== type || (draft.body.trim() && draft.body !== this.templateBody)) return;
-    this.templateBody = template.body;
-    this.draft.set(withTemplate(draft, template));
+    if (this.draft().type !== type) return;
+    const draft = withoutTemplate(this.draft(), this.fromTemplate);
+    const next = template ? withTemplate(draft, template) : { draft, applied: {} };
+    this.fromTemplate = next.applied;
+    this.draft.set(next.draft);
   }
 
   protected toggleCheckbox(offset: number) {

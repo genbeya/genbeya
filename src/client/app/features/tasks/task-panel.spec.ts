@@ -136,6 +136,25 @@ describe("TaskPanel", () => {
     document.querySelector(".cdk-overlay-container")?.replaceChildren();
   });
 
+  it("takes back a template's presets for a type without one, keeping what the user changed", async () => {
+    const { managers, fixture } = await render({ createStatus: "todo" });
+    managers.content.taskTemplate.mockImplementation(async (_: string, type: string) =>
+      type === "bug" ? { body: "## Steps\n", priority: "high", labels: ["bug"], fields: { area: "ui", severity: "major" } } : null,
+    );
+    const panel = fixture.componentInstance as unknown as {
+      patch(change: object): void;
+      setField(change: object): void;
+      draft(): TaskInput;
+    };
+    panel.patch({ type: "bug" });
+    await settle(fixture);
+    panel.patch({ priority: "low" });
+    panel.setField({ name: "area", value: "backend" });
+    panel.patch({ type: "chore" });
+    await settle(fixture);
+    expect(panel.draft()).toMatchObject({ type: "chore", body: "", priority: "low", labels: [], fields: { area: "backend" } });
+  });
+
   it("starts a new task of a type from the type's template, keeping a description written already", async () => {
     const { managers, fixture, element } = await render({ createStatus: "todo" });
     managers.content.taskTemplate.mockImplementation(async (_: string, type: string) =>
@@ -146,14 +165,15 @@ describe("TaskPanel", () => {
     await settle(fixture);
     expect(managers.content.taskTemplate).toHaveBeenCalledWith("w1", "bug");
     expect(panel.draft()).toMatchObject({ type: "bug", body: "## Steps\n", priority: "high", labels: ["bug"] });
-    // Another type replaces the template's description, but not one written by hand.
+    // Another type replaces what the first template put in: its description and presets.
     panel.patch({ type: "feature" });
     await settle(fixture);
-    expect(panel.draft()).toMatchObject({ body: "## Goal\n", priority: "high" });
+    expect(panel.draft()).toMatchObject({ body: "## Goal\n", priority: "none", labels: [] });
+    // A description written by hand stays; presets fill what is still unset.
     panel.patch({ body: "Mine" });
     panel.patch({ type: "bug" });
     await settle(fixture);
-    expect(panel.draft().body).toBe("Mine");
+    expect(panel.draft()).toMatchObject({ body: "Mine", priority: "high", labels: ["bug"] });
     expect(element.querySelector("button[aria-label='Type']")!.textContent).toContain("Bug");
   });
 
