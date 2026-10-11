@@ -60,6 +60,7 @@ export class WikiActions {
   /** Asks for a name, below `parent` (a page) when given, and creates the page. */
   async createPage(parent?: string, name = ""): Promise<void> {
     const root = this.root();
+    let created: Awaited<ReturnType<WorkspaceApi["content"]["createPage"]>> | undefined;
     const value = await this.dialogs.prompt({
       title: "New page",
       label: "Page name",
@@ -68,10 +69,10 @@ export class WikiActions {
       confirm: "Create",
       hint: `Use / to nest pages. The page is saved as Markdown in ${root}/.`,
       validate: pageNameProblem,
+      // A page that exists already is reported in the dialog, which stays open for another name.
+      accept: (name) => this.session.attempt(async () => (created = await this.api.content.createPage(pagePath(root, name)))),
     });
-    if (!value) return;
-    const created = await this.session.run(() => this.api.content.createPage(pagePath(root, value)));
-    if (!created) return;
+    if (!value || !created) return;
     this.session.contentChanged();
     await this.openPage(created.path);
   }

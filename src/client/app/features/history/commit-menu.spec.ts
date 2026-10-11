@@ -4,6 +4,7 @@ import { TestBed } from "@angular/core/testing";
 import type { Commit, Snapshot } from "../../../../contracts/model";
 import { openRepository, settle } from "../../testing/component-harness";
 import { CommitMenu } from "./commit-menu";
+import type { NewRef, RefDialogOptions } from "./ref-dialog";
 
 const COMMIT: Commit = {
   hash: "c".repeat(40),
@@ -57,6 +58,10 @@ async function rightClick(change: Partial<Snapshot> = {}) {
   return { ...harness, fixture, choose };
 }
 
+/** The ref dialog creates the ref with its answer before it closes. */
+const answer = (dialogs: { open: ReturnType<typeof vi.fn> }, ref: NewRef) =>
+  dialogs.open.mockImplementation(async (_: unknown, options: RefDialogOptions) => ((await options.accept?.(ref)) ? undefined : ref));
+
 describe("CommitMenu", () => {
   afterEach(() => document.querySelector(".cdk-overlay-container")?.replaceChildren());
 
@@ -91,14 +96,14 @@ describe("CommitMenu", () => {
 
   it("creates a branch at the commit with the dialog's answer", async () => {
     const { dialogs, managers } = await rightClick();
-    dialogs.open.mockResolvedValue({ name: "topic", checkout: false, message: "" });
+    answer(dialogs, { name: "topic", checkout: false, message: "" });
     named("Create branch here…")!.click();
     await vi.waitFor(() => expect(managers.versionControl.createBranch).toHaveBeenCalledWith("w1", "topic", COMMIT.hash, false));
   });
 
   it("creates an annotated tag at the commit", async () => {
     const { dialogs, managers } = await rightClick();
-    dialogs.open.mockResolvedValue({ name: "v2", checkout: true, message: "Notes" });
+    answer(dialogs, { name: "v2", checkout: true, message: "Notes" });
     named("Create tag here…")!.click();
     await vi.waitFor(() => expect(managers.versionControl.createTag).toHaveBeenCalledWith("w1", "v2", COMMIT.hash, "Notes"));
   });

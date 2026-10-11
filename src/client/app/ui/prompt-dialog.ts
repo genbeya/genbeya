@@ -11,6 +11,11 @@ export interface PromptOptions {
   readonly confirm?: string;
   /** An error message keeps the dialog open. */
   readonly validate?: (value: string) => string | null;
+  /**
+   * Does what the dialog asks for with the value before it closes; a failure's
+   * message keeps it open, with the value, to correct it.
+   */
+  readonly accept?: (value: string) => Promise<string | null>;
 }
 
 /** Focuses a path field and selects the name, not the folder or extension, like file managers do. */
@@ -46,7 +51,7 @@ export function selectName(input: HTMLInputElement): void {
       }
       <footer>
         <button type="button" class="btn btn-default btn-m" (click)="dialog.close()"><span>Cancel</span></button>
-        <button type="submit" class="btn btn-primary btn-m" [disabled]="empty()">
+        <button type="submit" class="btn btn-primary btn-m" [disabled]="empty() || accepting()">
           <span>{{ options.confirm ?? "OK" }}</span>
         </button>
       </footer>
@@ -59,6 +64,7 @@ export class PromptDialog {
   protected readonly text = signal(this.options.initial ?? "");
   protected readonly error = signal<string | null>(null);
   protected readonly empty = computed(() => !this.text().trim());
+  protected readonly accepting = signal(false);
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>("field");
 
   constructor() {
@@ -70,11 +76,16 @@ export class PromptDialog {
     this.error.set(null);
   }
 
-  protected submit() {
+  protected async submit() {
     const value = this.text().trim();
-    if (!value) return;
+    if (!value || this.accepting()) return;
     const problem = this.options.validate?.(value) ?? null;
-    if (problem) this.error.set(problem);
-    else this.dialog.close(value);
+    if (problem) return this.error.set(problem);
+    if (this.options.accept) {
+      this.accepting.set(true);
+      const failure = await this.options.accept(value).finally(() => this.accepting.set(false));
+      if (failure) return this.error.set(failure);
+    }
+    this.dialog.close(value);
   }
 }
