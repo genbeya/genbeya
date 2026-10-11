@@ -117,9 +117,10 @@
   color: var(--text-2);
 }
 
-/* Callouts: > [!NOTE] */
-.markdown blockquote.callout {
+/* Callouts: > [!NOTE], > [!TIP] Title, > [!WARNING]- (folded) */
+.markdown .callout {
   position: relative;
+  margin: 0 0 1em;
   padding: 12px 16px 12px 16px;
   border: 1px solid var(--callout-line);
   border-left-width: 3px;
@@ -128,15 +129,53 @@
   color: var(--text);
 }
 
-.markdown blockquote.callout::before {
-  display: block;
-  margin-bottom: 2px;
+.markdown .callout > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown .callout-title {
+  margin: 0 0 2px;
   color: var(--callout-fg);
-  content: attr(data-callout);
-  font-size: 12px;
   font-weight: 650;
+}
+
+.markdown .callout-title.is-default {
+  font-size: 12px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.markdown details.callout:not([open]) > .callout-title {
+  margin-bottom: 0;
+}
+
+/* Collapsible sections: <details><summary>, and folding callouts */
+.markdown details > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.markdown details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.markdown details > summary::before {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: 0 3px 0 1px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: "";
+  transform: rotate(-45deg);
+  transition: transform 0.12s;
+}
+
+.markdown details[open] > summary::before {
+  transform: rotate(45deg) translate(-2px, -1px);
 }
 
 .callout-note {

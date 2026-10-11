@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
+import { remarkCallouts } from "./callouts";
 import { rehypeCodeBlocks, remarkCodeBlocks } from "./code-blocks";
 import { remarkMath } from "./math";
 import { remarkGitdesk, type GitdeskOptions } from "./remark-gitdesk";
@@ -17,6 +18,7 @@ export function parseMarkdown(source: string, options: GitdeskOptions = {}): Roo
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
+    .use(remarkCallouts)
     .use(remarkCodeBlocks)
     .use(remarkGitdesk, options)
     // Raw HTML in Markdown is dropped: pages render only what Markdown can express.

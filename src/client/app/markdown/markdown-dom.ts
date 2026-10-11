@@ -39,6 +39,8 @@ const ALLOWED = new Set([
   "sup",
   "sub",
   "section",
+  "details",
+  "summary",
 ]);
 /** Dropped together with their content. */
 const BLOCKED = new Set([
@@ -69,6 +71,7 @@ const ATTRIBUTES: Readonly<Record<string, string>> = {
   start: "start",
   ariaDescribedBy: "aria-describedby",
   ariaLabel: "aria-label",
+  open: "open",
 };
 /** Data attributes of callouts, footnotes, embeds and code lines; plugins name them `dataX` or `data-x`. */
 const DATA_ATTRIBUTES = new Set([
