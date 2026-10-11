@@ -22,6 +22,7 @@ export type PaletteIcon =
   | "fetch"
   | "pull"
   | "push"
+  | "undo"
   | "sync"
   | "folder"
   | "server"
@@ -77,7 +78,12 @@ export interface PaletteCommands {
   pullRebase(remote: string): void;
   /** Reopens the palette for searching inside files. */
   searchText(): void;
-  sync(action: "fetch" | "pull" | "push", remote: string): void;
+  sync(action: "fetch" | "pull", remote: string): void;
+  /** Pushes the current branch to its upstream, or publishes it. */
+  push(): void;
+  /** Asks where to push the current branch. */
+  pushTo(): void;
+  undoLastCommit(): void;
   syncContent(): void;
   pickFolder(): void;
   openRemote(): void;
@@ -229,8 +235,41 @@ export function allItems(
             keywords: "update rebase",
             run: () => commands.pullRebase(remote),
           },
-          { id: "push", group: "Actions", label: `Push to ${remote}`, icon: "push", run: () => commands.sync("push", remote) },
+          head.upstream || !head.branch
+            ? { id: "push", group: "Actions", label: `Push to ${remote}`, icon: "push", run: () => commands.push() }
+            : {
+                id: "push",
+                group: "Actions",
+                label: "Publish branch",
+                icon: "push",
+                keywords: "push upstream",
+                run: () => commands.push(),
+              },
+          ...(head.branch
+            ? [
+                {
+                  id: "push-to",
+                  group: "Actions",
+                  label: "Push to…",
+                  icon: "push",
+                  keywords: "remote branch upstream force lease",
+                  run: () => commands.pushTo(),
+                } satisfies PaletteItem,
+              ]
+            : []),
         ] satisfies PaletteItem[])
+      : []),
+    ...(head.branch && head.commit && !operation
+      ? [
+          {
+            id: "undo-commit",
+            group: "Actions",
+            label: "Undo last commit",
+            icon: "undo",
+            keywords: "reset soft uncommit",
+            run: () => commands.undoLastCommit(),
+          } satisfies PaletteItem,
+        ]
       : []),
     ...(syncsContentBranch(storage)
       ? [
