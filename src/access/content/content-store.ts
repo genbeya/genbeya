@@ -13,6 +13,7 @@
  */
 import { CONTENT_AREAS, type ContentArea, type Head, type StorageMode } from "../../contracts/model";
 import { encodeText } from "../../utilities/bytes";
+import { SerialQueue } from "../../utilities/serial-queue";
 import { FileStore, TEXT_LIMIT } from "../files/file-store";
 import { committedFile, committedFiles, fileHistory } from "../git/file-history";
 import { Git, GitError } from "../git/git";
@@ -77,6 +78,7 @@ export class ContentStore {
   private worktreeLocation: (ContentLocation & { key: string }) | null = null;
   private listedAreas: { commit: string; areas: AreaModes } | null = null;
   private failedCommit: string | null = null;
+  private readonly checkouts = new SerialQueue();
 
   constructor(
     private readonly host: Host,
@@ -134,7 +136,12 @@ export class ContentStore {
     return this.listedAreas.areas;
   }
 
-  private async checkedOut(branch: string, upstream: string | null): Promise<ContentLocation> {
+  /** One at a time: callers asking together for a missing worktree would each add it. */
+  private checkedOut(branch: string, upstream: string | null): Promise<ContentLocation> {
+    return this.checkouts.run(() => this.checkOut(branch, upstream));
+  }
+
+  private async checkOut(branch: string, upstream: string | null): Promise<ContentLocation> {
     const key = `${branch}|${upstream}`;
     const current = this.worktreeLocation;
     if (current?.key === key && (await this.host.kind(current.root, ".").catch(() => null)) === "dir") return current;

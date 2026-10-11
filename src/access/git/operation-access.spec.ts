@@ -125,6 +125,19 @@ describe("OperationAccess", () => {
     expect((await repository.git("log", "-1", "--format=%s")).trim()).toBe("Again");
   });
 
+  it("picks nothing when the commit's changes are already there", async () => {
+    const repository = await createRepository();
+    const repo = await open(repository.root);
+    await commitOn(repository, "feature", { "same.txt": "same\n" }, "On feature");
+    await commitOn(repository, "main", { "same.txt": "same\n" }, "Also on main");
+    const head = (await repository.git("rev-parse", "HEAD")).trim();
+    const feature = (await repository.git("rev-parse", "feature")).trim();
+    await expect(repo.operations.cherryPick(feature)).rejects.toThrow("Its changes are already on this branch; nothing was picked.");
+    expect(await repo.operations.current("main")).toBeNull();
+    expect((await repository.git("rev-parse", "HEAD")).trim()).toBe(head);
+    expect(await repo.changes()).toEqual([]);
+  });
+
   it("reports failures that leave nothing to resolve", async () => {
     const { repository, repo } = await conflicting();
     await repository.write("src/code.ts", "uncommitted\n");

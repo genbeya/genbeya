@@ -2,7 +2,8 @@
 # Makes an MSI replace older installed versions of the same product (a "major
 # upgrade", what WiX's <MajorUpgrade/> does). Deno Desktop's MSIs keep the upgrade
 # code across versions but lack the Upgrade table, so without this each version
-# would install next to the previous one.
+# would install next to the previous one. Installing an older version over a newer
+# one is refused, as <MajorUpgrade DowngradeErrorMessage="…"/> does.
 param([Parameter(Mandatory = $true)][string]$Path)
 $ErrorActionPreference = "Stop"
 
@@ -30,23 +31,48 @@ if ((Get $database "TablePersistent" @("Upgrade")) -eq 1) { Write-Host "$Path al
 Run "CREATE TABLE ``Upgrade`` (``UpgradeCode`` CHAR(38) NOT NULL, ``VersionMin`` CHAR(20), ``VersionMax`` CHAR(20), ``Language`` CHAR(255), ``Attributes`` LONG NOT NULL, ``Remove`` CHAR(255), ``ActionProperty`` CHAR(72) NOT NULL PRIMARY KEY ``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Language``, ``Attributes``)" | Out-Null
 # Every older version: 256 = msidbUpgradeAttributesVersionMinInclusive; the maximum (this version) is exclusive.
 Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Attributes``, ``ActionProperty``) VALUES ('$upgradeCode', '0.0.0', '$version', 256, 'PREVIOUSVERSIONSINSTALLED')" | Out-Null
-# MSIs built before GitDesk set a version all claimed 1.0.0; replace those too while GitDesk is below 1.0.
-# 768 = minimum and maximum inclusive.
+# Newer versions are only detected (2 = msidbUpgradeAttributesOnlyDetect; the minimum and maximum are
+# exclusive), so a launch condition refuses the downgrade instead of installing next to them.
+function Detect([string]$above, [string]$below) {
+  if ($below) {
+    Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Attributes``, ``ActionProperty``) VALUES ('$upgradeCode', '$above', '$below', 2, 'NEWERVERSIONDETECTED')" | Out-Null
+  } else {
+    Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``Attributes``, ``ActionProperty``) VALUES ('$upgradeCode', '$above', 2, 'NEWERVERSIONDETECTED')" | Out-Null
+  }
+}
+# MSIs built before GitDesk set a version all claimed 1.0.0; replace those too while GitDesk is below 1.0,
+# so they do not count as newer. 768 = minimum and maximum inclusive.
 if ($version.StartsWith("0.")) {
   Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Attributes``, ``ActionProperty``) VALUES ('$upgradeCode', '1.0.0', '1.0.0', 768, 'PREVIOUSVERSIONSINSTALLED')" | Out-Null
+  Detect $version "1.0.0"
+  Detect "1.0.0" $null
+} else {
+  Detect $version $null
 }
 # Windows Installer passes only secure properties from the UI to the elevated install.
 $secure = Value "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = 'SecureCustomProperties'"
 if ($secure) {
-  Run "UPDATE ``Property`` SET ``Value`` = '$secure;PREVIOUSVERSIONSINSTALLED' WHERE ``Property`` = 'SecureCustomProperties'" | Out-Null
+  Run "UPDATE ``Property`` SET ``Value`` = '$secure;PREVIOUSVERSIONSINSTALLED;NEWERVERSIONDETECTED' WHERE ``Property`` = 'SecureCustomProperties'" | Out-Null
 } else {
-  Run "INSERT INTO ``Property`` (``Property``, ``Value``) VALUES ('SecureCustomProperties', 'PREVIOUSVERSIONSINSTALLED')" | Out-Null
+  Run "INSERT INTO ``Property`` (``Property``, ``Value``) VALUES ('SecureCustomProperties', 'PREVIOUSVERSIONSINSTALLED;NEWERVERSIONDETECTED')" | Out-Null
 }
-# Find older versions early; remove them right after validation, before this version installs.
-Run "INSERT INTO ``InstallExecuteSequence`` (``Action``, ``Sequence``) VALUES ('FindRelatedProducts', 25)" | Out-Null
-Run "INSERT INTO ``InstallExecuteSequence`` (``Action``, ``Sequence``) VALUES ('RemoveExistingProducts', 1401)" | Out-Null
-if ((Get $database "TablePersistent" @("InstallUISequence")) -eq 1) {
-  Run "INSERT INTO ``InstallUISequence`` (``Action``, ``Sequence``) VALUES ('FindRelatedProducts', 25)" | Out-Null
+$product = Value "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = 'ProductName'"
+if ((Get $database "TablePersistent" @("LaunchCondition")) -ne 1) {
+  Run "CREATE TABLE ``LaunchCondition`` (``Condition`` CHAR(255) NOT NULL, ``Description`` CHAR(255) NOT NULL LOCALIZABLE PRIMARY KEY ``Condition``)" | Out-Null
 }
+Run "INSERT INTO ``LaunchCondition`` (``Condition``, ``Description``) VALUES ('NOT NEWERVERSIONDETECTED', 'A newer version of $product is already installed.')" | Out-Null
+# Find related versions early and check the launch conditions after that, in the UI and the installation;
+# remove older versions right after validation, before this version installs.
+function Schedule([string]$table, [string]$action, [int]$sequence) {
+  if (-not (Value "SELECT ``Action`` FROM ``$table`` WHERE ``Action`` = '$action'")) {
+    Run "INSERT INTO ``$table`` (``Action``, ``Sequence``) VALUES ('$action', $sequence)" | Out-Null
+  }
+}
+foreach ($table in "InstallExecuteSequence", "InstallUISequence") {
+  if ((Get $database "TablePersistent" @($table)) -ne 1) { continue }
+  Schedule $table "FindRelatedProducts" 25
+  Schedule $table "LaunchConditions" 100
+}
+Schedule "InstallExecuteSequence" "RemoveExistingProducts" 1401
 Invoke $database "Commit" $null | Out-Null
-Write-Host "$Path now replaces older versions of $upgradeCode."
+Write-Host "$Path now replaces older versions of $upgradeCode and refuses to replace newer ones."

@@ -215,6 +215,16 @@ describe("parseFileLog", () => {
     expect(parseFileLog("", "x", true)).toEqual([]);
   });
 
+  it("ends with the commit that added the file", () => {
+    const deleted = `${header("d", "Delete")}diff --git a/tasks/TP-1.md b/tasks/TP-1.md\ndeleted file mode 100644\n`;
+    expect(parseFileLog(output + deleted, "tasks/TP-1.md", false).map((revision) => revision.subject)).toEqual([
+      "Pure move",
+      "Move",
+      "Create TP-1",
+    ]);
+    expect(parseFileLog(deleted + output, "tasks/TP-1.md", false)).toEqual([]);
+  });
+
   it("unquotes octal escapes as UTF-8", () => {
     const quoted = `${header("f", "Rename")}diff --git a/a b/b\nsimilarity index 100%\nrename from "tasks/\\303\\251\\t.md"\nrename to b\n`;
     expect(parseFileLog(quoted, "b", true)[0]!.oldPath).toBe("tasks/é\t.md");

@@ -28,6 +28,16 @@ const STASH_MESSAGE_LIMIT = 500;
 const HISTORY_PAGE_LIMIT = 1000;
 const REMOTE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
+/**
+ * `name`, unless it or one of its parts starts with "-": Git could read it
+ * as an option, and switching to a remote branch `origin/-x` names the new
+ * local branch `-x`. Git allows such refs, and a clone may bring them.
+ */
+function plainRef(name: string): string {
+  if (/(^|\/)-/.test(name)) throw new Error(`"${name}" looks like an option to Git. Rename or delete it in a terminal.`);
+  return name;
+}
+
 export class VersionControlManager implements VersionControlManagerContract {
   constructor(
     private readonly registry: WorkspaceRegistry,
@@ -37,6 +47,21 @@ export class VersionControlManager implements VersionControlManagerContract {
   private on<T>(id: unknown, operation: (workspace: Workspace) => Promise<T>): Promise<T> {
     const workspace = this.registry.get(id);
     return workspace.exclusive(() => operation(workspace));
+  }
+
+  /**
+   * Like {@link on}, for merges, rebases, picks, reverts and stash applies:
+   * while another is unfinished git refuses to start one, which would read
+   * as having stopped for conflicts.
+   */
+  private starting<T>(id: unknown, operation: (workspace: Workspace) => Promise<T>): Promise<T> {
+    return this.on(id, async (workspace) => {
+      const { operations } = workspace.repository;
+      const current = await operations.current(null);
+      if (current) throw new Error(`Finish or abort the ${current.kind} first.`);
+      if (await operations.conflicted()) throw new Error("Resolve the conflicted files first.");
+      return operation(workspace);
+    });
   }
 
   diff(id: unknown, path: unknown, source: unknown, oldPath?: unknown): Promise<Diff> {
@@ -201,7 +226,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   applyStash(id: unknown, hash: unknown, pop: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => workspace.repository.stashes.apply(await this.stashOf(workspace, hash), pop === true));
+    return this.starting(id, async (workspace) => workspace.repository.stashes.apply(await this.stashOf(workspace, hash), pop === true));
   }
 
   dropStash(id: unknown, hash: unknown): Promise<void> {
@@ -215,7 +240,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   merge(id: unknown, ref: unknown, options: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => {
+    return this.starting(id, async (workspace) => {
       const source = await this.revision(workspace, ref);
       const { noFastForward, message } = (options ?? {}) as Partial<Record<string, unknown>>;
       if (typeof message !== "string" || message.length > MESSAGE_LIMIT) throw new Error("Invalid merge message.");
@@ -224,7 +249,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   rebase(id: unknown, onto: unknown, autostash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => {
+    return this.starting(id, async (workspace) => {
       const target = await this.revision(workspace, onto);
       await this.cleanUnless(workspace, autostash);
       return workspace.repository.operations.rebase(target, autostash === true);
@@ -232,7 +257,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   pullRebase(id: unknown, remote: unknown, autostash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => {
+    return this.starting(id, async (workspace) => {
       const name = await this.remoteName(workspace, remote);
       await this.cleanUnless(workspace, autostash);
       const { branch } = await workspace.repository.head();
@@ -245,7 +270,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   rebaseInteractive(id: unknown, base: unknown, steps: unknown, autostash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => {
+    return this.starting(id, async (workspace) => {
       const operations = workspace.repository.operations;
       if (!isCommitId(base) || !(await operations.isAncestorOfHead(base))) throw new Error("Choose a commit of the current branch.");
       const chosen = this.rebaseSteps(steps);
@@ -256,11 +281,17 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   cherryPick(id: unknown, hash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => workspace.repository.operations.cherryPick(await this.singleParent(workspace, hash)));
+    return this.starting(id, async (workspace) => {
+      const commit = await this.singleParent(workspace, hash);
+      // Git would start a pick with nothing to commit, which only skipping ends.
+      if (await workspace.repository.operations.isAncestorOfHead(commit))
+        throw new Error(`${commit.slice(0, 7)} is already on ${(await workspace.repository.head()).branch ?? "the checked-out commit"}.`);
+      return workspace.repository.operations.cherryPick(commit);
+    });
   }
 
   revert(id: unknown, hash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => workspace.repository.operations.revert(await this.singleParent(workspace, hash)));
+    return this.starting(id, async (workspace) => workspace.repository.operations.revert(await this.singleParent(workspace, hash)));
   }
 
   continueOperation(id: unknown): Promise<OperationOutcome> {
@@ -326,12 +357,12 @@ export class VersionControlManager implements VersionControlManagerContract {
   private async branchName(workspace: Workspace, name: unknown): Promise<string> {
     if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid branch name.");
     if (!(await workspace.repository.isValidBranchName(name))) throw new Error(`"${name}" is not a valid branch name.`);
-    return name;
+    return plainRef(name);
   }
 
   private async localBranch(workspace: Workspace, name: unknown): Promise<string> {
     if (typeof name !== "string" || !(await workspace.repository.refs.names()).branches.includes(name)) throw new Error("Choose a branch.");
-    return name;
+    return plainRef(name);
   }
 
   /** A remote-tracking branch such as `origin/feature`, split into its remote and the branch there. */
@@ -339,6 +370,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     const repository = workspace.repository;
     if (typeof name !== "string" || !(await repository.refs.names()).remoteBranches.includes(name))
       throw new Error("Choose a remote branch.");
+    plainRef(name);
     // Remote names may hold slashes; the longest matching one wins.
     const remote = (await repository.remoteNames())
       .filter((candidate) => name.startsWith(`${candidate}/`))
@@ -350,12 +382,12 @@ export class VersionControlManager implements VersionControlManagerContract {
   private async tagName(workspace: Workspace, name: unknown): Promise<string> {
     if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid tag name.");
     if (!(await workspace.repository.refs.isValidTagName(name))) throw new Error(`"${name}" is not a valid tag name.`);
-    return name;
+    return plainRef(name);
   }
 
   private async existingTag(workspace: Workspace, name: unknown): Promise<string> {
     if (typeof name !== "string" || !(await workspace.repository.refs.names()).tags.includes(name)) throw new Error("Choose a tag.");
-    return name;
+    return plainRef(name);
   }
 
   /** A commit ID, or the name of a branch, remote branch or tag. */
@@ -363,7 +395,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     const repository = workspace.repository;
     if (isCommitId(value) && (await repository.git.hasRef(`${value}^{commit}`))) return value;
     const { branches, remoteBranches, tags } = await repository.refs.names();
-    if (typeof value === "string" && [...branches, ...remoteBranches, ...tags].includes(value)) return value;
+    if (typeof value === "string" && [...branches, ...remoteBranches, ...tags].includes(value)) return plainRef(value);
     throw new Error("Choose a branch, tag or commit.");
   }
 

@@ -4,7 +4,7 @@
  * files and returned with a length-prefixed header, so binary output is safe
  * and a single connection serves every operation.
  */
-import { concatBytes, decodeLenient, encodeText } from "../../utilities/bytes";
+import { decodeLenient, encodeText } from "../../utilities/bytes";
 import { SerialQueue } from "../../utilities/serial-queue";
 import type { ChildProcess, ProcessRunner, RunResult } from "../ports";
 import { GIT_ENVIRONMENT } from "./host";
@@ -51,7 +51,9 @@ export class ConnectionError extends Error {
 export class ShellSession {
   private child: ChildProcess | null = null;
   private starting: Promise<void> | null = null;
-  private buffer: Uint8Array = new Uint8Array();
+  /** What sh wrote and no request took yet, as received: joined once per line or output, not per chunk. */
+  private chunks: Uint8Array[] = [];
+  private buffered = 0;
   private wake: (() => void) | null = null;
   private diagnostics = "";
   private readonly queue = new SerialQueue();
@@ -98,8 +100,8 @@ export class ShellSession {
     try {
       const header = /^GDK (\d+) (\d+) (\d+)$/.exec(await this.line(deadline));
       if (!header) throw new Error(`Unexpected reply from ${this.label}.`);
-      const stdout = await this.take(Number(header[2]), deadline);
-      const stderr = await this.take(Number(header[3]), deadline);
+      const stdout = await this.output(Number(header[2]), deadline);
+      const stderr = await this.output(Number(header[3]), deadline);
       return { code: Number(header[1]), stdout, stderr: decodeLenient(stderr) };
     } catch (error) {
       // The stream is out of step once a request fails; start over next time.
@@ -115,14 +117,16 @@ export class ShellSession {
   }
 
   private async start() {
-    this.buffer = new Uint8Array();
+    this.chunks = [];
+    this.buffered = 0;
     this.diagnostics = "";
     const child = this.processes.spawn(this.command, this.args);
     this.child = child;
     // A reset sh may still write while it winds down; its output must not mix with the next one's.
     child.onStdout((chunk) => {
       if (this.child !== child) return;
-      this.buffer = concatBytes([this.buffer, chunk]);
+      this.chunks.push(chunk);
+      this.buffered += chunk.length;
       this.wake?.();
     });
     child.onStderr((chunk) => {
@@ -160,16 +164,41 @@ export class ShellSession {
 
   private async line(deadline: number, child = this.child): Promise<string> {
     let end: number;
-    while ((end = this.buffer.indexOf(10)) < 0) await this.waitForData(deadline, child);
-    const text = decodeLenient(this.buffer.subarray(0, end)).replace(/\r$/, "");
-    this.buffer = this.buffer.subarray(end + 1);
-    return text;
+    while ((end = this.newline()) < 0) await this.waitForData(deadline, child);
+    return decodeLenient(this.take(end + 1).subarray(0, end)).replace(/\r$/, "");
   }
 
-  private async take(length: number, deadline: number): Promise<Uint8Array> {
-    while (this.buffer.length < length) await this.waitForData(deadline);
-    const data = this.buffer.slice(0, length);
-    this.buffer = this.buffer.subarray(length);
+  /** The offset of the first buffered line break, or -1. */
+  private newline(): number {
+    let offset = 0;
+    for (const chunk of this.chunks) {
+      const index = chunk.indexOf(10);
+      if (index >= 0) return offset + index;
+      offset += chunk.length;
+    }
+    return -1;
+  }
+
+  private async output(length: number, deadline: number): Promise<Uint8Array> {
+    while (this.buffered < length) await this.waitForData(deadline);
+    return this.take(length);
+  }
+
+  /** The first `length` buffered bytes, removed from the buffer. */
+  private take(length: number): Uint8Array {
+    const data = new Uint8Array(length);
+    let offset = 0;
+    let used = 0;
+    while (offset < length) {
+      const chunk = this.chunks[used]!;
+      const part = Math.min(chunk.length, length - offset);
+      data.set(chunk.subarray(0, part), offset);
+      offset += part;
+      if (part < chunk.length) this.chunks[used] = chunk.subarray(part);
+      else used++;
+    }
+    this.chunks.splice(0, used);
+    this.buffered -= length;
     return data;
   }
 }

@@ -213,17 +213,21 @@ function unquotePath(text: string): string {
  * `git log --follow -p --format=FILE_LOG_FORMAT -- <path>`, newest first,
  * where `path` is the file's path at the newest commit. With `whole`, the
  * patches have context enough to hold the whole file, so both versions are
- * read from them. Commits without a patch (merges) are left out.
+ * read from them. Commits without a patch (merges) are left out. The history
+ * ends with the commit that added the file: an older file at the same path,
+ * deleted before this one was added, is another file.
  */
 export function parseFileLog(output: string, path: string, whole: boolean): FileRevision[] {
   const revisions: FileRevision[] = [];
   let current = path;
   let commit: string[] | null = null;
-  let diff = { found: false, added: false, from: null as string | null, to: null as string | null, hunks: false };
+  let diff = { found: false, added: false, deleted: false, from: null as string | null, to: null as string | null, hunks: false };
   let before: string[] = [];
   let after: string[] = [];
+  let ended = false;
   const finish = () => {
-    if (!commit || !diff.found) return;
+    if (!commit || !diff.found || ended) return;
+    if (diff.deleted) return void (ended = true);
     const [, hash, author, date, subject] = commit;
     const newPath = diff.to ?? current;
     const oldPath = diff.added ? null : (diff.from ?? newPath);
@@ -239,12 +243,14 @@ export function parseFileLog(output: string, path: string, whole: boolean): File
       after: shown ? `${after.join("\n")}\n` : null,
     });
     current = oldPath ?? newPath;
+    ended = diff.added;
   };
   for (const line of output.replace(/\n$/, "").split("\n")) {
     if (line.startsWith("\0")) {
       finish();
+      if (ended) break;
       commit = line.split("\0");
-      diff = { found: false, added: false, from: null, to: null, hunks: false };
+      diff = { found: false, added: false, deleted: false, from: null, to: null, hunks: false };
       before = [];
       after = [];
     } else if (diff.hunks) {
@@ -255,6 +261,7 @@ export function parseFileLog(output: string, path: string, whole: boolean): File
       if (line[0] !== "-") after.push(text);
     } else if (line.startsWith("diff --git ")) diff.found = true;
     else if (line.startsWith("new file mode ")) diff.added = true;
+    else if (line.startsWith("deleted file mode ")) diff.deleted = true;
     else if (line.startsWith("rename from ")) diff.from = unquotePath(line.slice(12));
     else if (line.startsWith("rename to ")) diff.to = unquotePath(line.slice(10));
     else if (line.startsWith("@@")) diff.hunks = true;

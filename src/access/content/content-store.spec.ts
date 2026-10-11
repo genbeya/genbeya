@@ -216,6 +216,18 @@ describe("ContentStore with every area on the content branch", () => {
     expect(location.root.startsWith(host.paths.normalize(moved))).toBe(true);
     expect((await location.files.read("docs/Home.md")).content).toContain("# Home");
   });
+
+  it("checks a deleted worktree out again once when asked for it at the same time", async () => {
+    const repository = await createRepository();
+    const store = storeFor(repository.root);
+    await move(store, everyArea, "branch");
+    const { root } = await store.locate("wiki");
+    const { promises: fs } = await import("node:fs");
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    const located = await Promise.all([store.layout(), store.locate("tasks"), store.branchState(), store.locate("wiki")]);
+    expect(located.map((entry) => (entry && "root" in entry ? entry.root : null))).toEqual([null, root, null, root]);
+    expect((await (await store.locate("wiki")).files.read("docs/Home.md")).content).toContain("# Home");
+  });
 });
 
 describe("ContentStore with some areas on the content branch", () => {

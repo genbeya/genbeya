@@ -1,7 +1,8 @@
 /**
  * Version control of the checked-out repository: status, staging,
  * committing, history, branches, remotes. Callers validate their input;
- * this class assumes well-formed paths, names and commit IDs.
+ * this class assumes well-formed paths, names and commit IDs, and passes
+ * refs after `--end-of-options` or in their full form all the same.
  */
 import type {
   Change,
@@ -190,13 +191,13 @@ export class RepositoryAccess {
   async switchBranch(name: string): Promise<void> {
     const remoteOnly =
       /^[^/]+\/.+$/.test(name) && !(await this.git.hasRef(`refs/heads/${name}`)) && (await this.git.hasRef(`refs/remotes/${name}`));
-    await this.git.text(remoteOnly ? ["switch", "--track", name] : ["switch", name]);
+    await this.git.text(remoteOnly ? ["switch", "--track", "--end-of-options", name] : ["switch", "--end-of-options", name]);
   }
 
   /** Creates a branch at `start` (HEAD when omitted), switching to it when `checkout` is set. */
   async createBranch(name: string, start?: string, checkout = true): Promise<void> {
     const at = start ? [start] : [];
-    await this.git.text(checkout ? ["switch", "--create", name, ...at] : ["branch", name, ...at]);
+    await this.git.text(checkout ? ["switch", "--create", name, "--end-of-options", ...at] : ["branch", "--end-of-options", name, ...at]);
   }
 
   async remoteNames(): Promise<string[]> {
@@ -213,12 +214,13 @@ export class RepositoryAccess {
     if (action === "fetch") return void (await this.git.text(["fetch", "--prune", remote], NETWORK_TIMEOUT));
     if (!branch) throw new Error("Switch to a branch first.");
     const { upstreamRemote, tracked } = await this.upstream(branch, remote);
+    // Full ref names, which never start with "-", whatever the branch is called.
     const args =
       action === "pull"
-        ? ["pull", "--ff-only", remote, tracked ?? branch]
+        ? ["pull", "--ff-only", remote, tracked ?? `refs/heads/${branch}`]
         : tracked
-          ? ["push", remote, `refs/heads/${branch}:${tracked}`]
-          : ["push", ...(upstreamRemote ? [] : ["--set-upstream"]), remote, branch];
+          ? ["push", "--end-of-options", remote, `refs/heads/${branch}:${tracked}`]
+          : ["push", ...(upstreamRemote ? [] : ["--set-upstream"]), "--end-of-options", remote, `refs/heads/${branch}`];
     await this.git.text(args, NETWORK_TIMEOUT);
   }
 
@@ -226,7 +228,7 @@ export class RepositoryAccess {
   async pullRebase(remote: string, branch: string | null, autostash: boolean): Promise<OperationOutcome> {
     if (!branch) throw new Error("Switch to a branch first.");
     const { tracked } = await this.upstream(branch, remote);
-    const args = ["pull", "--rebase", ...(autostash ? ["--autostash"] : []), remote, tracked ?? branch];
+    const args = ["pull", "--rebase", ...(autostash ? ["--autostash"] : []), remote, tracked ?? `refs/heads/${branch}`];
     return this.git.outcome(args, this.operations.unfinished, { timeout: NETWORK_TIMEOUT });
   }
 
