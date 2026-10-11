@@ -15,7 +15,7 @@ import type {
   RunResult,
   TerminalRunner,
 } from "../../access/ports";
-import { FileSystemError } from "../../access/ports";
+import { FileSystemError, TIMED_OUT, TOO_MUCH_OUTPUT } from "../../access/ports";
 import { posixPaths, windowsPaths } from "../../utilities/native-path";
 
 const KNOWN_CODES = new Set<string>(["ENOENT", "EEXIST", "EPERM", "EACCES", "EBUSY", "ENOTDIR", "EISDIR", "ENOTEMPTY"]);
@@ -63,8 +63,10 @@ export const nodeProcesses: ProcessRunner = {
           const failure = error as (NodeJS.ErrnoException & { killed?: boolean }) | null;
           const stderrText = stderr.toString("utf8");
           if (failure?.code === "ENOENT") return resolve({ code: 127, stdout: new Uint8Array(), stderr: startFailure(command, cwd) });
+          if (failure?.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
+            return resolve({ code: TOO_MUCH_OUTPUT, stdout: new Uint8Array(), stderr: `${command} wrote more output than GitDesk reads.` });
           resolve({
-            code: !failure ? 0 : typeof failure.code === "number" ? failure.code : failure.killed ? 124 : 1,
+            code: !failure ? 0 : typeof failure.code === "number" ? failure.code : failure.killed ? TIMED_OUT : 1,
             stdout: new Uint8Array(stdout),
             // A plain exit code needs no explanation of Node's: "Command failed: …" only repeats the command.
             stderr:

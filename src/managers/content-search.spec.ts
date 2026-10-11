@@ -114,6 +114,34 @@ describe("ContentManager.search", () => {
     expect(results.tasks[0]!.matches.map((match) => match.line)).toEqual([3]);
   });
 
+  it("searches templates, images and settings where their area lives, not their stale copies in the checkout", async () => {
+    const { managers, id, search } = await opened({
+      ...FILES,
+      ".gitdesk.yml": "name: Search Project\ntaskPrefix: TP\n# gadget settings\n",
+      "tasks/.templates/bug.md": "Gadget template\n",
+      "docs/diagram.svg": "<svg><!-- gadget --></svg>\n",
+    });
+    for (const area of ["wiki", "tasks", "settings"] as const) await managers.content.setStorage(id, area, "branch");
+    const template = await managers.content.read(id, "content", "tasks/.templates/bug.md");
+    await managers.content.write(id, "content", "tasks/.templates/bug.md", "Gadget template, revised\n", template.hash);
+    const { code } = await search("gadget");
+    expect(code.map((hit) => [hit.path, hit.scope]).sort()).toEqual([
+      [".gitdesk.yml", "content"],
+      ["docs/diagram.svg", "content"],
+      ["src/gadget.ts", "repo"],
+      ["tasks/.templates/bug.md", "content"],
+    ]);
+    expect(code.find((hit) => hit.path === "tasks/.templates/bug.md")!.matches[0]!.text).toBe("Gadget template, revised");
+  });
+
+  it("highlights where a pathological regular expression matches without running it itself", async () => {
+    const { search } = await opened({ "a.txt": `${"a".repeat(40)}c\n` });
+    const started = performance.now();
+    const results = await search("(a+)+b|c", { regex: true });
+    expect(results.code[0]!.matches[0]!.ranges).toEqual([{ start: 40, end: 41 }]);
+    expect(performance.now() - started).toBeLessThan(5000);
+  });
+
   it("caps files per area and matches per file, and shortens long lines", async () => {
     const files: Record<string, string> = { "long.min.js": `${"x".repeat(5000)}gadget${"y".repeat(5000)}\n` };
     for (let i = 0; i <= SEARCH_LIMITS.filesPerArea; i++) files[`src/file-${String(i).padStart(2, "0")}.ts`] = "gadget\n";
