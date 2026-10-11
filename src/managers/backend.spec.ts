@@ -953,6 +953,41 @@ describe("VersionControlManager", () => {
     expect(await repository.read("src/code.ts")).toBe("feature\n");
   });
 
+  it("starts no merge, rebase, pick, revert or stash apply while another operation is unfinished", async () => {
+    const { versionControl, id, repository } = await opened();
+    await repository.git("switch", "-q", "-c", "feature");
+    await repository.write("src/code.ts", "feature\n");
+    await repository.git("commit", "-qam", "Feature");
+    const feature = (await repository.git("rev-parse", "HEAD")).trim();
+    await repository.git("switch", "-q", "main");
+    await repository.write("src/code.ts", "main\n");
+    await repository.git("commit", "-qam", "Main");
+    await repository.write("other.txt", "stashed");
+    await versionControl.stash(id, { message: "", includeUntracked: true, keepIndex: false });
+    const stash = (await repository.git("rev-parse", "stash@{0}")).trim();
+    const initial = (await repository.git("rev-parse", "HEAD~1")).trim();
+    const refused = async () => {
+      for (const attempt of [
+        () => versionControl.merge(id, "feature", { noFastForward: false, message: "" }),
+        () => versionControl.rebase(id, "feature", true),
+        () => versionControl.pullRebase(id, "origin", true),
+        () => versionControl.rebaseInteractive(id, initial, [{ hash: feature, action: "pick" }], true),
+        () => versionControl.cherryPick(id, feature),
+        () => versionControl.revert(id, feature),
+        () => versionControl.applyStash(id, stash, false),
+      ])
+        await expect(attempt()).rejects.toThrow("Finish or abort the merge first.");
+    };
+
+    expect(await versionControl.merge(id, "feature", { noFastForward: false, message: "" })).toBe("stopped");
+    await refused();
+    // Resolved, the merge still waits to be continued.
+    await versionControl.resolveConflict(id, "src/code.ts", { use: "theirs" });
+    await refused();
+    await versionControl.abortOperation(id);
+    expect(await versionControl.applyStash(id, stash, false)).toBe("done");
+  });
+
   it("rebases interactively, squashing and rewording through the contract", async () => {
     const { versionControl, id, repository } = await opened();
     const base = (await repository.git("rev-parse", "HEAD")).trim();

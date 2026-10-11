@@ -49,6 +49,21 @@ export class VersionControlManager implements VersionControlManagerContract {
     return workspace.exclusive(() => operation(workspace));
   }
 
+  /**
+   * Like {@link on}, for merges, rebases, picks, reverts and stash applies:
+   * while another is unfinished git refuses to start one, which would read
+   * as having stopped for conflicts.
+   */
+  private starting<T>(id: unknown, operation: (workspace: Workspace) => Promise<T>): Promise<T> {
+    return this.on(id, async (workspace) => {
+      const { operations } = workspace.repository;
+      const current = await operations.current(null);
+      if (current) throw new Error(`Finish or abort the ${current.kind} first.`);
+      if (await operations.conflicted()) throw new Error("Resolve the conflicted files first.");
+      return operation(workspace);
+    });
+  }
+
   diff(id: unknown, path: unknown, source: unknown, oldPath?: unknown): Promise<Diff> {
     return this.on(id, async (workspace) => {
       const relative = workspace.path(path);
@@ -211,7 +226,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   applyStash(id: unknown, hash: unknown, pop: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => workspace.repository.stashes.apply(await this.stashOf(workspace, hash), pop === true));
+    return this.starting(id, async (workspace) => workspace.repository.stashes.apply(await this.stashOf(workspace, hash), pop === true));
   }
 
   dropStash(id: unknown, hash: unknown): Promise<void> {
@@ -225,7 +240,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   merge(id: unknown, ref: unknown, options: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => {
+    return this.starting(id, async (workspace) => {
       const source = await this.revision(workspace, ref);
       const { noFastForward, message } = (options ?? {}) as Partial<Record<string, unknown>>;
       if (typeof message !== "string" || message.length > MESSAGE_LIMIT) throw new Error("Invalid merge message.");
@@ -234,7 +249,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   rebase(id: unknown, onto: unknown, autostash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => {
+    return this.starting(id, async (workspace) => {
       const target = await this.revision(workspace, onto);
       await this.cleanUnless(workspace, autostash);
       return workspace.repository.operations.rebase(target, autostash === true);
@@ -242,7 +257,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   pullRebase(id: unknown, remote: unknown, autostash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => {
+    return this.starting(id, async (workspace) => {
       const name = await this.remoteName(workspace, remote);
       await this.cleanUnless(workspace, autostash);
       const { branch } = await workspace.repository.head();
@@ -255,7 +270,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   rebaseInteractive(id: unknown, base: unknown, steps: unknown, autostash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => {
+    return this.starting(id, async (workspace) => {
       const operations = workspace.repository.operations;
       if (!isCommitId(base) || !(await operations.isAncestorOfHead(base))) throw new Error("Choose a commit of the current branch.");
       const chosen = this.rebaseSteps(steps);
@@ -266,11 +281,11 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   cherryPick(id: unknown, hash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => workspace.repository.operations.cherryPick(await this.singleParent(workspace, hash)));
+    return this.starting(id, async (workspace) => workspace.repository.operations.cherryPick(await this.singleParent(workspace, hash)));
   }
 
   revert(id: unknown, hash: unknown): Promise<OperationOutcome> {
-    return this.on(id, async (workspace) => workspace.repository.operations.revert(await this.singleParent(workspace, hash)));
+    return this.starting(id, async (workspace) => workspace.repository.operations.revert(await this.singleParent(workspace, hash)));
   }
 
   continueOperation(id: unknown): Promise<OperationOutcome> {
