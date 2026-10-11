@@ -55,7 +55,25 @@ describe("grepFiles", () => {
   it("finds nothing without failing, and reports invalid regular expressions", async () => {
     const { git } = await repository({ "a.txt": "text\n" });
     expect(await grepFiles(git, literal("absent"))).toEqual([]);
-    await expect(grepFiles(git, literal("(", { regex: true }))).rejects.toThrow();
+    await expect(grepFiles(git, literal("(", { regex: true }))).rejects.toThrow(/^Invalid regular expression: \S.*\.$/);
+    await expect(grepFiles(git, literal("[unclosed", { regex: true }))).rejects.toThrow("Invalid regular expression: ");
+  });
+
+  it("reads Perl-compatible regular expressions where git has them", async () => {
+    const { git } = await repository({ "a.txt": "value 42\n", "b.txt": "no digits\n" });
+    expect(await grepFiles(git, literal("\\d+", { regex: true }))).toEqual(["a.txt"]);
+    expect(await grepFiles(git, literal("\\bvalue\\s", { regex: true }))).toEqual(["a.txt"]);
+  });
+
+  it("falls back to extended regular expressions where git has no PCRE", async () => {
+    const { git, calls } = fakeGit(async (args) =>
+      args.includes("-P")
+        ? result(128, "", "fatal: cannot use Perl-compatible regexes when not compiled with USE_LIBPCRE\n")
+        : result(0, "a.txt\0"),
+    );
+    expect(await grepFiles(git, literal("a+", { regex: true }))).toEqual(["a.txt"]);
+    expect(await grepFiles(git, literal("a+", { regex: true }))).toEqual(["a.txt"]);
+    expect(calls.map((args) => args.find((arg) => arg === "-P" || arg === "-E"))).toEqual(["-P", "-E", "-E"]);
   });
 });
 
@@ -105,8 +123,10 @@ describe("grepLines", () => {
   it("never runs a regular expression itself, so a pathological one stays fast", async () => {
     const { git } = await repository({ "a.txt": `${"a".repeat(40)}c\n` });
     const started = performance.now();
-    const [line] = await grepLines(git, literal("(a+)+b|c", { regex: true }), ["a.txt"], 10);
-    expect(line!.ranges).toEqual([{ start: 40, end: 41 }]);
+    // PCRE gives up on it; POSIX regular expressions, where git has no PCRE, match it.
+    const lines = await grepLines(git, literal("(a+)+b|c", { regex: true }), ["a.txt"], 10).catch((error: Error) => error.message);
+    if (typeof lines === "string") expect(lines).toMatch(/^This regular expression takes too long to match\./);
+    else expect(lines[0]!.ranges).toEqual([{ start: 40, end: 41 }]);
     expect(performance.now() - started).toBeLessThan(5000);
   });
 
@@ -126,6 +146,7 @@ describe("grepLines", () => {
 function fakeGit(reply: (args: readonly string[]) => Promise<RunResult>) {
   const calls: string[][] = [];
   const git = {
+    host: {},
     run: (args: readonly string[]) => {
       calls.push([...args]);
       return reply(args);

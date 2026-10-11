@@ -137,9 +137,15 @@ describe("ContentManager.search", () => {
   it("highlights where a pathological regular expression matches without running it itself", async () => {
     const { search } = await opened({ "a.txt": `${"a".repeat(40)}c\n` });
     const started = performance.now();
-    const results = await search("(a+)+b|c", { regex: true });
-    expect(results.code[0]!.matches[0]!.ranges).toEqual([{ start: 40, end: 41 }]);
+    // PCRE gives up on it; POSIX regular expressions, where git has no PCRE, match it.
+    const results = await search("(a+)+b|c", { regex: true }).catch((error: Error) => error.message);
+    if (typeof results === "string") expect(results).toMatch(/takes too long to match/);
+    else expect(results.code[0]!.matches[0]!.ranges).toEqual([{ start: 40, end: 41 }]);
     expect(performance.now() - started).toBeLessThan(5000);
+    // Perl-compatible classes work where git has PCRE, as Git for Windows does.
+    const digits = await opened({ "b.txt": "version 42\n" });
+    if (machine.os === "windows")
+      expect((await digits.search("\\d+", { regex: true })).code[0]!.matches[0]!.ranges).toEqual([{ start: 8, end: 10 }]);
   });
 
   it("caps files per area and matches per file, and shortens long lines", async () => {

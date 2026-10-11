@@ -2,7 +2,9 @@
  * Full-text search with `git grep` in one working tree: tracked files and
  * untracked ones that .gitignore does not exclude; binary files are skipped.
  * It works the same on every host, since only git runs. The pattern is an
- * argument of `-e`, so it never reads as an option.
+ * argument of `-e`, so it never reads as an option. Regular expressions are
+ * Perl-compatible where the host's git has PCRE (Git for Windows and most
+ * distributions do), else POSIX extended ones.
  *
  * Git also says where the pattern matches in a line: a regular expression
  * never runs in GitDesk itself, where a pathological one would block every
@@ -15,7 +17,7 @@ import { type Git, GitError } from "./git";
 
 export interface GrepPattern {
   readonly text: string;
-  /** An extended regular expression instead of literal text. */
+  /** A regular expression instead of literal text. */
   readonly regex: boolean;
   readonly caseSensitive: boolean;
   readonly wholeWord: boolean;
@@ -41,24 +43,38 @@ const TOO_MANY = "The search found too much to show. Search for something more s
 
 /** Repositories whose git is older than 2.38, which has no `--max-count` for grep; their output is cut while parsing. */
 const withoutMaxCount = new WeakSet<Git>();
+/** Hosts whose git was built without PCRE; they search with extended regular expressions. */
+const withoutPerl = new WeakSet<object>();
 
-const patternArgs = (pattern: GrepPattern): string[] => [
+const patternArgs = (pattern: GrepPattern, perl: boolean): string[] => [
   "-I",
   "--untracked",
-  pattern.regex ? "-E" : "-F",
+  !pattern.regex ? "-F" : perl ? "-P" : "-E",
   ...(pattern.caseSensitive ? [] : ["-i"]),
   ...(pattern.wholeWord ? ["-w"] : []),
   "-e",
   pattern.text,
 ];
 
-/** Runs `git grep`, with at most `limit` matching lines per file where git supports that. */
-async function grep(git: Git, args: readonly string[], limit?: number): Promise<string> {
+/**
+ * Runs `git grep` with `options` for `pattern` in `paths` (all files when
+ * none are given), with at most `limit` matching lines per file where git
+ * supports that.
+ */
+async function grep(
+  git: Git,
+  pattern: GrepPattern,
+  options: readonly string[],
+  paths: readonly string[] = [],
+  limit?: number,
+): Promise<string> {
   const capped = limit !== undefined && !withoutMaxCount.has(git);
+  const perl = pattern.regex && !withoutPerl.has(git.host);
   const started = Date.now();
   let result;
   try {
-    result = await git.run(["grep", ...(capped ? [`--max-count=${limit}`] : []), ...args], TIMEOUT);
+    const args = ["grep", ...(capped ? [`--max-count=${limit}`] : []), ...options, ...patternArgs(pattern, perl), "--", ...paths];
+    result = await git.run(args, TIMEOUT);
   } catch (error) {
     // Hosts reached through a shell session report a timeout as an error.
     if (Date.now() - started >= TIMEOUT) throw new GitError(TOO_LONG);
@@ -66,12 +82,23 @@ async function grep(git: Git, args: readonly string[], limit?: number): Promise<
   }
   if (capped && result.code === 129 && /unknown (option|switch)/.test(result.stderr)) {
     withoutMaxCount.add(git);
-    return grep(git, args, limit);
+    return grep(git, pattern, options, paths, limit);
+  }
+  if (perl && result.code === 128 && /USE_LIBPCRE|Perl-compatible/i.test(result.stderr)) {
+    withoutPerl.add(git.host);
+    return grep(git, pattern, options, paths, limit);
   }
   // Exit code 1: nothing matched.
   if (result.code === 1) return "";
   if (result.code === TIMED_OUT) throw new GitError(TOO_LONG);
   if (result.code === TOO_MUCH_OUTPUT) throw new GitError(TOO_MANY);
+  // PCRE gives up on patterns that backtrack too much, such as (a+)+b, instead of running for ages.
+  if (perl && /match limit|depth limit|recursion limit/i.test(result.stderr))
+    throw new GitError("This regular expression takes too long to match. Search for something more specific.");
+  // "fatal: -e option, '(a': missing closing parenthesis"
+  const invalid = `fatal: -e option, '${pattern.text}': `;
+  if (pattern.regex && result.stderr.startsWith(invalid))
+    throw new GitError(`Invalid regular expression: ${result.stderr.slice(invalid.length).trim().replace(/\.?$/, ".")}`);
   if (result.code !== 0)
     throw new GitError(result.stderr.replace(/^(fatal|error): /gm, "").trim() || `git grep failed with exit code ${result.code}.`);
   return decodeLenient(result.stdout);
@@ -79,7 +106,7 @@ async function grep(git: Git, args: readonly string[], limit?: number): Promise<
 
 /** The files with a match, in git's order. */
 export async function grepFiles(git: Git, pattern: GrepPattern): Promise<string[]> {
-  return (await grep(git, ["-l", "-z", ...patternArgs(pattern), "--"])).split("\0").filter(Boolean);
+  return (await grep(git, pattern, ["-l", "-z"])).split("\0").filter(Boolean);
 }
 
 /**
@@ -89,11 +116,11 @@ export async function grepFiles(git: Git, pattern: GrepPattern): Promise<string[
 export async function grepLines(git: Git, pattern: GrepPattern, paths: readonly string[], limit: number, context = 1): Promise<GrepLine[]> {
   const lines: GrepLine[] = [];
   for (const chunk of chunks(paths)) {
-    const output = await grep(git, ["-n", "--column", "-z", `-C${context}`, ...patternArgs(pattern), "--", ...chunk], limit);
+    const output = await grep(git, pattern, ["-n", "--column", "-z", `-C${context}`], chunk, limit);
     const found = parseGrepLines(output, limit, context);
     if (!found.length) continue;
     // Ranges only highlight; a line without them still counts.
-    const parts = await grep(git, ["-n", "--column", "-z", "-o", ...patternArgs(pattern), "--", ...chunk], limit).catch(() => "");
+    const parts = await grep(git, pattern, ["-n", "--column", "-z", "-o"], chunk, limit).catch(() => "");
     lines.push(...withRanges(found, parseGrepParts(parts), pattern.wholeWord));
   }
   return lines;
