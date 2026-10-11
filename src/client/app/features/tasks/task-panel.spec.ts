@@ -3,7 +3,7 @@ import { openRepository, settle } from "../../testing/component-harness";
 import type { TaskInput } from "../../../../contracts/model";
 import { UnsavedChanges } from "../../core/unsaved-changes";
 import { task } from "../../testing/fake-platform";
-import { TaskPanel } from "./task-panel";
+import { FIELD_DELAY, TaskPanel } from "./task-panel";
 
 const first = task("TP-1", { title: "First task", priority: "high", body: "- [ ] one\n- [ ] two\n" });
 
@@ -249,18 +249,41 @@ describe("TaskPanel", () => {
     expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
   });
 
-  it("keeps both of two fields changed in quick succession", async () => {
-    const { managers, fixture } = await render({ task: first });
+  it("saves field changes once they rest, together, keeping each field changed meanwhile", async () => {
+    const { managers, fixture } = await render({ task: { ...first, fields: { due: "2026-01-01" } } });
+    vi.useFakeTimers();
+    onTestFinished(() => void vi.useRealTimers());
     managers.content.updateTask
-      .mockResolvedValueOnce({ ...first, fields: { estimate: 5 }, hash: "h2" })
-      .mockResolvedValueOnce({ ...first, fields: { estimate: 5, area: "ui" }, hash: "h3" });
-    const panel = fixture.componentInstance as unknown as { setField(change: object): void };
-    // The second change comes before the first is saved, from fields that still show the old values.
+      .mockResolvedValueOnce({ ...first, fields: { due: "2026-12-24", estimate: 5 }, hash: "h2" })
+      .mockResolvedValueOnce({ ...first, fields: { due: "2026-12-24", estimate: 5, area: "ui" }, hash: "h3" });
+    const panel = fixture.componentInstance as unknown as { setField(change: object): void; shown(): TaskInput };
+    // A date typed digit by digit, and an estimate, before anything is saved.
+    panel.setField({ name: "due", value: "2026-12-02" });
+    panel.setField({ name: "due", value: "2026-12-24" });
     panel.setField({ name: "estimate", value: 5 });
+    expect(panel.shown().fields).toEqual({ due: "2026-12-24", estimate: 5 });
+    expect(managers.content.updateTask).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(FIELD_DELAY);
+    expect(managers.content.updateTask).toHaveBeenCalledTimes(1);
+    expect(managers.content.updateTask.mock.calls[0]!.slice(2)).toEqual([
+      expect.objectContaining({ fields: { due: "2026-12-24", estimate: 5 } }),
+      "hash-TP-1",
+    ]);
+    // Another field changed while that saves goes on the newest version, with both.
     panel.setField({ name: "area", value: "ui" });
-    await vi.waitFor(() => expect(managers.content.updateTask).toHaveBeenCalledTimes(2));
-    const [, second] = managers.content.updateTask.mock.calls;
-    expect(second!.slice(2)).toEqual([expect.objectContaining({ fields: { estimate: 5, area: "ui" } }), "h2"]);
+    await vi.advanceTimersByTimeAsync(FIELD_DELAY);
+    expect(managers.content.updateTask.mock.calls[1]!.slice(2)).toEqual([
+      expect.objectContaining({ fields: { due: "2026-12-24", estimate: 5, area: "ui" } }),
+      "h2",
+    ]);
+  });
+
+  it("saves a field change still resting when the panel closes", async () => {
+    const { managers, fixture } = await render({ task: first });
+    managers.content.updateTask.mockResolvedValue({ ...first, fields: { estimate: 5 }, hash: "h2" });
+    (fixture.componentInstance as unknown as { setField(change: object): void }).setField({ name: "estimate", value: 5 });
+    fixture.destroy();
+    await vi.waitFor(() => expect(managers.content.updateTask).toHaveBeenCalledTimes(1));
   });
 
   it("changes properties at once while viewing", async () => {

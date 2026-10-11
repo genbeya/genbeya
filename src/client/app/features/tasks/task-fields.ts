@@ -37,7 +37,7 @@ export interface FieldChange {
             <input class="input" type="number" [id]="id" [value]="current" (change)="setNumber(field.name, $any($event.target))" />
           }
           @case ("date") {
-            <input class="input" type="date" [id]="id" [value]="current" (change)="set(field.name, $any($event.target).value)" />
+            <input class="input" type="date" [id]="id" [value]="current" (change)="setDate(field.name, $any($event.target).value)" />
           }
           @default {
             <input
@@ -81,6 +81,14 @@ export class TaskFields {
 
   protected setNumber(name: string, field: HTMLInputElement) {
     this.set(name, field.value === "" || Number.isNaN(field.valueAsNumber) ? "" : field.valueAsNumber);
+  }
+
+  /**
+   * A date counts once it is whole: typing the year digit by digit reports
+   * 0002, 0020 and 0202 first, which are not meant. Cleared is "".
+   */
+  protected setDate(name: string, value: string) {
+    if (!value || Number(value.slice(0, 4)) >= 1000) this.set(name, value);
   }
 
   protected set(name: string, value: FieldValue) {

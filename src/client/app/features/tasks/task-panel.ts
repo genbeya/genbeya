@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   type ElementRef,
   inject,
@@ -14,7 +15,7 @@ import {
 } from "@angular/core";
 import { Router } from "@angular/router";
 import type { LinkItem } from "../../../../contracts/gitdesk-link";
-import type { Task, TaskInput, TaskTemplate } from "../../../../contracts/model";
+import type { FieldValue, Task, TaskInput, TaskTemplate } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { Clipboard } from "../../core/clipboard";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
@@ -34,6 +35,9 @@ import { TaskComments } from "./task-comments";
 import { type FieldChange, TaskFields } from "./task-fields";
 import { displayId, inputOf } from "./task-model";
 import { TaskProperties } from "./task-properties";
+
+/** How long field changes rest before they are saved, together: a date or number typed digit by digit saves once. */
+export const FIELD_DELAY = 600;
 
 const TABS = ["comments", "activity"] as const;
 type Tab = (typeof TABS)[number];
@@ -242,7 +246,15 @@ ${this.task()!.hash}`,
   protected readonly draft = signal<TaskInput>(empty(""));
   private readonly base = signal("");
   protected readonly dirty = computed(() => this.editing() && JSON.stringify(this.draft()) !== this.base());
-  protected readonly shown = computed(() => (this.editing() || !this.current() ? this.draft() : inputOf(this.current()!)));
+  /** Field changes not saved yet; they show meanwhile. */
+  private readonly pendingFields = signal<Readonly<Record<string, FieldValue>>>({});
+  private fieldTimer: ReturnType<typeof setTimeout> | undefined;
+  protected readonly shown = computed(() => {
+    if (this.editing() || !this.current()) return this.draft();
+    const shown = inputOf(this.current()!);
+    const pending = this.pendingFields();
+    return Object.keys(pending).length ? { ...shown, fields: { ...shown.fields, ...pending } } : shown;
+  });
   /** The task an edit started from: saving fails if the file changed since. */
   private editBase: Task | null = null;
   /** The description the last template gave a new task. */
@@ -268,6 +280,8 @@ ${this.task()!.hash}`,
       if (!this.task()) this.titleField()?.nativeElement.focus();
     });
     trackUnsaved(this.dirty);
+    // Field changes still resting are saved when the panel closes.
+    inject(DestroyRef).onDestroy(() => this.saveFields());
     hotkey(
       "e",
       () => this.startEditing(),
@@ -286,8 +300,9 @@ ${this.task()!.hash}`,
   protected startEditing() {
     const task = this.current();
     if (!task) return;
+    this.saveFields();
     this.editBase = task;
-    this.begin(inputOf(task));
+    this.begin(this.shown());
   }
 
   protected setTitle(title: string) {
@@ -373,11 +388,29 @@ ${this.task()!.hash}`,
     this.enqueue(() => change);
   }
 
-  /** A custom field's change, merged into the fields of the newest version, so quick changes to two fields keep both. */
+  /**
+   * A custom field's change. While viewing, changes rest for a moment and are
+   * then saved together, merged into the fields of the newest version, so
+   * quick changes to two fields keep both.
+   */
   protected setField({ name, value }: FieldChange) {
-    const withField = (input: TaskInput): Partial<TaskInput> => ({ fields: { ...input.fields, [name]: value } });
-    if (this.editing() || !this.current()) this.draft.update((draft) => ({ ...draft, ...withField(draft) }));
-    else this.enqueue((task) => withField(inputOf(task)));
+    if (this.editing() || !this.current()) {
+      this.draft.update((draft) => ({ ...draft, fields: { ...draft.fields, [name]: value } }));
+      return;
+    }
+    this.pendingFields.update((pending) => ({ ...pending, [name]: value }));
+    clearTimeout(this.fieldTimer);
+    this.fieldTimer = setTimeout(() => this.saveFields(), FIELD_DELAY);
+  }
+
+  private saveFields() {
+    clearTimeout(this.fieldTimer);
+    const fields = this.pendingFields();
+    if (!Object.keys(fields).length) return;
+    void this.enqueue((task) => ({ fields: { ...task.fields, ...fields } })).then(() =>
+      // Changed again meanwhile, a field stays pending with its newer value.
+      this.pendingFields.update((pending) => Object.fromEntries(Object.entries(pending).filter(([name, value]) => fields[name] !== value))),
+    );
   }
 
   /**
@@ -396,8 +429,8 @@ ${this.task()!.hash}`,
     this.enqueue((task) => ({ body: toggleCheckboxAt(task.body, offset) }));
   }
 
-  private enqueue(change: (task: Task) => Partial<TaskInput>) {
-    this.queue = this.queue.then(async () => {
+  private enqueue(change: (task: Task) => Partial<TaskInput>): Promise<unknown> {
+    return (this.queue = this.queue.then(async () => {
       const task = this.current();
       if (!task) return;
       const updated = await this.session.run(() =>
@@ -406,7 +439,7 @@ ${this.task()!.hash}`,
       if (!updated) return;
       this.saved.set(updated);
       this.session.contentChanged();
-    });
+    }));
   }
 
   protected copyId() {
