@@ -106,9 +106,9 @@ Right-click a commit in **History** and choose **Reset … to here…** to move 
 | **Keep** | gone | kept; refuses if the reset would overwrite them |
 | **Hard** | gone | gone |
 
-A hard reset lists the uncommitted files it would discard and needs **Discard my uncommitted changes** ticked; editors with unsaved edits are asked about first. When some of the commits are already on the upstream, the dialog says so: afterwards the branch is behind it, a pull brings them back, and removing them there as well takes a [force push](#force-push). GitDesk does not reset during a merge, rebase, cherry-pick or revert.
+A hard reset lists the uncommitted files it would discard and needs **Discard my uncommitted changes** ticked; editors with unsaved edits are asked about first. When the commit has files you have but Git does not track on the branch now — say a `notes.txt` you created after it was deleted, or an ignored `.env` — hard and keep resets replace them with the commit's, so the dialog lists them and asks again. If your uncommitted changes change while the dialog is open, GitDesk refuses the reset and you look at it again. When some of the commits are already on the upstream, the dialog says so: afterwards the branch is behind it, a pull brings them back, and removing them there as well takes a [force push](#force-push). GitDesk does not reset during a merge, rebase, cherry-pick or revert.
 
-The message after a reset has **Undo**, which moves the branch back with the same mode (a hard reset with **Keep**, which refuses to overwrite anything you changed since). After a hard reset that discarded uncommitted changes there is no **Undo**: the commits could come back, the changes could not.
+The message after a reset has **Undo**, which moves the branch back with the same mode (a hard reset with **Keep**, which refuses to overwrite anything you changed since). After a hard reset that discarded uncommitted changes, or a reset that replaced files Git did not track, there is no **Undo**: the commits could come back, the changes could not.
 
 ## Tags
 

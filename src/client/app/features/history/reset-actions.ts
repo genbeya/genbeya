@@ -27,10 +27,12 @@ export class ResetActions {
     });
     // Hard and keep rewrite files, and with them what editors have not saved.
     if (!mode || ((mode === "hard" || mode === "keep") && !(await this.unsaved.confirmDiscard()))) return;
-    const result = await this.session.run(() => this.api.versionControl.reset(plan.target, mode, plan.head));
+    // Refused when the uncommitted changes changed while the dialog was open.
+    const result = await this.session.run(() => this.api.versionControl.reset(plan.target, mode, plan.head, plan.state));
     if (!result) return;
-    // Undoing brings back the commits, never the uncommitted changes a hard reset discarded: Undo would promise too much.
-    const undoable = mode !== "hard" || !plan.uncommitted.length;
+    // Undoing brings back the commits, never the uncommitted changes a hard reset discarded or the files it replaced: Undo would promise too much.
+    const rewrites = mode === "hard" || mode === "keep";
+    const undoable = !(mode === "hard" && plan.uncommitted.length) && !(rewrites && plan.overwritten.length);
     this.notifications.success(
       `Reset ${plan.branch} to ${plan.target.slice(0, 7)}`,
       undoable ? { label: "Undo", run: () => this.undo(result, mode) } : undefined,
@@ -50,16 +52,32 @@ export class ResetActions {
       });
       if (!confirmed) return;
     }
-    const result = await this.session.run(() => this.api.versionControl.undoLastCommit());
+    const shown = head.commit;
+    if (!shown) return;
+    const result = await this.session.run(() => this.api.versionControl.undoLastCommit(shown));
     if (result)
       this.notifications.success("Undid the last commit; its changes are staged", { label: "Redo", run: () => this.undo(result, "soft") });
   }
 
   /**
    * Moves the branch back to where a reset took it from. A hard reset is
-   * undone with keep, which refuses to overwrite changes made since.
+   * undone with keep, which refuses to overwrite changes made since; it
+   * would replace ignored files the commit has, so it asks about those.
    */
-  private undo({ from, to }: ResetResult, mode: ResetMode): Promise<boolean> {
-    return this.session.succeeded(() => this.api.versionControl.reset(from, mode === "hard" ? "keep" : mode, to), "Reset undone");
+  private async undo({ from, to }: ResetResult, mode: ResetMode): Promise<boolean> {
+    if (mode !== "hard" && mode !== "keep")
+      return this.session.succeeded(() => this.api.versionControl.reset(from, mode, to), "Reset undone");
+    const plan = await this.session.run(() => this.api.versionControl.resetPlan(from));
+    if (!plan) return false;
+    if (plan.overwritten.length) {
+      const confirmed = await this.dialogs.confirm({
+        title: "Undo the reset",
+        message: `Undoing the reset replaces files Git does not track here with the commit's: ${plan.overwritten.join(", ")}.`,
+        confirm: "Undo reset",
+        danger: true,
+      });
+      if (!confirmed) return false;
+    }
+    return this.session.succeeded(() => this.api.versionControl.reset(from, "keep", to, plan.state), "Reset undone");
   }
 }

@@ -42,8 +42,54 @@ describe("ResetAccess", () => {
       upstream: "origin/main",
       pushed: 1,
       uncommitted: ["src/code.ts"],
+      overwritten: [],
+      state: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
     expect(await access.resets.plan(two)).toMatchObject({ commits: 0, pushed: 0 });
+  });
+
+  it("names the untracked and ignored files the target has, which hard and keep overwrite", async () => {
+    const { repository, access } = await withCommits();
+    await repository.write("notes.txt", "notes");
+    await repository.write(".env", "SECRET=1");
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Notes");
+    const notes = await head(repository);
+    await repository.git("rm", "-q", "notes.txt", ".env");
+    await repository.write(".gitignore", ".env\n");
+    await repository.git("add", ".gitignore");
+    await repository.git("commit", "-q", "-m", "Drop notes");
+    await repository.write("notes.txt", "mine");
+    await repository.write(".env", "SECRET=mine");
+    await repository.write("other.txt", "unrelated");
+
+    expect(await access.resets.plan(notes)).toMatchObject({ uncommitted: [], overwritten: [".env", "notes.txt"] });
+    await expect(access.resets.reset(notes, "keep")).rejects.toThrow(
+      "Keep would overwrite the untracked file notes.txt. Move it away, or choose another mode.",
+    );
+    expect(await repository.read("notes.txt")).toBe("mine");
+  });
+
+  it("fingerprints the uncommitted changes and the files a reset overwrites", async () => {
+    const { repository, access, one } = await withCommits();
+    await repository.git("rm", "-q", "One.txt");
+    await repository.git("commit", "-q", "-m", "Drop One");
+    await repository.write("src/code.ts", "edited");
+    await repository.write("One.txt", "mine");
+    const state = async () => (await access.resets.plan(one)).state;
+    const planned = await state();
+    expect(await state()).toBe(planned);
+    // Files that no reset touches do not count.
+    await repository.write("other.txt", "unrelated");
+    expect(await state()).toBe(planned);
+    await repository.write("src/code.ts", "edited again");
+    const edited = await state();
+    expect(edited).not.toBe(planned);
+    await repository.git("add", "src/code.ts");
+    const staged = await state();
+    expect(staged).not.toBe(edited);
+    await repository.write("One.txt", "mine, changed");
+    expect(await state()).not.toBe(staged);
   });
 
   it("refuses to plan without a branch or a commit", async () => {

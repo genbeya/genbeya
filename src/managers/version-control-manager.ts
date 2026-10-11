@@ -490,7 +490,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.starting(id, async (workspace) => workspace.repository.resets.plan(await this.existingCommit(workspace, hash)));
   }
 
-  reset(id: unknown, hash: unknown, mode: unknown, expectedHead: unknown): Promise<ResetResult> {
+  reset(id: unknown, hash: unknown, mode: unknown, expectedHead: unknown, expectedState?: unknown): Promise<ResetResult> {
     return this.starting(id, async (workspace) => {
       if (!RESET_MODES.includes(mode as ResetMode)) throw new Error("Invalid reset mode.");
       const target = await this.existingCommit(workspace, hash);
@@ -498,13 +498,24 @@ export class VersionControlManager implements VersionControlManagerContract {
       const branch = await this.currentBranch(workspace);
       if ((await workspace.repository.git.objectId("HEAD")) !== expectedHead)
         throw new Error(`${branch} moved since you chose the reset. Look at it again first.`);
-      return workspace.repository.resets.reset(target, mode as ResetMode);
+      const { resets } = workspace.repository;
+      // Hard and keep rewrite files: changes made while the user looked at the plan would be lost unseen.
+      if (mode === "hard" || mode === "keep") {
+        if (typeof expectedState !== "string" || !/^[0-9a-f]{64}$/.test(expectedState)) throw new Error("Invalid reset state.");
+        if ((await resets.state(target)) !== expectedState)
+          throw new Error("Your uncommitted changes changed since you chose the reset. Look at it again first.");
+      }
+      return resets.reset(target, mode as ResetMode);
     });
   }
 
-  undoLastCommit(id: unknown): Promise<ResetResult> {
+  undoLastCommit(id: unknown, expectedHead: unknown): Promise<ResetResult> {
     return this.starting(id, async (workspace) => {
-      await this.currentBranch(workspace);
+      // The snapshot names HEAD by its short id.
+      if (typeof expectedHead !== "string" || !/^[0-9a-f]{7,64}$/.test(expectedHead)) throw new Error("Invalid commit ID.");
+      const branch = await this.currentBranch(workspace);
+      if (!(await workspace.repository.git.objectId("HEAD"))?.startsWith(expectedHead))
+        throw new Error(`${branch} moved since you chose to undo its last commit. Look at it again first.`);
       const resets = workspace.repository.resets;
       return resets.reset(await resets.parentOfHead(), "soft");
     });

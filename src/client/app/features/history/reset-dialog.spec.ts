@@ -12,6 +12,8 @@ const PLAN: ResetPlan = {
   upstream: null,
   pushed: 0,
   uncommitted: [],
+  overwritten: [],
+  state: "s".repeat(64),
 };
 
 async function render(change: Partial<ResetPlan> = {}) {
@@ -68,6 +70,26 @@ describe("ResetDialog", () => {
     expect(button().classList).toContain("btn-danger");
     submit();
     expect(close).toHaveBeenCalledWith("hard");
+  });
+
+  it.each([
+    [/Hard/, "hard"],
+    [/Keep Files/, "keep"],
+  ])("names the untracked files a %s reset replaces, and asks again", async (label, mode) => {
+    const { element, fixture, choose, button, submit, close } = await render({ overwritten: [".env", "notes.txt"] });
+    expect(element.textContent).not.toContain("replaced");
+    await choose(label);
+    expect(element.textContent).toContain(
+      "The commit has 2 files you have but Git does not track here, which are replaced with the commit's: .env, notes.txt.",
+    );
+    expect(button().disabled).toBe(true);
+    const confirm = element.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    expect(confirm.closest("label")!.textContent).toContain("Replace these files");
+    confirm.checked = true;
+    confirm.dispatchEvent(new Event("change"));
+    await settle(fixture);
+    submit();
+    expect(close).toHaveBeenCalledWith(mode);
   });
 
   it("resets hard without asking again when nothing uncommitted is lost", async () => {

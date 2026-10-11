@@ -530,6 +530,10 @@ export interface ResetPlan {
   readonly pushed: number;
   /** Tracked files with uncommitted changes, which a hard reset discards. */
   readonly uncommitted: readonly string[];
+  /** Untracked and ignored files the target commit has and the branch has not, which hard and keep resets overwrite. */
+  readonly overwritten: readonly string[];
+  /** A fingerprint of the uncommitted changes and of those files, which hard and keep resets expect to be unchanged. */
+  readonly state: string;
 }
 
 /** Where a reset moved the branch from and to, for undoing it. */

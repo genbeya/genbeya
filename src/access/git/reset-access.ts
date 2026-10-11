@@ -4,13 +4,22 @@
  * `--end-of-options`, so none is ever read as an option.
  */
 import type { ResetMode, ResetPlan, ResetResult } from "../../contracts/model";
+import { sha256, sha256Bytes } from "../../utilities/bytes";
+import { splitIntoBatches } from "../../utilities/serial-queue";
 import { failure, GitError, type Git } from "./git";
+
+/** What a hard or keep reset to a commit can lose, and a fingerprint of it. */
+interface AtStake {
+  readonly uncommitted: string[];
+  readonly overwritten: string[];
+  readonly state: string;
+}
 
 export class ResetAccess {
   constructor(private readonly git: Git) {}
 
   async plan(target: string): Promise<ResetPlan> {
-    const [{ head, changes }, from, to] = await Promise.all([this.git.status(), this.git.objectId("HEAD"), this.commit(target)]);
+    const [{ head }, from, to] = await Promise.all([this.git.status(), this.git.objectId("HEAD"), this.commit(target)]);
     if (!from) throw new GitError("There is no commit to reset yet.");
     if (!head.branch) throw new GitError("Switch to a branch first.");
     return {
@@ -20,8 +29,13 @@ export class ResetAccess {
       commits: await this.count(to, from),
       upstream: head.upstream,
       pushed: head.upstream ? await this.pushed(to, from, head.upstream) : 0,
-      uncommitted: changes.filter((change) => change.index !== "?").map((change) => change.path),
+      ...(await this.atStake(to)),
     };
+  }
+
+  /** The fingerprint of what a hard or keep reset to `target` would lose, as {@link plan} has it. */
+  async state(target: string): Promise<string> {
+    return (await this.atStake(await this.commit(target))).state;
   }
 
   /** Moves the current branch to `target`; what happens to the index and working tree depends on `mode`. */
@@ -33,9 +47,40 @@ export class ResetAccess {
       const blocked = /Entry '(.+)' not uptodate/.exec(result.stderr);
       if (mode === "keep" && blocked)
         throw new GitError(`Keep would overwrite your uncommitted changes to ${blocked[1]}. Commit or stash them, or choose another mode.`);
+      const untracked = /Untracked working tree file '(.+)' would be overwritten/.exec(result.stderr);
+      if (mode === "keep" && untracked)
+        throw new GitError(`Keep would overwrite the untracked file ${untracked[1]}. Move it away, or choose another mode.`);
       throw failure(args, result);
     }
     return { from, to: await this.commit("HEAD") };
+  }
+
+  /**
+   * The tracked files with uncommitted changes, the untracked and ignored
+   * files `target` has and HEAD has not (which hard and keep overwrite),
+   * and a fingerprint of all of them: of the staged and unstaged changes,
+   * and of those files' content.
+   */
+  private async atStake(target: string): Promise<AtStake> {
+    const { changes } = await this.git.status();
+    const uncommitted = changes.filter((change) => change.index !== "?").map((change) => change.path);
+    const added = (
+      await this.git.text(["diff", "--name-only", "-z", "--no-renames", "--diff-filter=A", "--end-of-options", "HEAD", target, "--"])
+    )
+      .split("\0")
+      .filter(Boolean);
+    const overwritten: string[] = [];
+    for (const batch of splitIntoBatches(added))
+      overwritten.push(...(await this.git.text(["ls-files", "--others", "-z", "--", ...batch])).split("\0").filter(Boolean));
+    overwritten.sort();
+    const parts = [
+      await this.git.bytes(["diff", "--cached", "--raw", "-z", "--no-abbrev", "--no-renames", "HEAD", "--"]),
+      await this.git.bytes(["diff", "--binary", "--full-index", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--"]),
+    ].map(sha256Bytes);
+    for (const batch of splitIntoBatches(overwritten))
+      // A file gone meanwhile changes the fingerprint too.
+      parts.push((await this.git.attempt(["hash-object", "--no-filters", "--", ...batch])) ?? "gone");
+    return { uncommitted, overwritten, state: sha256([...overwritten, ...parts].join("\0")) };
   }
 
   /** The parent of the last commit, which undoing that commit goes back to. */
