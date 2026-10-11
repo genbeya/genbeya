@@ -21,6 +21,15 @@ describe("Typesetter", () => {
     expect("math" in first && "math" in second && first.math !== second.math).toBe(true);
   });
 
+  it("keeps as many formulas as a page has, so showing it again typesets none anew", async () => {
+    const service = typesetter();
+    const compile = vi.spyOn(service as unknown as { compile: () => unknown }, "compile");
+    const page = Array.from({ length: 300 }, (_, i) => `x_{${i}}`);
+    service.keep(page.length);
+    for (let round = 0; round < 2; round++) for (const formula of page) await service.render(formula, false);
+    expect(compile).toHaveBeenCalledTimes(page.length);
+  });
+
   it("reports errors with KaTeX's message", async () => {
     expect(await typesetter().render("\\frac{", false)).toEqual({ error: expect.stringContaining("KaTeX parse error") });
     expect(await typesetter().render("\\undefinedcommand", false)).toEqual({

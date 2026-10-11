@@ -20,40 +20,68 @@ const FENCE = /^\s*(`{3,}|~{3,})\s*([\w-]*)/;
 /** `$$…$$`, or `$…$` with the rules of the page: no space inside the dollars, no digit after. */
 const INLINE = /\$\$(.+?)\$\$|\$(?=[^\s$`])((?:\\.|[^$\\])*?[^\s\\])\$(?!\d)/g;
 
+/** Lines `first` to `last` of a document: a `$$` block or ```math fence, or "code" in other fenced code. */
+interface Block {
+  readonly first: number;
+  readonly last: number;
+  readonly block: MathRange | "code";
+}
+
+/** The blocks of each document, found once: the cursor and every completion ask. */
+const indexed = new WeakMap<Text, readonly Block[]>();
+
 /**
- * The `$$` block or ```math fence that `line` is in, scanning from the top;
- * "code" in other fenced code, where dollars are no math.
+ * The `$$` blocks, ```math fences and other fenced code of `doc`, from the
+ * top. Code runs from its opening line to the line before its closing one,
+ * or to the end; math without its closing line is none.
  */
-function blockAt(doc: Text, line: number): MathRange | "code" | null {
-  let fence: { marker: string; math: boolean; from: number } | null = null;
-  let dollars: number | null = null;
+function blocksOf(doc: Text): readonly Block[] {
+  const known = indexed.get(doc);
+  if (known) return known;
+  const blocks: Block[] = [];
+  let fence: { marker: string; math: boolean; from: number; line: number } | null = null;
+  let dollars: { from: number; line: number } | null = null;
   for (let number = 1; number <= doc.lines; number++) {
     const { text, from, to } = doc.line(number);
     const trimmed = text.trim();
-    let closed: number | null = null;
+    let closed: { from: number; line: number } | null = null;
     if (fence) {
       if (trimmed.startsWith(fence.marker) && !trimmed.slice(fence.marker.length).trim()) {
-        if (fence.math) closed = fence.from;
+        if (fence.math) closed = fence;
+        else blocks.push({ first: fence.line, last: number - 1, block: "code" });
         fence = null;
       }
     } else if (dollars !== null) {
       if (trimmed.endsWith("$$")) [closed, dollars] = [dollars, null];
     } else {
       const opening = FENCE.exec(text);
-      if (opening) fence = { marker: opening[1]!, math: opening[2]!.toLowerCase() === "math", from };
-      else if (trimmed.startsWith("$$") && (trimmed === "$$" || !trimmed.slice(2).includes("$$"))) dollars = from;
+      if (opening) fence = { marker: opening[1]!, math: opening[2]!.toLowerCase() === "math", from, line: number };
+      else if (trimmed.startsWith("$$") && (trimmed === "$$" || !trimmed.slice(2).includes("$$"))) dollars = { from, line: number };
     }
     if (closed !== null) {
-      if (number < line) continue;
-      const body = doc.sliceString(closed, to).split("\n").slice(1, -1).join("\n");
-      const first = doc.lineAt(closed).text.trim();
+      const body = doc.sliceString(closed.from, to).split("\n").slice(1, -1).join("\n");
+      const first = doc.lineAt(closed.from).text.trim();
       const last = trimmed;
       // `$$ a` … `b $$` keep the text beside the dollars.
       const source = first.startsWith("$$") ? [first.slice(2), body, last.slice(0, -2)].filter((part) => part.trim()).join("\n") : body;
-      return { from: closed, to, source: source.trim(), display: true };
+      blocks.push({ first: closed.line, last: number, block: { from: closed.from, to, source: source.trim(), display: true } });
     }
-    if (number >= line && fence && !fence.math) return "code";
-    if (number >= line && !fence && dollars === null) return null;
+  }
+  if (fence && !fence.math) blocks.push({ first: fence.line, last: doc.lines, block: "code" });
+  indexed.set(doc, blocks);
+  return blocks;
+}
+
+/** The `$$` block or ```math fence that `line` is in; "code" in other fenced code, where dollars are no math. */
+function blockAt(doc: Text, line: number): MathRange | "code" | null {
+  const blocks = blocksOf(doc);
+  let [low, high] = [0, blocks.length - 1];
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    const { first, last, block } = blocks[middle]!;
+    if (line < first) high = middle - 1;
+    else if (line > last) low = middle + 1;
+    else return block;
   }
   return null;
 }

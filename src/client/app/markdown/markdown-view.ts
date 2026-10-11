@@ -111,6 +111,7 @@ export class MarkdownView {
     this.rendered.emit(this.host);
     for (const image of images) void this.load(image, generation);
     for (const diagram of diagrams) void this.draw(diagram, generation);
+    this.typesetter.keep(formulas.length);
     for (const formula of formulas) void this.typeset(formula, generation);
     for (const embed of embeds) void this.embed(embed, generation);
   }
