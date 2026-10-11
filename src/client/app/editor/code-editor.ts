@@ -14,12 +14,15 @@ import {
   output,
   untracked,
 } from "@angular/core";
+import { Typesetter } from "../markdown/typesetter";
 import { wordWrap } from "./editor-keymap";
 import { editingSetup, isProse, languageFor } from "./editor-setup";
+import { mathPreview } from "./math-preview";
 import { minimap } from "./minimap";
 import { referenceCompletion, type ReferenceCandidate } from "./reference-completion";
 
 const CRLF = String.fromCharCode(13, 10);
+const isMarkdown = (path: string): boolean => /\.(md|markdown)$/i.test(path);
 /** Files keep their line endings: CodeMirror would otherwise turn CRLF into LF. */
 const separatorFor = (value: string): Extension => (value.includes(CRLF) ? EditorState.lineSeparator.of(CRLF) : []);
 /** Lines to select and scroll to, counted from 1. */
@@ -63,6 +66,7 @@ export class CodeEditor {
   readonly save = output();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly typesetter = inject(Typesetter);
   private readonly language = new Compartment();
   private readonly separator = new Compartment();
   private readonly completion = new Compartment();
@@ -131,6 +135,7 @@ export class CodeEditor {
       this.language.of([]),
       this.completion.of(this.completionFor(untracked(this.offersReferences))),
       wordWrap(isProse(path)),
+      isMarkdown(path) ? mathPreview((source, display) => this.typesetter.render(source, display)) : [],
       this.overview.of(untracked(this.showsMinimap) ? minimap() : []),
       EditorView.contentAttributes.of({ "aria-label": this.label(), spellcheck: isProse(path) ? "true" : "false" }),
       keymap.of([{ key: "Mod-s", preventDefault: true, run: () => (this.save.emit(), true) }]),
