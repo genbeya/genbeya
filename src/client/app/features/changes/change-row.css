@@ -16,6 +16,12 @@
   background: var(--bg-active);
 }
 
+/* Lines file names up with folder names, which follow a twisty. */
+.change-indent {
+  flex: none;
+  width: 12px;
+}
+
 .change-name {
   flex: 1;
   min-width: 0;

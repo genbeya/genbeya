@@ -12,6 +12,30 @@
   font-size: 13px;
 }
 
+.amend-note,
+.amend-warning {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.amend-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  background: var(--yellow-soft);
+  color: var(--text-2);
+}
+
+.amend-warning svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--yellow);
+}
+
 .no-changes {
   margin: 4px 16px;
   color: var(--text-3);

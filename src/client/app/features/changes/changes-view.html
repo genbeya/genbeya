@@ -1,3 +1,4 @@
+<gd-change-menu #changeMenu="gdChangeMenu" (openFile)="openFile($event)" />
 <div class="view-body">
   <aside class="side-panel" gdResizable="changes" [initial]="340" [min]="260" [max]="600" #panel="gdResizable">
     <div class="commit-box" data-tour="commit-box">
@@ -9,9 +10,31 @@
         [value]="message()"
         (input)="message.set(messageField.value)"
       ></textarea>
+      @if (amending(); as commit) {
+        <p class="amend-note">
+          The changes of {{ commit.commit }} are staged, with anything staged since. Unstage what the amended commit should leave out.
+          @if (commit.merge) {
+            It is a merge: they are shown against its first parent, and the amended commit keeps all its parents.
+          }
+        </p>
+        @if (commit.pushed.length) {
+          <p class="amend-warning" role="alert">
+            <svg gd-icon name="triangle-alert" [size]="13"></svg>
+            <span
+              >{{ commit.commit }} is already on {{ commit.pushed.join(", ") }}. Amending rewrites it, so you will have to force-push.</span
+            >
+          </p>
+        }
+      }
       <div class="row">
-        <label class="checkbox">
-          <input #amendField type="checkbox" [checked]="amend()" (change)="toggleAmend(amendField.checked)" />
+        <label class="checkbox" [title]="snapshot().head.commit ? '' : 'There is no commit to amend yet.'">
+          <input
+            #amendField
+            type="checkbox"
+            [checked]="amend()"
+            [disabled]="!snapshot().head.commit"
+            (change)="toggleAmend(amendField.checked)"
+          />
           Amend last commit
         </label>
         <span class="grow"></span>
@@ -50,15 +73,30 @@
               <svg gd-icon name="minus" [size]="13"></svg>
             </button>
           </div>
-          @for (change of stagedChanges(); track change.path) {
-            <gd-change-row
-              [change]="change"
+          @if (tree()) {
+            <gd-change-tree
+              label="Staged changes"
+              [changes]="stagedChanges()"
               [staged]="true"
-              [selected]="isSelected(change, true)"
-              (chosen)="select(change.path, true)"
-              (openFile)="openFile(change.path)"
-              (toggleStaged)="unstage([change.path])"
+              [selected]="selectedIn(true)"
+              [menu]="changeMenu.menu()"
+              (chosen)="select($event.path, true)"
+              (openFile)="openFile($event.path)"
+              (toggleStaged)="toggleTarget($event)"
             />
+          } @else {
+            @for (change of stagedChanges(); track change.path) {
+              <gd-change-row
+                [change]="change"
+                [staged]="true"
+                [selected]="isSelected(change, true)"
+                [cdkContextMenuTriggerFor]="changeMenu.menu()"
+                [cdkContextMenuTriggerData]="{ $implicit: target(change, true) }"
+                (chosen)="select(change.path, true)"
+                (openFile)="openFile(change.path)"
+                (toggleStaged)="unstage([change.path])"
+              />
+            }
           }
         </section>
       }
@@ -66,6 +104,16 @@
         <div class="panel-heading">
           Changes <span class="count">{{ unstagedChanges().length }}</span>
           <span class="grow"></span>
+          <button
+            type="button"
+            class="icon-btn"
+            [attr.aria-label]="tree() ? 'Show as list' : 'Show as tree'"
+            [title]="tree() ? 'Show as list' : 'Show as tree'"
+            [attr.aria-pressed]="tree()"
+            (click)="toggleTree()"
+          >
+            <svg gd-icon [name]="tree() ? 'layout-list' : 'list-tree'" [size]="13"></svg>
+          </button>
           @if (snapshot().changes.length) {
             <button type="button" class="icon-btn" aria-label="Stash changes" title="Stash changes…" (click)="stashes.create()">
               <svg gd-icon name="archive" [size]="13"></svg>
@@ -86,18 +134,34 @@
             </button>
           }
         </div>
-        @for (change of unstagedChanges(); track change.path) {
-          <gd-change-row
-            [change]="change"
+        @if (tree() && unstagedChanges().length) {
+          <gd-change-tree
+            label="Changes"
+            [changes]="unstagedChanges()"
             [staged]="false"
-            [selected]="isSelected(change, false)"
-            (chosen)="select(change.path, false)"
-            (openFile)="openFile(change.path)"
-            (toggleStaged)="stage([change.path])"
-            (discard)="discard([change.path])"
+            [selected]="selectedIn(false)"
+            [menu]="changeMenu.menu()"
+            (chosen)="select($event.path, false)"
+            (openFile)="openFile($event.path)"
+            (toggleStaged)="toggleTarget($event)"
+            (discard)="discardTarget($event)"
           />
-        } @empty {
-          <p class="no-changes">Nothing to stage.</p>
+        } @else {
+          @for (change of unstagedChanges(); track change.path) {
+            <gd-change-row
+              [change]="change"
+              [staged]="false"
+              [selected]="isSelected(change, false)"
+              [cdkContextMenuTriggerFor]="changeMenu.menu()"
+              [cdkContextMenuTriggerData]="{ $implicit: target(change, false) }"
+              (chosen)="select(change.path, false)"
+              (openFile)="openFile(change.path)"
+              (toggleStaged)="stage([change.path])"
+              (discard)="discard([change.path])"
+            />
+          } @empty {
+            <p class="no-changes">Nothing to stage.</p>
+          }
         }
       </section>
       @if (snapshot().stashes.length) {
@@ -133,7 +197,7 @@
       }
     } @else if (current() && file()) {
       @for (key of [file()! + showsStaged()]; track key) {
-        <gd-diff-pane [path]="file()!" [badge]="badge()" [load]="loadDiff()" />
+        <gd-diff-pane [path]="file()!" [badge]="badge()" [load]="loadDiff()" [actions]="diffActions()" [apply]="applyLines" />
       }
     } @else {
       <gd-empty-state title="Working tree clean">

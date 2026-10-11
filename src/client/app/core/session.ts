@@ -5,7 +5,7 @@
  */
 import { computed, DestroyRef, Injectable, inject, signal } from "@angular/core";
 import type { GitdeskLink } from "../../../contracts/gitdesk-link";
-import { syncsContentBranch, type Location, type Preferences, type Snapshot } from "../../../contracts/model";
+import { syncsContentBranch, type ChangeBase, type Location, type Preferences, type Snapshot } from "../../../contracts/model";
 import { requestedLink, requestedLocation } from "../../../utilities/launch-request";
 import { MANAGERS, SHELL } from "../platform/platform";
 import { messageOf, Notifications } from "./notifications";
@@ -37,6 +37,7 @@ export class Session {
   private readonly current = signal<Open | null>(null);
   private readonly pending = signal(0);
   private readonly link = signal<GitdeskLink | null>(null);
+  private readonly base = signal<ChangeBase>("head");
   private syncTimer: ReturnType<typeof setTimeout> | undefined;
   private refreshes = 0;
 
@@ -48,6 +49,8 @@ export class Session {
   readonly busy = computed(() => this.pending() > 0);
   /** A GitDesk link a launch asked to open, until whoever opens it takes it. */
   readonly requestedLink = this.link.asReadonly();
+  /** What snapshots compare staged changes with: HEAD, or HEAD's parent while the last commit is being amended. */
+  readonly changeBase = this.base.asReadonly();
 
   constructor() {
     const timer = setInterval(() => void this.poll(), POLL_INTERVAL);
@@ -110,12 +113,19 @@ export class Session {
     this.shell.setTitle("GitDesk");
   }
 
+  /** Compares staged changes with `base` from now on, and fetches a snapshot that does. */
+  async compareWith(base: ChangeBase): Promise<void> {
+    if (this.base() === base) return;
+    this.base.set(base);
+    await this.refresh().catch((error: unknown) => this.notifications.error(error));
+  }
+
   /** Fetches the snapshot if anything changed. */
   async refresh(): Promise<void> {
     const open = this.current();
     if (!open) return;
     const ticket = ++this.refreshes;
-    const next = await this.managers.workspace.snapshot(open.id, open.snapshot.version);
+    const next = await this.managers.workspace.snapshot(open.id, open.snapshot.version, this.base());
     // A repository switch or a newer refresh while fetching makes the result stale.
     if (next && ticket === this.refreshes && this.current()?.id === open.id) this.current.set({ id: open.id, snapshot: next });
   }
@@ -216,6 +226,8 @@ export class Session {
 
   private accept(opened: Open | null) {
     if (!opened) return;
+    // Snapshots of an opened repository compare with HEAD, as the one it comes with does.
+    this.base.set("head");
     this.current.set(opened);
     this.shell.setTitle(`${opened.snapshot.settings.name} — GitDesk`);
   }

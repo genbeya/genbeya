@@ -1,12 +1,13 @@
 import { TestBed } from "@angular/core/testing";
-import type { Change } from "../../../../contracts/model";
+import type { Change, Diff, LineSelection } from "../../../../contracts/model";
 import { openRepository, settle } from "../../testing/component-harness";
+import { snapshot } from "../../testing/fake-platform";
 import { ChangesView } from "./changes-view";
 
 async function render(changes: Change[]) {
   const harness = await openRepository({ changes });
   vi.spyOn(harness.router, "navigate").mockResolvedValue(true);
-  harness.managers.versionControl.diff.mockResolvedValue({ path: "a.ts", original: "", modified: "x", binary: false });
+  harness.managers.versionControl.diff.mockResolvedValue({ path: "a.ts", original: "", modified: "x", binary: false, version: "v" });
   const fixture = TestBed.createComponent(ChangesView);
   await settle(fixture);
   const element = fixture.nativeElement as HTMLElement;
@@ -105,7 +106,7 @@ describe("ChangesView", () => {
       stash,
       files: [{ status: "M", path: "a.ts", commit: stash.hash }],
     });
-    harness.managers.versionControl.diff.mockResolvedValue({ path: "a.ts", original: "", modified: "x", binary: false });
+    harness.managers.versionControl.diff.mockResolvedValue({ path: "a.ts", original: "", modified: "x", binary: false, version: "v" });
     const navigate = vi.spyOn(harness.router, "navigate").mockResolvedValue(true);
     const fixture = TestBed.createComponent(ChangesView);
     fixture.componentRef.setInput("stash", stash.hash);
@@ -150,6 +151,117 @@ describe("ChangesView", () => {
     expect(element.querySelector("[aria-label='Conflicts']")!.textContent).toContain("changed on both sides");
     expect(element.querySelector("[aria-label='Staged changes']")!.textContent).not.toContain("a.ts");
     expect(router.navigate).toHaveBeenCalledWith(["/changes"], { queryParams: { conflict: "a.ts" }, replaceUrl: true });
+  });
+
+  it("shows the changes in their folders when asked, and remembers it", async () => {
+    const { element, fixture } = await render([
+      { path: "src/a.ts", index: "M", worktree: " " },
+      { path: "src/b.ts", index: " ", worktree: "M" },
+    ]);
+    expect(element.querySelector("gd-change-tree")).toBeNull();
+    element.querySelector<HTMLButtonElement>("[aria-label='Show as tree']")!.click();
+    await settle(fixture);
+    expect([...element.querySelectorAll("gd-change-tree")].map((tree) => tree.getAttribute("aria-label"))).toEqual([
+      "Staged changes",
+      "Changes",
+    ]);
+    expect(localStorage.getItem("changes:tree")).toBe("1");
+    element.querySelector<HTMLButtonElement>("[aria-label='Show as list']")!.click();
+    await settle(fixture);
+    expect(localStorage.getItem("changes:tree")).toBe("0");
+    localStorage.removeItem("changes:tree");
+  });
+
+  it("compares with the parent while amending, unstages from it and warns about pushed commits", async () => {
+    const { element, managers, fixture, session } = await render([{ path: "a.ts", index: " ", worktree: "M" }]);
+    managers.versionControl.lastCommitMessage.mockResolvedValue("Previous message");
+    managers.workspace.snapshot.mockResolvedValue(
+      snapshot({
+        version: "v2",
+        changes: [{ path: "b.ts", index: "A", worktree: " " }],
+        amending: { commit: "abc1234", parent: "def5678", merge: true, pushed: ["origin/main"] },
+      }),
+    );
+    const amend = element.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    amend.checked = true;
+    amend.dispatchEvent(new Event("change"));
+    await settle(fixture);
+    expect(managers.workspace.snapshot).toHaveBeenCalledWith("w1", "v1", "parent");
+    expect(session.changeBase()).toBe("parent");
+    const box = element.querySelector(".commit-box")!.textContent!;
+    expect(box).toContain("The changes of abc1234 are staged");
+    expect(box).toContain("It is a merge");
+    expect(element.querySelector(".amend-warning")!.textContent).toContain("abc1234 is already on origin/main");
+    element.querySelector<HTMLButtonElement>("[aria-label='Staged changes'] gd-change-row [aria-label='Unstage']")!.click();
+    await settle(fixture);
+    expect(managers.versionControl.unstage).toHaveBeenCalledWith("w1", ["b.ts"], "parent");
+    amend.checked = false;
+    amend.dispatchEvent(new Event("change"));
+    await settle(fixture);
+    expect(session.changeBase()).toBe("head");
+  });
+
+  it("cannot amend before the first commit", async () => {
+    const harness = await openRepository({ head: { branch: "main", commit: null, upstream: null, ahead: 0, behind: 0 } });
+    const fixture = TestBed.createComponent(ChangesView);
+    await settle(fixture);
+    expect((fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>("input[type=checkbox]")!.disabled).toBe(true);
+    expect(harness.session.changeBase()).toBe("head");
+  });
+
+  it("stages, unstages and discards lines of the diff it shows, asking before discarding", async () => {
+    const { fixture, managers, dialogs, session } = await render([{ path: "a.ts", oldPath: "old.ts", index: "R", worktree: "M" }]);
+    const view = fixture.componentInstance as unknown as {
+      applyLines(action: string, lines: LineSelection, diff: Diff, hunk: boolean): Promise<boolean>;
+    };
+    fixture.componentRef.setInput("file", "a.ts");
+    const lines: LineSelection = { original: [{ from: 2, to: 2 }], modified: [] };
+    const diff: Diff = { path: "a.ts", original: "", modified: "", binary: false, version: "v" };
+    expect(await view.applyLines("stage", lines, diff, false)).toBe(true);
+    expect(managers.versionControl.stageLines).toHaveBeenCalledWith("w1", { path: "a.ts", version: "v", lines });
+    dialogs.confirm.mockResolvedValueOnce(false);
+    expect(await view.applyLines("discard", lines, diff, true)).toBe(false);
+    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Discard change", danger: true }));
+    expect(managers.versionControl.discardLines).not.toHaveBeenCalled();
+    await view.applyLines("discard", lines, diff, false);
+    expect(managers.versionControl.discardLines).toHaveBeenCalledWith("w1", { path: "a.ts", version: "v", lines });
+    await session.compareWith("parent");
+    await view.applyLines("unstage", lines, diff, false);
+    expect(managers.versionControl.unstageLines).toHaveBeenCalledWith(
+      "w1",
+      { path: "a.ts", oldPath: "old.ts", version: "v", lines },
+      "parent",
+    );
+  });
+
+  it("ignores a file from its context menu", async () => {
+    const { element, fixture, dialogs, managers } = await render([{ path: "logs/out.log", index: "?", worktree: "?" }]);
+    dialogs.open.mockResolvedValue({ location: "logs", untrack: false });
+    element.querySelector("gd-change-row")!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 10, clientY: 10 }));
+    await settle(fixture);
+    const items = [...document.querySelectorAll<HTMLButtonElement>(".menu-item")];
+    expect(items.map((item) => item.textContent!.trim())).toEqual([
+      "Stage",
+      "Discard changes…",
+      "Open file",
+      "Ignore file out.log…",
+      "Ignore folder logs…",
+      "Ignore all *.log files…",
+    ]);
+    items[5]!.click();
+    await vi.waitFor(() => expect(managers.versionControl.ignore).toHaveBeenCalledWith("w1", "logs/out.log", "extension", "logs"));
+    expect(dialogs.open).toHaveBeenCalledWith(expect.anything(), { path: "logs/out.log", kind: "extension", tracked: false });
+    expect(managers.versionControl.untrack).not.toHaveBeenCalled();
+  });
+
+  it("offers to stop tracking files Git tracks", async () => {
+    const { element, fixture, dialogs, managers } = await render([{ path: "build.js", index: " ", worktree: "M" }]);
+    element.querySelector("gd-change-row")!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 10, clientY: 10 }));
+    await settle(fixture);
+    [...document.querySelectorAll<HTMLButtonElement>(".menu-item")].find((item) => item.textContent!.includes("Stop tracking"))!.click();
+    await settle(fixture);
+    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Stop tracking", danger: true }));
+    expect(managers.versionControl.untrack).toHaveBeenCalledWith("w1", ["build.js"]);
   });
 
   it("selects the first change", async () => {
