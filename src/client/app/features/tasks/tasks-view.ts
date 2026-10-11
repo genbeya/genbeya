@@ -3,16 +3,19 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   type ElementRef,
   inject,
   input,
   signal,
+  untracked,
   viewChild,
   ViewEncapsulation,
 } from "@angular/core";
 import { Router } from "@angular/router";
 import { PRIORITIES, type Task } from "../../../../contracts/model";
 import { hotkey } from "../../core/hotkeys";
+import { People } from "../../core/people";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
@@ -48,7 +51,8 @@ const LANES_KEY = "tasks:lanes";
 
 /**
  * The task board or list, with filters. `?task=` opens a task in the
- * drawer, `?create=<state>` starts a new one. Styles are global but
+ * drawer, `?create=<state>` starts a new one, `?assignee=` shows a
+ * person's tasks. Styles are global but
  * namespaced, so the feature's sub-components share them.
  */
 @Component({
@@ -65,10 +69,13 @@ export class TasksView {
   readonly create = input<string>();
   /** The epic a new task starts in (with `create`). */
   readonly epic = input<string>();
+  /** Filters by this assignee (a handle, name or email), as a mention's "Tasks assigned to" asks. */
+  readonly assignee = input<string>();
 
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
   private readonly router = inject(Router);
+  protected readonly directory = inject(People);
   protected readonly titleCase = titleCase;
   protected readonly priorities = PRIORITIES;
   protected readonly unassigned = UNASSIGNED;
@@ -86,14 +93,15 @@ export class TasksView {
 
   protected readonly snapshot = computed(() => this.session.snapshot()!);
   protected readonly statuses = computed(() => this.snapshot().settings.statuses);
-  protected readonly tasks = computed(() => visibleTasks(this.snapshot().tasks, this.filters(), this.moving()));
+  protected readonly tasks = computed(() => visibleTasks(this.snapshot().tasks, this.filters(), this.moving(), this.directory.identify));
   protected readonly columns = computed(() => columnsOf(this.statuses(), this.snapshot().tasks));
   protected readonly hidden = computed(() => this.hiding() ?? this.snapshot().settings.hiddenColumns);
   protected readonly boardColumns = computed(() => this.columns().filter((status) => !this.hidden().includes(status)));
   protected readonly epics = computed(() => epicsOf(this.snapshot().tasks));
   protected readonly lanes = computed(() => (this.swimlanes() && this.epics().length ? lanesOf(this.snapshot().tasks) : null));
   protected readonly types = computed(() => typesOf(this.snapshot().settings.types, this.snapshot().tasks));
-  protected readonly people = computed(() => peopleOf(this.snapshot().tasks));
+  /** Assignees once per person, by handle where they are one of the repository's people. */
+  protected readonly people = computed(() => peopleOf(this.snapshot().tasks, this.directory.identify));
   protected readonly labels = computed(() => labelsOf(this.snapshot().tasks));
   protected readonly selected = computed(() => {
     const id = this.task();
@@ -104,7 +112,7 @@ export class TasksView {
     return [
       ...(type !== null ? [{ key: "type" as const, text: type ? titleCase(type) : "No type" }] : []),
       ...(epic !== null ? [{ key: "epic" as const, text: epicName(epic) }] : []),
-      ...(assignee ? [{ key: "assignee" as const, text: assignee === UNASSIGNED ? "Unassigned" : assignee }] : []),
+      ...(assignee ? [{ key: "assignee" as const, text: assignee === UNASSIGNED ? "Unassigned" : this.directory.nameOf(assignee) }] : []),
       ...(priority ? [{ key: "priority" as const, text: titleCase(priority) }] : []),
       ...(label ? [{ key: "label" as const, text: label }] : []),
     ];
@@ -117,6 +125,15 @@ export class TasksView {
       computed(() => !this.task() && !this.create()),
     );
     hotkey("/", () => this.search().nativeElement.focus());
+    effect(() => {
+      const assignee = this.assignee();
+      if (!assignee) return;
+      untracked(() => {
+        this.filters.update((filters) => ({ ...filters, assignee: this.directory.identify(assignee) }));
+        // The filter is the view's own from here; following the same link again filters again.
+        void this.router.navigate([], { queryParams: { assignee: null }, queryParamsHandling: "merge", replaceUrl: true });
+      });
+    });
   }
 
   protected setLayout(layout: Layout) {

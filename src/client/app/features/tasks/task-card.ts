@@ -1,13 +1,17 @@
-import { ChangeDetectionStrategy, Component, input } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
+import { People } from "../../core/people";
+import { Session } from "../../core/session";
+import { today } from "../../ui/calendar-date";
 import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
+import { DueDates, dueDatesOf } from "./due-dates";
 import { LabelChip, PriorityIcon, TypeIcon } from "./task-icons";
 import { displayId, titleCase } from "./task-model";
 
 @Component({
   selector: "gd-task-card",
-  imports: [Avatar, Icon, LabelChip, PriorityIcon, TypeIcon],
+  imports: [Avatar, DueDates, Icon, LabelChip, PriorityIcon, TypeIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-card", "[class.is-selected]": "selected()" },
   template: `
@@ -18,11 +22,11 @@ import { displayId, titleCase } from "./task-model";
       <span class="task-id mono">{{ displayId(task().id) }}</span>
       <span class="grow"></span>
       @if (task().assignee) {
-        <gd-avatar [name]="task().assignee" [size]="18" />
+        <gd-avatar [name]="assignee()" [size]="18" />
       }
     </div>
     <div class="task-card-title">{{ task().title }}</div>
-    @if (task().priority !== "none" || task().labels.length || (showEpic() && task().epic)) {
+    @if (task().priority !== "none" || task().labels.length || (showEpic() && task().epic) || hasDates()) {
       <div class="task-card-meta">
         @if (showEpic() && task().epic) {
           <span class="epic-chip" [title]="'Epic ' + task().epic"><svg gd-icon name="folder" [size]="11"></svg>{{ task().epic }}</span>
@@ -35,6 +39,7 @@ import { displayId, titleCase } from "./task-model";
         @for (label of task().labels; track label) {
           <gd-label-chip [name]="label" />
         }
+        <gd-due-dates [task]="task()" />
       </div>
     }
   `,
@@ -46,4 +51,9 @@ export class TaskCard {
   readonly showEpic = input(true);
   protected readonly displayId = displayId;
   protected readonly titleCase = titleCase;
+  private readonly people = inject(People);
+  private readonly session = inject(Session);
+  /** The assignee's name, as mentions show them. */
+  protected readonly assignee = computed(() => this.people.nameOf(this.task().assignee));
+  protected readonly hasDates = computed(() => dueDatesOf(this.task(), this.session.snapshot()!.settings, today()).length > 0);
 }

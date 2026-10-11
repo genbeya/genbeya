@@ -99,7 +99,7 @@
     </button>
     @for (person of people(); track person) {
       <button gd-menu-item [checked]="filters().assignee === person" (selected)="toggleFilter('assignee', person)">
-        <gd-avatar icon [name]="person" [size]="16" />{{ person }}
+        <gd-avatar icon [name]="directory.nameOf(person)" [size]="16" />{{ directory.nameOf(person) }}
       </button>
     }
     <div class="menu-heading">Priority</div>

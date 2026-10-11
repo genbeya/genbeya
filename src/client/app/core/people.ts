@@ -51,6 +51,12 @@ export class People {
     return findPerson(this.index(), text);
   }
 
+  /** Who `text` is: the handle of the person it names, else the text itself. */
+  readonly identify = (text: string): string => this.find(text)?.handle ?? text;
+
+  /** How to show `text` as a person: their name, else the text itself. */
+  readonly nameOf = (text: string): string => this.find(text)?.name ?? text;
+
   private async load() {
     const ticket = ++this.request;
     try {
