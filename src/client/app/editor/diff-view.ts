@@ -188,7 +188,9 @@ export class DiffView {
         for (const effect of transaction.effects)
           if (effect.is(uncollapseUnchanged)) {
             const stretch = folded(transaction.startState).find((range) => range.from === effect.value);
-            if (stretch) this.unfolded[side].push(linesOf(transaction.startState.doc, stretch.from, stretch.to));
+            const lines = stretch && linesOf(transaction.startState.doc, stretch.from, stretch.to);
+            const known = this.unfolded[side].some((range) => range.from === lines?.from && range.to === lines.to);
+            if (lines && !known) this.unfolded[side].push(lines);
           }
     });
   }
