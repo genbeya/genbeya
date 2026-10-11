@@ -343,6 +343,33 @@ describe("ContentManager", () => {
     expect(await repository.read("README.md")).toBe(LINKED["README.md"]);
   });
 
+  it("moves nothing when a link update could not be written", async () => {
+    // Just below the size limit, until its links grow longer.
+    const links = "[a](Architecture.md)\n".repeat(400);
+    const big = `# Big\n\n\`\`\`\n${"x".repeat(2 * 1024 * 1024 - links.length - 100)}\n\`\`\`\n\n${links}`;
+    const { content, id, repository } = await opened({ ...LINKED, "docs/Big.md": big });
+    const target = "docs/Architecture-and-everything-around-it.md";
+    await expect(content.movePage(id, "docs/Architecture.md", target, { updateLinks: true })).rejects.toThrow("limited to 2 MiB");
+    expect(await repository.exists("docs/Architecture.md")).toBe(true);
+    expect(await repository.exists(target)).toBe(false);
+    expect(await repository.read("docs/Home.md")).toBe(LINKED["docs/Home.md"]);
+  });
+
+  it("moves the page back when a link update fails after the move, committing nothing", async () => {
+    const { content, id, latest, repository } = await opened(LINKED);
+    await shareEverything(content, id);
+    const worktree = path.join(repository.root, ".git", "gitdesk", "gitdesk");
+    const commits = await repository.git("rev-parse", "gitdesk");
+    // A file that cannot be written, as one another program holds open on Windows.
+    const home = path.join(worktree, "docs", "Home.md");
+    await fs.chmod(home, 0o444);
+    onTestFinished(() => fs.chmod(home, 0o644));
+    await expect(content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true })).rejects.toThrow();
+    expect(await repository.git("rev-parse", "gitdesk")).toBe(commits);
+    expect(await repository.git("-C", worktree, "status", "--porcelain")).toBe("");
+    expect((await latest()).warnings).toEqual([]);
+  });
+
   it("leaves links alone unless asked, and validates the options", async () => {
     const { content, id, repository } = await opened(LINKED);
     await expect(content.movePage(id, "docs/Architecture.md", "docs/Design.md", "yes" as never)).rejects.toThrow("Invalid move options.");
