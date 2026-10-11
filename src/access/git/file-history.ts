@@ -5,14 +5,23 @@ import { FILE_LOG_FORMAT, parseFileLog, type FileRevision } from "./git-parsers"
 
 /** Context lines enough for patches to hold whole files. */
 const WHOLE_FILE = 1_000_000;
+/**
+ * Versions larger than this are left out of patches, as binary files are,
+ * so 100 commits stay below 2 × 100 × 256 KB of output, well within what
+ * a local git may write (64 MB) and quick to send over WSL or SSH.
+ */
+const VERSION_LIMIT = 256 * 1024;
 
 /**
  * The newest `limit` commits of the checked-out branch that changed `path`,
  * following renames. With `contents`, each holds the file before and after,
- * so the output grows with the file's size times `limit`.
+ * unless a version is larger than {@link VERSION_LIMIT}.
  */
 export async function fileHistory(git: Git, path: string, limit: number, contents: boolean): Promise<FileRevision[]> {
   const output = await git.attempt([
+    // Git treats files larger than this as binary and never reads them into the patch.
+    "-c",
+    `core.bigFileThreshold=${VERSION_LIMIT}`,
     "log",
     "--follow",
     "--no-merges",
