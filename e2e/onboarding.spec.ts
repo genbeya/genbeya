@@ -69,6 +69,18 @@ test.describe("onboarding", () => {
     });
   });
 
+  test.describe("after an update from 0.2, which remembered no version", () => {
+    // What 0.2 saved: preferences without lastSeenVersion and the onboarding.
+    test.use({ preferences: { theme: "system", reopenLast: true, autoSyncContent: false, minimap: true } });
+
+    test("shows what's new rather than treating the user as new", async ({ window, profile }) => {
+      const news = window.getByRole("dialog", { name: /^What's new in GitDesk / });
+      await expect(news).toBeVisible();
+      await news.getByRole("button", { name: "Got it" }).click();
+      await expect.poll(() => savedPreferences(profile).lastSeenVersion).toBe(VERSION);
+    });
+  });
+
   test("brings the tour back from the palette, and Escape ends it", async ({ window }) => {
     await expect(window.getByRole("region", { name: "New to GitDesk?" })).toBeHidden();
     await window.keyboard.press(`${MOD}+k`);
