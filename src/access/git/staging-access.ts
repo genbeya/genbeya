@@ -21,8 +21,23 @@ const EMPTY_TREES: Readonly<Record<string, string>> = {
   sha256: "6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321",
 };
 
-/** Plain unified diffs whatever the user's configuration says about prefixes, external tools and text conversion. */
-const DIFF = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--src-prefix=a/", "--dst-prefix=b/", "--unified=3"];
+/**
+ * Plain unified diffs whatever the user's configuration says about
+ * prefixes, external tools, text conversion and how changes are found: the
+ * diff shown and the diff patched must place changes alike.
+ */
+export const DIFF_OPTIONS: readonly string[] = [
+  "--no-color",
+  "--no-ext-diff",
+  "--no-textconv",
+  "--src-prefix=a/",
+  "--dst-prefix=b/",
+  "--unified=3",
+  "--diff-algorithm=myers",
+  "--indent-heuristic",
+  "--inter-hunk-context=0",
+];
+const DIFF = ["diff", ...DIFF_OPTIONS];
 
 export const NOTHING_TO_AMEND = "There is no commit to amend yet.";
 
@@ -117,6 +132,7 @@ export class StagingAccess {
         "apply",
         ...(cached ? ["--cached"] : []),
         ...(reverse ? ["--reverse"] : []),
+        "--no-ignore-whitespace",
         "--recount",
         "--whitespace=nowarn",
         `${dir}/${PATCH_FILE}`,

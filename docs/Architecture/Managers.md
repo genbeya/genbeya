@@ -32,16 +32,18 @@ One snapshot costs a handful of Git calls:
 
 ## Staging parts of files
 
-`diff(path, source, oldPath, base)` returns both sides of a file and their `version`, a hash of the two. `stageLines`, `unstageLines` and `discardLines` take a `LinePatch`: the path (and the old path of a staged rename), that version, and the chosen lines — removed lines by their number in the original, added lines by their number in the modified version. The manager reads the sides again and refuses lines chosen in a diff that changed meanwhile, or in a binary or oversized file.
+`diff(path, source, oldPath, base)` returns both sides of a file and their `version`, a hash of the two and of the diff options below. For the working tree and the index it also returns `changes`: the runs of changed lines of Git's diff of the file — the diff staging patches — so the client shows each change where Git has it. With repeated lines (braces, blank lines) diff algorithms may place a change differently, and CodeMirror's would otherwise pick other line numbers than the patch has. The manager checks that Git's diff turns the one side into the other (carriage returns at line ends aside, which Git converts) and leaves `changes` out when it does not, e.g. for a file Git shows only as a whole; the client then offers no line actions. An untracked file is all new.
 
-Then it asks Git for its own diff of the file (`git diff` of the working tree, or `git diff --cached -M <base>` of the index, with fixed `a/` and `b/` prefixes, no external diff and no text conversion) and the patch engine (`src/engines/patch-engine.ts`) keeps only the chosen changes:
+`stageLines`, `unstageLines` and `discardLines` take a `LinePatch`: the path (and the old path of a staged rename), that version, and the chosen lines — removed lines by their number in the original, added lines by their number in the modified version. The manager reads the sides again and refuses lines chosen in a diff that changed meanwhile, or in a binary or oversized file.
+
+Then it asks Git for its own diff of the file (`git diff` of the working tree, or `git diff --cached -M <base>` of the index, with fixed `a/` and `b/` prefixes, no external diff, no text conversion, and the Myers algorithm with the indent heuristic and no merged hunks, whatever the user's configuration says) and the patch engine (`src/engines/patch-engine.ts`) keeps only the chosen changes:
 
 - Staging applies the patch forward with `git apply --cached`; unchosen removals become context and unchosen additions are left out. Unstaging (`git apply --cached --reverse`) and discarding (`git apply --reverse` on the working tree) work the other way round.
 - Within a run of changed lines, the n-th removal and the n-th addition belong together, so a removal kept as context goes where its replacement would have gone.
 - Hunk headers are counted anew, and the start of each hunk follows what the hunks before it now add. Lines keep their carriage returns, and a line that ends the file without a newline gets one when lines now follow it.
 - A partly chosen creation or deletion becomes a change of the file; a renamed file is patched under the name the patch applies to, so the rename stays.
 
-The patch goes into `gitdesk.patch` in the git directory, since hosts give processes no standard input, and runs with `--recount --whitespace=nowarn`; Git applies it only where the context matches exactly. Lines of an untracked file are staged after `git add --intent-to-add`, which is undone when applying fails; discarding lines of one leaves the rest untracked. `unstage(paths, "parent")` resets the paths (and the old side of renames) to their version in HEAD's parent with `git reset -q <parent> -- <paths>`, which leaves them out of the amended commit.
+The patch goes into `gitdesk.patch` in the git directory, since hosts give processes no standard input, and runs with `--no-ignore-whitespace --recount --whitespace=nowarn`; Git applies it only where the context matches exactly. Lines of an untracked file are staged after `git add --intent-to-add`, which is undone when applying fails; discarding lines of one leaves the rest untracked. `unstage(paths, "parent")` resets the paths (and the old side of renames) to their version in HEAD's parent with `git reset -q <parent> -- <paths>`, which leaves them out of the amended commit.
 
 ## .gitignore
 

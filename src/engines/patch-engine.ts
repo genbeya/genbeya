@@ -6,7 +6,7 @@
  * (unstaging, discarding), it is the other way round. Hunk headers are
  * counted anew, and a hunk's start follows what the hunks before it now add.
  */
-import type { LineRange, LineSelection } from "../contracts/model";
+import type { DiffChange, LineRange, LineSelection } from "../contracts/model";
 
 /** Forward: the patch turns the original into the result (`git apply`). Reverse: it is applied with `--reverse`. */
 export type PatchDirection = "forward" | "reverse";
@@ -68,6 +68,17 @@ function within(ranges: readonly LineRange[]): (line: number | null) => boolean 
     return next < sorted.length && sorted[next]!.from <= line;
   };
 }
+
+/** The lines of a version, without their line breaks, and whether each has one. */
+function linesOf(text: string): { text: string; end: boolean }[] {
+  if (text === "") return [];
+  const rows = text.split("\n");
+  const last = rows.pop()!;
+  return [...rows.map((row) => ({ text: row, end: true })), ...(last === "" ? [] : [{ text: last, end: false }])];
+}
+
+/** A line without the carriage return of a Windows line break, which git's diff may have converted. */
+const bare = (text: string) => (text.endsWith("\r") ? text.slice(0, -1) : text);
 
 /** `a/x` as `b/x`, quoted or not. */
 const withPrefix = (name: string, prefix: "a/" | "b/") => (name.startsWith('"') ? `"${prefix}${name.slice(3)}` : prefix + name.slice(2));
@@ -144,6 +155,69 @@ export class PatchEngine {
       hunks.push({ oldStart, newStart, lines });
     }
     return { oldName, newName, createdMode, deletedMode, binary, hunks };
+  }
+
+  /** The runs of changed lines of `diff`. */
+  changes(diff: FileDiff): DiffChange[] {
+    const changes: DiffChange[] = [];
+    for (const hunk of diff.hunks) {
+      // A hunk without lines on one side starts after the line its header names there.
+      let oldAt = hunk.lines.some((line) => line.oldLine !== null) ? hunk.oldStart : hunk.oldStart + 1;
+      let newAt = hunk.lines.some((line) => line.newLine !== null) ? hunk.newStart : hunk.newStart + 1;
+      let run: { oldStart: number; oldCount: number; newStart: number; newCount: number } | null = null;
+      for (const { kind } of hunk.lines) {
+        if (kind === " ") {
+          if (run) changes.push(run);
+          run = null;
+          oldAt++;
+          newAt++;
+          continue;
+        }
+        run ??= { oldStart: oldAt, oldCount: 0, newStart: newAt, newCount: 0 };
+        if (kind === "-") {
+          run.oldCount++;
+          oldAt++;
+        } else {
+          run.newCount++;
+          newAt++;
+        }
+      }
+      if (run) changes.push(run);
+    }
+    return changes;
+  }
+
+  /** The changes of a file that is all new, as git shows them once the index knows it is coming. */
+  creation(modified: string): DiffChange[] {
+    const count = linesOf(modified).length;
+    return count ? [{ oldStart: 1, oldCount: 0, newStart: 1, newCount: count }] : [];
+  }
+
+  /**
+   * Whether `diff` turns `original` into `modified` (byte strings), so that
+   * its line numbers are theirs. Carriage returns at the ends of lines do
+   * not count: git compares working tree files with their line endings
+   * converted as the repository says.
+   */
+  describes(diff: FileDiff, original: string, modified: string): boolean {
+    if (diff.binary) return false;
+    const before = linesOf(original);
+    const after = linesOf(modified);
+    const same = (line: { text: string; end: boolean } | undefined, text: string, end: boolean) =>
+      line !== undefined && line.end === end && bare(line.text) === bare(text);
+    const result: { text: string; end: boolean }[] = [];
+    let at = 0;
+    for (const hunk of diff.hunks) {
+      const first = (hunk.lines.find((line) => line.oldLine !== null)?.oldLine ?? hunk.oldStart + 1) - 1;
+      if (first < at || first > before.length) return false;
+      for (; at < first; at++) result.push(before[at]!);
+      for (const line of hunk.lines) {
+        if (line.kind !== "+" && !same(before[at++], line.text, !line.noNewline)) return false;
+        if (line.kind !== "-") result.push({ text: line.text, end: !line.noNewline });
+      }
+    }
+    for (; at < before.length; at++) result.push(before[at]!);
+    return result.length === after.length && result.every((line, index) => same(after[index], line.text, line.end));
   }
 
   /**

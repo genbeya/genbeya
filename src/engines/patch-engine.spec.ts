@@ -331,6 +331,35 @@ describe("PatchEngine", () => {
     expect(engine.parse("").hunks).toEqual([]);
   });
 
+  it("lists the runs of changed lines, a side without lines starting at the line the run comes before", () => {
+    expect(engine.changes(engine.parse(TWO_HUNKS))).toEqual([
+      { oldStart: 2, oldCount: 1, newStart: 2, newCount: 2 },
+      { oldStart: 11, oldCount: 1, newStart: 12, newCount: 1 },
+    ]);
+    expect(engine.changes(engine.parse(CREATED))).toEqual([{ oldStart: 1, oldCount: 0, newStart: 1, newCount: 3 }]);
+    expect(engine.changes(engine.parse(DELETED))).toEqual([{ oldStart: 1, oldCount: 3, newStart: 1, newCount: 0 }]);
+    const inserted = lines(...header(), "@@ -1,2 +1,3 @@", " a", "+x", " b");
+    expect(engine.changes(engine.parse(inserted))).toEqual([{ oldStart: 2, oldCount: 0, newStart: 2, newCount: 1 }]);
+    expect(engine.creation("one\ntwo")).toEqual([{ oldStart: 1, oldCount: 0, newStart: 1, newCount: 2 }]);
+    expect(engine.creation("")).toEqual([]);
+  });
+
+  it("tells whether a diff describes two versions, whatever their line endings", () => {
+    const original = lines(..."abcdefghijkl");
+    const modified = lines("a", "B", "B2", ..."cdefghij", "K", "l");
+    const diff = engine.parse(TWO_HUNKS);
+    expect(engine.describes(diff, original, modified)).toBe(true);
+    expect(engine.describes(diff, original, modified.replace(/\n/g, "\r\n"))).toBe(true);
+    // Changed outside the hunks, or without the last line break.
+    expect(engine.describes(diff, original, modified.replace("f", "F"))).toBe(false);
+    expect(engine.describes(diff, original, modified.slice(0, -1))).toBe(false);
+    expect(engine.describes(diff, original, original)).toBe(false);
+    expect(engine.describes(engine.parse(""), "x\n", "x\n")).toBe(true);
+    expect(engine.describes(engine.parse(CREATED), "", "one\ntwo\nthree\n")).toBe(true);
+    const binary = engine.parse(lines("diff --git a/b.png b/b.png", "Binary files a/b.png and b/b.png differ"));
+    expect(engine.describes(binary, "x", "y")).toBe(false);
+  });
+
   it("builds patches of large hunks in linear time", () => {
     const count = 40_000;
     const removed = Array.from({ length: count }, (_, i) => `-${i}`);
