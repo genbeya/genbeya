@@ -22,6 +22,7 @@ import type {
   OpenedWorkspace,
   OperationOutcome,
   PageMove,
+  People,
   Preferences,
   RebasePlan,
   RebaseStep,
@@ -119,6 +120,12 @@ export interface ContentManagerContract {
    * per file and line length.
    */
   search(workspace: string, text: string, options?: SearchOptions): Promise<SearchResults>;
+  /**
+   * The people of the repository, for `@mentions` and assignees: recent
+   * commit authors (with .mailmap applied), assignees and comment authors,
+   * merged with the people the settings list.
+   */
+  people(workspace: string): Promise<People>;
 }
 
 /** Staging, committing, history, branches and remotes of the checked-out repository. */
@@ -250,6 +257,7 @@ export const MANAGER_METHODS = {
     "agentFiles",
     "addAgentFiles",
     "search",
+    "people",
   ],
   versionControl: [
     "diff",

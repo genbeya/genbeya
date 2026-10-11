@@ -32,6 +32,7 @@ describe("SettingsEngine", () => {
         { name: "chore", icon: "wrench", tone: "gray" },
       ],
       fields: [],
+      people: [],
     });
   });
 
@@ -144,6 +145,43 @@ describe("SettingsEngine", () => {
       expect(engine.serialize(defaults, null, false)).not.toContain("fields");
       const text = engine.serialize({ ...defaults, fields: [{ name: "estimate", type: "number" }] }, null, false);
       expect(engine.parse(text, defaults, false).fields).toEqual([{ name: "estimate", type: "number" }]);
+    });
+  });
+
+  describe("people", () => {
+    it("reads people with a handle and a name, and optionally an email and aliases", () => {
+      const settings = engine.parse(
+        "people:\n  - handle: ada\n    name: Ada Lovelace\n    email: ada@example.com\n    aliases: [Countess, ada@old.example]\n  - handle: bob\n    name: ' Bob '\n",
+        defaults,
+        false,
+      );
+      expect(settings.people).toEqual([
+        { handle: "ada", name: "Ada Lovelace", email: "ada@example.com", aliases: ["Countess", "ada@old.example"] },
+        { handle: "bob", name: "Bob" },
+      ]);
+    });
+
+    it.each([
+      ["people: ada\n", "List the people"],
+      ["people: [ada]\n", "handle"],
+      ["people: [{ handle: -ada, name: Ada }]\n", "handle"],
+      ["people: [{ handle: ada.l, name: Ada }]\n", "handle"],
+      ["people: [{ handle: ada }]\n", "name"],
+      ["people: [{ handle: ada, name: Ada, email: ada }]\n", "email"],
+      ["people: [{ handle: ada, name: Ada, aliases: Countess }]\n", "aliases"],
+      ["people: [{ handle: ada, name: Ada }, { handle: ADA, name: Other }]\n", "unique"],
+      ["people: [{ handle: ada, name: Ada, aliases: [bob] }, { handle: bob, name: Bob }]\n", "another person's handle"],
+    ])("rejects %j", (content, message) => {
+      expect(() => engine.parse(content, defaults, false)).toThrow(message);
+    });
+
+    it("writes people only while there are some, and keeps them when other settings change", () => {
+      expect(engine.serialize(defaults, null, false)).not.toContain("people");
+      const people = [{ handle: "ada", name: "Ada Lovelace", email: "ada@example.com" }];
+      const text = engine.serialize({ ...defaults, people }, null, false);
+      expect(text).toContain("people:\n  - handle: ada\n    name: Ada Lovelace\n    email: ada@example.com\n");
+      const renamed = engine.serialize({ ...engine.parse(text, defaults, false), name: "B" }, text, false);
+      expect(engine.parse(renamed, defaults, false).people).toEqual(people);
     });
   });
 

@@ -11,6 +11,7 @@ import {
   type FileContent,
   type LinkUpdate,
   type PageMove,
+  type People,
   type Scope,
   type SearchResults,
   type Settings,
@@ -22,9 +23,11 @@ import {
 } from "../contracts/model";
 import type { ContentLocation } from "../access/content/content-store";
 import { IMAGE_LIMIT, type VersionedFile } from "../access/files/file-store";
+import { commitAuthors, commitIdentity, type AuthorCount } from "../access/git/authors";
 import { isMissing } from "../access/hosts/host";
 import type { AgentEngine } from "../engines/agent-engine";
 import type { LinkEngine, LinkRewrite } from "../engines/link-engine";
+import type { PeopleEngine } from "../engines/people-engine";
 import type { SearchEngine } from "../engines/search-engine";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine, TaskVersion } from "../engines/task-engine";
@@ -50,6 +53,9 @@ const ACTIVITY_LIMIT = 100;
 /** Larger task files list their commits without what changed, so the history stays small. */
 const ACTIVITY_CONTENT_LIMIT = 256 * 1024;
 
+/** Recent commits whose authors count as the repository's people; enough for years of a busy team, quick over SSH. */
+const AUTHOR_COMMITS = 5000;
+
 /** Equal apart from line endings, which Git may convert on checkout. */
 const sameText = (a: string | null, b: string) => a !== null && a.replace(/\r\n/g, "\n") === b.replace(/\r\n/g, "\n");
 
@@ -63,8 +69,12 @@ export class ContentManager implements ContentManagerContract {
       readonly agents: AgentEngine;
       readonly links: LinkEngine;
       readonly search: SearchEngine;
+      readonly people: PeopleEngine;
     },
   ) {}
+
+  /** Commit authors per open repository, read again only when HEAD moves. */
+  private readonly authors = new WeakMap<Workspace, { readonly head: string | null; readonly authors: Promise<AuthorCount[]> }>();
 
   /** Runs an operation on the workspace named by `id`, after its earlier operations. */
   private on<T>(id: unknown, operation: (workspace: Workspace) => Promise<T>): Promise<T> {
@@ -458,6 +468,33 @@ export class ContentManager implements ContentManagerContract {
   search(id: unknown, text: unknown, options?: unknown): Promise<SearchResults> {
     const query = this.engines.search.validate(text, options);
     return this.on(id, (workspace) => searchContent(workspace, this.engines, query));
+  }
+
+  people(id: unknown): Promise<People> {
+    return this.on(id, async (workspace) => {
+      // Re-read, as the snapshot does: people are often added to the file by hand.
+      const { settings } = await workspace.settings(true);
+      const tasks = await workspace.tasks(await workspace.content.files("tasks"), settings, []);
+      const [authors, identity] = await Promise.all([this.commitAuthors(workspace), commitIdentity(workspace.repository.git)]);
+      const people = this.engines.people.merge({
+        configured: settings.people,
+        authors,
+        assignees: tasks.map((task) => task.assignee),
+        commenters: tasks.flatMap((task) => task.comments.map((comment) => comment.author)),
+      });
+      return { people, me: this.engines.people.me(people, identity) };
+    });
+  }
+
+  private async commitAuthors(workspace: Workspace): Promise<AuthorCount[]> {
+    const head = await workspace.repository.git.objectId("HEAD");
+    let cached = this.authors.get(workspace);
+    if (!cached || cached.head !== head) {
+      cached = { head, authors: head ? commitAuthors(workspace.repository.git, AUTHOR_COMMITS) : Promise.resolve([]) };
+      this.authors.set(workspace, cached);
+      cached.authors.catch(() => this.authors.delete(workspace));
+    }
+    return cached.authors;
   }
 
   private version(value: unknown): string | null {
