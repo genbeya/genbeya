@@ -205,6 +205,11 @@ export class MarkdownView {
     const target = event.target as Element;
     const copy = target.closest<HTMLElement>("[data-copy]");
     if (copy) return void this.copy(copy);
+    const wrap = target.closest<HTMLElement>("[data-wrap]");
+    if (wrap) {
+      const wrapped = wrap.closest(".md-code")?.classList.toggle("is-wrapped") ?? false;
+      return wrap.setAttribute("aria-pressed", String(wrapped));
+    }
     const checkbox = target.closest<HTMLElement>(".md-check.is-interactive");
     if (checkbox) return this.checkboxToggled.emit(Number(checkbox.dataset["offset"]));
     const anchor = target.closest("a");

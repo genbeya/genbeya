@@ -70,7 +70,7 @@ const ATTRIBUTES: Readonly<Record<string, string>> = {
   ariaDescribedBy: "aria-describedby",
   ariaLabel: "aria-label",
 };
-/** Data attributes of callouts, footnotes and embeds; plugins name them `dataX` or `data-x`. */
+/** Data attributes of callouts, footnotes, embeds and code lines; plugins name them `dataX` or `data-x`. */
 const DATA_ATTRIBUTES = new Set([
   "data-callout",
   "data-footnote-ref",
@@ -78,6 +78,7 @@ const DATA_ATTRIBUTES = new Set([
   "data-footnotes",
   "data-embed",
   "data-lines",
+  "data-line",
 ]);
 
 function attributeName(property: string): string | undefined {
@@ -149,6 +150,7 @@ const ICONS: Readonly<Record<string, readonly string[]>> = {
     "M8 10a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2z",
     "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2",
   ],
+  wrap: ["m16 16-3 3 3 3", "M3 12h14.5a1 1 0 0 1 0 7H13", "M3 19h6", "M3 5h18"],
   imageOff: [
     "m2 2 20 20",
     "M10.41 10.41a2 2 0 1 1-2.83-2.83",
@@ -227,16 +229,28 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
       diagrams.push({ element: placeholder, language: diagram, source });
       return placeholder;
     }
-    const block = create("div", ["md-code"]);
+    const title = code?.properties["dataTitle"];
+    const block = create("div", ["md-code", ...(code?.properties["dataNumbered"] ? ["has-line-numbers"] : [])]);
     const bar = create("div", ["md-code-bar"]);
-    const label = create("span");
-    label.textContent = language;
-    const copy = create("button");
-    copy.setAttribute("type", "button");
-    copy.setAttribute("aria-label", "Copy code");
+    const label = create("span", ["md-code-label"]);
+    if (typeof title === "string") {
+      const name = create("span", ["md-code-title"]);
+      name.append(icon(document, "fileCode", 13), document.createTextNode(title));
+      label.append(name);
+    }
+    if (language) {
+      const name = create("span", ["md-code-language"]);
+      name.textContent = language;
+      label.append(name);
+    }
+    const wrap = button("Wrap lines", "wrap");
+    wrap.dataset["wrap"] = "";
+    wrap.setAttribute("aria-pressed", "false");
+    const copy = button("Copy code", "copy");
     copy.dataset["copy"] = source;
-    copy.append(icon(document, "copy", 13));
-    bar.append(label, copy);
+    const actions = create("span", ["md-code-actions"]);
+    actions.append(wrap, copy);
+    bar.append(label, actions);
     const body = create("pre");
     children(pre.children, body, null);
     block.append(bar, body);

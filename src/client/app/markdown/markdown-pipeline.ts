@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
+import { rehypeCodeBlocks, remarkCodeBlocks } from "./code-blocks";
 import { remarkMath } from "./math";
 import { remarkGitdesk, type GitdeskOptions } from "./remark-gitdesk";
 
@@ -16,10 +17,12 @@ export function parseMarkdown(source: string, options: GitdeskOptions = {}): Roo
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
+    .use(remarkCodeBlocks)
     .use(remarkGitdesk, options)
     // Raw HTML in Markdown is dropped: pages render only what Markdown can express.
     .use(remarkRehype)
-    .use(rehypeHighlight, { plainText: PLAIN, detect: false });
+    .use(rehypeHighlight, { plainText: PLAIN, detect: false })
+    .use(rehypeCodeBlocks);
   return processor.runSync(processor.parse(source), source) as Root;
 }
 

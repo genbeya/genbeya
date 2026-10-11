@@ -70,6 +70,18 @@ describe("MarkdownView", () => {
     expect([error.textContent, error.title]).toEqual(["\\frac{", expect.stringContaining("KaTeX parse error")]);
   });
 
+  it("wraps long lines of code on request", async () => {
+    const { element } = await render("```\nx\n```");
+    const wrap = element.querySelector<HTMLElement>("[aria-label='Wrap lines']")!;
+    wrap.click();
+    expect([element.querySelector(".md-code")?.classList.contains("is-wrapped"), wrap.getAttribute("aria-pressed")]).toEqual([
+      true,
+      "true",
+    ]);
+    wrap.click();
+    expect(element.querySelector(".md-code")?.classList.contains("is-wrapped")).toBe(false);
+  });
+
   it("re-renders when the source changes", async () => {
     const { element, fixture } = await render("# One");
     fixture.componentInstance.source.set("# Two");

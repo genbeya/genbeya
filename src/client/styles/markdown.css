@@ -255,6 +255,34 @@
   font: 500 11.5px var(--font-ui);
 }
 
+.md-code-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.md-code-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--text-2);
+  font: 500 12px var(--font-mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.md-code-title svg {
+  flex: none;
+}
+
+.md-code-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
 .md-code-bar button {
   display: grid;
   place-items: center;
@@ -266,7 +294,8 @@
   color: var(--text-3);
 }
 
-.md-code-bar button:hover {
+.md-code-bar button:hover,
+.md-code-bar button[aria-pressed="true"] {
   background: var(--bg-hover);
   color: var(--text);
 }
@@ -282,6 +311,77 @@
 
 .md-code code {
   font-family: var(--font-mono);
+}
+
+.md-code.is-wrapped pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Lines of blocks with line numbers, marked lines or diffs */
+.md-code pre:has(.md-line) {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.md-code code:has(.md-line) {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+
+.md-code.is-wrapped code:has(.md-line) {
+  width: auto;
+}
+
+.md-line {
+  display: block;
+  padding: 0 14px;
+}
+
+.md-line.is-marked {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+.md-line.is-added {
+  background: var(--green-soft);
+  box-shadow: inset 2px 0 var(--green);
+}
+
+.md-line.is-removed {
+  background: var(--red-soft);
+  box-shadow: inset 2px 0 var(--red);
+}
+
+.md-diff-sign {
+  display: inline-block;
+  width: 2ch;
+  color: var(--text-3);
+  user-select: none;
+}
+
+.md-line.is-added > .md-diff-sign {
+  color: var(--green);
+}
+
+.md-line.is-removed > .md-diff-sign {
+  color: var(--red);
+}
+
+.has-line-numbers .md-line::before {
+  display: inline-block;
+  min-width: 3ch;
+  margin-right: 2ch;
+  color: var(--text-3);
+  content: attr(data-line);
+  text-align: right;
+  user-select: none;
+}
+
+.has-line-numbers.is-wrapped .md-line {
+  padding-left: calc(14px + 5ch);
+  text-indent: -5ch;
 }
 
 /* Diagrams */
@@ -548,7 +648,7 @@
   border-radius: 0;
 }
 
-.markdown .md-embed .md-code-bar span {
+.markdown .md-embed .md-code-label {
   display: none;
 }
 
