@@ -122,7 +122,8 @@ describe("ChangesView", () => {
   });
 
   it("asks before dropping a stash", async () => {
-    const stash = { hash: "b".repeat(40), index: 0, message: "Old", branch: null, date: new Date().toISOString() };
+    // A stash made without a message has none to show.
+    const stash = { hash: "b".repeat(40), index: 2, message: "", branch: null, date: new Date().toISOString() };
     const harness = await openRepository({ stashes: [stash] });
     harness.managers.versionControl.stashDetail.mockResolvedValue({ stash, files: [] });
     harness.dialogs.confirm.mockResolvedValue(false);
@@ -134,7 +135,9 @@ describe("ChangesView", () => {
     )!;
     drop.click();
     await settle(fixture);
-    expect(harness.dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Drop stash", danger: true }));
+    expect(harness.dialogs.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Drop stash", message: "Drop stash@{2}? Its changes are lost.", danger: true }),
+    );
     expect(harness.managers.versionControl.dropStash).not.toHaveBeenCalled();
   });
 
