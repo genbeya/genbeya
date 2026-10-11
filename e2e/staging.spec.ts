@@ -67,8 +67,22 @@ test.describe("staging parts of files, the tree, .gitignore and amending", () =>
     repository.git("add", "b.txt", "c.txt");
     repository.git("commit", "-q", "-m", "Add b and c");
     await window.keyboard.press(`${MOD}+4`);
-    await window.getByRole("checkbox", { name: "Amend last commit" }).check();
-    await expect(window.getByRole("textbox", { name: "Commit message" })).toHaveValue("Add b and c");
+    const amend = window.getByRole("checkbox", { name: "Amend last commit" });
+    const message = window.getByRole("textbox", { name: "Commit message" });
+    await message.fill("Draft");
+    // A draft stays as it is; turning amend off keeps it.
+    await amend.check();
+    await expect(message).toHaveValue("Draft");
+    await amend.uncheck();
+    await expect(message).toHaveValue("Draft");
+    // An empty box gets the last message, and gets empty again unless it was edited.
+    await message.fill("");
+    await amend.check();
+    await expect(message).toHaveValue("Add b and c");
+    await amend.uncheck();
+    await expect(message).toHaveValue("");
+    await amend.check();
+    await expect(message).toHaveValue("Add b and c");
     const staged = window.getByRole("region", { name: "Staged changes" });
     await expect(staged.locator("gd-change-row")).toHaveCount(2);
     const row = staged.locator("gd-change-row", { hasText: "b.txt" });

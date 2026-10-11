@@ -200,7 +200,7 @@ export class ChangesView {
     if (!amend || this.message().trim()) return;
     const last = await this.session.run(() => this.api.versionControl.lastCommitMessage());
     // Whatever the user typed meanwhile wins.
-    if (last && this.amend() && !this.message().trim()) this.message.set(last);
+    if (last) this.draft.loadAmended(last);
   }
 
   protected stage(paths: readonly string[]) {

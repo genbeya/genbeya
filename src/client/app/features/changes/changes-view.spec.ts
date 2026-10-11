@@ -58,6 +58,35 @@ describe("ChangesView", () => {
     expect(commitButton().textContent!.trim()).toBe("Amend");
   });
 
+  it("brings back the draft from before amending, unless the loaded message was edited", async () => {
+    const { element, managers, fixture, typeMessage } = await render([{ path: "a.ts", index: " ", worktree: "M" }]);
+    managers.versionControl.lastCommitMessage.mockResolvedValue("Previous message");
+    const amend = element.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    const toggle = async (checked: boolean) => {
+      amend.checked = checked;
+      amend.dispatchEvent(new Event("change"));
+      await settle(fixture);
+    };
+    const message = () => element.querySelector("textarea")!.value;
+
+    await toggle(true);
+    expect(message()).toBe("Previous message");
+    await toggle(false);
+    expect(message()).toBe("");
+
+    await typeMessage("Half-written message");
+    await toggle(true);
+    expect(message()).toBe("Half-written message");
+    await toggle(false);
+    expect(message()).toBe("Half-written message");
+
+    await typeMessage("");
+    await toggle(true);
+    await typeMessage("Previous message, reworded");
+    await toggle(false);
+    expect(message()).toBe("Previous message, reworded");
+  });
+
   it("keeps the message while the user looks at another view", async () => {
     const { fixture, typeMessage } = await render([{ path: "a.ts", index: " ", worktree: "M" }]);
     await typeMessage("Half-written message");

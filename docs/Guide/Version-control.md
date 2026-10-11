@@ -45,11 +45,11 @@ The changed `.gitignore` then shows up in **Changes**, ready to commit.
 
 ### Amending
 
-Tick **Amend last commit** to change the last commit. Its message is loaded, and the staged list shows everything the amended commit will hold: the last commit's changes plus whatever you stage on top.
+Tick **Amend last commit** to change the last commit. Its message is loaded into an empty message box (a message you started stays), and the staged list shows everything the amended commit will hold: the last commit's changes plus whatever you stage on top.
 
 - Unstage a file, a hunk or lines to leave them out of the commit: they stay in your working tree as unstaged changes.
 - Stage more to add it.
-- **Amend** commits exactly what is staged; untick the box to go back to normal.
+- **Amend** commits exactly what is staged; untick the box to go back to normal. The message box then gets back what it held before, unless you edited the loaded message: your edits stay.
 
 When the last commit is a merge, its changes are shown against its first parent, and the amended commit keeps all its parents. When the commit is already on a remote branch, GitDesk warns you: amending rewrites it, so you would have to force-push (see [Force push](#force-push)). There is nothing to amend before the first commit.
 
