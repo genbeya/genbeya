@@ -21,8 +21,23 @@ const EMPTY_TREES: Readonly<Record<string, string>> = {
   sha256: "6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321",
 };
 
-/** Plain unified diffs whatever the user's configuration says about prefixes, external tools and text conversion. */
-const DIFF = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--src-prefix=a/", "--dst-prefix=b/", "--unified=3"];
+/**
+ * Plain unified diffs whatever the user's configuration says about
+ * prefixes, external tools, text conversion and how changes are found: the
+ * diff shown and the diff patched must place changes alike.
+ */
+export const DIFF_OPTIONS: readonly string[] = [
+  "--no-color",
+  "--no-ext-diff",
+  "--no-textconv",
+  "--src-prefix=a/",
+  "--dst-prefix=b/",
+  "--unified=3",
+  "--diff-algorithm=myers",
+  "--indent-heuristic",
+  "--inter-hunk-context=0",
+];
+const DIFF = ["diff", ...DIFF_OPTIONS];
 
 export const NOTHING_TO_AMEND = "There is no commit to amend yet.";
 
@@ -54,6 +69,9 @@ export function restage(changes: readonly Change[], staged: readonly CommitFile[
 }
 
 export class StagingAccess {
+  /** The last {@link amending} answer, by the ids it depends on. */
+  private amended: { key: string; value: Promise<Amending | null> } | null = null;
+
   constructor(
     private readonly host: Host,
     private readonly git: Git,
@@ -77,8 +95,21 @@ export class StagingAccess {
     return EMPTY_TREES[format] ?? EMPTY_TREES["sha1"]!;
   }
 
-  /** The commit an amend replaces; null before the first commit. */
+  /**
+   * The commit an amend replaces; null before the first commit. Snapshots
+   * ask on every poll while amending, so it is looked up again only once
+   * HEAD or a remote branch moved: finding the branches that contain HEAD
+   * walks the history.
+   */
   async amending(): Promise<Amending | null> {
+    // HEAD's id, then those of the remote branches.
+    const key = await this.git.attempt(["rev-parse", "HEAD", "--remotes"]);
+    if (!key?.trim()) return null;
+    if (this.amended?.key !== key) this.amended = { key, value: this.lookUpAmending() };
+    return this.amended.value;
+  }
+
+  private async lookUpAmending(): Promise<Amending | null> {
     const line = await this.git.attempt(["log", "-1", "--format=%h%x00%p", "HEAD"]);
     if (!line?.trim()) return null;
     const [commit, parents] = line.trim().split("\0") as [string, string];
@@ -117,6 +148,7 @@ export class StagingAccess {
         "apply",
         ...(cached ? ["--cached"] : []),
         ...(reverse ? ["--reverse"] : []),
+        "--no-ignore-whitespace",
         "--recount",
         "--whitespace=nowarn",
         `${dir}/${PATCH_FILE}`,
@@ -135,8 +167,18 @@ export class StagingAccess {
 
   /** Takes paths out of the index, keeping the files; with `force` even when the index holds content found nowhere else. */
   async untrack(paths: readonly string[], force = false): Promise<void> {
-    for (const batch of splitIntoBatches(paths))
-      await this.git.text(["rm", "--cached", "-r", "--quiet", ...(force ? ["--force"] : []), "--", ...batch]);
+    for (const batch of splitIntoBatches(paths)) {
+      const args = ["rm", "--cached", "-r", "--quiet", ...(force ? ["--force"] : []), "--", ...batch];
+      const result = await this.git.run(args);
+      if (result.code === 0) continue;
+      // Git lists the files indented below its message.
+      const lost = /staged content different from both the\s+file and the HEAD:\n((?:[ \t]+\S.*\n?)+)/.exec(result.stderr);
+      if (!lost) throw failure(args, result);
+      const files = lost[1]!.trim().split(/\s*\n\s*/);
+      throw new GitError(
+        `${files.join(", ")} ${files.length === 1 ? "has" : "have"} staged changes that are neither in the file nor in the last commit, which Stop tracking would lose. Commit or unstage them first.`,
+      );
+    }
   }
 
   /** Sets the index entries of `paths` to their version in `tree`, removing those it lacks. */

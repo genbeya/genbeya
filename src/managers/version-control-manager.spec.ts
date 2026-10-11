@@ -57,11 +57,30 @@ describe("VersionControlManager resets", () => {
     expect((await latest()).changes.find((change) => change.path === "One.txt")?.index).toBe("A");
     await versionControl.reset(id, one, "soft", initial);
 
-    await versionControl.reset(id, initial, "hard", one);
+    await versionControl.reset(id, initial, "hard", one, (await versionControl.resetPlan(id, initial)).state);
     expect(await repository.read("docs/Home.md")).toBe("# Home\n");
     expect(await repository.exists("One.txt")).toBe(false);
-    await versionControl.reset(id, one, "keep", initial);
+    await versionControl.reset(id, one, "keep", initial, (await versionControl.resetPlan(id, one)).state);
     expect(await repository.read("One.txt")).toBe("One");
+  });
+
+  it("refuses a hard or keep reset once the uncommitted changes changed since it was planned", async () => {
+    const { repository, versionControl, id, head } = await opened();
+    const initial = await head();
+    const one = await commit(repository, "One");
+    await repository.write("docs/Home.md", "edited");
+    const plan = await versionControl.resetPlan(id, initial);
+    await repository.write("docs/Home.md", "edited while the dialog was open");
+    for (const mode of ["hard", "keep"] as const)
+      await expect(versionControl.reset(id, initial, mode, plan.head, plan.state)).rejects.toThrow(
+        "Your uncommitted changes changed since you chose the reset. Look at it again first.",
+      );
+    await expect(versionControl.reset(id, initial, "hard", plan.head)).rejects.toThrow("Invalid reset state.");
+    expect(await head()).toBe(one);
+    expect(await repository.read("docs/Home.md")).toBe("edited while the dialog was open");
+    // Soft and mixed keep every change.
+    await versionControl.reset(id, initial, "mixed", plan.head, plan.state);
+    expect(await head()).toBe(initial);
   });
 
   it("refuses a reset once the branch moved since it was planned", async () => {
@@ -84,17 +103,29 @@ describe("VersionControlManager resets", () => {
     await repository.git("commit", "-qam", "Main");
     expect(await versionControl.merge(id, "feature", { noFastForward: false, message: "" })).toBe("stopped");
     await expect(versionControl.resetPlan(id, initial)).rejects.toThrow("Finish or abort the merge first.");
-    await expect(versionControl.reset(id, initial, "hard", await head())).rejects.toThrow("Finish or abort the merge first.");
-    await expect(versionControl.undoLastCommit(id)).rejects.toThrow("Finish or abort the merge first.");
+    await expect(versionControl.reset(id, initial, "hard", await head(), "")).rejects.toThrow("Finish or abort the merge first.");
+    await expect(versionControl.undoLastCommit(id, await head())).rejects.toThrow("Finish or abort the merge first.");
   });
 
   it("undoes the last commit, keeping its changes staged", async () => {
     const { repository, versionControl, id, latest, head } = await opened();
     const initial = await head();
     const one = await commit(repository, "One");
-    expect(await versionControl.undoLastCommit(id)).toEqual({ from: one, to: initial });
+    expect(await versionControl.undoLastCommit(id, one)).toEqual({ from: one, to: initial });
     expect((await latest()).changes).toEqual([expect.objectContaining({ path: "One.txt", index: "A" })]);
-    await expect(versionControl.undoLastCommit(id)).rejects.toThrow("The last commit is the first one");
+    await expect(versionControl.undoLastCommit(id, initial)).rejects.toThrow("The last commit is the first one");
+  });
+
+  it("refuses to undo a commit other than the one shown", async () => {
+    const { repository, versionControl, id, head } = await opened();
+    const shown = await commit(repository, "One");
+    const meanwhile = await commit(repository, "Meanwhile");
+    await expect(versionControl.undoLastCommit(id, shown)).rejects.toThrow("main moved since you chose to undo its last commit.");
+    await expect(versionControl.undoLastCommit(id, shown.slice(0, 7))).rejects.toThrow("main moved since");
+    await expect(versionControl.undoLastCommit(id, "HEAD")).rejects.toThrow("Invalid commit ID.");
+    expect(await head()).toBe(meanwhile);
+    // The short id the snapshot shows is enough.
+    expect((await versionControl.undoLastCommit(id, meanwhile.slice(0, 7))).from).toBe(meanwhile);
   });
 
   it("rejects invalid modes and commits, and resets without a branch", async () => {
@@ -108,7 +139,7 @@ describe("VersionControlManager resets", () => {
     await expect(versionControl.reset(id, hash, "soft", "HEAD")).rejects.toThrow("Invalid commit ID.");
     await repository.git("switch", "-q", "--detach");
     await expect(versionControl.reset(id, hash, "soft", hash)).rejects.toThrow("Switch to a branch first.");
-    await expect(versionControl.undoLastCommit(id)).rejects.toThrow("Switch to a branch first.");
+    await expect(versionControl.undoLastCommit(id, hash)).rejects.toThrow("Switch to a branch first.");
   });
 });
 

@@ -33,6 +33,8 @@ While a terminal has focus, every key except `` Ctrl+` `` goes to the shell.
 | `↑` / `↓`, `Home` / `End` | Move between the rows of the change tree |
 | `→` / `←` | Open / close a folder of the tree; again: go to its first entry / to the folder above |
 | `Enter`, `Space` | Show the file's diff; open or close the folder |
+| `S` | Stage or unstage the focused file or folder of the tree |
+| `Delete` | Discard the changes of the focused file or folder of the tree (asks first) |
 | Click a line number, `Shift`+click | Select a line of the diff; select the lines up to another one ([Staging hunks and lines](Version-control.md#staging-hunks-and-lines)) |
 | `Shift+↑` / `Shift+↓` | Select lines inside the diff |
 

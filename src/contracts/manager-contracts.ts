@@ -215,10 +215,14 @@ export interface VersionControlManagerContract {
   revert(workspace: string, hash: string): Promise<OperationOutcome>;
   /** What resetting the current branch to the commit `hash` would do. */
   resetPlan(workspace: string, hash: string): Promise<ResetPlan>;
-  /** Moves the current branch to the commit `hash`, if it is still at `expectedHead`. */
-  reset(workspace: string, hash: string, mode: ResetMode, expectedHead: string): Promise<ResetResult>;
-  /** Moves the current branch back to the parent of its last commit, keeping that commit's changes staged. */
-  undoLastCommit(workspace: string): Promise<ResetResult>;
+  /**
+   * Moves the current branch to the commit `hash`, if it is still at
+   * `expectedHead`; a hard or keep reset also only if the uncommitted
+   * changes are still those of the plan's `expectedState`.
+   */
+  reset(workspace: string, hash: string, mode: ResetMode, expectedHead: string, expectedState?: string): Promise<ResetResult>;
+  /** Moves the current branch back to the parent of its last commit, if that is still `expectedHead` (a short id will do), keeping its changes staged. */
+  undoLastCommit(workspace: string, expectedHead: string): Promise<ResetResult>;
   /** Continues the operation in progress once its conflicts are resolved. */
   continueOperation(workspace: string): Promise<OperationOutcome>;
   /** Leaves out the commit a rebase, cherry-pick or revert stopped at. */

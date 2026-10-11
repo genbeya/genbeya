@@ -71,15 +71,26 @@ test.describe("tasks", () => {
   test("comments on a task below its description in the file", async ({ window, repository }) => {
     await window.getByText("First task").click();
     const panel = window.getByRole("dialog", { name: "Task DP-1" });
-    await panel.getByRole("textbox", { name: "New comment" }).fill("Looks good, see [[Guide]].");
+    await panel.getByRole("combobox", { name: "New comment" }).fill("Looks good, see [[Guide]].");
     await window.keyboard.press(`${MOD}+Enter`);
     await expect
       .poll(() => repository.read("tasks/DP-1.md"))
       .toMatch(/- \[ \] Check me\n\n## Comments\n\n### E2E — \d{4}-\d\d-\d\d \d\d:\d\d[+-]\d\d:\d\d\n\nLooks good, see \[\[Guide\]\]\.\n$/);
     const comment = panel.getByRole("article", { name: "Comment by E2E" });
     await expect(comment).toContainText("Looks good, see Guide.");
-    await expect(panel.getByRole("textbox", { name: "New comment" })).toHaveValue("");
+    await expect(panel.getByRole("combobox", { name: "New comment" })).toHaveValue("");
     await expect(panel.getByRole("tab", { name: "Comments 1" })).toBeVisible();
+  });
+
+  test("inserts a suggestion in a comment that undo takes back", async ({ window }) => {
+    await window.getByText("First task").click();
+    const composer = window.getByRole("dialog", { name: "Task DP-1" }).getByRole("combobox", { name: "New comment" });
+    await composer.pressSequentially("Due //tomorrow");
+    await expect(window.getByRole("listbox", { name: "Suggestions" })).toBeVisible();
+    await composer.press("Enter");
+    await expect(composer).toHaveValue(/^Due \d{4}-\d\d-\d\d$/);
+    await composer.press(`${MOD}+z`);
+    await expect(composer).toHaveValue("Due //tomorrow");
   });
 
   test("shows who changed the status once it is committed", async ({ window, repository }) => {

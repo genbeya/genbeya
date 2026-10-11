@@ -65,6 +65,37 @@ describe("ChangeTree", () => {
     fixture.destroy();
   });
 
+  it("keeps the focus in the tree when the focused row goes, as after staging it", async () => {
+    const { rows, fixture } = await render(["src/a.ts", "src/b.ts", "top.ts"]);
+    rows()[1]!.focus();
+    fixture.componentRef.setInput("changes", ["src/b.ts", "top.ts"].map(change));
+    await settle(fixture);
+    expect(document.activeElement).toBe(rows()[1]);
+    expect(rows()[1]!.textContent).toContain("b.ts");
+    rows()[2]!.focus();
+    fixture.componentRef.setInput("changes", ["src/b.ts"].map(change));
+    await settle(fixture);
+    // The last row went: the one before it.
+    expect(document.activeElement).toBe(rows()[1]);
+    fixture.destroy();
+  });
+
+  it("stages and discards the focused file or folder with the keyboard", async () => {
+    const { rows, press, fixture } = await render(["src/a.ts", "src/b.ts"]);
+    const staged = vi.fn();
+    const discarded = vi.fn();
+    fixture.componentInstance.toggleStaged.subscribe(staged);
+    fixture.componentInstance.discard.subscribe(discarded);
+    expect(rows()[0]!.getAttribute("aria-keyshortcuts")).toBe("S Delete");
+    rows()[0]!.focus();
+    await press("s");
+    expect(staged).toHaveBeenCalledWith(expect.objectContaining({ path: "src", folder: true }));
+    rows()[1]!.focus();
+    await press("Delete");
+    expect(discarded).toHaveBeenCalledWith(expect.objectContaining({ path: "src/a.ts", folder: false }));
+    fixture.destroy();
+  });
+
   it("selects files and acts on whole folders", async () => {
     const { element, fixture } = await render(["src/a.ts", "src/b.ts"]);
     const tree = fixture.componentInstance;

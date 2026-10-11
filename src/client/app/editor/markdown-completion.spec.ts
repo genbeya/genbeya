@@ -3,7 +3,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import type { Person } from "../../../contracts/model";
-import { dateSource, markdownBlockSource, mentionSource } from "./markdown-completion";
+import { dateSource, markdownBlockSource, markdownReferenceSource, mentionSource } from "./markdown-completion";
 
 const people: Person[] = [
   { handle: "ada", name: "Ada Lovelace", email: "ada@example.com", aliases: [], commits: 2 },
@@ -103,5 +103,16 @@ describe("blocks and dates", () => {
     expect(complete("$a @ad|$", mentions).result).toBeNull();
     expect(complete("$$\nx //|\n$$", dates).result).toBeNull();
     expect(complete("$a$ and @ad|", mentions).result).not.toBeNull();
+  });
+});
+
+describe("reference completion", () => {
+  const references = markdownReferenceSource(() => [{ kind: "page", label: "Guide", detail: "docs/Guide.md", target: "Guide" }]);
+
+  it("offers references after [[, but not in code or math", () => {
+    expect(complete("See [[Gu|", references).result?.options.map((option) => option.label)).toEqual(["Guide"]);
+    expect(complete("See `[[Gu|`", references).result).toBeNull();
+    expect(complete("```\n[[Gu|\n```", references).result).toBeNull();
+    expect(complete("$[[Gu|$", references).result).toBeNull();
   });
 });

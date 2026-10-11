@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { cloneRepository, createRemote, createRepository } from "../../testing/repository";
 import { LocalHost } from "../hosts/local-host";
@@ -58,7 +58,15 @@ describe("StagingAccess", () => {
     await clone.git("commit", "-q", "-m", "First");
     await clone.git("push", "-q", "origin", "main");
     await clone.git("remote", "set-head", "origin", "main");
-    const { staging } = await open(clone.root);
+    const { staging, git } = await open(clone.root);
+    expect((await staging.amending())!.pushed).toEqual(["origin/main"]);
+    // Polled with every snapshot: looked up again only once HEAD or a remote branch moved.
+    const run = vi.spyOn(git, "run");
+    expect((await staging.amending())!.pushed).toEqual(["origin/main"]);
+    expect(run.mock.calls.map(([args]) => args[0])).toEqual(["rev-parse"]);
+    await clone.git("commit", "-q", "--allow-empty", "-m", "Second");
+    expect((await staging.amending())!.pushed).toEqual([]);
+    await clone.git("push", "-q", "origin", "main");
     expect((await staging.amending())!.pushed).toEqual(["origin/main"]);
   });
 

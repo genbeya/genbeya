@@ -437,6 +437,25 @@ export interface Diff {
   readonly binary: boolean;
   /** Version of both sides; staging lines names it, so lines chosen in an outdated diff are refused. */
   readonly version: string;
+  /**
+   * Git's changed lines, the ones hunks and lines are staged by, so the
+   * diff shows them where git has them; absent for commits, and for files
+   * GitDesk can only stage as a whole.
+   */
+  readonly changes?: readonly DiffChange[];
+}
+
+/**
+ * A run of changed lines in git's diff of a file: `oldCount` lines of the
+ * original from line `oldStart` become `newCount` lines of the modified
+ * version from line `newStart`. 1-based; a side without lines starts at
+ * the line the run comes before.
+ */
+export interface DiffChange {
+  readonly oldStart: number;
+  readonly oldCount: number;
+  readonly newStart: number;
+  readonly newCount: number;
 }
 
 /** 1-based line numbers `from` to `to`, both included. */
@@ -511,6 +530,10 @@ export interface ResetPlan {
   readonly pushed: number;
   /** Tracked files with uncommitted changes, which a hard reset discards. */
   readonly uncommitted: readonly string[];
+  /** Untracked and ignored files the target commit has and the branch has not, which hard and keep resets overwrite. */
+  readonly overwritten: readonly string[];
+  /** A fingerprint of the uncommitted changes and of those files, which hard and keep resets expect to be unchanged. */
+  readonly state: string;
 }
 
 /** Where a reset moved the branch from and to, for undoing it. */

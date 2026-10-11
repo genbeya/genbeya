@@ -3,6 +3,8 @@
 const GAP = 6;
 const MARGIN = 8;
 
+let cards = 0;
+
 /**
  * A card with the text of the note `reference` points to, placed below it
  * (above when there is no room) and added to `host`; null when the note is
@@ -18,6 +20,8 @@ export function footnotePreview(reference: HTMLAnchorElement, host: HTMLElement)
   for (const child of Array.from(note.childNodes)) card.append(child.cloneNode(true));
   for (const back of Array.from(card.querySelectorAll("[data-footnote-backref]"))) back.remove();
   for (const named of Array.from(card.querySelectorAll("[id]"))) named.removeAttribute("id");
+  // For the reference's aria-describedby; set after the copies lost theirs.
+  card.id = `gd-footnote-preview-${++cards}`;
   host.append(card);
   const view = host.ownerDocument.defaultView!;
   const anchor = reference.getBoundingClientRect();

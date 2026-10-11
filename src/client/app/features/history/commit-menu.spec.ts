@@ -1,7 +1,7 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import type { Commit, Snapshot } from "../../../../contracts/model";
+import type { Commit, ResetPlan, Snapshot } from "../../../../contracts/model";
 import { Notifications } from "../../core/notifications";
 import { UnsavedChanges } from "../../core/unsaved-changes";
 import { openRepository, settle } from "../../testing/component-harness";
@@ -16,6 +16,18 @@ const COMMIT: Commit = {
   date: "2026-01-01T00:00:00Z",
   subject: "Add things",
   refs: ["HEAD -> main", "feature", "origin/feature", "origin/HEAD", "tag: v1"],
+};
+
+const PLAN: ResetPlan = {
+  branch: "main",
+  head: "h".repeat(40),
+  target: COMMIT.hash,
+  commits: 1,
+  upstream: null,
+  pushed: 0,
+  uncommitted: [],
+  overwritten: [],
+  state: "s".repeat(64),
 };
 
 @Component({
@@ -193,13 +205,14 @@ describe("CommitMenu", () => {
 
   it("resets the branch to the commit in the chosen mode and offers to undo it", async () => {
     const { dialogs, managers, choose, unsaved, notifications } = await withServices();
-    const plan = { branch: "main", head: "h".repeat(40), target: COMMIT.hash, commits: 1, upstream: null, pushed: 0, uncommitted: [] };
+    const plan = { ...PLAN, uncommitted: [] };
     managers.versionControl.resetPlan.mockResolvedValue(plan);
     managers.versionControl.reset.mockResolvedValue({ from: plan.head, to: plan.target });
     dialogs.open.mockResolvedValue("hard");
     unsaved.mark({}, true);
     await choose("Reset main to here…");
-    await vi.waitFor(() => expect(managers.versionControl.reset).toHaveBeenCalledWith("w1", COMMIT.hash, "hard", plan.head));
+    // With the state of the uncommitted changes the dialog showed, so changes made meanwhile are not lost.
+    await vi.waitFor(() => expect(managers.versionControl.reset).toHaveBeenCalledWith("w1", COMMIT.hash, "hard", plan.head, plan.state));
     expect(dialogs.open).toHaveBeenCalledWith(expect.anything(), { plan, at: "ccccccc Add things" });
     // Unsaved editors are asked about first.
     expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Discard unsaved changes?" }));
@@ -207,20 +220,18 @@ describe("CommitMenu", () => {
     expect(done).toMatchObject({ message: "Reset main to ccccccc", action: { label: "Undo" } });
     notifications.act(done!);
     // A hard reset is undone with keep, which never overwrites changes made since.
-    await vi.waitFor(() => expect(managers.versionControl.reset).toHaveBeenLastCalledWith("w1", plan.head, "keep", plan.target));
+    await vi.waitFor(() =>
+      expect(managers.versionControl.reset).toHaveBeenLastCalledWith("w1", plan.head, "keep", plan.target, plan.state),
+    );
+    expect(managers.versionControl.resetPlan).toHaveBeenLastCalledWith("w1", plan.head);
   });
 
-  it("offers no undo after a hard reset that discarded uncommitted changes", async () => {
+  it.each([
+    ["discarded uncommitted changes", { uncommitted: ["a.ts"] }],
+    ["replaced untracked files", { overwritten: [".env"] }],
+  ])("offers no undo after a hard reset that %s", async (_name, change) => {
     const { dialogs, managers, choose, notifications } = await withServices();
-    const plan = {
-      branch: "main",
-      head: "h".repeat(40),
-      target: COMMIT.hash,
-      commits: 1,
-      upstream: null,
-      pushed: 0,
-      uncommitted: ["a.ts"],
-    };
+    const plan = { ...PLAN, ...change };
     managers.versionControl.resetPlan.mockResolvedValue(plan);
     managers.versionControl.reset.mockResolvedValue({ from: plan.head, to: plan.target });
     dialogs.open.mockResolvedValue("hard");

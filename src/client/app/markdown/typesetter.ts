@@ -25,13 +25,23 @@ const OPTIONS: KatexOptions = {
 };
 /** Longer formulas are refused rather than typeset. */
 const MAX_LENGTH = 10_000;
-/** Typeset formulas kept, so re-rendering a page (typing in the preview) is instant. */
+/** Typeset formulas kept at least, so re-rendering a page (typing in the preview) is instant. */
 const CACHED = 256;
 
 @Injectable({ providedIn: "root" })
 export class Typesetter {
   private katex: Promise<Katex> | null = null;
   private readonly typeset = new Map<string, Typeset>();
+  private capacity = CACHED;
+
+  /**
+   * Keeps at least `count` formulas, the number the page shown has: a page
+   * with more than the cache holds would push out each formula before it
+   * comes round again, and typeset all of them on every render.
+   */
+  keep(count: number): void {
+    this.capacity = Math.max(CACHED, count);
+  }
 
   /** A fresh copy each time, ready to insert. */
   async render(source: string, display: boolean): Promise<Typeset> {
@@ -40,7 +50,7 @@ export class Typesetter {
     if (result) this.typeset.delete(key);
     else result = this.compile(await (this.katex ??= import("katex").then((module) => module.default)), source, display);
     this.typeset.set(key, result);
-    if (this.typeset.size > CACHED) this.typeset.delete(this.typeset.keys().next().value!);
+    while (this.typeset.size > this.capacity) this.typeset.delete(this.typeset.keys().next().value!);
     return "math" in result ? { math: result.math.cloneNode(true) as Element } : result;
   }
 

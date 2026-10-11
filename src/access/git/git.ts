@@ -135,9 +135,13 @@ export class Git {
     return (await this.attempt(["config", "--get", key]))?.trim() || null;
   }
 
-  /** The version of git on the host, read once; null when it cannot be read. */
+  /** The version of git on the host, read once it could be read; null when it cannot be, which is asked again next time. */
   version(): Promise<Version | null> {
-    this.versionRead ??= this.attempt(["version"]).then((output) => (output === null ? null : parseGitVersion(output)));
+    this.versionRead ??= this.attempt(["version"]).then((output) => {
+      const version = output === null ? null : parseGitVersion(output);
+      if (version === null) this.versionRead = null;
+      return version;
+    });
     return this.versionRead;
   }
 

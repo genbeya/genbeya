@@ -61,4 +61,23 @@ describe("mention popover", () => {
     expect(popover()).toBeNull();
     expect(document.activeElement).toBe(chip);
   });
+
+  it("closes for good when the page scrolls, returning focus to the mention", async () => {
+    const { chip, popover, open } = await render();
+    await open();
+    expect(document.activeElement?.closest(".mention-popover")).not.toBeNull();
+    document.dispatchEvent(new Event("scroll"));
+    await vi.waitFor(() => expect(popover()).toBeNull());
+    // Disposed, not just detached: nothing of the overlay stays behind.
+    expect(document.querySelector(".cdk-overlay-pane")).toBeNull();
+    expect(document.activeElement).toBe(chip);
+  });
+
+  it("closes when the user goes back in the history", async () => {
+    const { popover, open } = await render();
+    await open();
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await vi.waitFor(() => expect(popover()).toBeNull());
+    expect(document.querySelector(".cdk-overlay-pane")).toBeNull();
+  });
 });

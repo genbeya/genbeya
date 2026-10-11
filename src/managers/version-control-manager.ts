@@ -7,6 +7,7 @@ import type {
   ConflictFile,
   ConflictResolution,
   Diff,
+  DiffChange,
   DiffSource,
   ForcePushPlan,
   IgnoreKind,
@@ -29,11 +30,11 @@ import { CHANGE_BASES, IGNORE_KINDS, isDefaultBranch, REBASE_ACTIONS, RESET_MODE
 import { TEXT_LIMIT } from "../access/files/file-store";
 import { isCommitId } from "../access/git/git-parsers";
 import { REBASE_LIMIT } from "../access/git/operation-access";
-import type { PatchTarget } from "../access/git/staging-access";
+import { DIFF_OPTIONS, type PatchTarget } from "../access/git/staging-access";
 import { isMissing } from "../access/hosts/host";
-import type { PatchEngine } from "../engines/patch-engine";
+import type { FileDiff, PatchEngine } from "../engines/patch-engine";
 import type { RebaseEngine } from "../engines/rebase-engine";
-import { decodeLenient, isBinary, sha256, sha256Bytes } from "../utilities/bytes";
+import { decodeLenient, isBinary, sha256, sha256Bytes, toByteString } from "../utilities/bytes";
 import { appendIgnoreRule, extensionOf, ignoreFile, ignoreRule } from "../utilities/gitignore";
 import type { Workspace, WorkspaceRegistry } from "./workspace";
 
@@ -62,7 +63,9 @@ function changeBase(value: unknown): ChangeBase {
 }
 
 /** The version of a diff's two sides; empty when they are too large to compare. */
-const versionOf = (sides: readonly [Uint8Array, Uint8Array] | null): string => (sides ? sha256(sides.map(sha256Bytes).join(":")) : "");
+const versionOf = (sides: readonly [Uint8Array, Uint8Array] | null): string =>
+  // With the diff options: lines chosen in a diff that git found differently are refused too.
+  sides ? sha256([DIFF_OPTIONS.join(" "), ...sides.map(sha256Bytes)].join(":")) : "";
 
 function lineRanges(value: unknown): LineRange[] {
   if (!Array.isArray(value) || value.length > LINE_RANGE_LIMIT) throw new Error("Invalid line selection.");
@@ -107,17 +110,52 @@ export class VersionControlManager implements VersionControlManagerContract {
       const old = oldPath === undefined || oldPath === null ? relative : workspace.path(oldPath);
       if (source !== "worktree" && source !== "index" && !isCommitId((source as { commit?: unknown } | null)?.commit))
         throw new Error("Invalid diff source.");
-      const sides = await workspace.repository.diffSides(relative, source as DiffSource, old, TEXT_LIMIT, changeBase(base));
-      // Too large to show is shown like binary: no line-by-line comparison.
-      if (!sides || sides.some(isBinary)) return { path: relative, binary: true, original: "", modified: "", version: versionOf(sides) };
-      return {
-        path: relative,
-        binary: false,
-        original: decodeLenient(sides[0]),
-        modified: decodeLenient(sides[1]),
-        version: versionOf(sides),
-      };
+      const compared = changeBase(base);
+      for (let attempt = 1; ; attempt++) {
+        const sides = await workspace.repository.diffSides(relative, source as DiffSource, old, TEXT_LIMIT, compared);
+        // Too large to show is shown like binary: no line-by-line comparison.
+        if (!sides || sides.some(isBinary)) return { path: relative, binary: true, original: "", modified: "", version: versionOf(sides) };
+        const changes =
+          source === "worktree" || source === "index" ? await this.changesOf(workspace, relative, old, source, compared, sides) : null;
+        // A file written meanwhile: read both again, so the changes are those of the sides shown.
+        if (changes === undefined && attempt < 2) continue;
+        return {
+          path: relative,
+          binary: false,
+          original: decodeLenient(sides[0]),
+          modified: decodeLenient(sides[1]),
+          version: versionOf(sides),
+          ...(changes ? { changes } : {}),
+        };
+      }
     });
+  }
+
+  /**
+   * Git's changed lines between `sides`, from the diff staging patches;
+   * undefined when that diff does not describe them, e.g. for a file git
+   * shows only as a whole, or one written while it was read.
+   */
+  private async changesOf(
+    workspace: Workspace,
+    path: string,
+    oldPath: string,
+    source: "worktree" | "index",
+    base: ChangeBase,
+    sides: readonly [Uint8Array, Uint8Array],
+  ): Promise<DiffChange[] | undefined> {
+    const { staging } = workspace.repository;
+    const tree = source === "index" ? await staging.base(base) : null;
+    let diff: FileDiff;
+    try {
+      diff = this.patches.parse(await staging.diff(path, oldPath, tree));
+    } catch {
+      return undefined;
+    }
+    const [original, modified] = sides.map(toByteString) as [string, string];
+    // An untracked file has no diff until the index knows it is coming; then it is all new.
+    if (!diff.hunks.length && !diff.binary && original === "") return this.patches.creation(modified);
+    return this.patches.describes(diff, original, modified) ? this.patches.changes(diff) : undefined;
   }
 
   stage(id: unknown, paths: unknown): Promise<void> {
@@ -188,12 +226,17 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.on(id, async (workspace) => {
       const target = workspace.path(path);
       if (!IGNORE_KINDS.includes(kind as IgnoreKind)) throw new Error("Invalid kind of rule.");
+      // A line break in a name would write rules of its own; POSIX hosts allow such names.
+      // eslint-disable-next-line no-control-regex
+      if (/[\u0000-\u001f\u007f]/.test(target))
+        throw new Error("GitDesk can't write a .gitignore rule for a name with control characters.");
       const folder = location === "" ? "" : workspace.path(location);
       const rule = ignoreRule(kind as IgnoreKind, target, folder);
       if (rule === null)
         throw new Error(
           kind === "extension" && !extensionOf(target) ? `${target} has no extension.` : `${ignoreFile(folder)} can't ignore ${target}.`,
         );
+      if (!(await workspace.checkout.host.kind(workspace.checkout.root, target))) throw new Error(`${target} does not exist.`);
       const file = ignoreFile(folder);
       let current: { content: string; hash: string | null } = { content: "", hash: null };
       try {
@@ -207,7 +250,8 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   untrack(id: unknown, paths: unknown): Promise<void> {
-    return this.on(id, (workspace) => workspace.repository.staging.untrack(workspace.paths(paths), true));
+    // Never forced: git refuses when the index holds changes found nowhere else.
+    return this.on(id, (workspace) => workspace.repository.staging.untrack(workspace.paths(paths)));
   }
 
   commit(id: unknown, message: unknown, amend: unknown): Promise<void> {
@@ -452,7 +496,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.starting(id, async (workspace) => workspace.repository.resets.plan(await this.existingCommit(workspace, hash)));
   }
 
-  reset(id: unknown, hash: unknown, mode: unknown, expectedHead: unknown): Promise<ResetResult> {
+  reset(id: unknown, hash: unknown, mode: unknown, expectedHead: unknown, expectedState?: unknown): Promise<ResetResult> {
     return this.starting(id, async (workspace) => {
       if (!RESET_MODES.includes(mode as ResetMode)) throw new Error("Invalid reset mode.");
       const target = await this.existingCommit(workspace, hash);
@@ -460,13 +504,24 @@ export class VersionControlManager implements VersionControlManagerContract {
       const branch = await this.currentBranch(workspace);
       if ((await workspace.repository.git.objectId("HEAD")) !== expectedHead)
         throw new Error(`${branch} moved since you chose the reset. Look at it again first.`);
-      return workspace.repository.resets.reset(target, mode as ResetMode);
+      const { resets } = workspace.repository;
+      // Hard and keep rewrite files: changes made while the user looked at the plan would be lost unseen.
+      if (mode === "hard" || mode === "keep") {
+        if (typeof expectedState !== "string" || !/^[0-9a-f]{64}$/.test(expectedState)) throw new Error("Invalid reset state.");
+        if ((await resets.state(target)) !== expectedState)
+          throw new Error("Your uncommitted changes changed since you chose the reset. Look at it again first.");
+      }
+      return resets.reset(target, mode as ResetMode);
     });
   }
 
-  undoLastCommit(id: unknown): Promise<ResetResult> {
+  undoLastCommit(id: unknown, expectedHead: unknown): Promise<ResetResult> {
     return this.starting(id, async (workspace) => {
-      await this.currentBranch(workspace);
+      // The snapshot names HEAD by its short id.
+      if (typeof expectedHead !== "string" || !/^[0-9a-f]{7,64}$/.test(expectedHead)) throw new Error("Invalid commit ID.");
+      const branch = await this.currentBranch(workspace);
+      if (!(await workspace.repository.git.objectId("HEAD"))?.startsWith(expectedHead))
+        throw new Error(`${branch} moved since you chose to undo its last commit. Look at it again first.`);
       const resets = workspace.repository.resets;
       return resets.reset(await resets.parentOfHead(), "soft");
     });

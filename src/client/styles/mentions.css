@@ -165,6 +165,21 @@
   outline: none;
 }
 
+/* Rows for assistive technology; the grid lays out the cells. */
+.date-picker-row {
+  display: contents;
+}
+
+/* The grid holds the focus; the selected day shows it. */
+.date-picker-grid:focus-visible {
+  outline: none;
+}
+
+.date-picker-grid:focus-visible .date-picker-day[aria-selected="true"] {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
 .date-picker-weekday {
   color: var(--text-3);
   font-size: 11px;

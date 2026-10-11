@@ -7,8 +7,8 @@
  */
 import { standardKeymap } from "@codemirror/commands";
 import { getChunks } from "@codemirror/merge";
-import { EditorSelection, EditorState, Prec, StateField, type Extension, type Range } from "@codemirror/state";
-import { Decoration, EditorView, keymap, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
+import { EditorSelection, EditorState, Prec, StateField, type Extension, type Line, type Range } from "@codemirror/state";
+import { BlockType, Decoration, EditorView, keymap, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
 
 /** An action on a whole chunk, such as "Stage hunk". */
 export interface HunkAction {
@@ -75,13 +75,28 @@ function bars(state: EditorState, staging: LineStaging): DecorationSet {
   return Decoration.set(ranges, true);
 }
 
+/**
+ * The lines a click at `height` stands for: the line there, or, next to
+ * what stands above a chunk's lines (its bar, and inline its removed
+ * lines), the lines the chunk adds, which bring the removed ones along.
+ */
+function clickedLines(view: EditorView, height: number): [Line, Line] {
+  const block = view.lineBlockAtHeight(height);
+  const doc = view.state.doc;
+  const line = doc.lineAt(block.from);
+  const part = Array.isArray(block.type) ? block.type.find((sub) => sub.top <= height && height < sub.bottom) : null;
+  if (!part || part.type === BlockType.Text) return [line, line];
+  const chunk = getChunks(view.state)?.chunks.find((candidate) => doc.lineAt(Math.min(candidate.fromB, doc.length)).from === line.from);
+  return chunk && chunk.toB > chunk.fromB ? [doc.lineAt(chunk.fromB), doc.lineAt(chunk.endB)] : [line, line];
+}
+
 /** Selects whole lines from the clicked line number, or from the anchor's line with Shift. */
 function gutterClick(view: EditorView, event: MouseEvent): void {
   if (event.button !== 0 || !(event.target as Element).closest(".cm-gutters")) return;
-  const block = view.lineBlockAtHeight(event.clientY - view.documentTop);
   const doc = view.state.doc;
-  const clicked = doc.lineAt(block.from);
-  const anchorLine = event.shiftKey ? doc.lineAt(view.state.selection.main.anchor) : clicked;
+  const [from, to] = clickedLines(view, event.clientY - view.documentTop);
+  const anchorLine = event.shiftKey ? doc.lineAt(view.state.selection.main.anchor) : from;
+  const clicked = event.shiftKey && anchorLine.number > to.number ? from : to;
   const [first, last] = anchorLine.number <= clicked.number ? [anchorLine, clicked] : [clicked, anchorLine];
   const end = Math.min(last.to + 1, doc.length);
   // Selecting downwards keeps the first line as the anchor of the next Shift+click.

@@ -93,8 +93,19 @@ export function dateSource(now: () => string = () => today()) {
 export const markdownBlockSource = (context: CompletionContext): CompletionResult | null =>
   inCode(context.state, context.pos) ? null : blockSource(context);
 
+/** `[[references]]` (reference-completion.ts), but not in code or math, where `[[` is what it is. */
+export function markdownReferenceSource(candidates: () => readonly ReferenceCandidate[]) {
+  const source = referenceSource(candidates);
+  return (context: CompletionContext): CompletionResult | null => (inCode(context.state, context.pos) ? null : source(context));
+}
+
 export const markdownCompletion = (candidates: MarkdownCandidates): Extension =>
   autocompletion({
-    override: [referenceSource(candidates.references), mentionSource(candidates.people), dateSource(candidates.today), markdownBlockSource],
+    override: [
+      markdownReferenceSource(candidates.references),
+      mentionSource(candidates.people),
+      dateSource(candidates.today),
+      markdownBlockSource,
+    ],
     icons: true,
   });

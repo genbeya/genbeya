@@ -26,6 +26,13 @@ describe("keys and inline tags", () => {
     ]);
   });
 
+  it("nests different inline tags", () => {
+    const container = render("x<sup>y <kbd>z</kbd></sup> and <sub><sup>a</sup></sub>");
+    expect(container.querySelector("sup > kbd")?.textContent).toBe("z");
+    expect(container.querySelector("sup")?.textContent).toBe("y z");
+    expect(container.querySelector("sub > sup")?.textContent).toBe("a");
+  });
+
   it.each(['<kbd onclick="alert(1)">x</kbd>', '<kbd style="position:fixed">x</kbd>', "<KBD >x</kbd>", "<kbd>x", "x</kbd>", "<kbd>x</sub>"])(
     "drops %s but keeps its text",
     (markdown) => {
@@ -73,6 +80,35 @@ describe("collapsible sections", () => {
     expect(outer.querySelector("summary")?.textContent).toBe("Details");
     expect(outer.querySelector(":scope details p")?.textContent).toBe("Inner");
     expect(container.querySelectorAll("details")).toHaveLength(2);
+  });
+
+  it("nests sections written in one HTML block, as GitHub does", () => {
+    const container = render("<details><summary>Outer</summary>\n<details><summary>Inner</summary>\ntext\n</details>\n</details>\n\nAfter");
+    const outer = container.querySelector("details")!;
+    expect(outer.querySelector(":scope > summary")?.textContent).toBe("Outer");
+    const inner = outer.querySelector(":scope > details")!;
+    expect(inner.querySelector(":scope > summary")?.textContent).toBe("Inner");
+    expect(inner.querySelector("p")?.textContent).toBe("text");
+    expect(container.lastElementChild?.textContent).toBe("After");
+  });
+
+  it("nests a section that starts in the outer one's HTML block and ends later", () => {
+    const container = render(
+      "<details><summary>Outer</summary>\n<details><summary>Inner</summary>\n\ninner text\n\n</details>\n\nouter text\n\n</details>",
+    );
+    const outer = container.querySelector("details")!;
+    expect(outer.querySelector(":scope > details > p")?.textContent).toBe("inner text");
+    expect(outer.querySelector(":scope > p")?.textContent).toBe("outer text");
+    expect(container.querySelectorAll("details")).toHaveLength(2);
+  });
+
+  it("typesets math in the text inside the tags", () => {
+    const container = render("<details><summary>Formulas</summary>\n$x^2$ inline\n```math\ny\n```\n</details>");
+    const formulas = [...container.querySelectorAll("details .md-math")];
+    expect(formulas.map((formula) => [formula.textContent, formula.classList.contains("is-display")])).toEqual([
+      ["x^2", false],
+      ["y", true],
+    ]);
   });
 
   it("works inside lists and quotes", () => {

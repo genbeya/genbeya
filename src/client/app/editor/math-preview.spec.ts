@@ -34,6 +34,15 @@ describe("formula under the cursor", () => {
     expect(at("$$\na\n$$\n\n$$\nb|\n$$")).toEqual({ source: "b", display: true });
   });
 
+  it("looks at a long document once, however often it is asked", () => {
+    const lines = Array.from({ length: 20_000 }, (_, i) => (i % 100 === 50 ? "$$" : `line ${i}`));
+    const doc = Text.of(lines);
+    const started = performance.now();
+    for (let line = 1; line <= doc.lines; line += 10) mathAt(doc, doc.line(line).from);
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(mathAt(doc, doc.line(60).from)).toMatchObject({ display: true });
+  });
+
   it("ignores dollars in code", () => {
     expect(at("```sh\necho $HOME$|x\n```")).toBeNull();
     expect(at("```\n$$\n```\n\n$x|$")).toEqual({ source: "x", display: false });

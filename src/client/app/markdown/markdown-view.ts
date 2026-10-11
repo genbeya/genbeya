@@ -47,6 +47,8 @@ const COPIED_FEEDBACK = 1200;
     "(keydown)": "key($event)",
     "(mouseover)": "hover($event)",
     "(mouseout)": "unhover($event)",
+    "(focusin)": "hover($event)",
+    "(focusout)": "unhover($event)",
   },
   template: "",
 })
@@ -111,6 +113,7 @@ export class MarkdownView {
     this.rendered.emit(this.host);
     for (const image of images) void this.load(image, generation);
     for (const diagram of diagrams) void this.draw(diagram, generation);
+    this.typesetter.keep(formulas.length);
     for (const formula of formulas) void this.typeset(formula, generation);
     for (const embed of embeds) void this.embed(embed, generation);
   }
@@ -242,7 +245,7 @@ export class MarkdownView {
     const href = anchor.getAttribute("href");
     if (!href) return;
     const link = resolveHref(this.path(), href);
-    if (link.kind === "anchor") this.host.querySelector(`#${CSS.escape(link.id)}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (link.kind === "anchor") this.goTo(link.id);
     else if (link.kind === "person") void this.showPerson(anchor, link.handle);
     else this.linkClicked.emit(link);
   }
@@ -253,6 +256,17 @@ export class MarkdownView {
       event.preventDefault();
       this.checkboxToggled.emit(Number(checkbox.dataset["offset"]));
     }
+    // Escape puts a footnote's preview away, as for one under the pointer.
+    if (event.key === "Escape" && this.preview) this.hidePreview();
+  }
+
+  /** Scrolls to the element with `id` and moves the focus there, so the keyboard goes on from it (a footnote's back link). */
+  private goTo(id: string) {
+    const target = this.host.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+    target.focus({ preventScroll: true });
   }
 
   private async showPerson(anchor: HTMLElement, handle: string) {
@@ -262,18 +276,25 @@ export class MarkdownView {
     openMentionPopover(this.injector, anchor, person);
   }
 
-  /** Footnote references show their note while the pointer is on them. */
-  protected hover(event: MouseEvent) {
+  /** Footnote references show their note while the pointer is on them or they have the focus. */
+  protected hover(event: MouseEvent | FocusEvent) {
     const reference = (event.target as Element).closest<HTMLAnchorElement>("a[data-footnote-ref]");
     if (!reference || this.previewed === reference) return;
-    this.preview?.remove();
+    this.hidePreview();
     this.previewed = reference;
     this.preview = footnotePreview(reference, this.host);
+    // Screen readers read the note with the reference.
+    if (this.preview) reference.setAttribute("aria-describedby", this.preview.id);
   }
 
-  protected unhover(event: MouseEvent) {
+  protected unhover(event: MouseEvent | FocusEvent) {
     const reference = (event.target as Element).closest("a[data-footnote-ref]");
     if (!reference || reference.contains(event.relatedTarget as Node | null)) return;
+    this.hidePreview();
+  }
+
+  private hidePreview() {
+    this.previewed?.removeAttribute("aria-describedby");
     this.preview?.remove();
     this.preview = this.previewed = null;
   }

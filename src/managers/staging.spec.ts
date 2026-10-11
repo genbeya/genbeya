@@ -131,6 +131,13 @@ function stagingCases(setup: Setup) {
     const { changes } = (await managers.workspace.snapshot(id))!;
     expect(changes).toEqual([{ path: "src/.gitignore", index: " ", worktree: "M" }]);
   });
+
+  it("writes no rule that a line break in a name would turn into two", async () => {
+    const { managers, id, exists } = await setup({ "a.txt": "a\n" });
+    // Windows hosts refuse such names as paths already.
+    await expect(managers.versionControl.ignore(id, "a\n!b.txt", "file", "")).rejects.toThrow(/control characters|not a valid path/);
+    expect(await exists(".gitignore")).toBe(false);
+  });
 }
 
 describe("Staging on this computer", () => {
@@ -235,6 +242,90 @@ describe("Staging on this computer", () => {
     await vc.unstageLines(id, { path: "new.txt", oldPath: "old.txt", version: diff.version, lines: select([[5, 5]], [[5, 5]]) });
     expect(await git("show", ":new.txt")).toBe(numbered(10));
     expect(await git("ls-files")).toBe("new.txt\n");
+  });
+
+  it("shows git's changed lines as staging finds them, whatever diff options the user set", async () => {
+    const { vc, id, git, write } = await opened({ "f.txt": "{\n}\n{\n{\n" });
+    // The histogram algorithm would replace two lines here.
+    await git("config", "diff.algorithm", "histogram");
+    await git("config", "diff.interHunkContext", "10");
+    await write("f.txt", "{\n{\n{\n{\n");
+    const diff = await vc.diff(id, "f.txt", "worktree");
+    expect(diff.changes).toEqual([{ oldStart: 2, oldCount: 1, newStart: 2, newCount: 1 }]);
+    await vc.stageLines(id, { path: "f.txt", version: diff.version, lines: select([[2, 2]], [[2, 2]]) });
+    expect(await git("show", ":f.txt")).toBe("{\n{\n{\n{\n");
+  });
+
+  it("lists the changed lines of staged and untracked files, but not of commits", async () => {
+    const { vc, id, git, write } = await opened({ "f.txt": "a\nb\n" });
+    await write("f.txt", "a\nB\nb\n");
+    await git("add", "f.txt");
+    expect((await vc.diff(id, "f.txt", "index")).changes).toEqual([{ oldStart: 2, oldCount: 0, newStart: 2, newCount: 1 }]);
+    await write("new.txt", "one\ntwo");
+    expect((await vc.diff(id, "new.txt", "worktree")).changes).toEqual([{ oldStart: 1, oldCount: 0, newStart: 1, newCount: 2 }]);
+    await git("commit", "-q", "-m", "B");
+    const commit = (await git("rev-parse", "HEAD")).trim();
+    expect((await vc.diff(id, "f.txt", { commit })).changes).toBeUndefined();
+  });
+
+  it("leaves out the changed lines of a file whose diff git does not show line by line", async () => {
+    const { vc, id, write } = await opened({ ".gitattributes": "*.dat -diff\n", "f.dat": "a\n" });
+    await write("f.dat", "b\n");
+    const diff = await vc.diff(id, "f.dat", "worktree");
+    expect(diff.modified).toBe("b\n");
+    expect(diff.changes).toBeUndefined();
+  });
+
+  // Files with repeated lines, where diffs may place the same change differently.
+  it.each<[string, string[], string[]]>([
+    ["a function after another", ["function a() {", "  x();", "}"], ["function a() {", "  x();", "}", "", "function b() {", "  y();", "}"]],
+    ["a closing brace", ["a", "}"], ["a", "}", "b", "}"]],
+    [
+      "a block between blocks",
+      ["if (a) {", "  one();", "}", "if (b) {", "  two();", "}"],
+      ["if (a) {", "  one();", "}", "if (c) {", "  three();", "}", "if (b) {", "  two();", "}"],
+    ],
+    ["blank lines", ["x", "", "y"], ["x", "", "new", "", "y"]],
+    ["repeated calls", ["  y();", "if (a) {", "  y();", "{", "return;"], ["", "if (a) {", "if (a) {", "{", "return;"]],
+    [
+      "nested braces",
+      ["}", "return;", "  x();", "", "{", "}", "  x();", "", "  y();", "return;", ""],
+      ["}", "return;", "  x();", "", "{", "{", "}", "  x();", "", "  y();", "return;", ""],
+    ],
+    [
+      "braces and blanks",
+      ["  x();", "{", "}", "{", "", "if (a) {", "  y();", "", "return;", "if (a) {"],
+      ["  x();", "{", "  y();", "{", "}", "{", "{", "", "if (a) {", "  y();", "return;", "if (a) {"],
+    ],
+  ])("stages and discards each change of %s exactly as shown", async (_name, before, after) => {
+    const [original, modified] = [before, after].map((rows) => rows.map((row) => `${row}\n`).join("")) as [string, string];
+    const { vc, id, git, write, read } = await opened({ "f.txt": original });
+    await write("f.txt", modified);
+    const { changes, version } = await vc.diff(id, "f.txt", "worktree");
+    expect(changes?.length).toBeGreaterThan(0);
+    for (const change of changes!) {
+      // The file with only this change made, and with all others.
+      const only = [
+        ...before.slice(0, change.oldStart - 1),
+        ...after.slice(change.newStart - 1, change.newStart - 1 + change.newCount),
+        ...before.slice(change.oldStart - 1 + change.oldCount),
+      ];
+      const others = [
+        ...after.slice(0, change.newStart - 1),
+        ...before.slice(change.oldStart - 1, change.oldStart - 1 + change.oldCount),
+        ...after.slice(change.newStart - 1 + change.newCount),
+      ];
+      const lines = select(
+        change.oldCount ? [[change.oldStart, change.oldStart + change.oldCount - 1]] : [],
+        change.newCount ? [[change.newStart, change.newStart + change.newCount - 1]] : [],
+      );
+      await vc.stageLines(id, { path: "f.txt", version, lines });
+      expect(await git("show", ":f.txt")).toBe(only.map((row) => `${row}\n`).join(""));
+      await git("reset", "-q", "--", "f.txt");
+      await vc.discardLines(id, { path: "f.txt", version, lines });
+      expect(await read("f.txt")).toBe(others.map((row) => `${row}\n`).join(""));
+      await write("f.txt", modified);
+    }
   });
 
   it("refuses lines chosen in an outdated diff, and binary files", async () => {
@@ -399,6 +490,23 @@ describe("Staging on this computer", () => {
       await vc.untrack(id, ["a.txt", "logs"]);
       expect(await git("ls-files")).toBe("");
       expect(await read("logs/2.log")).toBe("2\n");
+    });
+
+    it("writes no rule for a path that does not exist", async () => {
+      const { vc, id, exists } = await opened({ "a.txt": "a\n" });
+      await expect(vc.ignore(id, "gone.txt", "file", "")).rejects.toThrow("gone.txt does not exist.");
+      expect(await exists(".gitignore")).toBe(false);
+    });
+
+    it("refuses to stop tracking a file whose staged changes are nowhere else", async () => {
+      const { vc, id, write, git } = await opened({ "a.txt": "a\n", "b.txt": "b\n" });
+      await write("a.txt", "staged\n");
+      await git("add", "a.txt");
+      await write("a.txt", "changed again\n");
+      await expect(vc.untrack(id, ["a.txt", "b.txt"])).rejects.toThrow(
+        "a.txt has staged changes that are neither in the file nor in the last commit, which Stop tracking would lose. Commit or unstage them first.",
+      );
+      expect(await git("show", ":a.txt")).toBe("staged\n");
     });
 
     it.each([

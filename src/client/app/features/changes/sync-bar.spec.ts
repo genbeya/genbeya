@@ -131,7 +131,7 @@ describe("SyncBar", () => {
     const result = { from: "b".repeat(40), to: "a".repeat(40) };
     managers.versionControl.undoLastCommit.mockResolvedValue(result);
     await choose("Undo last commit");
-    expect(managers.versionControl.undoLastCommit).toHaveBeenCalledWith("w1");
+    expect(managers.versionControl.undoLastCommit).toHaveBeenCalledWith("w1", "abc1234");
     expect(dialogs.confirm).not.toHaveBeenCalled();
     const [done] = notifications.visible();
     expect(done).toMatchObject({ message: "Undid the last commit; its changes are staged", action: { label: "Redo" } });

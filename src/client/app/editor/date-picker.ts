@@ -1,8 +1,8 @@
 /**
  * A small calendar for picking a date while writing, for the editors'
  * `//` completion. Arrow keys move by day and week, Page Up and Page Down
- * by month, Enter picks, Escape gives up. Plain DOM, like CodeMirror's own
- * panels, so it works over any editor.
+ * by month, Enter picks, Escape gives up, Tab goes to the month buttons.
+ * Plain DOM, like CodeMirror's own panels, so it works over any editor.
  */
 import { addDays, addMonths, formatDate, today as todayOf, weekday } from "../ui/calendar-date";
 
@@ -36,6 +36,7 @@ export function openDatePicker(options: DatePickerOptions): () => void {
   const header = document.createElement("div");
   header.className = "date-picker-header";
   const month = document.createElement("span");
+  month.id = `${prefix}-month`;
   month.setAttribute("aria-live", "polite");
   const button = (label: string, text: string, months: number) => {
     const element = document.createElement("button");
@@ -49,11 +50,13 @@ export function openDatePicker(options: DatePickerOptions): () => void {
     element.addEventListener("click", () => select(addMonths(selected, months)));
     return element;
   };
-  header.append(button("Previous month", "‹", -1), month, button("Next month", "›", 1));
+  const [previous, next] = [button("Previous month", "‹", -1), button("Next month", "›", 1)];
+  header.append(previous, month, next);
 
   const grid = document.createElement("div");
   grid.className = "date-picker-grid";
   grid.setAttribute("role", "grid");
+  grid.setAttribute("aria-labelledby", month.id);
   grid.tabIndex = 0;
   const hint = document.createElement("div");
   hint.className = "date-picker-hint";
@@ -68,13 +71,21 @@ export function openDatePicker(options: DatePickerOptions): () => void {
     );
     // Weeks start on Monday.
     const start = addDays(first, -((weekday(first) + 6) % 7));
-    const cells: HTMLElement[] = WEEKDAY_NAMES.map((name) => {
+    const row = (cells: HTMLElement[]) => {
+      const element = document.createElement("div");
+      element.className = "date-picker-row";
+      element.setAttribute("role", "row");
+      element.append(...cells);
+      return element;
+    };
+    const names = WEEKDAY_NAMES.map((name) => {
       const cell = document.createElement("span");
       cell.className = "date-picker-weekday";
       cell.setAttribute("role", "columnheader");
       cell.textContent = name;
       return cell;
     });
+    const cells: HTMLElement[] = [];
     for (let index = 0; index < 42; index++) {
       const date = addDays(start, index);
       const day = document.createElement("span");
@@ -90,7 +101,8 @@ export function openDatePicker(options: DatePickerOptions): () => void {
       day.addEventListener("click", () => pick(date));
       cells.push(day);
     }
-    grid.replaceChildren(...cells);
+    const weeks = Array.from({ length: 6 }, (_, week) => row(cells.slice(week * 7, week * 7 + 7)));
+    grid.replaceChildren(row(names), ...weeks);
     grid.setAttribute("aria-activedescendant", `${prefix}-${selected}`);
   }
 
@@ -124,8 +136,18 @@ export function openDatePicker(options: DatePickerOptions): () => void {
     else if (event.key === "PageUp" || event.key === "PageDown") select(addMonths(selected, event.key === "PageUp" ? -1 : 1));
     else if (event.key === "Home") select(today);
     else if (event.key === "Enter" || event.key === " ") pick(selected);
-    else if (event.key === "Escape" || event.key === "Tab") cancel();
     else return;
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  // Tab goes round the month buttons and the days, staying in the calendar; Escape gives up from anywhere in it.
+  root.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") cancel();
+    else if (event.key === "Tab") {
+      const stops = [previous, next, grid];
+      const at = stops.indexOf(document.activeElement as HTMLButtonElement);
+      stops[(at + (event.shiftKey ? stops.length - 1 : 1)) % stops.length]!.focus();
+    } else return;
     event.preventDefault();
     event.stopPropagation();
   });

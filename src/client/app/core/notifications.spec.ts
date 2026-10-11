@@ -44,6 +44,23 @@ describe("Notifications", () => {
     expect(notifications.visible().map((n) => n.message)).toEqual(["Push rejected"]);
   });
 
+  it("keeps a toast while it is pointed at or has the focus, and its time runs on after", () => {
+    notifications.success("Reset main", { label: "Undo", run: vi.fn() });
+    const [toast] = notifications.visible();
+    vi.advanceTimersByTime(5000);
+    notifications.hold(toast!.id, "pointer");
+    notifications.hold(toast!.id, "focus");
+    vi.advanceTimersByTime(20_000);
+    notifications.release(toast!.id, "pointer");
+    vi.advanceTimersByTime(20_000);
+    expect(notifications.visible()).toHaveLength(1);
+    notifications.release(toast!.id, "focus");
+    vi.advanceTimersByTime(2900);
+    expect(notifications.visible()).toHaveLength(1);
+    vi.advanceTimersByTime(200);
+    expect(notifications.visible()).toEqual([]);
+  });
+
   it("dismisses on request", () => {
     notifications.error("x");
     notifications.dismiss(notifications.visible()[0]!.id);
