@@ -95,7 +95,25 @@ describe("MarkdownView", () => {
     note.scrollIntoView = vi.fn();
     reference.click();
     expect(note.scrollIntoView).toHaveBeenCalled();
+    // The keyboard goes on from the note, to its link back.
+    expect(document.activeElement).toBe(note);
     expect(host.links).toEqual([]);
+  });
+
+  it("previews a footnote while its reference has the focus, describing the reference", async () => {
+    const { element } = await render("Claim.[^1]\n\n[^1]: The source.");
+    const reference = element.querySelector<HTMLAnchorElement>("a[data-footnote-ref]")!;
+    reference.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    const preview = element.querySelector<HTMLElement>(".md-footnote-preview")!;
+    expect(preview.getAttribute("role")).toBe("tooltip");
+    expect(reference.getAttribute("aria-describedby")).toBe(preview.id);
+    reference.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(element.querySelector(".md-footnote-preview")).toBeNull();
+    expect(reference.hasAttribute("aria-describedby")).toBe(false);
+    reference.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    expect(element.querySelector(".md-footnote-preview")).not.toBeNull();
+    reference.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    expect(element.querySelector(".md-footnote-preview")).toBeNull();
   });
 
   it("re-renders when the source changes", async () => {
