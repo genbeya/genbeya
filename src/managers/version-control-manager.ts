@@ -281,7 +281,13 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   cherryPick(id: unknown, hash: unknown): Promise<OperationOutcome> {
-    return this.starting(id, async (workspace) => workspace.repository.operations.cherryPick(await this.singleParent(workspace, hash)));
+    return this.starting(id, async (workspace) => {
+      const commit = await this.singleParent(workspace, hash);
+      // Git would start a pick with nothing to commit, which only skipping ends.
+      if (await workspace.repository.operations.isAncestorOfHead(commit))
+        throw new Error(`${commit.slice(0, 7)} is already on ${(await workspace.repository.head()).branch ?? "the checked-out commit"}.`);
+      return workspace.repository.operations.cherryPick(commit);
+    });
   }
 
   revert(id: unknown, hash: unknown): Promise<OperationOutcome> {

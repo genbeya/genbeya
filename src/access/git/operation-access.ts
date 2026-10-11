@@ -11,7 +11,7 @@ import { decodeLenient, encodeText, isBinary } from "../../utilities/bytes";
 import { TEXT_LIMIT } from "../files/file-store";
 import { isMissing, isTooLarge, type Host } from "../hosts/host";
 import { quote } from "../hosts/shell-session";
-import { GitError, type Git } from "./git";
+import { failure, GitError, type Git } from "./git";
 import { OPERATION_FILES, parseOperation, parseRebaseCommits, REBASE_FORMAT, type OperationFiles } from "./git-parsers";
 
 /** The operation files are small; a larger one is not git's. */
@@ -154,9 +154,24 @@ export class OperationAccess {
     });
   }
 
-  /** Merge commits are left out: which parent to follow is a question for the terminal. */
-  cherryPick(commit: string): Promise<OperationOutcome> {
-    return this.git.outcome(["cherry-pick", "--end-of-options", commit], this.unfinished);
+  /**
+   * Merge commits are left out: which parent to follow is a question for the
+   * terminal. A commit whose changes are already there would make an empty
+   * commit, which git stops to ask about; it is skipped instead, and said so.
+   */
+  async cherryPick(commit: string): Promise<OperationOutcome> {
+    const args = ["cherry-pick", "--end-of-options", commit];
+    const result = await this.git.run(args);
+    if (result.code === 0) return "done";
+    if (await this.conflicted()) return "stopped";
+    // Stopped without conflicts and with nothing staged: the pick is empty.
+    const empty = async () => (await this.git.run(["diff", "--cached", "--quiet"])).code === 0;
+    if ((await this.current(null))?.kind === "cherry-pick" && (await empty())) {
+      await this.git.text(["cherry-pick", "--skip"]);
+      throw new GitError("Its changes are already on this branch; nothing was picked.");
+    }
+    if (await this.unfinished()) return "stopped";
+    throw failure(args, result);
   }
 
   revert(commit: string): Promise<OperationOutcome> {

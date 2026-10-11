@@ -1033,6 +1033,10 @@ describe("VersionControlManager", () => {
     await repository.git("merge", "-q", "--no-ff", "-m", "Merge", "other");
     const merge = (await repository.git("rev-parse", "HEAD")).trim();
     await expect(versionControl.revert(id, merge)).rejects.toThrow("merge commits");
+    // A commit the branch has already is not picked again.
+    const other = (await repository.git("rev-parse", "other")).trim();
+    await expect(versionControl.cherryPick(id, other)).rejects.toThrow(`${other.slice(0, 7)} is already on main.`);
+    expect(await versionControl.continueOperation(id).catch((error: Error) => error.message)).toMatch("No merge, rebase");
   });
 
   it("stashes changes, shows and pops them", async () => {
