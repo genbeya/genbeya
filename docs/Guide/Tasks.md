@@ -38,7 +38,7 @@ Task files change with the checked-out branch and are committed like code. To se
 - Drag cards between columns to change their status. **Board** and **List** switch the layout; the list shows every task, including those in hidden columns.
 - `C` (or **New task**) creates a task, `+` at the top of a column creates one in that column.
 - `/` filters by text; **Filter by** narrows the board and the list to a type, an epic, an assignee, a priority or a label.
-- A card shows the task's type, ID, title, assignee, priority and labels.
+- A card shows the task's type, ID, title, assignee, priority, labels and date fields, overdue ones in red.
 
 ## The task panel
 
@@ -46,14 +46,14 @@ Click a card to open the task beside the board.
 
 ![A task with its properties, a checklist, references and two comments](../images/task-panel.png)
 
-- Status, type, priority, assignee, epic and labels change right away from the chips under the title; custom fields sit below them.
+- Status, type, priority, assignee, epic and labels change right away from the chips under the title; custom fields sit below them. **Assignee** offers the repository's people — see [Writing pages](Writing.md#assignees).
 - Checkboxes in the description can be ticked without editing.
 - `E` (or **Edit**) edits the title and description, with `[[` completion for [References](References.md). `Ctrl+S` or `Ctrl+Enter` saves, `Esc` cancels, and `Esc` again closes the panel.
 - The `…` menu copies links to the task (see [Sharing](Sharing.md)) and deletes it.
 
 ## Comments
 
-Below the description, **Comments** lists what people wrote about the task. Type in the box and press `Ctrl+Enter` (`⌘Enter` on macOS) to add a comment. Markdown and `[[references]]` work as in the description; the box offers no `[[` completion, so type references in full. Your own comments have buttons to edit and delete them.
+Below the description, **Comments** lists what people wrote about the task. Type in the box and press `Ctrl+Enter` (`⌘Enter` on macOS) to add a comment. Markdown, `[[references]]`, `@mentions` and dates work as in the description; the box completes `@` and `//` (see [Writing pages](Writing.md)) but not `[[`, so type references in full. Your own comments have buttons to edit and delete them.
 
 Comments are signed with your Git name (`git config user.name`, or the name Git takes from your system account) and stored at the end of the task file, so they read well anywhere Markdown is shown:
 
