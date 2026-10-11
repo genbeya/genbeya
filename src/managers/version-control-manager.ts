@@ -7,14 +7,21 @@ import type {
   ConflictResolution,
   Diff,
   DiffSource,
+  ForcePushPlan,
   OperationOutcome,
+  PushOutcome,
+  PushPlan,
+  PushRequest,
   RebasePlan,
   RebaseStep,
+  ResetMode,
+  ResetPlan,
+  ResetResult,
   Stash,
   StashDetail,
   SyncAction,
 } from "../contracts/model";
-import { REBASE_ACTIONS } from "../contracts/model";
+import { isDefaultBranch, REBASE_ACTIONS, RESET_MODES } from "../contracts/model";
 import { TEXT_LIMIT } from "../access/files/file-store";
 import { isCommitId } from "../access/git/git-parsers";
 import { REBASE_LIMIT } from "../access/git/operation-access";
@@ -195,6 +202,37 @@ export class VersionControlManager implements VersionControlManagerContract {
     });
   }
 
+  pushPlan(id: unknown, branch: unknown): Promise<PushPlan> {
+    return this.on(id, async (workspace) => workspace.repository.pushes.plan(await this.localBranch(workspace, branch)));
+  }
+
+  forcePushPlan(id: unknown, branch: unknown, remote: unknown, remoteBranch: unknown): Promise<ForcePushPlan> {
+    return this.on(id, async (workspace) =>
+      workspace.repository.pushes.forcePlan(
+        await this.localBranch(workspace, branch),
+        await this.remoteName(workspace, remote),
+        await this.pushedBranchName(workspace, remoteBranch),
+      ),
+    );
+  }
+
+  push(id: unknown, request: unknown): Promise<PushOutcome> {
+    return this.on(id, async (workspace) => {
+      const { branch, remote, remoteBranch, setUpstream, force } = (request ?? {}) as Partial<Record<string, unknown>>;
+      if (typeof setUpstream !== "boolean") throw new Error("Invalid push.");
+      const lease = this.forceOf(force);
+      const checked: PushRequest = {
+        branch: await this.localBranch(workspace, branch),
+        remote: await this.remoteName(workspace, remote),
+        remoteBranch: await this.pushedBranchName(workspace, remoteBranch),
+        setUpstream,
+        ...(lease ? { force: lease } : {}),
+      };
+      if (lease && !lease.defaultBranch) await this.notDefaultBranch(workspace, checked.remote, checked.remoteBranch);
+      return workspace.repository.pushes.push(checked);
+    });
+  }
+
   setRemote(id: unknown, name: unknown, url: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
       if (typeof name !== "string" || !REMOTE_NAME.test(name))
@@ -294,6 +332,32 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.starting(id, async (workspace) => workspace.repository.operations.revert(await this.singleParent(workspace, hash)));
   }
 
+  // Resets refuse while an operation is in progress: aborting it afterwards would go back to before the reset.
+
+  resetPlan(id: unknown, hash: unknown): Promise<ResetPlan> {
+    return this.starting(id, async (workspace) => workspace.repository.resets.plan(await this.existingCommit(workspace, hash)));
+  }
+
+  reset(id: unknown, hash: unknown, mode: unknown, expectedHead: unknown): Promise<ResetResult> {
+    return this.starting(id, async (workspace) => {
+      if (!RESET_MODES.includes(mode as ResetMode)) throw new Error("Invalid reset mode.");
+      const target = await this.existingCommit(workspace, hash);
+      if (!isCommitId(expectedHead)) throw new Error("Invalid commit ID.");
+      const branch = await this.currentBranch(workspace);
+      if ((await workspace.repository.git.objectId("HEAD")) !== expectedHead)
+        throw new Error(`${branch} moved since you chose the reset. Look at it again first.`);
+      return workspace.repository.resets.reset(target, mode as ResetMode);
+    });
+  }
+
+  undoLastCommit(id: unknown): Promise<ResetResult> {
+    return this.starting(id, async (workspace) => {
+      await this.currentBranch(workspace);
+      const resets = workspace.repository.resets;
+      return resets.reset(await resets.parentOfHead(), "soft");
+    });
+  }
+
   continueOperation(id: unknown): Promise<OperationOutcome> {
     return this.on(id, (workspace) => workspace.repository.operations.continue());
   }
@@ -358,6 +422,43 @@ export class VersionControlManager implements VersionControlManagerContract {
     if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid branch name.");
     if (!(await workspace.repository.isValidBranchName(name))) throw new Error(`"${name}" is not a valid branch name.`);
     return plainRef(name);
+  }
+
+  /** A push request's `force`: none, or the commit the lease expects (null: no branch) and whether the default branch may go. */
+  private forceOf(force: unknown): PushRequest["force"] {
+    if (force === undefined || force === null) return undefined;
+    const { expected, defaultBranch } = (typeof force === "object" ? force : {}) as Partial<Record<string, unknown>>;
+    if ((expected !== null && !isCommitId(expected)) || typeof defaultBranch !== "boolean") throw new Error("Invalid push.");
+    return { expected, defaultBranch };
+  }
+
+  /** Refuses to force push to the branch everyone starts from, unless the user said they mean it. */
+  private async notDefaultBranch(workspace: Workspace, remote: string, branch: string): Promise<void> {
+    const known = await workspace.repository.pushes.defaultBranch(remote);
+    if (!isDefaultBranch(branch, known)) return;
+    throw new Error(
+      (known
+        ? `${branch} is the default branch of ${remote}. `
+        : `GitDesk can't tell the default branch of ${remote}, and ${branch} may be it. `) +
+        "Force pushing to it rewrites the history everyone starts from; confirm that you mean it.",
+    );
+  }
+
+  /** A branch to create on a remote by pushing: a valid branch name, but not one git would read as HEAD or a reflog entry. */
+  private async pushedBranchName(workspace: Workspace, name: unknown): Promise<string> {
+    if (name === "HEAD" || (typeof name === "string" && name.includes("@{"))) throw new Error("Invalid branch name.");
+    return this.branchName(workspace, name);
+  }
+
+  private async currentBranch(workspace: Workspace): Promise<string> {
+    const { branch } = await workspace.repository.head();
+    if (!branch) throw new Error("Switch to a branch first.");
+    return branch;
+  }
+
+  private async existingCommit(workspace: Workspace, hash: unknown): Promise<string> {
+    if (!isCommitId(hash) || !(await workspace.repository.git.hasRef(`${hash}^{commit}`))) throw new Error("Choose a commit.");
+    return hash;
   }
 
   private async localBranch(workspace: Workspace, name: unknown): Promise<string> {

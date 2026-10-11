@@ -18,7 +18,9 @@ import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
 import { ContentFiles } from "../code/content-files";
+import { ResetActions } from "../history/reset-actions";
 import { Onboarding } from "../onboarding/onboarding";
+import { PushActions } from "../push/push-actions";
 import { WikiActions } from "../wiki/wiki-actions";
 import { MarkedText } from "./marked-text";
 import { PaletteIcon } from "./palette-icon";
@@ -170,6 +172,8 @@ export class Palette {
   private readonly wiki = inject(WikiActions);
   private readonly repository = inject(RepositoryActions);
   private readonly operations = inject(OperationActions);
+  private readonly pushes = inject(PushActions);
+  private readonly resets = inject(ResetActions);
   private readonly ui = inject(ShellUi);
   private readonly terminals = inject(Terminals);
   private readonly onboarding = inject(Onboarding);
@@ -206,6 +210,9 @@ export class Palette {
     pullRebase: (remote) => void this.operations.pullRebase(remote),
     searchText: () => void this.ui.openPalette("search"),
     sync: (action, remote) => void this.repository.sync(action, remote),
+    push: () => void this.pushes.push(),
+    pushTo: () => void this.pushes.pushTo(),
+    undoLastCommit: () => void this.resets.undoLastCommit(),
     syncContent: () => void this.repository.syncContent(),
     pickFolder: () => void this.session.pick(),
     openRemote: () => void this.ui.openRemote(),
