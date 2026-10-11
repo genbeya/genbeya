@@ -40,14 +40,46 @@ function commentOf(match: RegExpExecArray, body: string): TaskComment {
   return { author: author!.trim(), date: `${day}T${time}${zone}`, body };
 }
 
+/** An opening or closing code fence: three or more backticks or tildes, indented at most three spaces. */
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+
+/**
+ * Which lines lie in a fenced code block, fences included, and the fence
+ * still open at the end, if any. Lines are without their `\r`.
+ */
+function fences(lines: readonly string[]): { fenced: boolean[]; open: string | null } {
+  const fenced: boolean[] = [];
+  let open: string | null = null;
+  for (const line of lines) {
+    const fence = FENCE.exec(line);
+    const rest = fence ? line.slice(fence[0].length) : "";
+    if (open) {
+      fenced.push(true);
+      if (fence && fence[1]![0] === open[0] && fence[1]!.length >= open.length && !rest.trim()) open = null;
+    } else if (fence && !(fence[1]![0] === "`" && rest.includes("`"))) {
+      fenced.push(true);
+      open = fence[1]!;
+    } else fenced.push(false);
+  }
+  return { fenced, open };
+}
+
 /**
  * The description and the comments of a task's body. The comments start at
  * the first "## Comments" heading followed by a comment, so the description
- * may have such a heading of its own, and comments may quote it.
+ * may have such a heading of its own, and comments may quote it. Headings in
+ * code blocks are code, such as an example of this format.
  */
 export function splitComments(body: string): SplitBody {
   const lines = body.split("\n").map((line) => line.replace(/\r$/, ""));
-  const start = lines.findIndex((line, i) => SECTION.test(line) && COMMENT.test(lines.slice(i + 1).find((next) => !isBlank(next)) ?? ""));
+  const { fenced } = fences(lines);
+  // From the end, so the line after each heading is known: the first heading wins.
+  let start = -1;
+  let next = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (!fenced[i] && SECTION.test(lines[i]!) && next >= 0 && !fenced[next] && COMMENT.test(lines[next]!)) start = i;
+    if (!isBlank(lines[i]!)) next = i;
+  }
   if (start < 0) return { description: body, blocks: [] };
   const before = body.split("\n").slice(0, start).join("\n").trimEnd();
   const blocks: CommentBlock[] = [];
@@ -59,8 +91,9 @@ export function splitComments(body: string): SplitBody {
     const text = trimBlankLines(content).join("\n");
     blocks.push({ comment: commentOf(match, text), heading, text: commentBlock(heading, text) });
   };
-  for (const line of lines.slice(start + 1)) {
-    const next = COMMENT.exec(line);
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i]!;
+    const next = fenced[i] ? null : COMMENT.exec(line);
     if (next) {
       close();
       match = next;
@@ -84,12 +117,17 @@ export const commentHeading = (author: string, timestamp: string): string => `##
 /** A comment's text as written to the file. */
 export const commentBlock = (heading: string, body: string): string => (body ? `${heading}\n\n${body}` : heading);
 
-/** Escapes lines that would read as a comment heading, so descriptions and comments never split into comments. */
-export const protectHeadings = (text: string): string =>
-  text
-    .split("\n")
-    .map((line) => (COMMENT.test(line.replace(/\r$/, "")) ? `\\${line}` : line))
-    .join("\n");
+/**
+ * Escapes lines that would read as a comment heading, and closes a code
+ * fence left open, so descriptions and comments never split into comments
+ * and never swallow the ones after them. Code blocks stay as written.
+ */
+export function protectHeadings(text: string): string {
+  const lines = text.split("\n");
+  const { fenced, open } = fences(lines.map((line) => line.replace(/\r$/, "")));
+  const protectedText = lines.map((line, i) => (!fenced[i] && COMMENT.test(line.replace(/\r$/, "")) ? `\\${line}` : line)).join("\n");
+  return open ? `${protectedText}${protectedText.endsWith("\n") ? "" : "\n"}${open}` : protectedText;
+}
 
 const pad = (value: number) => String(value).padStart(2, "0");
 

@@ -45,6 +45,37 @@ describe("FileStore", () => {
     expect((await files.read("B.md")).content).toBe("b");
   });
 
+  it("undoes the moves before one that fails", async () => {
+    const host = new LocalHost(nodeMachine());
+    const root = await temporaryFolder("files-");
+    // A host whose second move fails, as a file locked on Windows does.
+    let moves = 0;
+    const locking = Object.assign(Object.create(host) as LocalHost, {
+      move: (at: string, from: string, to: string) => (++moves === 2 ? Promise.reject(new Error("locked")) : host.move(at, from, to)),
+    });
+    const files = new FileStore(locking, root);
+    await files.write("a.md", "a", null);
+    await files.write("a/sub.md", "s", null);
+    await expect(
+      files.moveAll([
+        ["a.md", "b.md"],
+        ["a", "b"],
+      ]),
+    ).rejects.toThrow("locked");
+    expect(await files.kind("a.md")).toBe("file");
+    expect(await files.kind("b.md")).toBeNull();
+    expect(await files.kind("a/sub.md")).toBe("file");
+  });
+
+  it("checks a write without writing", async () => {
+    const files = await store();
+    const file = await files.write("a.md", "a", null);
+    await expect(files.check("a.md", "x".repeat(TEXT_LIMIT + 1), file.hash)).rejects.toThrow("2 MiB");
+    await expect(files.check("a.md", "b", sha256("other"))).rejects.toThrow("changed on disk");
+    await files.check("a.md", "b", file.hash);
+    expect((await files.read("a.md")).content).toBe("a");
+  });
+
   it("limits file sizes", async () => {
     const files = await store();
     await expect(files.write("big.md", "x".repeat(TEXT_LIMIT + 1), null)).rejects.toThrow("2 MiB");

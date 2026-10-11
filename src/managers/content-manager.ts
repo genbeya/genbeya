@@ -29,7 +29,7 @@ import type { SearchEngine } from "../engines/search-engine";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine, TaskVersion } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
-import { toBase64 } from "../utilities/bytes";
+import { sha256, toBase64 } from "../utilities/bytes";
 import { referenceIndex } from "../utilities/references";
 import { baseName, relocate, within } from "../utilities/repository-path";
 import { searchContent } from "./content-search";
@@ -130,18 +130,44 @@ export class ContentManager implements ContentManagerContract {
       const { source, target, moves } = await this.pageMove(workspace, from, to);
       if (!moves.length) return target;
       const rewrites = updateLinks ? await this.linkRewrites(workspace, moves) : [];
-      await (await workspace.content.locate("wiki")).files.moveAll(moves);
+      const files = { wiki: (await workspace.content.locate("wiki")).files, tasks: (await workspace.content.locate("tasks")).files };
+      // Every link update is checked first, so a file too large or changed meanwhile stops the move before it starts.
+      for (const rewrite of rewrites) await files[rewrite.area].check(rewrite.path, rewrite.content, rewrite.hash);
+      await files.wiki.moveAll(moves);
       // One commit per location: the wiki's, and the tasks' when they live elsewhere.
       const updated: Record<"wiki" | "tasks", string[]> = { wiki: [], tasks: [] };
-      for (const rewrite of rewrites) {
-        const path = relocate(rewrite.path, moves) ?? rewrite.path;
-        await (await workspace.content.locate(rewrite.area)).files.write(path, rewrite.content, rewrite.hash);
-        updated[rewrite.area].push(path);
-      }
       const message = `Move page ${this.engines.wiki.titleOf(source)} to ${target}`;
       const describe = (paths: readonly string[]) => (paths.length ? `${message}\n\nUpdate links in ${paths.join(", ")}.` : message);
-      await workspace.content.record("wiki", [...moves.flat(), ...updated.wiki], describe(updated.wiki));
-      if (updated.tasks.length) await workspace.content.record("tasks", updated.tasks, describe(updated.tasks));
+      const record = async () => {
+        await workspace.content.record("wiki", [...moves.flat(), ...updated.wiki], describe(updated.wiki));
+        if (updated.tasks.length) await workspace.content.record("tasks", updated.tasks, describe(updated.tasks));
+      };
+      const written: (typeof rewrites)[number][] = [];
+      try {
+        for (const rewrite of rewrites) {
+          const path = relocate(rewrite.path, moves) ?? rewrite.path;
+          await files[rewrite.area].write(path, rewrite.content, rewrite.hash);
+          written.unshift(rewrite);
+          updated[rewrite.area].push(path);
+        }
+      } catch (error) {
+        // A write can still fail, as on a file another program holds open: the move is undone.
+        try {
+          for (const rewrite of written)
+            await files[rewrite.area].write(relocate(rewrite.path, moves) ?? rewrite.path, rewrite.original, sha256(rewrite.content));
+          await files.wiki.moveAll(moves.map(([from, to]) => [to, from] as const).reverse());
+        } catch (undo) {
+          // What could not be undone is committed like any other edit.
+          await record();
+          throw new Error(`${(error as Error).message} The page could not be moved back either: ${(undo as Error).message}`, {
+            cause: undo,
+          });
+        }
+        throw error;
+      }
+      await record();
+      const { settings } = await workspace.settings();
+      for (const [from] of moves) await files.wiki.removeEmptyFolders(from, settings.wikiRoot);
       return target;
     });
   }
@@ -152,7 +178,9 @@ export class ContentManager implements ContentManagerContract {
       const folder = this.engines.wiki.subpageFolder(page);
       if ((await workspace.content.files("wiki")).some((file) => within(file, folder)))
         throw new Error("This page has subpages. Move or delete them first.");
-      await (await workspace.content.locate("wiki")).files.remove(page);
+      const { files } = await workspace.content.locate("wiki");
+      await files.remove(page);
+      await files.removeEmptyFolders(page, (await workspace.settings()).settings.wikiRoot);
       await workspace.content.record("wiki", [page], `Delete page ${this.engines.wiki.titleOf(page)}`);
     });
   }
@@ -164,7 +192,7 @@ export class ContentManager implements ContentManagerContract {
       const files = await workspace.content.files("tasks");
       const existing = await workspace.tasks(files, settings, []);
       // A free ID may still name a file in some epic, e.g. a task renamed on another branch.
-      const fileNames = new Set(files.filter((file) => within(file, settings.taskRoot)).map(baseName));
+      const fileNames = new Set(files.filter((file) => this.engines.tasks.isTaskFile(file, settings.taskRoot)).map(baseName));
       const taskId = this.engines.tasks.nextId(
         settings.taskPrefix,
         existing.map((task) => task.id),
@@ -190,8 +218,13 @@ export class ContentManager implements ContentManagerContract {
       const epic = this.engines.tasks.existingSpelling(valid.epic, await workspace.content.files("tasks"), settings.taskRoot);
       const target =
         epic === task.epic ? relative : workspace.path(this.engines.tasks.pathOf(settings.taskRoot, epic, baseName(relative).slice(0, -3)));
-      if (target !== relative) await files.moveAll([[relative, target]]);
-      const file = await files.write(target, this.engines.tasks.serializeUpdate(original.content, valid), original.hash);
+      const content = this.engines.tasks.serializeUpdate(original.content, valid);
+      if (target !== relative) {
+        await files.check(relative, content, original.hash);
+        await files.moveAll([[relative, target]]);
+        await files.removeEmptyFolders(relative, settings.taskRoot);
+      }
+      const file = await files.write(target, content, original.hash);
       await workspace.content.record("tasks", [...new Set([relative, target])], `Update ${task.id}: ${valid.title}`);
       return this.engines.tasks.parse(target, file.content, file.hash, settings.taskRoot);
     });
@@ -209,6 +242,7 @@ export class ContentManager implements ContentManagerContract {
         /* Unreadable task files can be deleted too. */
       }
       await files.remove(relative);
+      await files.removeEmptyFolders(relative, settings.taskRoot);
       await workspace.content.record("tasks", [relative], `Delete ${taskId}`);
     });
   }
@@ -336,7 +370,9 @@ export class ContentManager implements ContentManagerContract {
     const content = await workspace.content.committed("tasks", relative);
     if (content !== null) return { path: relative, content };
     const name = baseName(relative);
-    const moved = (await workspace.content.committedFiles("tasks", taskRoot)).find((file) => baseName(file) === name);
+    const moved = (await workspace.content.committedFiles("tasks", taskRoot)).find(
+      (file) => baseName(file) === name && this.engines.tasks.isTaskFile(file, taskRoot),
+    );
     return moved ? { path: moved, content: await workspace.content.committed("tasks", moved) } : null;
   }
 
@@ -459,12 +495,12 @@ export class ContentManager implements ContentManagerContract {
    * The Markdown files whose links `moves` would break, rewritten, with the
    * versions they were read at: the files where the wiki lives, and the task
    * folder where the tasks live when that is elsewhere. `area` names the
-   * location each is written to.
+   * location each is written to, `original` the content it replaces.
    */
   private async linkRewrites(
     workspace: Workspace,
     moves: readonly [string, string][],
-  ): Promise<(LinkRewrite & { hash: string; area: "wiki" | "tasks" })[]> {
+  ): Promise<(LinkRewrite & { hash: string; original: string; area: "wiki" | "tasks" })[]> {
     if (!moves.length) return [];
     const { settings } = await workspace.settings();
     const wiki = await workspace.content.locate("wiki");
@@ -483,11 +519,12 @@ export class ContentManager implements ContentManagerContract {
     const index = (list: readonly string[]) =>
       referenceIndex({ wikiRoot: settings.wikiRoot, pages: this.engines.wiki.pages(list, settings), tasks: taskList, files: list });
     const context = { moves, before: index(files), after: index(files.map((file) => relocate(file, moves) ?? file)) };
-    const hashes = new Map(documents.map((file) => [file.path, file.hash]));
+    const versions = new Map(documents.map((file) => [file.path, file]));
     const elsewhere = new Set(taskFiles);
     return this.engines.links.rewrite(documents, context).map((rewrite) => ({
       ...rewrite,
-      hash: hashes.get(rewrite.path)!,
+      hash: versions.get(rewrite.path)!.hash,
+      original: versions.get(rewrite.path)!.content,
       area: elsewhere.has(rewrite.path) ? "tasks" : "wiki",
     }));
   }

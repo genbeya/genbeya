@@ -251,6 +251,21 @@ describe("ContentManager", () => {
     await expect(content.read(id, "content", "docs/Guides/Setup.md")).rejects.toThrow("does not exist");
   });
 
+  it("leaves no empty folders behind where pages moved out or were deleted", async () => {
+    const { content, id, repository } = await opened();
+    await content.createPage(id, "docs/Design/Notes/Ideas.md");
+    await content.createPage(id, "docs/Old/Page.md");
+    await content.movePage(id, "docs/Design/Notes/Ideas.md", "docs/Ideas.md");
+    expect(await repository.exists("docs/Design")).toBe(false);
+    await content.deletePage(id, "docs/Old/Page.md");
+    expect(await repository.exists("docs/Old")).toBe(false);
+    // A page moves with its subpages; the folder they left goes, the wiki folder stays.
+    await content.movePage(id, "docs/Architecture/Backend.md", "docs/Backend.md");
+    expect(await repository.exists("docs/Backend/Auth.md")).toBe(true);
+    expect(await repository.exists("docs/Architecture")).toBe(false);
+    expect(await repository.exists("docs/Architecture.md")).toBe(true);
+  });
+
   it("writes and removes repository files, rejecting stale edits", async () => {
     const { content, id } = await opened();
     const file = await content.read(id, "repo", "src/code.ts");
@@ -341,6 +356,33 @@ describe("ContentManager", () => {
     );
     expect(await repository.read("tasks/TP-1.md")).toContain("Read [[Design/System/Backend]].");
     expect(await repository.read("README.md")).toBe(LINKED["README.md"]);
+  });
+
+  it("moves nothing when a link update could not be written", async () => {
+    // Just below the size limit, until its links grow longer.
+    const links = "[a](Architecture.md)\n".repeat(400);
+    const big = `# Big\n\n\`\`\`\n${"x".repeat(2 * 1024 * 1024 - links.length - 100)}\n\`\`\`\n\n${links}`;
+    const { content, id, repository } = await opened({ ...LINKED, "docs/Big.md": big });
+    const target = "docs/Architecture-and-everything-around-it.md";
+    await expect(content.movePage(id, "docs/Architecture.md", target, { updateLinks: true })).rejects.toThrow("limited to 2 MiB");
+    expect(await repository.exists("docs/Architecture.md")).toBe(true);
+    expect(await repository.exists(target)).toBe(false);
+    expect(await repository.read("docs/Home.md")).toBe(LINKED["docs/Home.md"]);
+  });
+
+  it("moves the page back when a link update fails after the move, committing nothing", async () => {
+    const { content, id, latest, repository } = await opened(LINKED);
+    await shareEverything(content, id);
+    const worktree = path.join(repository.root, ".git", "gitdesk", "gitdesk");
+    const commits = await repository.git("rev-parse", "gitdesk");
+    // A file that cannot be written, as one another program holds open on Windows.
+    const home = path.join(worktree, "docs", "Home.md");
+    await fs.chmod(home, 0o444);
+    onTestFinished(() => fs.chmod(home, 0o644));
+    await expect(content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true })).rejects.toThrow();
+    expect(await repository.git("rev-parse", "gitdesk")).toBe(commits);
+    expect(await repository.git("-C", worktree, "status", "--porcelain")).toBe("");
+    expect((await latest()).warnings).toEqual([]);
   });
 
   it("leaves links alone unless asked, and validates the options", async () => {
@@ -462,7 +504,7 @@ describe("ContentManager", () => {
     const path = await content.ensureTaskTemplate(id, "bug");
     expect(await repository.git("show", "--name-status", "--format=%s", "gitdesk")).toBe(`Create the bug task template\n\nA\t${path}\n`);
     expect(await repository.exists(path)).toBe(false);
-    expect((await content.taskTemplate(id, "bug"))!.body).toContain("## Context");
+    expect((await content.taskTemplate(id, "bug"))!.body).toContain("## Steps to reproduce");
   });
 
   it("keeps tasks of an epic in its folder and moves them between epics", async () => {
@@ -474,8 +516,12 @@ describe("ContentManager", () => {
     const moved = await content.updateTask(id, first.path, { ...input, epic: "Billing/Invoices", status: "done" }, first.hash);
     expect(moved).toMatchObject({ id: "TP-1", path: "tasks/Billing/Invoices/TP-1.md", epic: "Billing/Invoices", status: "done" });
     expect(await repository.exists("tasks/Login rework/TP-1.md")).toBe(false);
+    // The epic folder it left is gone, empty.
+    expect(await repository.exists("tasks/Login rework")).toBe(false);
     const back = await content.updateTask(id, moved.path, { ...input, epic: "" }, moved.hash);
     expect(back.path).toBe("tasks/TP-1.md");
+    expect(await repository.exists("tasks/Billing")).toBe(false);
+    expect(await repository.exists("tasks")).toBe(true);
     expect((await latest()).tasks.map((task) => [task.id, task.epic])).toEqual(
       expect.arrayContaining([
         ["TP-1", ""],
@@ -592,6 +638,15 @@ describe("ContentManager", () => {
     expect(await content.taskActivity(id, task.path)).toEqual([
       { commit: null, author: "Test", date: null, subject: "", changes: [{ kind: "created" }] },
     ]);
+  });
+
+  it("never takes a template for an earlier version of a task with its name", async () => {
+    const { content, id, repository } = await opened({
+      ...DEFAULT_FILES,
+      "tasks/.templates/bug.md": "---\npriority: high\n---\n\nSteps\n",
+    });
+    await repository.write("tasks/bug.md", "---\nid: TP-9\ntitle: Bug\nstatus: todo\n---\n\nBroken.\n");
+    expect((await content.taskActivity(id, "tasks/bug.md")).map((entry) => entry.changes)).toEqual([[{ kind: "created" }]]);
   });
 
   it("reads the activity from the content branch, where every edit is a commit", async () => {

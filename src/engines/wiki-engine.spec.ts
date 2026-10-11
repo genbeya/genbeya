@@ -70,6 +70,9 @@ describe("WikiEngine page rules", () => {
 
   it("refuses to move a page below itself", () => {
     expect(() => engine.planMove("docs/A.md", "docs/A/B.md", true)).toThrow("below itself");
+    // Windows and macOS see one folder in both spellings.
+    expect(() => engine.planMove("docs/A.md", "docs/a/B.md", true)).toThrow("below itself");
+    expect(() => engine.planMove("Docs/Guide.md", "docs/GUIDE/x/B.md", true)).toThrow("below itself");
   });
 
   it("names the subpage folder of a page", () => {

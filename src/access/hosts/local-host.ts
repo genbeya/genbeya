@@ -74,6 +74,18 @@ export class LocalHost implements Host {
     await this.machine.fileSystem.removeFile(file);
   }
 
+  async removeEmptyFolder(root: string, relative: string) {
+    try {
+      const folder = await this.resolve(root, relative, false);
+      if ((await this.machine.fileSystem.lstat(folder)).kind !== "dir") return false;
+      await this.machine.fileSystem.removeDirectory(folder);
+      return true;
+    } catch {
+      // Not empty, gone or out of reach: the folder stays.
+      return false;
+    }
+  }
+
   async move(root: string, from: string, to: string) {
     const source = await this.resolve(root, from, false);
     const target = await this.resolve(root, to, true);

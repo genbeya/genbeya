@@ -50,4 +50,27 @@ describe("reference helpers", () => {
       ["Guide/Wiki#Links", "the wiki"],
     ]);
   });
+
+  it("reads brackets inside references as before, and a nested [[ as the start of the next one", () => {
+    const found = (text: string) => [...text.matchAll(WIKILINK)].map((m) => [m[1], m[2]]);
+    expect(found("[[a[b]] [[[x]] [[c|d [e]]")).toEqual([
+      ["a[b", undefined],
+      ["[x", undefined],
+      ["c", "d [e"],
+    ]);
+    expect(found("[[a|b] [[c]]")).toEqual([["c", undefined]]);
+    expect(found("[[a [[b]] [[c|x [[d]]")).toEqual([
+      ["b", undefined],
+      ["d", undefined],
+    ]);
+    expect(found("[[a\nb]] [[]] [[|x]]")).toEqual([]);
+  });
+
+  it("finds references in linear time on long lines", () => {
+    for (const line of ["[[".repeat(40_000), "[[a|".repeat(20_000), `[[${"a[".repeat(40_000)}`, `[[a|${"b[".repeat(40_000)}`]) {
+      const started = performance.now();
+      expect([...line.matchAll(WIKILINK)]).toEqual([]);
+      expect(performance.now() - started).toBeLessThan(200);
+    }
+  });
 });

@@ -21,7 +21,8 @@ Edit the files directly; GitDesk picks up changes on its own.
    - `taskRoot` is the task folder (here `tasks`), `taskPrefix` the prefix of task IDs (here `GD`).
    - `statuses` are the workflow states in board order: the first is where new ideas wait, the last means done. An entry is a state's name, or a mapping whose `name` is the state.
    - `hiddenColumns` are states the board leaves out; tasks may still be in them.
-   - If present, `types` lists task types and `fields` custom task fields. Use only the names and values defined there.
+   - `types` lists the task types: names, or mappings whose `name` is the type (with an `icon` and a colour `tone` for GitDesk). Without `types`, the types are `bug`, `feature`, `improvement` and `chore`; `types: []` means none.
+   - If present, `fields` lists custom task fields: each has a `name`, which is the frontmatter key, and a `type`: `text` (the default), `number`, `date` (written `2026-05-01`) or `choice`, whose value is one of its `options`.
 
 ## Tasks
 
@@ -31,6 +32,7 @@ Each task is one Markdown file named after its ID, in the task folder or in an e
 ---
 id: GENBEYA-12
 title: Virtualize long lists
+type: improvement
 status: todo
 priority: medium
 assignee: alice
@@ -45,15 +47,17 @@ Render only the visible rows of long lists.
 
 - `id`, `title` and `status` are required; `status` is one of the configured states.
 - `priority` is `urgent`, `high`, `medium` or `low`; leave it out for none. `assignee` and `labels` are optional.
-- The description below the frontmatter is Markdown. Its checklist items (`- [ ]`, `- [x]`) are the task's subtasks; the board shows their progress.
-- An epic is a folder below the task folder, and epics may nest (`Auth/Tokens`). A task without an epic sits in the task folder itself.
+- `type` is optional and one of the configured types. Custom fields are frontmatter keys named as in `fields`, with values of their kind; leave a field out when it has no value.
+- The description below the frontmatter is Markdown. Its checklist items (`- [ ]`, `- [x]`) are the task's subtasks, which people tick in GitDesk too.
+- An epic is a folder below the task folder, and epics may nest (`Auth/Tokens`). A task without an epic sits in the task folder itself. Folders whose names start with a dot hold no tasks.
 - If present, a `## Comments` section below the description holds the discussion. Add your comments at its end in the format of the existing ones, and never edit other people's comments.
 
 ### Create a task
 
 1. Take the next free ID: the highest number used with the prefix by any task below the task folder, epics included, plus one (`GENBEYA-12` → `GENBEYA-13`). Make sure no file of that name exists anywhere below the task folder.
 2. Write `<task folder>/[<epic>/]<ID>.md` with `id`, `title` and `status`, the optional fields that apply, and a description that says what done means.
-3. Break the work down into a checklist. Give a step its own task only when it deserves tracking of its own, and reference it from the description (`[[GENBEYA-13]]`).
+3. For a task of a type, start from the type's template if `<task folder>/.templates/<type>.md` exists: its description is the outline to fill in, and its frontmatter presets fields such as `priority` or `labels` (never `id`, `title` or `status`).
+4. Break the work down into a checklist. Give a step its own task only when it deserves tracking of its own, and reference it from the description (`[[GENBEYA-13]]`).
 
 ### Work on a task
 

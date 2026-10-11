@@ -1,6 +1,7 @@
 import childProcess from "node:child_process";
 import { promises as fs } from "node:fs";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { TOO_MUCH_OUTPUT } from "../../access/ports";
 import { describeMachine } from "../../testing/machine-contract";
 import { temporaryFolder } from "../../testing/temp";
 import { defaultShell, nodeMachine } from "./node-machine";
@@ -28,6 +29,14 @@ describeMachine("Node", () => ({
     }
   },
 }));
+
+describe("nodeMachine processes", () => {
+  it("stop programs that write more than they may, and say so", async () => {
+    const script = "const chunk = 'x'.repeat(1 << 20); for (let i = 0; i < 80; i++) process.stdout.write(chunk);";
+    const result = await nodeMachine().processes.run(process.execPath, ["-e", script], { cwd: await temporaryFolder("output-") });
+    expect(result).toMatchObject({ code: TOO_MUCH_OUTPUT, stderr: expect.stringContaining("more output") });
+  });
+});
 
 describe("nodeMachine terminals", () => {
   it("pass arguments with quotes and spaces unchanged, as the SSH terminal command needs", async () => {

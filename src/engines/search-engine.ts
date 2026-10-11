@@ -1,7 +1,7 @@
 /**
  * The rules of full-text search: what a valid query is, which area a file
- * belongs to, where a query matches in a line, and how long lines are
- * shortened around the match. Git finds the lines; this decides how they read.
+ * is listed in, and how long lines are shortened around the match. Git finds
+ * the lines and where they match; this decides how they read.
  */
 import type { SearchArea, SearchRange, Settings } from "../contracts/model";
 import { within } from "../utilities/repository-path";
@@ -20,9 +20,6 @@ export const SEARCH_LIMITS = {
 
 /** Characters kept before the first match when a long line is shortened. */
 const LEAD = 40;
-/** Highlighted occurrences per line. */
-const RANGES_PER_LINE = 50;
-const WORD = "[A-Za-z0-9_]";
 const FLAGS = ["caseSensitive", "regex", "wholeWord"] as const;
 
 export interface SearchQuery {
@@ -32,7 +29,6 @@ export interface SearchQuery {
   readonly wholeWord: boolean;
 }
 
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const isMarkdown = (path: string) => path.toLowerCase().endsWith(".md");
 
 export class SearchEngine {
@@ -48,35 +44,15 @@ export class SearchEngine {
     return { text, caseSensitive: flags.caseSensitive === true, regex: flags.regex === true, wholeWord: flags.wholeWord === true };
   }
 
-  /** Tasks and pages are Markdown files below their folders; everything else, task templates included, is code. */
+  /**
+   * The list a file shows in: tasks and pages are Markdown files below their
+   * folders; everything else, task templates included, is code. Where it is
+   * read from depends on its content area (`contentAreaOf`).
+   */
   areaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot">): SearchArea {
     if (isTaskFile(path, settings.taskRoot)) return "tasks";
     if (isMarkdown(path) && within(path, settings.wikiRoot)) return "wiki";
     return "code";
-  }
-
-  /**
-   * Where `query` matches in a line. Regular expressions are git's extended
-   * ones; where JavaScript reads one differently or not at all, a line git
-   * matched simply has no ranges.
-   */
-  matcher(query: SearchQuery): (line: string) => SearchRange[] {
-    const source = query.regex ? query.text : escapeRegExp(query.text);
-    let pattern: RegExp;
-    try {
-      pattern = new RegExp(query.wholeWord ? `(?<!${WORD})(?:${source})(?!${WORD})` : source, query.caseSensitive ? "g" : "gi");
-    } catch {
-      return () => [];
-    }
-    return (line) => {
-      const ranges: SearchRange[] = [];
-      for (const match of line.matchAll(pattern)) {
-        if (!match[0]) continue;
-        ranges.push({ start: match.index, end: match.index + match[0].length });
-        if (ranges.length === RANGES_PER_LINE) break;
-      }
-      return ranges;
-    };
   }
 
   /** A long line shortened to the limit with "…", keeping the first match and some text before it. */

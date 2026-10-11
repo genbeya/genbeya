@@ -20,7 +20,9 @@ Results appear as soon as you pause typing.
 | --- | --- | --- |
 | `Aa` | `Alt+C` | Match case |
 | `ab` | `Alt+W` | Whole words only: `log` does not find `login` |
-| `.*` | `Alt+R` | Regular expression, as `git grep -E` reads it: `colou?r`, `TODO|FIXME`, `^import` |
+| `.*` | `Alt+R` | Regular expression, Perl-compatible: `colou?r`, `TODO|FIXME`, `^import`, `\d+`, `\bid\b` |
+
+Regular expressions are read by Git's PCRE support, which Git for Windows and most Linux distributions have; where Git lacks it, they are POSIX extended expressions (`git grep -E`), without `\d`, `\w` or `\b`. An invalid expression says what is wrong with it, and one that would take too long to match, such as `(a+)+b`, asks for something more specific.
 
 ## Results
 
@@ -36,6 +38,6 @@ The status line counts the matches. Search lists up to 30 files per group and 10
 
 - Files Git tracks, and new files not committed yet, such as a page created a moment ago.
 - Not files that `.gitignore` excludes, and not binary files such as images.
-- Pages and tasks come from wherever their area lives, the checkout or the [Content branch](../Architecture/Content-branch.md), and code from your checkout; the copy an area on the content branch left in the checkout is not listed twice.
+- Pages, tasks, task templates, other text files in the wiki folder and `.gitdesk.yml` come from wherever their area lives, the checkout or the [Content branch](../Architecture/Content-branch.md), and code from your checkout; the copy an area on the content branch left in the checkout is not listed as well.
 
 Search runs `git grep` on the machine the repository lives on, so it works the same for repositories on WSL and over SSH.

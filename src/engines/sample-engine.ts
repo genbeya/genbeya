@@ -253,6 +253,8 @@ const TASKS: readonly SampleFile[] = [
       "## Expected",
       "",
       "## Actual",
+      "",
+      "## Environment",
     ),
   },
 ];

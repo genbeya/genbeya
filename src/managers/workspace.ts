@@ -8,9 +8,9 @@ import { ContentStore, type ContentLocation } from "../access/content/content-st
 import { FileStore } from "../access/files/file-store";
 import type { RepositoryAccess } from "../access/git/repository-access";
 import { isMissing, type Host } from "../access/hosts/host";
-import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
+import { contentAreaOf, SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine } from "../engines/task-engine";
-import { baseName, validateRepositoryPath, within } from "../utilities/repository-path";
+import { baseName, validateRepositoryPath } from "../utilities/repository-path";
 import { SerialQueue } from "../utilities/serial-queue";
 
 const CLOSED = "This repository is no longer open.";
@@ -81,9 +81,7 @@ export class Workspace {
    * or the wiki, which also takes whatever else pages link to, such as images.
    */
   async areaOf(path: string): Promise<ContentArea> {
-    if (path === SETTINGS_FILE) return "settings";
-    const { settings } = await this.settings();
-    return within(path, settings.taskRoot) ? "tasks" : "wiki";
+    return contentAreaOf(path, (await this.settings()).settings) ?? "wiki";
   }
 
   /** Where the content file `path` lives: the checkout, or the content branch's worktree. */

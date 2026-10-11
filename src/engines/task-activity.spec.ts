@@ -38,6 +38,21 @@ describe("diffTasks", () => {
     expect(diffTasks(state, { ...state, description: "Other\n" })).toEqual([{ kind: "description" }]);
   });
 
+  it("does not take other line endings for a description edit", () => {
+    const before = { ...state, description: "Line one\nLine two\n" };
+    expect(diffTasks(before, { ...before, description: "Line one\r\nLine two\r\n" })).toEqual([]);
+  });
+
+  it("tells comments written in the same minute apart", () => {
+    const second = { author: "Ada", date: "2026-01-02T03:04", body: "Again" };
+    expect(diffTasks(state, { ...state, comments: [...state.comments, second] })).toEqual([
+      { kind: "comments", added: 1, edited: 0, removed: 0 },
+    ]);
+    expect(diffTasks({ ...state, comments: [...state.comments, second] }, state)).toEqual([
+      { kind: "comments", added: 0, edited: 0, removed: 1 },
+    ]);
+  });
+
   it("counts added, edited and removed comments", () => {
     const second = { author: "Bob", date: "2026-01-03T03:04", body: "Yo" };
     expect(diffTasks(state, { ...state, comments: [...state.comments, second] })).toEqual([
