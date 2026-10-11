@@ -485,6 +485,17 @@ describe("Staging on this computer", () => {
       expect(await read("logs/2.log")).toBe("2\n");
     });
 
+    it("refuses to stop tracking a file whose staged changes are nowhere else", async () => {
+      const { vc, id, write, git } = await opened({ "a.txt": "a\n", "b.txt": "b\n" });
+      await write("a.txt", "staged\n");
+      await git("add", "a.txt");
+      await write("a.txt", "changed again\n");
+      await expect(vc.untrack(id, ["a.txt", "b.txt"])).rejects.toThrow(
+        "a.txt has staged changes that are neither in the file nor in the last commit, which Stop tracking would lose. Commit or unstage them first.",
+      );
+      expect(await git("show", ":a.txt")).toBe("staged\n");
+    });
+
     it.each([
       ["a kind", "a.txt", "everything", "", "Invalid kind of rule."],
       ["an extension", "src/Makefile", "extension", "", "src/Makefile has no extension."],

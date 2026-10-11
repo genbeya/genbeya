@@ -151,8 +151,18 @@ export class StagingAccess {
 
   /** Takes paths out of the index, keeping the files; with `force` even when the index holds content found nowhere else. */
   async untrack(paths: readonly string[], force = false): Promise<void> {
-    for (const batch of splitIntoBatches(paths))
-      await this.git.text(["rm", "--cached", "-r", "--quiet", ...(force ? ["--force"] : []), "--", ...batch]);
+    for (const batch of splitIntoBatches(paths)) {
+      const args = ["rm", "--cached", "-r", "--quiet", ...(force ? ["--force"] : []), "--", ...batch];
+      const result = await this.git.run(args);
+      if (result.code === 0) continue;
+      // Git lists the files indented below its message.
+      const lost = /staged content different from both the\s+file and the HEAD:\n((?:[ \t]+\S.*\n?)+)/.exec(result.stderr);
+      if (!lost) throw failure(args, result);
+      const files = lost[1]!.trim().split(/\s*\n\s*/);
+      throw new GitError(
+        `${files.join(", ")} ${files.length === 1 ? "has" : "have"} staged changes that are neither in the file nor in the last commit, which Stop tracking would lose. Commit or unstage them first.`,
+      );
+    }
   }
 
   /** Sets the index entries of `paths` to their version in `tree`, removing those it lacks. */

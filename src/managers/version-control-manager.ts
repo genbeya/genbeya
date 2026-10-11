@@ -245,7 +245,8 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   untrack(id: unknown, paths: unknown): Promise<void> {
-    return this.on(id, (workspace) => workspace.repository.staging.untrack(workspace.paths(paths), true));
+    // Never forced: git refuses when the index holds changes found nowhere else.
+    return this.on(id, (workspace) => workspace.repository.staging.untrack(workspace.paths(paths)));
   }
 
   commit(id: unknown, message: unknown, amend: unknown): Promise<void> {
