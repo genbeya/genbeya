@@ -16,6 +16,9 @@ import { Icon } from "./icon";
             <svg gd-icon name="check" [size]="15"></svg>
           }
           <span class="selectable">{{ toast.message }}</span>
+          @if (toast.action; as action) {
+            <button type="button" class="toast-action" (click)="notifications.act(toast)">{{ action.label }}</button>
+          }
           <button type="button" aria-label="Dismiss" (click)="notifications.dismiss(toast.id)">
             <svg gd-icon name="x" [size]="14"></svg>
           </button>
