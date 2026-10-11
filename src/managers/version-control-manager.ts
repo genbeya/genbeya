@@ -219,32 +219,17 @@ export class VersionControlManager implements VersionControlManagerContract {
   push(id: unknown, request: unknown): Promise<PushOutcome> {
     return this.on(id, async (workspace) => {
       const { branch, remote, remoteBranch, setUpstream, force } = (request ?? {}) as Partial<Record<string, unknown>>;
-      const { expected, defaultBranch } = (force ?? {}) as Partial<Record<string, unknown>>;
-      if (
-        typeof setUpstream !== "boolean" ||
-        (force !== undefined && force !== null && (typeof force !== "object" || typeof defaultBranch !== "boolean")) ||
-        (force && expected !== null && !isCommitId(expected))
-      )
-        throw new Error("Invalid push.");
+      if (typeof setUpstream !== "boolean") throw new Error("Invalid push.");
+      const lease = this.forceOf(force);
       const checked: PushRequest = {
         branch: await this.localBranch(workspace, branch),
         remote: await this.remoteName(workspace, remote),
         remoteBranch: await this.pushedBranchName(workspace, remoteBranch),
         setUpstream,
-        ...(force ? { force: { expected: expected as string | null, defaultBranch: defaultBranch as boolean } } : {}),
+        ...(lease ? { force: lease } : {}),
       };
-      const pushes = workspace.repository.pushes;
-      if (checked.force && !checked.force.defaultBranch) {
-        const known = await pushes.defaultBranch(checked.remote);
-        if (isDefaultBranch(checked.remoteBranch, known))
-          throw new Error(
-            (known
-              ? `${checked.remoteBranch} is the default branch of ${checked.remote}. `
-              : `GitDesk can't tell the default branch of ${checked.remote}, and ${checked.remoteBranch} may be it. `) +
-              "Force pushing to it rewrites the history everyone starts from; confirm that you mean it.",
-          );
-      }
-      return pushes.push(checked);
+      if (lease && !lease.defaultBranch) await this.notDefaultBranch(workspace, checked.remote, checked.remoteBranch);
+      return workspace.repository.pushes.push(checked);
     });
   }
 
@@ -437,6 +422,26 @@ export class VersionControlManager implements VersionControlManagerContract {
     if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid branch name.");
     if (!(await workspace.repository.isValidBranchName(name))) throw new Error(`"${name}" is not a valid branch name.`);
     return plainRef(name);
+  }
+
+  /** A push request's `force`: none, or the commit the lease expects (null: no branch) and whether the default branch may go. */
+  private forceOf(force: unknown): PushRequest["force"] {
+    if (force === undefined || force === null) return undefined;
+    const { expected, defaultBranch } = (typeof force === "object" ? force : {}) as Partial<Record<string, unknown>>;
+    if ((expected !== null && !isCommitId(expected)) || typeof defaultBranch !== "boolean") throw new Error("Invalid push.");
+    return { expected, defaultBranch };
+  }
+
+  /** Refuses to force push to the branch everyone starts from, unless the user said they mean it. */
+  private async notDefaultBranch(workspace: Workspace, remote: string, branch: string): Promise<void> {
+    const known = await workspace.repository.pushes.defaultBranch(remote);
+    if (!isDefaultBranch(branch, known)) return;
+    throw new Error(
+      (known
+        ? `${branch} is the default branch of ${remote}. `
+        : `GitDesk can't tell the default branch of ${remote}, and ${branch} may be it. `) +
+        "Force pushing to it rewrites the history everyone starts from; confirm that you mean it.",
+    );
   }
 
   /** A branch to create on a remote by pushing: a valid branch name, but not one git would read as HEAD or a reflog entry. */
