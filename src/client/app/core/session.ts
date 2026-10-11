@@ -141,8 +141,11 @@ export class Session {
 
   private async perform<T>(action: () => Promise<T>, success?: string): Promise<{ value: T } | { error: unknown }> {
     this.pending.update((n) => n + 1);
+    // Errors from before an action that then succeeds are stale.
+    const mark = this.notifications.mark();
     try {
       const value = await action();
+      this.notifications.clearErrors(mark);
       if (success) this.notifications.success(success);
       return { value };
     } catch (error) {

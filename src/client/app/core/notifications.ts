@@ -9,7 +9,11 @@ export interface Notification {
 const VISIBLE = 4;
 const SUCCESS_DURATION = 2600;
 
-/** Toast messages. Successes fade on their own; errors stay until dismissed, since they need reading. */
+/**
+ * Toast messages. Successes fade on their own. Errors need reading, so no
+ * timer takes them away: they stay until dismissed, or until an operation
+ * started after them succeeds, which makes them stale.
+ */
 @Injectable({ providedIn: "root" })
 export class Notifications {
   private next = 0;
@@ -23,6 +27,16 @@ export class Notifications {
 
   error(error: unknown): void {
     this.push("error", messageOf(error));
+  }
+
+  /** Marks now, for {@link clearErrors}. */
+  mark(): number {
+    return this.next;
+  }
+
+  /** Takes away the errors shown before `mark`. */
+  clearErrors(mark: number): void {
+    this.list.update((all) => all.filter((notification) => notification.kind !== "error" || notification.id > mark));
   }
 
   dismiss(id: number): void {
