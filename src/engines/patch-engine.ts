@@ -55,8 +55,19 @@ interface PatchLine {
   readonly newEnd: boolean;
 }
 
-const contains = (ranges: readonly LineRange[], line: number | null) =>
-  line !== null && ranges.some((range) => range.from <= line && line <= range.to);
+/**
+ * Whether lines asked for in ascending order lie in `ranges`: one walk
+ * through the ranges, sorted once, however many lines and ranges there are.
+ */
+function within(ranges: readonly LineRange[]): (line: number | null) => boolean {
+  const sorted = [...ranges].sort((a, b) => a.from - b.from);
+  let next = 0;
+  return (line) => {
+    if (line === null) return false;
+    while (next < sorted.length && sorted[next]!.to < line) next++;
+    return next < sorted.length && sorted[next]!.from <= line;
+  };
+}
 
 /** `a/x` as `b/x`, quoted or not. */
 const withPrefix = (name: string, prefix: "a/" | "b/") => (name.startsWith('"') ? `"${prefix}${name.slice(3)}` : prefix + name.slice(2));
@@ -143,8 +154,9 @@ export class PatchEngine {
   patch(diff: FileDiff, selection: LineSelection, direction: PatchDirection): string {
     if (diff.binary || (diff.oldName === null && diff.newName === null)) throw new Error(WHOLE_FILE);
     const reverse = direction === "reverse";
-    const chosen = (line: DiffLine) =>
-      line.kind === "-" ? contains(selection.original, line.oldLine) : line.kind === "+" && contains(selection.modified, line.newLine);
+    // Asked in order: removed lines by their old number, added ones by their new one.
+    const [removed, added] = [within(selection.original), within(selection.modified)];
+    const chosen = (line: DiffLine) => (line.kind === "-" ? removed(line.oldLine) : line.kind === "+" && added(line.newLine));
     // Reversed patches are built forward with the versions swapped, then swapped back.
     let shift = 0;
     let original = false;
@@ -207,8 +219,10 @@ export class PatchEngine {
     }
     if (!picked.some(({ kind }) => kind !== " ")) return null;
     const result: PatchLine[] = [];
+    // The last line of the result: only removals come after it.
+    const last = picked.findLastIndex((next) => next.kind !== "-");
     picked.forEach(({ kind, line: { text, noNewline } }, index) => {
-      const lastOfResult = !picked.slice(index + 1).some((next) => next.kind !== "-");
+      const lastOfResult = index >= last;
       if (kind === "-") return result.push({ kind, text, oldEnd: noNewline, newEnd: false });
       if (kind === "+") return result.push({ kind, text, oldEnd: false, newEnd: noNewline && lastOfResult });
       // A kept line that ended the original without a line break gains one when the result goes on after it.

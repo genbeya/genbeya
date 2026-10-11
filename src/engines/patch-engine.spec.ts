@@ -330,4 +330,17 @@ describe("PatchEngine", () => {
   it("finds nothing to stage in an empty diff", () => {
     expect(engine.parse("").hunks).toEqual([]);
   });
+
+  it("builds patches of large hunks in linear time", () => {
+    const count = 40_000;
+    const removed = Array.from({ length: count }, (_, i) => `-${i}`);
+    const added = Array.from({ length: count }, (_, i) => `+${i}x`);
+    const diff = engine.parse(lines(...header(), `@@ -1,${count} +1,${count} @@`, ...removed, ...added));
+    // Every other line: as many ranges as lines chosen.
+    const every = Array.from({ length: count / 2 }, (_, i): [number, number] => [2 * i + 1, 2 * i + 1]);
+    const started = performance.now();
+    const patch = engine.patch(diff, select(every, every), "forward");
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(patch.split("\n").filter((row) => row.startsWith("+") && !row.startsWith("+++")).length).toBe(count / 2);
+  });
 });
