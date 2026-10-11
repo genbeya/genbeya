@@ -14,7 +14,7 @@ Results appear as soon as you pause typing.
 
 ## What you type
 
-`/flux capacitor` finds the text `flux capacitor` as written, ignoring case; spaces and characters such as `.`, `*` or `-` count literally. Three switches next to the field change that:
+`/flux capacitor` finds the text `flux capacitor` as written, ignoring case; spaces and characters such as `.`, `*` or `-` count literally. Three switches next to the field change that (on macOS, the keys are `⌥⌘` and the letter):
 
 | Switch | Keys | Effect |
 | --- | --- | --- |
