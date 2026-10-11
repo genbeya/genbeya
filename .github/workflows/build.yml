@@ -34,6 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Three variants for two architectures fill the macOS runner's disk; the
+      # preinstalled Android SDK and iOS simulators are not needed here.
+      - name: Free disk space
+        if: runner.os == 'macOS'
+        run: |
+          df -h /
+          sudo rm -rf "$HOME/Library/Android/sdk" /Library/Developer/CoreSimulator/Profiles/Runtimes
+          df -h /
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -73,6 +82,13 @@ jobs:
       - name: Package Tauri
         run: npx tauri build
         working-directory: src/shells/tauri
+
+      # The installers are built; the unpacked Electron apps next to them are not released.
+      - name: Remove unpacked Electron apps
+        shell: bash
+        run: |
+          rm -rf release/*-unpacked release/mac release/mac-*
+          df -h .
 
       - name: Package Deno Desktop
         run: node scripts/package-deno.mjs
