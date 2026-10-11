@@ -1,5 +1,5 @@
 import { TestBed } from "@angular/core/testing";
-import type { Task } from "../../../../contracts/model";
+import type { Person, Task } from "../../../../contracts/model";
 import { openRepository, settle } from "../../testing/component-harness";
 import { task } from "../../testing/fake-platform";
 import { TaskComments } from "./task-comments";
@@ -11,9 +11,12 @@ const commented = task("TP-1", {
   ],
 });
 
-async function render(value: Task = commented) {
+const grace: Person = { handle: "grace", name: "Grace Hopper", email: "grace@example.com", aliases: [], commits: 1 };
+
+async function render(value: Task = commented, people: Person[] = []) {
   const harness = await openRepository({ tasks: [value] });
   harness.managers.content.commentAuthor.mockResolvedValue("Ada");
+  harness.managers.content.people.mockResolvedValue({ people, me: null });
   const fixture = TestBed.createComponent(TaskComments);
   fixture.componentRef.setInput("task", value);
   const changed: Task[] = [];
@@ -54,6 +57,31 @@ describe("TaskComments", () => {
     expect(managers.content.addComment).toHaveBeenCalledWith("w1", "tasks/TP-1.md", "Hello [[TP-2]]");
     expect(changed).toEqual([saved]);
     expect(composer().value).toBe("");
+  });
+
+  it("offers people after @ and dates after // while writing, without sending or leaving", async () => {
+    const { composer, type, fixture, managers } = await render(commented, [grace]);
+    const field = composer();
+    const key = (key: string, init: KeyboardEventInit = {}) =>
+      field.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init }));
+    const options = () => [...document.querySelectorAll(".text-completion [role='option']")].map((option) => option.textContent);
+    field.focus();
+    type(field, "Thanks @gra");
+    expect(options()).toEqual(["Grace Hopper@grace"]);
+    expect(field.getAttribute("aria-expanded")).toBe("true");
+    key("Enter");
+    await settle(fixture);
+    expect(field.value).toBe("Thanks @grace ");
+    expect(options()).toEqual([]);
+    type(field, "Due //tomorrow");
+    expect(options()[0]).toMatch(/^Tomorrow/);
+    key("Escape");
+    expect(options()).toEqual([]);
+    // Escape closed the list only; the composer keeps the focus.
+    expect(document.activeElement).toBe(field);
+    type(field, "Due `//tom");
+    expect(options()).toEqual([]);
+    expect(managers.content.addComment).not.toHaveBeenCalled();
   });
 
   it("offers editing and deleting only on the user's own comments", async () => {

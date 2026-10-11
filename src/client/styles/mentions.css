@@ -191,3 +191,17 @@
   color: var(--text-3);
   font-size: 11px;
 }
+
+/* @ and // in plain text areas, such as the comment composer. */
+.text-completion {
+  max-width: 360px;
+  max-height: 260px;
+}
+
+.text-completion .menu-item {
+  cursor: pointer;
+}
+
+.text-completion .menu-item[aria-selected="true"] {
+  background: var(--bg-active);
+}
