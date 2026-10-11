@@ -26,6 +26,25 @@ describe("FieldEditor", () => {
     expect(changes).toEqual([[{ name: "due-date", type: "text" }]]);
   });
 
+  it("explains names Settings would refuse, built-in properties among them, and keeps them to correct", async () => {
+    const { fixture, element, change, changes } = await render([{ name: "area", type: "text" }]);
+    const field = change("input[aria-label='New field']", "Status");
+    await settle(fixture);
+    expect(element.querySelector("[role=alert]")!.textContent).toContain("built-in task property");
+    field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(changes).toEqual([]);
+    expect(field.value).toBe("Status");
+    change("input[aria-label='New field']", "AREA");
+    await settle(fixture);
+    expect(element.querySelector("[role=alert]")!.textContent).toContain("already");
+    change("input[aria-label='New field']", "2nd");
+    await settle(fixture);
+    expect(element.querySelector("[role=alert]")!.textContent).toContain("Start with a letter");
+    change("input[aria-label='New field']", "reviewer");
+    await settle(fixture);
+    expect(element.querySelector("[role=alert]")).toBeNull();
+  });
+
   it("gives choice fields options, and drops them for other kinds", async () => {
     const { fixture, change, changes } = await render([{ name: "area", type: "text" }]);
     change("select[aria-label='Kind of area']", "choice");

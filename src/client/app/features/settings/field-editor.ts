@@ -1,7 +1,20 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from "@angular/core";
-import { FIELD_TYPES, type FieldDefinition, type FieldType } from "../../../../contracts/model";
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from "@angular/core";
+import { FIELD_TYPES, TASK_KEYS, type FieldDefinition, type FieldType } from "../../../../contracts/model";
 import { Icon } from "../../ui/icon";
 import { titleCase } from "../tasks/task-model";
+
+/** Names are frontmatter keys, so spaces become dashes. */
+const fieldName = (text: string) => text.trim().replace(/\s+/g, "-");
+
+/** Why `name` cannot name a new field among `fields`, as Settings would refuse it on saving; null when it can. */
+function fieldNameProblem(name: string, fields: readonly FieldDefinition[]): string | null {
+  if (!name) return null;
+  if (!/^[A-Za-z][\w-]{0,39}$/.test(name)) return "Start with a letter, then use letters, digits, - and _.";
+  const lower = name.toLowerCase();
+  if ((TASK_KEYS as readonly string[]).includes(lower)) return `${name} is a built-in task property.`;
+  if (fields.some((field) => field.name.toLowerCase() === lower)) return `There is a field ${name} already.`;
+  return null;
+}
 
 /** The custom task fields, in panel order: kind and options of each; reorder, remove, add. */
 @Component({
@@ -53,14 +66,19 @@ import { titleCase } from "../tasks/task-model";
         class="input"
         placeholder="Add a field, such as estimate"
         aria-label="New field"
+        [attr.aria-invalid]="!!problem()"
+        [attr.aria-describedby]="problem() ? 'field-name-problem' : null"
         [value]="adding()"
         (input)="adding.set(field.value)"
         (keydown.enter)="$event.preventDefault(); add()"
       />
-      <button type="button" class="btn btn-default btn-m" [disabled]="!adding().trim()" (click)="add()">
+      <button type="button" class="btn btn-default btn-m" [disabled]="!adding().trim() || !!problem()" (click)="add()">
         <svg gd-icon name="plus" [size]="14"></svg><span>Add</span>
       </button>
     </div>
+    @if (problem(); as message) {
+      <p id="field-name-problem" class="dialog-error" role="alert">{{ message }}</p>
+    }
   `,
 })
 export class FieldEditor {
@@ -69,6 +87,7 @@ export class FieldEditor {
   protected readonly adding = signal("");
   protected readonly types = FIELD_TYPES;
   protected readonly titleCase = titleCase;
+  protected readonly problem = computed(() => fieldNameProblem(fieldName(this.adding()), this.value()));
 
   /** Only choice fields have options. */
   protected setType(index: number, type: FieldType) {
@@ -97,11 +116,11 @@ export class FieldEditor {
     return this.value().filter((_, i) => i !== index);
   }
 
-  /** New fields hold text until their kind changes; names are frontmatter keys, so spaces become dashes. */
+  /** New fields hold text until their kind changes. A name that cannot be one stays, with the reason, to correct it. */
   protected add() {
-    const name = this.adding().trim().replace(/\s+/g, "-");
-    if (name && !this.value().some((field) => field.name.toLowerCase() === name.toLowerCase()))
-      this.changed.emit([...this.value(), { name, type: "text" }]);
+    const name = fieldName(this.adding());
+    if (!name || this.problem()) return;
+    this.changed.emit([...this.value(), { name, type: "text" }]);
     this.adding.set("");
   }
 
