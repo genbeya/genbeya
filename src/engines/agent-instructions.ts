@@ -70,7 +70,7 @@ Render only the visible rows of long lists.
 - \`id\`, \`title\` and \`status\` are required; \`status\` is one of the configured states.
 - \`priority\` is \`urgent\`, \`high\`, \`medium\` or \`low\`; leave it out for none. \`assignee\` and \`labels\` are optional.
 - \`type\` is optional and one of the configured types. Custom fields are frontmatter keys named as in \`fields\`, with values of their kind; leave a field out when it has no value.
-- The description below the frontmatter is Markdown. Its checklist items (\`- [ ]\`, \`- [x]\`) are the task's subtasks; the board shows their progress.
+- The description below the frontmatter is Markdown. Its checklist items (\`- [ ]\`, \`- [x]\`) are the task's subtasks, which people tick in GitDesk too.
 - An epic is a folder below the task folder, and epics may nest (\`Auth/Tokens\`). A task without an epic sits in the task folder itself. Folders whose names start with a dot hold no tasks.
 - If present, a \`## Comments\` section below the description holds the discussion. Add your comments at its end in the format of the existing ones, and never edit other people's comments.
 
