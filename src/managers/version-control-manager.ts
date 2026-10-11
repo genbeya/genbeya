@@ -226,12 +226,17 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.on(id, async (workspace) => {
       const target = workspace.path(path);
       if (!IGNORE_KINDS.includes(kind as IgnoreKind)) throw new Error("Invalid kind of rule.");
+      // A line break in a name would write rules of its own; POSIX hosts allow such names.
+      // eslint-disable-next-line no-control-regex
+      if (/[\u0000-\u001f\u007f]/.test(target))
+        throw new Error("GitDesk can't write a .gitignore rule for a name with control characters.");
       const folder = location === "" ? "" : workspace.path(location);
       const rule = ignoreRule(kind as IgnoreKind, target, folder);
       if (rule === null)
         throw new Error(
           kind === "extension" && !extensionOf(target) ? `${target} has no extension.` : `${ignoreFile(folder)} can't ignore ${target}.`,
         );
+      if (!(await workspace.checkout.host.kind(workspace.checkout.root, target))) throw new Error(`${target} does not exist.`);
       const file = ignoreFile(folder);
       let current: { content: string; hash: string | null } = { content: "", hash: null };
       try {

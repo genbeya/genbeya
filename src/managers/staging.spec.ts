@@ -131,6 +131,13 @@ function stagingCases(setup: Setup) {
     const { changes } = (await managers.workspace.snapshot(id))!;
     expect(changes).toEqual([{ path: "src/.gitignore", index: " ", worktree: "M" }]);
   });
+
+  it("writes no rule that a line break in a name would turn into two", async () => {
+    const { managers, id, exists } = await setup({ "a.txt": "a\n" });
+    // Windows hosts refuse such names as paths already.
+    await expect(managers.versionControl.ignore(id, "a\n!b.txt", "file", "")).rejects.toThrow(/control characters|not a valid path/);
+    expect(await exists(".gitignore")).toBe(false);
+  });
 }
 
 describe("Staging on this computer", () => {
@@ -483,6 +490,12 @@ describe("Staging on this computer", () => {
       await vc.untrack(id, ["a.txt", "logs"]);
       expect(await git("ls-files")).toBe("");
       expect(await read("logs/2.log")).toBe("2\n");
+    });
+
+    it("writes no rule for a path that does not exist", async () => {
+      const { vc, id, exists } = await opened({ "a.txt": "a\n" });
+      await expect(vc.ignore(id, "gone.txt", "file", "")).rejects.toThrow("gone.txt does not exist.");
+      expect(await exists(".gitignore")).toBe(false);
     });
 
     it("refuses to stop tracking a file whose staged changes are nowhere else", async () => {
