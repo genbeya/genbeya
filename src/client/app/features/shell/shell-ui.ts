@@ -15,10 +15,20 @@ export class ShellUi {
   private readonly dialogs = inject(Dialogs);
   private readonly session = inject(Session);
   private readonly links = inject(LinkOpener);
+  private initialQuery: string | null = null;
 
-  async openPalette(mode: PaletteMode = "all"): Promise<void> {
+  /** Opens the palette, typing `query` into it if given. */
+  async openPalette(mode: PaletteMode = "all", query?: string): Promise<void> {
+    this.initialQuery = query ?? null;
     const { Palette } = await import("./palette");
     await this.dialogs.open(Palette, mode, { top: "13vh", backdrop: "palette-backdrop" });
+  }
+
+  /** The text the palette opening now starts with, once. */
+  takeQuery(): string | null {
+    const query = this.initialQuery;
+    this.initialQuery = null;
+    return query;
   }
 
   async showHelp(): Promise<void> {

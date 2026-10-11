@@ -1,5 +1,5 @@
 import { contentBranch, snapshot, task } from "../../testing/fake-platform";
-import { allItems, branchItems, linkItem, mergeItems, rank, rebaseItems, type PaletteCommands } from "./palette-items";
+import { allItems, branchItems, linkItem, mentionItems, mergeItems, rank, rebaseItems, type PaletteCommands } from "./palette-items";
 
 const calls = new Map<string, ReturnType<typeof vi.fn>>();
 const commands = new Proxy({}, { get: (_, name: string) => calls.get(name) ?? calls.set(name, vi.fn()).get(name) }) as PaletteCommands;
@@ -97,6 +97,14 @@ describe("palette items", () => {
     expect(rank(items, "grep", false)[0]).toBe(search);
     search.run();
     expect(commands.searchText).toHaveBeenCalled();
+  });
+
+  it("offers to find the user's mentions once GitDesk knows who they are", () => {
+    expect(mentionItems(null, commands)).toEqual([]);
+    const [find] = mentionItems({ handle: "ada", name: "Ada", email: null, aliases: [], commits: 1 }, commands);
+    expect(find).toMatchObject({ label: "Find mentions of me", detail: "@ada" });
+    find!.run();
+    expect(commands.findMentions).toHaveBeenCalledWith("ada");
   });
 
   it("offers to open a pasted GitDesk link, and nothing for other text", () => {
