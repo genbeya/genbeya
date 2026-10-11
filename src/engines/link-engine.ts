@@ -4,9 +4,12 @@
  * paths, and relative links inside the moved pages at the same targets as
  * before. Only link destinations and reference targets change, written the
  * way they were (relative or absolute, title or path, with or without `.md`,
- * encoded or not); code, and every other byte, stays as it is.
+ * encoded or not); code, and every other byte, stays as it is. Links and
+ * references are read as the renderer reads them: with escapes (`\|` in a
+ * table) and character references (`&amp;`) decoded.
  */
 import type { Nodes } from "mdast";
+import { decodeString } from "micromark-util-decode-string";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
@@ -66,38 +69,44 @@ export class LinkEngine {
 
   private edits(path: string, source: string, context: MoveContext): Edit[] {
     const edits: Edit[] = [];
-    // The path of a destination changes; its `#anchor` stays.
-    const destination = (span: Destination | null) => {
+    // The path of a destination changes; its `#anchor` stays. `url` is the destination as the parser read it.
+    const destination = (span: Destination | null, url: string) => {
       if (!span) return;
       const written = source.slice(span.start, span.end).split("#", 1)[0]!;
-      const text = written && this.destination(written, span.angle, path, context.moves);
+      const text = written && this.destination(written, url.split("#", 1)[0]!, span.angle, path, context);
       if (text) edits.push({ start: span.start, end: span.start + written.length, text });
     };
     visit(parser.parse(source), (node: Nodes, _index, parent) => {
       const start = node.position?.start.offset;
       const end = node.position?.end.offset;
       if (start === undefined || end === undefined) return;
-      if (node.type === "link" || node.type === "image") destination(inlineDestination(source, start, end));
-      else if (node.type === "definition") destination(definitionDestination(source, start, end));
-      // References in a link's text are plain text, like the renderer shows them.
-      else if (node.type === "text" && parent?.type !== "link")
-        for (const match of source.slice(start, end).matchAll(WIKILINK)) {
+      if (node.type === "link" || node.type === "image") destination(inlineDestination(source, start, end), node.url);
+      else if (node.type === "definition") destination(definitionDestination(source, start, end), node.url);
+      // References in a link's text are plain text, like the renderer shows them; they are
+      // found in the text it reads, with escapes and character references decoded.
+      else if (node.type === "text" && parent?.type !== "link") {
+        const { text: value, offsets } = decodeText(source, start, end);
+        for (const match of value.matchAll(WIKILINK)) {
           const target = match[1]!;
           const name = target.trim().split("#", 1)[0]!;
           const text = this.reference(target, name, context);
-          const at = start + match.index + 2 + (target.length - target.trimStart().length);
-          if (text !== null) edits.push({ start: at, end: at + name.length, text });
+          const at = match.index + 2 + (target.length - target.trimStart().length);
+          if (text !== null) edits.push({ start: offsets[at]!, end: offsets[at + name.length]!, text });
         }
+      }
     });
     return edits.sort((a, b) => a.start - b.start);
   }
 
-  /** The new path of a Markdown link in `home`, or null when it still points to the same place. */
-  private destination(written: string, angle: boolean, home: string, moves: MoveContext["moves"]): string | null {
+  /**
+   * The new path of a Markdown link in `home`, or null when it still points
+   * to the same place. `url` is its path as the renderer follows it.
+   */
+  private destination(written: string, url: string, angle: boolean, home: string, { moves, before }: MoveContext): string | null {
     if (EXTERNAL.test(written)) return null;
-    const decoded = decode(written.replace(/\\([!-/:-@[-`{-~])/g, "$1"));
+    const decoded = decode(url);
     const target = resolveLinkPath(home, decoded);
-    const newTarget = movedTarget(target, moves) ?? target;
+    const newTarget = movedTarget(target, moves, before.files) ?? target;
     const newHome = relocate(home, moves) ?? home;
     if (resolveLinkPath(newHome, decoded) === newTarget) return null;
     let path = decoded.startsWith("/") ? `/${newTarget}` : relativeLinkPath(newHome, newTarget);
@@ -105,18 +114,25 @@ export class LinkEngine {
     return angle ? path.replace(/[<>\\]/g, "\\$&") : escape(/%[0-9a-f]{2}/i.test(written) ? encodeURI(path) : path);
   }
 
-  /** The new name in `[[target]]`, or null when the reference still works. */
+  /**
+   * The new name in `[[target]]`, or null when the reference still works.
+   * Every reference to a page is checked, moved or not: a moved page may
+   * take a title another page had to itself.
+   */
   private reference(target: string, name: string, { moves, before, after }: MoveContext): string | null {
     const found = findReference(target, before);
     const prefix = /^\/*/.exec(name)![0];
     if (found.kind === "file") {
-      const path = relocate(found.path, moves);
+      const path = movedPath(found.path, moves, before.files);
       return path && prefix + path;
     }
     if (found.kind !== "page") return null;
-    const path = relocate(found.page.path, moves);
-    const page = path ? after.pagesByPath.get(path.toLowerCase()) : undefined;
-    if (!page || (found.style === "title" && normalizeTitle(page.title) === normalizeTitle(name))) return null;
+    const moved = relocate(found.page.path, moves);
+    const page = after.pagesByPath.get((moved ?? found.page.path).toLowerCase());
+    const reached = findReference(target, after);
+    const still = reached.kind === "page" && reached.page.path === page?.path;
+    // A moved page named by path is renamed even where the old spelling still reaches it, as by case.
+    if (!page || (still && (!moved || (found.style === "title" && normalizeTitle(page.title) === normalizeTitle(name))))) return null;
     const named = (style: PathStyle) => {
       const relative = style.root === "wiki" ? page.path.slice(after.wikiRoot.length + 1) : page.path;
       return prefix + (style.extension ? relative : relative.replace(/\.md$/i, ""));
@@ -133,9 +149,57 @@ export class LinkEngine {
   }
 }
 
+/**
+ * Where `path` is after the move. A path that names no file but differs
+ * from a moved one only in case follows it, as Windows and macOS file
+ * systems find the file by it; the part below the moved entry stays as
+ * written.
+ */
+function movedPath(path: string, moves: MoveContext["moves"], files: ReadonlySet<string>): string | null {
+  const exact = relocate(path, moves);
+  if (exact !== null || files.has(path)) return exact;
+  const lower = path.toLowerCase();
+  for (const [from, to] of moves)
+    if (lower === from.toLowerCase() || lower.startsWith(`${from.toLowerCase()}/`)) return to + path.slice(from.length);
+  return null;
+}
+
 /** Where a link target is after the move; a link may leave out the `.md` of a page. */
-function movedTarget(path: string, moves: MoveContext["moves"]): string | null {
-  return relocate(path, moves) ?? (baseName(path).includes(".") ? null : (relocate(`${path}.md`, moves)?.slice(0, -3) ?? null));
+function movedTarget(path: string, moves: MoveContext["moves"], files: ReadonlySet<string>): string | null {
+  return (
+    movedPath(path, moves, files) ?? (baseName(path).includes(".") ? null : (movedPath(`${path}.md`, moves, files)?.slice(0, -3) ?? null))
+  );
+}
+
+/** A character escape or reference, as Markdown decodes them in text. */
+const ESCAPE_OR_REFERENCE = /\\[!-/:-@[-`{-~]|&(?:#(?:\d{1,7}|x[\da-f]{1,6})|[\da-z]{1,31});/gi;
+
+/**
+ * The text of `source` from `start` to `end` as the parser reads it, with
+ * escapes and character references decoded, and the offset in `source`
+ * each of its characters comes from; one more offset marks the end.
+ */
+function decodeText(source: string, start: number, end: number): { text: string; offsets: number[] } {
+  const raw = source.slice(start, end);
+  let text = "";
+  const offsets: number[] = [];
+  let last = 0;
+  const keep = (to: number) => {
+    text += raw.slice(last, to);
+    for (let i = last; i < to; i++) offsets.push(start + i);
+  };
+  for (const match of raw.matchAll(ESCAPE_OR_REFERENCE)) {
+    const decoded = decodeString(match[0]);
+    // An unknown name such as `&nope;` stays as written.
+    if (decoded === match[0]) continue;
+    keep(match.index);
+    text += decoded;
+    offsets.push(...new Array<number>(decoded.length).fill(start + match.index));
+    last = match.index + match[0].length;
+  }
+  keep(raw.length);
+  offsets.push(end);
+  return { text, offsets };
 }
 
 function uniqueTitle(title: string, index: MoveContext["after"]): boolean {
