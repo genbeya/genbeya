@@ -529,8 +529,7 @@
   gap: 18px;
 }
 
-.task-discussion.is-hidden,
-.task-comments.is-hidden {
+.task-panel .is-hidden {
   display: none;
 }
 
