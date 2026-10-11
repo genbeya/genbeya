@@ -69,6 +69,9 @@ export function restage(changes: readonly Change[], staged: readonly CommitFile[
 }
 
 export class StagingAccess {
+  /** The last {@link amending} answer, by the ids it depends on. */
+  private amended: { key: string; value: Promise<Amending | null> } | null = null;
+
   constructor(
     private readonly host: Host,
     private readonly git: Git,
@@ -92,8 +95,21 @@ export class StagingAccess {
     return EMPTY_TREES[format] ?? EMPTY_TREES["sha1"]!;
   }
 
-  /** The commit an amend replaces; null before the first commit. */
+  /**
+   * The commit an amend replaces; null before the first commit. Snapshots
+   * ask on every poll while amending, so it is looked up again only once
+   * HEAD or a remote branch moved: finding the branches that contain HEAD
+   * walks the history.
+   */
   async amending(): Promise<Amending | null> {
+    // HEAD's id, then those of the remote branches.
+    const key = await this.git.attempt(["rev-parse", "HEAD", "--remotes"]);
+    if (!key?.trim()) return null;
+    if (this.amended?.key !== key) this.amended = { key, value: this.lookUpAmending() };
+    return this.amended.value;
+  }
+
+  private async lookUpAmending(): Promise<Amending | null> {
     const line = await this.git.attempt(["log", "-1", "--format=%h%x00%p", "HEAD"]);
     if (!line?.trim()) return null;
     const [commit, parents] = line.trim().split("\0") as [string, string];

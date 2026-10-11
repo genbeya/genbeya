@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { createRepository } from "../../testing/repository";
+import type { Host } from "../hosts/host";
 import { LocalHost } from "../hosts/local-host";
+import type { RunOptions } from "../ports";
 import { Git } from "./git";
 
 const host = new LocalHost(nodeMachine());
@@ -32,6 +34,21 @@ describe("Git", () => {
     expect(git.version()).toBe(git.version());
     expect(await git.supports({ major: 2, minor: 0, patch: 0 })).toBe(true);
     expect(await git.supports({ major: 99, minor: 0, patch: 0 })).toBe(false);
+  });
+
+  it("asks for the version again after it could not be read", async () => {
+    const root = (await createRepository()).root;
+    let failing = true;
+    const flaky: Host = Object.create(host, {
+      run: {
+        value: (command: string, args: readonly string[], options: RunOptions) =>
+          failing ? Promise.resolve({ code: 1, stdout: new Uint8Array(), stderr: "busy" }) : host.run(command, args, options),
+      },
+    });
+    const git = new Git(flaky, root);
+    expect(await git.version()).toBeNull();
+    failing = false;
+    expect((await git.version())?.major).toBeGreaterThanOrEqual(2);
   });
 
   it("passes a failed command's result through without throwing", async () => {
