@@ -16,6 +16,19 @@ test.describe("tasks", () => {
     expect(repository.read("tasks/DP-2.md")).toMatch(/id: DP-2\ntitle: Second task\nstatus: backlog/);
   });
 
+  test("asks once before discarding a new task, then takes the next C", async ({ window }) => {
+    await window.keyboard.press("c");
+    await window.getByRole("textbox", { name: "Task title" }).fill("Half a thought");
+    await window.keyboard.press("Escape");
+    const ask = window.getByRole("dialog", { name: /^Discard/ });
+    await expect(ask).toHaveCount(1);
+    await ask.getByRole("button", { name: "Discard changes" }).click();
+    await expect(window.getByRole("dialog", { name: "New task" })).toBeHidden();
+    await expect(ask).toHaveCount(0);
+    await window.keyboard.press("c");
+    await expect(window.getByRole("textbox", { name: "Task title" })).toBeFocused();
+  });
+
   test("renders the description, saves checkbox and property changes at once", async ({ window, repository }) => {
     await window.getByText("First task").click();
     const panel = window.getByRole("dialog", { name: "Task DP-1" });

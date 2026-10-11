@@ -215,6 +215,21 @@ describe("TaskPanel", () => {
     expect(await navigate.mock.results[0]!.value).toBe(true);
   });
 
+  it("asks once before cancelling a new task with a title, leaving nothing for the route to ask about", async () => {
+    const { element, dialogs, fixture, router, button } = await render({ createStatus: "todo" });
+    const unsaved = TestBed.inject(UnsavedChanges);
+    const navigate = vi.spyOn(router, "navigate").mockImplementation(async () => !unsaved.any());
+    const title = element.querySelector<HTMLTextAreaElement>("textarea[aria-label='Task title']")!;
+    title.value = "Half a thought";
+    title.dispatchEvent(new Event("input"));
+    await settle(fixture);
+    button("Cancel").click();
+    await settle(fixture);
+    expect(dialogs.discardEdits).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(["/tasks"]);
+    expect(await navigate.mock.results[0]!.value).toBe(true);
+  });
+
   it("keeps an unsent comment while the task is edited", async () => {
     const { element, fixture, button } = await render({ task: first });
     const composer = () => element.querySelector<HTMLTextAreaElement>("textarea[aria-label='New comment']")!;
