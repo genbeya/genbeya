@@ -32,6 +32,12 @@ export const CHANGELOG: readonly Release[] = [
         target: "gd-sync-bar",
         route: "/changes",
       },
+      {
+        title: "Stage hunks and lines",
+        body: "In **Changes**, stage, unstage or discard one change of a file, or the lines you select by their numbers. Show the lists as a tree, add files to .gitignore from their menu, and amend with the last commit's files staged.",
+        target: '[data-tour="commit-box"]',
+        route: "/changes",
+      },
     ],
   },
   {

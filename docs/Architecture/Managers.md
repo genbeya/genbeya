@@ -6,7 +6,7 @@ Four managers implement everything the client can do with a repository. Their co
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
 | `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [Content branch](Content-branch.md)), full-text [Search](../Guide/Search.md), and the files that teach [AI agents](../Guide/AI-agents.md) to use them |
-| `versionControl` | Diffs, staging, commits, stashes, branches, tags, remotes, fetch/pull/push, pushing anywhere and force pushing, history, merges, rebases, resets and conflicts |
+| `versionControl` | Diffs, staging whole files or hunks and lines, .gitignore rules, commits, stashes, branches, tags, remotes, fetch/pull/push, pushing anywhere and force pushing, history, merges, rebases, resets and conflicts |
 | `terminal` | Shells in the repository for the [Terminal](../Guide/Terminal.md): open, input, size, output, close |
 
 Every call names the workspace it was made for (or a terminal, which belongs to one), so a call racing a repository switch fails instead of touching the new repository. Every argument is validated again in the manager, so managers can sit directly behind IPC.
@@ -27,6 +27,25 @@ One snapshot costs a handful of Git calls:
 - `stash list` for the stashes
 - a single batched read for all task files
 - a single batched read of `MERGE_HEAD`, `rebase-merge/…` and their kind in the git directory for the operation in progress (and, during a rebase, a `for-each-ref` to name what it goes onto)
+
+`snapshot(workspace, since, base)` takes what staged changes are compared with: `"head"` (the default) or, while the last commit is being amended, `"parent"`. Then the index letters of the changes come from `git diff --cached --name-status -M <parent>` instead of `git status` — the first parent of HEAD, or the empty tree for a first commit — so the staged list holds what the amended commit will; working-tree letters stay as `git status` has them. The snapshot then also has `amending`: the commit, its parent, whether it is a merge (`git commit --amend` keeps all parents) and the remote branches that contain it, for a warning that amending means force-pushing. Before the first commit there is nothing to amend and the base is ignored. The base is part of what the version covers.
+
+## Staging parts of files
+
+`diff(path, source, oldPath, base)` returns both sides of a file and their `version`, a hash of the two. `stageLines`, `unstageLines` and `discardLines` take a `LinePatch`: the path (and the old path of a staged rename), that version, and the chosen lines — removed lines by their number in the original, added lines by their number in the modified version. The manager reads the sides again and refuses lines chosen in a diff that changed meanwhile, or in a binary or oversized file.
+
+Then it asks Git for its own diff of the file (`git diff` of the working tree, or `git diff --cached -M <base>` of the index, with fixed `a/` and `b/` prefixes, no external diff and no text conversion) and the patch engine (`src/engines/patch-engine.ts`) keeps only the chosen changes:
+
+- Staging applies the patch forward with `git apply --cached`; unchosen removals become context and unchosen additions are left out. Unstaging (`git apply --cached --reverse`) and discarding (`git apply --reverse` on the working tree) work the other way round.
+- Within a run of changed lines, the n-th removal and the n-th addition belong together, so a removal kept as context goes where its replacement would have gone.
+- Hunk headers are counted anew, and the start of each hunk follows what the hunks before it now add. Lines keep their carriage returns, and a line that ends the file without a newline gets one when lines now follow it.
+- A partly chosen creation or deletion becomes a change of the file; a renamed file is patched under the name the patch applies to, so the rename stays.
+
+The patch goes into `gitdesk.patch` in the git directory, since hosts give processes no standard input, and runs with `--recount --whitespace=nowarn`; Git applies it only where the context matches exactly. Lines of an untracked file are staged after `git add --intent-to-add`, which is undone when applying fails; discarding lines of one leaves the rest untracked. `unstage(paths, "parent")` resets the paths (and the old side of renames) to their version in HEAD's parent with `git reset -q <parent> -- <paths>`, which leaves them out of the amended commit.
+
+## .gitignore
+
+`ignore(path, kind, location)` adds a rule to the `.gitignore` in the folder `location` ("" for the root), which must hold `path`. `src/utilities/gitignore.ts` writes the rule — `/path` for a file, `/path/` for a folder, `*.ext` for an extension — relative to that folder, escapes `\`, `*`, `?`, `[` and trailing spaces, and appends it in the file's line endings, ending with one, unless the file has it already. The client uses the same utility for its preview. `untrack(paths)` runs `git rm --cached -r` and keeps the files.
 
 ## Operations that stop
 
