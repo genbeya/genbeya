@@ -7,9 +7,12 @@ import { WorkspaceApi } from "../../core/workspace-api";
 const DESCRIPTIONS: Readonly<Record<AgentTarget, { title: string; hint: string }>> = {
   claudeSkill: {
     title: "Skill for Claude Code",
-    hint: "Claude Code loads it when a task calls for it; GitHub Copilot and Cursor read it too.",
+    hint: "Claude Code loads it when a task calls for it; GitHub Copilot, Cursor and OpenCode read it too.",
   },
-  agentsSkill: { title: "Skill for other agents", hint: "The shared skill folder of Codex, Gemini CLI, Cursor, OpenCode and others." },
+  agentsSkill: {
+    title: "Skill for other agents",
+    hint: "The shared skill folder of Codex, Gemini CLI, GitHub Copilot, Cursor, OpenCode and others.",
+  },
   agents: {
     title: "Instructions for all agents",
     hint: "Codex, Copilot, Cursor and most other agents read it in every session. GitDesk adds a marked section.",
