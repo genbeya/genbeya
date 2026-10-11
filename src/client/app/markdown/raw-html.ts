@@ -18,12 +18,17 @@ const CLOSING = /^([\s\S]*?)<\/details>\s*$/i;
 
 const isHtml = (node: Nodes | undefined, pattern: RegExp): node is Html => node?.type === "html" && pattern.test(node.value.trim());
 
-/** `<kbd>Ctrl</kbd>`: a pair of tags among siblings with no other HTML between them. */
+/**
+ * `<kbd>Ctrl</kbd>`: a pair of tags among siblings with no other HTML
+ * between them. From the last opening tag back, so pairs inside a pair
+ * are elements already when the outer one looks for its closing tag. Keys
+ * in a key, as GitHub writes Ctrl+C, become separate keys.
+ */
 function inlineTags(tree: Root) {
   visit(tree, (node) => {
     if (!("children" in node)) return;
     const children = node.children as PhrasingContent[];
-    for (let index = 0; index < children.length; index++) {
+    for (let index = children.length - 1; index >= 0; index--) {
       const child = children[index]!;
       if (child.type !== "html") continue;
       if (BREAK.test(child.value.trim())) {
@@ -34,8 +39,10 @@ function inlineTags(tree: Root) {
       if (!tag) continue;
       const end = children.findIndex((other, at) => at > index && other.type === "html");
       if (end < 0 || children[end]!.type !== "html" || (children[end] as Html).value.trim().toLowerCase() !== `</${tag}>`) continue;
-      const element: PhrasingContent = { type: "emphasis", data: { hName: tag }, children: children.slice(index + 1, end) };
-      children.splice(index, end - index + 1, element);
+      const inside = children.slice(index + 1, end);
+      const keys = tag === "kbd" && inside.some((other) => other.data?.hName === "kbd");
+      const element: PhrasingContent = { type: "emphasis", data: { hName: tag }, children: inside };
+      children.splice(index, end - index + 1, ...(keys ? inside : [element]));
     }
   });
 }
@@ -57,15 +64,37 @@ function parseInner(processor: Processor, markdown: string): RootContent[] {
   return tree.children;
 }
 
+/**
+ * HTML that opens or closes several sections, as one HTML block of nested
+ * ones does, in parts that each open or close one: before every
+ * `<details` and after every `</details>`.
+ */
+function splitSections(children: RootContent[]) {
+  for (let index = children.length - 1; index >= 0; index--) {
+    const node = children[index]!;
+    if (node.type !== "html") continue;
+    const parts: string[] = [];
+    let from = 0;
+    for (const tag of node.value.matchAll(/<details[\s>]|<\/details>/gi)) {
+      const at = tag[0].startsWith("</") ? tag.index + tag[0].length : tag.index;
+      if (node.value.slice(from, at).trim()) parts.push(node.value.slice(from, at));
+      from = at;
+    }
+    if (node.value.slice(from).trim()) parts.push(node.value.slice(from));
+    if (parts.length > 1) children.splice(index, 1, ...parts.map((value): Html => ({ type: "html", value })));
+  }
+}
+
 /** `<details>` … `</details>` among the children of `parent`, innermost first. */
 function details(processor: Processor, parent: Parents) {
   const children = parent.children as RootContent[];
+  splitSections(children);
   for (let index = children.length - 1; index >= 0; index--) {
     const start = children[index]!;
     if (start.type !== "html") continue;
     const opening = DETAILS.exec(start.value.trim());
     // A summary with attributes is no summary: the section stays raw HTML.
-    if (!opening || /<summary/i.test(opening[3] ?? "")) continue;
+    if (!opening || /^\s*<summary/i.test(opening[3] ?? "")) continue;
     let summary = opening[2];
     const rest = opening[3] ?? "";
     let first = index + 1;

@@ -20,9 +20,10 @@ export function parseMarkdown(source: string, options: GitdeskOptions = {}): Roo
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkMath)
     // Other raw HTML in Markdown is dropped: pages render only what Markdown can express.
+    // Before math, which then also finds the formulas in the text of HTML blocks.
     .use(remarkRawHtml)
+    .use(remarkMath)
     .use(remarkCallouts)
     .use(remarkCodeBlocks)
     .use(remarkGitdesk, options)
