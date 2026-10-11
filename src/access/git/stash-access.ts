@@ -54,18 +54,29 @@ export class StashAccess {
     };
   }
 
-  /** Conflicts leave the stash in the list, also when popping. */
-  apply(stash: Stash, pop: boolean): Promise<OperationOutcome> {
-    return this.git.outcome(["stash", pop ? "pop" : "apply", "--quiet", ref(stash)], this.conflicted);
+  /**
+   * Applies and branches name the stash by its commit, and dropping looks
+   * up where it is in the list right before, as a terminal may have pushed
+   * stashes since it was listed and moved it down. Conflicts leave the stash
+   * in the list, also when popping.
+   */
+  async apply(stash: Stash, pop: boolean): Promise<OperationOutcome> {
+    const outcome = await this.git.outcome(["stash", "apply", "--quiet", "--end-of-options", stash.hash], this.conflicted);
+    if (pop && outcome === "done") await this.drop(stash);
+    return outcome;
   }
 
   async drop(stash: Stash): Promise<void> {
-    await this.git.text(["stash", "drop", "--quiet", ref(stash)]);
+    await this.git.text(["stash", "drop", "--quiet", "--end-of-options", await this.ref(stash)]);
   }
 
   async branch(stash: Stash, name: string): Promise<void> {
-    await this.git.text(["stash", "branch", name, ref(stash)]);
+    await this.git.text(["stash", "branch", "--end-of-options", name, stash.hash]);
+    await this.drop(stash);
+  }
+
+  /** `stash@{n}` of the stash now. */
+  private async ref(stash: Stash): Promise<string> {
+    return `stash@{${(await this.find(stash.hash)).index}}`;
   }
 }
-
-const ref = (stash: Stash) => `stash@{${stash.index}}`;

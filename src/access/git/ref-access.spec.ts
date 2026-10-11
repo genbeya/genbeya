@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { nodeMachine } from "../../platforms/node/node-machine";
-import { createRemote, createRepository } from "../../testing/repository";
+import { cloneRepository, createRemote, createRepository } from "../../testing/repository";
 import { LocalHost } from "../hosts/local-host";
 import { RepositoryAccess } from "./repository-access";
 
 const host = new LocalHost(nodeMachine());
 const open = async (path: string) => new RepositoryAccess(host, await RepositoryAccess.locate(host, path));
+const merging = { noFastForward: false, message: "" };
 
 async function withFeature() {
   const repository = await createRepository();
@@ -81,5 +82,44 @@ describe("RefAccess", () => {
     await repo.refs.deleteRemoteBranch("origin", "feature");
     expect(await repository.git("ls-remote", "--heads", "origin")).not.toContain("refs/heads/feature");
     expect((await repo.refs.names()).remoteBranches).toEqual(["origin/main"]);
+  });
+});
+
+describe("refs named like options", () => {
+  /** A tag and a branch a cloned repository may carry: as an option, rebase runs the command after each commit. */
+  const evil = "--exec=touch${IFS}PWNED";
+
+  async function cloned() {
+    const origin = await createRepository();
+    await origin.git("switch", "-q", "-c", "side");
+    await origin.write("side.md", "side");
+    await origin.git("add", ".");
+    await origin.git("commit", "-q", "-m", "Side");
+    await origin.git("update-ref", `refs/tags/${evil}`, "HEAD");
+    await origin.git("update-ref", `refs/heads/${evil}`, "HEAD");
+    await origin.git("switch", "-q", "main");
+    const repository = await cloneRepository(origin.root);
+    await repository.write("local.md", "local");
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Local");
+    return { repository, repo: await open(repository.root) };
+  }
+
+  it("reach git as names, never as options", async () => {
+    const { repository, repo } = await cloned();
+    const tagged = (await repository.git("rev-parse", `refs/tags/${evil}`)).trim();
+    expect(await repo.operations.rebase(evil, false)).toBe("done");
+    expect((await repository.git("rev-parse", "HEAD~1")).trim()).toBe(tagged);
+    expect(await repo.operations.merge(`origin/${evil}`, merging)).toBe("done");
+    expect((await repo.operations.plan(evil)).base).toBe(tagged);
+    await repo.createBranch("copy", evil, false);
+    expect((await repository.git("rev-parse", "copy")).trim()).toBe(tagged);
+    await repo.createBranch("taken", evil, true);
+    expect((await repo.head()).branch).toBe("taken");
+    await repo.refs.createTag("copied", evil, "");
+    expect((await repository.git("rev-parse", "copied")).trim()).toBe(tagged);
+    await repo.refs.deleteTag(evil);
+    expect((await repo.refs.names()).tags).toEqual(["copied"]);
+    expect(await repository.exists("PWNED")).toBe(false);
   });
 });

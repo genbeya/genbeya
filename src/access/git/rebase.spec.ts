@@ -12,6 +12,7 @@ const machine = nodeMachine();
 
 interface Fixture {
   readonly repo: RepositoryAccess;
+  readonly host: Host;
   /** Runs git in the repository on its host. */
   git(...args: string[]): Promise<string>;
   /** Commits a file with `content` and `message`; resolves to the commit ID. */
@@ -27,6 +28,7 @@ async function fixture(host: Host, root: string): Promise<Fixture> {
   const repo = new RepositoryAccess(host, root);
   return {
     repo,
+    host,
     git,
     async commit(file, content, message) {
       await host.write(root, file, new TextEncoder().encode(content), false);
@@ -39,6 +41,8 @@ async function fixture(host: Host, root: string): Promise<Fixture> {
 
 const subjects = async ({ git }: Fixture, range: string) => (await git("log", "--reverse", "--format=%s", range)).trim().split("\n");
 const pick = (hash: string) => ({ command: "pick", hash }) as const;
+/** True while the todo list and messages GitDesk prepared are still in the git directory. */
+const prepared = async ({ repo, host }: Fixture) => (await host.kind(await repo.operations.gitDir(), "gitdesk-rebase")) !== null;
 
 function describeInteractiveRebase(name: string, setup: () => Promise<Fixture>) {
   describe(`interactive rebase (${name})`, () => {
@@ -69,13 +73,59 @@ function describeInteractiveRebase(name: string, setup: () => Promise<Fixture>) 
       const todo: RebaseTodo = { lines: [pick(second), pick(first), { command: "amend", message: 0 }], messages: ["First, reworded"] };
       expect(await it.repo.operations.rebaseInteractive(base, todo, false)).toBe("stopped");
       const operation = await it.repo.operations.current(null);
-      expect(operation).toMatchObject({ kind: "rebase", source: "main", step: 1, steps: 3 });
+      // Recording HEAD before the reworded pick is a step of its own.
+      expect(operation).toMatchObject({ kind: "rebase", source: "main", step: 1, steps: 4 });
       expect(await it.repo.operations.conflictedPaths()).toEqual(["same.txt"]);
       await it.repo.operations.resolve("same.txt", { use: "theirs" });
       expect(await it.repo.operations.continue()).toBe("stopped");
       await it.repo.operations.resolve("same.txt", { use: "theirs" });
       expect(await it.repo.operations.continue()).toBe("done");
       expect(await subjects(it, `${base}..HEAD`)).toEqual(["Second", "First, reworded"]);
+      expect(await prepared(it)).toBe(false);
+    });
+
+    it("rewords nothing else when the reworded commit is skipped after a conflict", async () => {
+      const it = await setup();
+      const base = (await it.git("rev-parse", "HEAD")).trim();
+      const first = await it.commit("same.txt", "first\n", "First");
+      const second = await it.commit("same.txt", "second\n", "Second");
+      const todo: RebaseTodo = { lines: [pick(second), pick(first), { command: "amend", message: 0 }], messages: ["First, reworded"] };
+      expect(await it.repo.operations.rebaseInteractive(base, todo, false)).toBe("stopped");
+      await it.repo.operations.resolve("same.txt", { use: "theirs" });
+      // Now the reworded commit conflicts.
+      expect(await it.repo.operations.continue()).toBe("stopped");
+      expect(await it.repo.operations.skip()).toBe("done");
+      expect(await subjects(it, `${base}..HEAD`)).toEqual(["Second"]);
+      expect(await prepared(it)).toBe(false);
+    });
+
+    it("rewords nothing else when the reworded commit becomes empty", async () => {
+      const it = await setup();
+      const base = (await it.git("rev-parse", "HEAD")).trim();
+      const one = await it.commit("same.txt", "1\n", "One");
+      const two = await it.commit("same.txt", "2\n", "Two");
+      const back = await it.commit("same.txt", "1\n", "Back to one");
+      const todo: RebaseTodo = {
+        lines: [pick(one), { command: "drop", hash: two }, pick(back), { command: "amend", message: 0 }],
+        messages: ["Back to one, reworded"],
+      };
+      // Git drops a commit that became empty, or stops to ask about it.
+      if ((await it.repo.operations.rebaseInteractive(base, todo, false)) === "stopped")
+        expect(await it.repo.operations.skip()).toBe("done");
+      expect(await subjects(it, `${base}..HEAD`)).toEqual(["One"]);
+      expect(await prepared(it)).toBe(false);
+    });
+
+    it("cleans up what it prepared when the rebase is aborted", async () => {
+      const it = await setup();
+      const base = (await it.git("rev-parse", "HEAD")).trim();
+      const first = await it.commit("same.txt", "first\n", "First");
+      const second = await it.commit("same.txt", "second\n", "Second");
+      const todo: RebaseTodo = { lines: [pick(second), pick(first), { command: "amend", message: 0 }], messages: ["First, reworded"] };
+      expect(await it.repo.operations.rebaseInteractive(base, todo, false)).toBe("stopped");
+      await it.repo.operations.abort();
+      expect(await subjects(it, `${base}..HEAD`)).toEqual(["First", "Second"]);
+      expect(await prepared(it)).toBe(false);
     });
   });
 }
