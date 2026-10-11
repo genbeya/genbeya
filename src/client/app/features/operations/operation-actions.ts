@@ -86,6 +86,15 @@ export class OperationActions {
     const dirty = this.dirty();
     const steps = await this.dialogs.open<RebaseStep[], RebaseRequest>(RebaseDialog, { plan, branch, dirty });
     if (!steps) return;
+    if (steps.every((step) => step.action === "drop")) {
+      const confirmed = await this.dialogs.confirm({
+        title: "Drop every commit",
+        message: `${branch} goes back to ${plan.base.slice(0, 7)}, without any of its ${steps.length} commits after it.`,
+        confirm: "Drop all",
+        danger: true,
+      });
+      if (!confirmed) return;
+    }
     this.report(await this.session.run(() => this.api.versionControl.rebaseInteractive(plan.base, steps, dirty)), `Rebased ${branch}`);
   }
 
