@@ -1,0 +1,217 @@
+/* People and dates in Markdown: @mentions, their popover and date chips; and the date picker of the editors. */
+
+.avatar-hue-0 {
+  background: var(--avatar-0);
+}
+
+.avatar-hue-1 {
+  background: var(--avatar-1);
+}
+
+.avatar-hue-2 {
+  background: var(--avatar-2);
+}
+
+.avatar-hue-3 {
+  background: var(--avatar-3);
+}
+
+.avatar-hue-4 {
+  background: var(--avatar-4);
+}
+
+.avatar-hue-5 {
+  background: var(--avatar-5);
+}
+
+.avatar-hue-6 {
+  background: var(--avatar-6);
+}
+
+.avatar-hue-7 {
+  background: var(--avatar-7);
+}
+
+/* @ada: the person's initials and name. */
+.markdown a.md-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0 7px 0 2px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 500;
+  line-height: 1.55;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.markdown a.md-mention:hover {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.md-mention-avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 50%;
+  color: var(--on-accent);
+  font-size: 0.68em;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.md-mention-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mention-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 260px;
+  padding: 10px 4px 4px;
+  border-radius: var(--radius-l);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-pop);
+  font-size: 13px;
+  animation: fade-in 90ms ease-out;
+}
+
+.mention-popover-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+}
+
+.mention-popover-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mention-popover-email {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 4px 0 50px;
+  color: var(--text-2);
+}
+
+/* 2026-10-11 shown as "11 Oct 2026"; open checklist items say when they are due. */
+.md-date {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: var(--radius-s);
+  background: var(--bg-active);
+  color: var(--text);
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.md-date.is-overdue {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.md-date.is-soon {
+  background: var(--yellow-soft);
+  color: var(--yellow);
+}
+
+/* Date fields on task cards and rows. */
+.due-dates {
+  display: contents;
+}
+
+.due-dates .md-date {
+  font-size: 11.5px;
+  line-height: 20px;
+}
+
+/* The calendar `//` offers in editors. */
+.date-picker {
+  padding: 8px;
+  border-radius: var(--radius-l);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-pop);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  user-select: none;
+}
+
+.date-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.date-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 28px);
+  gap: 2px;
+  outline: none;
+}
+
+.date-picker-weekday {
+  color: var(--text-3);
+  font-size: 11px;
+  text-align: center;
+}
+
+.date-picker-day {
+  display: grid;
+  place-items: center;
+  height: 26px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+
+.date-picker-day.is-other-month {
+  color: var(--text-3);
+}
+
+.date-picker-day.is-today {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.date-picker-day:hover {
+  background: var(--bg-hover);
+}
+
+.date-picker-day[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.date-picker-hint {
+  margin-top: 6px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+/* @ and // in plain text areas, such as the comment composer. */
+.text-completion {
+  max-width: 360px;
+  max-height: 260px;
+}
+
+.text-completion .menu-item {
+  cursor: pointer;
+}
+
+.text-completion .menu-item[aria-selected="true"] {
+  background: var(--bg-active);
+}

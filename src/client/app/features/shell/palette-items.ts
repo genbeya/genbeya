@@ -1,6 +1,6 @@
 /** What the command palette offers, and how a query ranks it. */
 import type { GitdeskLink } from "../../../../contracts/gitdesk-link";
-import type { RecentEntry, Snapshot, Theme } from "../../../../contracts/model";
+import type { Person, RecentEntry, Snapshot, Theme } from "../../../../contracts/model";
 import { sameLocation, syncsContentBranch } from "../../../../contracts/model";
 import { describeLinkItem, parseGitdeskLink } from "../../../../utilities/gitdesk-link";
 import { parseRemote } from "../../../../utilities/remote-url";
@@ -78,6 +78,8 @@ export interface PaletteCommands {
   pullRebase(remote: string): void;
   /** Reopens the palette for searching inside files. */
   searchText(): void;
+  /** Reopens the palette searching inside files for mentions of `handle`. */
+  findMentions(handle: string): void;
   sync(action: "fetch" | "pull", remote: string): void;
   /** Pushes the current branch to its upstream, or publishes it. */
   push(): void;
@@ -103,6 +105,22 @@ export interface PaletteCommands {
 const GROUP_WEIGHT: Readonly<Record<string, number>> = { Pages: 40, Tasks: 30, "Go to": 20, Actions: 10 };
 const PER_GROUP = 8;
 const WITHOUT_QUERY = 60;
+
+/** Finding the user's mentions, once GitDesk knows who they are. */
+export function mentionItems(me: Person | null, commands: PaletteCommands): PaletteItem[] {
+  if (!me) return [];
+  return [
+    {
+      id: "find-mentions",
+      group: "Actions",
+      label: "Find mentions of me",
+      detail: `@${me.handle}`,
+      icon: "search",
+      keywords: "mentions @ people",
+      run: () => commands.findMentions(me.handle),
+    },
+  ];
+}
 
 export function branchItems(snapshot: Snapshot, query: string, commands: PaletteCommands): PaletteItem[] {
   const { head, branches, remoteBranches } = snapshot;

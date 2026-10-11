@@ -1,9 +1,9 @@
 import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
 import { TestBed, type ComponentFixture } from "@angular/core/testing";
-import type { SearchMatch, SearchResults } from "../../../../contracts/model";
+import type { People, SearchMatch, SearchResults } from "../../../../contracts/model";
 import { openRepository, settle } from "../../testing/component-harness";
 import { Palette, toggledOption } from "./palette";
-import type { PaletteMode } from "./shell-ui";
+import { ShellUi, type PaletteMode } from "./shell-ui";
 import { SEARCH_DELAY } from "./text-search";
 
 const match = (line: number, text: string, start: number, end: number): SearchMatch => ({
@@ -21,7 +21,7 @@ const RESULTS: SearchResults = {
   truncated: false,
 };
 
-async function setup(mode: PaletteMode = "all") {
+async function setup(mode: PaletteMode = "all", people: People = { people: [], me: null }) {
   const close = vi.fn();
   const harness = await openRepository({}, [
     { provide: DIALOG_DATA, useValue: mode },
@@ -29,6 +29,7 @@ async function setup(mode: PaletteMode = "all") {
   ]);
   const navigate = vi.spyOn(harness.router, "navigate").mockResolvedValue(true);
   harness.managers.content.search.mockResolvedValue(RESULTS);
+  harness.managers.content.people.mockResolvedValue(people);
   const fixture = TestBed.createComponent(Palette);
   await settle(fixture);
   return { ...harness, fixture, close, navigate, search: harness.managers.content.search };
@@ -71,6 +72,26 @@ describe("Palette full-text search", () => {
     expect(element(fixture).querySelector(".palette-item")!.getAttribute("aria-label")).toBe("Home, line 7: Install the gadget");
     expect(parts(fixture, ".palette-preview .palette-context")).toEqual(["6 above", "7 Install the gadget"]);
     expect(element(fixture).querySelector("[role=status]")!.textContent!.trim()).toBe("3 matches in 3 files");
+  });
+
+  it("finds the user's mentions by opening a search for their handle", async () => {
+    const { fixture, close } = await setup("all", {
+      people: [{ handle: "ada", name: "Ada", email: null, aliases: [], commits: 1 }],
+      me: "ada",
+    });
+    const ui = TestBed.inject(ShellUi);
+    const open = vi.spyOn(ui, "openPalette").mockResolvedValue();
+    await type(fixture, "mentions of me");
+    await press(fixture, "Enter");
+    expect(close).toHaveBeenCalled();
+    expect(open).toHaveBeenCalledWith("search", "/@ada");
+    open.mockRestore();
+    // The palette that opens then starts with the search.
+    await ui.openPalette("search", "/@ada");
+    const search = TestBed.createComponent(Palette);
+    await settle(search);
+    expect(field(search).value).toBe("/@ada");
+    expect(ui.takeQuery()).toBeNull();
   });
 
   it("opens pages at the line, tasks in their panel and code with the line selected", async () => {

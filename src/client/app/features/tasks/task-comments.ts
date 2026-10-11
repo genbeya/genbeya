@@ -5,6 +5,7 @@ import { MOD_KEY, matchesHotkey } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
+import { TextareaCompletion } from "../../editor/textarea-completion";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
@@ -24,7 +25,7 @@ interface CommentVersion {
  */
 @Component({
   selector: "gd-task-comments",
-  imports: [Avatar, Icon, MarkdownView],
+  imports: [Avatar, Icon, MarkdownView, TextareaCompletion],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-comments" },
   template: `
@@ -49,6 +50,7 @@ interface CommentVersion {
             #field
             class="textarea"
             aria-label="Edit comment"
+            [gdTextCompletion]="wiki.people()"
             [value]="edited()"
             (input)="edited.set(field.value)"
             (keydown)="editKey($event)"
@@ -73,7 +75,8 @@ interface CommentVersion {
         #composer
         class="textarea"
         aria-label="New comment"
-        placeholder="Add a comment… Markdown and [[references]] work."
+        placeholder="Add a comment… Markdown, [[references]], @mentions and //dates work."
+        [gdTextCompletion]="wiki.people()"
         [value]="draft()"
         (input)="draft.set(composer.value)"
         (keydown)="composeKey($event, composer)"
@@ -145,6 +148,8 @@ export class TaskComments {
 
   /** Ctrl+Enter sends; Escape keeps an unsent comment instead of closing the task. */
   protected composeKey(event: KeyboardEvent, field: HTMLTextAreaElement) {
+    // Taken by the suggestions.
+    if (event.defaultPrevented) return;
     if (matchesHotkey("mod+enter", event)) {
       event.preventDefault();
       void this.send();
@@ -155,6 +160,7 @@ export class TaskComments {
   }
 
   protected editKey(event: KeyboardEvent) {
+    if (event.defaultPrevented) return;
     if (matchesHotkey("mod+enter", event)) {
       event.preventDefault();
       void this.saveEdit();

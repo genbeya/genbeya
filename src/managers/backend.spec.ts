@@ -566,6 +566,31 @@ describe("ContentManager", () => {
     await expect(content.addComment(id, "docs/Home.md", "x")).rejects.toThrow("inside tasks/");
   });
 
+  it("lists the people: commit authors, assignees, comment authors and the people of the settings", async () => {
+    const { content, id, repository } = await opened();
+    await repository.write("x.txt", "x");
+    await repository.git("add", "x.txt");
+    await repository.git("commit", "-q", "-m", "By Ada", "--author=Ada <ada@old.example>");
+    await repository.write(".mailmap", "Ada Lovelace <ada@example.com> <ada@old.example>\n");
+    const task = await content.createTask(id, { ...input, assignee: "sam" });
+    await content.addComment(id, task.path, "Hello");
+    await repository.write(
+      ".gitdesk.yml",
+      "name: Test Project\ntaskPrefix: TP\npeople:\n  - handle: tester\n    name: The Tester\n    email: test@example.com\n",
+    );
+    const { people, me } = await content.people(id);
+    expect(people.map(({ handle, name, email, commits }) => ({ handle, name, email, commits }))).toEqual([
+      { handle: "ada", name: "Ada Lovelace", email: "ada@example.com", commits: 1 },
+      { handle: "sam", name: "sam", email: null, commits: 0 },
+      // The settings' person is the author of the first commit and of the comment.
+      { handle: "tester", name: "The Tester", email: "test@example.com", commits: 1 },
+    ]);
+    expect(me).toBe("tester");
+    // Commit authors are read again once HEAD moves.
+    await repository.git("commit", "-q", "--allow-empty", "-m", "By Bob", "--author=Bob <bob@example.com>");
+    expect((await content.people(id)).people.map((person) => person.handle)).toContain("bob");
+  });
+
   it("edits and deletes only the user's own comments, on the version they saw", async () => {
     const { content, id, repository } = await opened();
     const task = await content.createTask(id, input);

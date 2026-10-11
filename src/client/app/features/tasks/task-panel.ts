@@ -147,6 +147,7 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
               [path]="(task()?.path ?? 'new-task') + '.md'"
               [value]="draft().body"
               [references]="wiki.referenceCandidates()"
+              [people]="wiki.people()"
               [lineNumbers]="false"
               [autofocus]="!!task()"
               (valueChange)="setBody($event)"

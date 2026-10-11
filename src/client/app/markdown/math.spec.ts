@@ -65,6 +65,25 @@ describe("math syntax", () => {
   });
 });
 
+describe("math among mentions and dates", () => {
+  it("keeps @handles and dates inside formulas as LaTeX", () => {
+    const people = [{ handle: "ada", name: "Ada Lovelace", email: null, aliases: [], commits: 1 }];
+    const rendered = renderMarkdownTree(
+      parseMarkdown("$t_{2026-10-11} @ada$ by @ada on 2026-10-11", { people, today: "2026-10-11" }),
+      document,
+      {
+        path: "docs/A.md",
+        interactiveCheckboxes: false,
+      },
+    );
+    expect(rendered.formulas.map(({ source }) => source)).toEqual(["t_{2026-10-11} @ada"]);
+    const container = document.createElement("div");
+    container.append(rendered.fragment);
+    expect(container.querySelectorAll(".md-mention, .md-date")).toHaveLength(2);
+    expect(container.querySelector(".md-math .md-mention, .md-math .md-date")).toBeNull();
+  });
+});
+
 describe("math placeholders", () => {
   const render = (markdown: string) =>
     renderMarkdownTree(parseMarkdown(markdown), document, { path: "docs/A.md", interactiveCheckboxes: false });
