@@ -48,7 +48,7 @@ describe("ResetDialog", () => {
       "Keep",
       "Hard",
     ]);
-    expect(element.textContent).toContain("2 commits leave main");
+    expect(element.textContent).toContain("2 commits leave main.");
     submit();
     expect(close).toHaveBeenCalledWith("mixed");
   });

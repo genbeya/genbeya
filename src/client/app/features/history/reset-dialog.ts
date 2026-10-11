@@ -89,7 +89,9 @@ export class ResetDialog {
 
   protected readonly summary =
     `Moves ${this.plan.branch} to ${this.request.at}. ` +
-    (this.plan.commits ? `${plural(this.plan.commits, "commit")} leave ${this.plan.branch}.` : `No commits leave ${this.plan.branch}.`);
+    (this.plan.commits
+      ? `${plural(this.plan.commits, "commit")} ${this.plan.commits === 1 ? "leaves" : "leave"} ${this.plan.branch}.`
+      : `No commits leave ${this.plan.branch}.`);
   protected readonly pushedWarning = pushedWarning(this.plan);
 
   protected readonly lost = (() => {
