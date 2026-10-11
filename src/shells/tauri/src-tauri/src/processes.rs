@@ -28,7 +28,15 @@ const EXIT: u8 = 2;
 const PROGRAMS: &[&str] = &["git", "ssh", "wsl", "wsl.exe"];
 #[cfg(not(windows))]
 const PROGRAMS: &[&str] = &["git", "ssh"];
-const ENVIRONMENT: &[&str] = &["GIT_TERMINAL_PROMPT", "GIT_OPTIONAL_LOCKS", "GCM_INTERACTIVE"];
+// GIT_SEQUENCE_EDITOR is a command, but no more power than the unchecked arguments:
+// interactive rebases write their prepared todo list with it (operation-access.ts).
+const ENVIRONMENT: &[&str] = &[
+    "GIT_TERMINAL_PROMPT",
+    "GIT_OPTIONAL_LOCKS",
+    "GCM_INTERACTIVE",
+    "GIT_EDITOR",
+    "GIT_SEQUENCE_EDITOR",
+];
 
 /// How long a timed-out run waits for its output after the kill. Grandchildren
 /// (git-remote-https, ssh, credential helpers) inherit the pipes and can keep
@@ -255,6 +263,8 @@ mod tests {
     #[test]
     fn starts_only_the_programs_and_environment_of_the_backend() {
         assert!(check("git", &env("GIT_TERMINAL_PROMPT")).is_ok());
+        assert!(check("git", &env("GIT_EDITOR")).is_ok());
+        assert!(check("git", &env("GIT_SEQUENCE_EDITOR")).is_ok());
         assert!(check("ssh", &HashMap::new()).is_ok());
         assert_eq!(check("wsl.exe", &HashMap::new()).is_ok(), cfg!(windows));
         assert!(check("cmd", &HashMap::new()).is_err());
