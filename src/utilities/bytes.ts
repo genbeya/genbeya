@@ -40,3 +40,19 @@ export function toBase64(data: Uint8Array): string {
 
 /** Hex SHA-256 of a string's UTF-8 bytes; the version stamp of file contents. */
 export const sha256 = (text: string): string => bytesToHex(sha256Digest(encodeText(text)));
+
+/** Hex SHA-256 of bytes. */
+export const sha256Bytes = (data: Uint8Array): string => bytesToHex(sha256Digest(data));
+
+/**
+ * Bytes as a string with one character per byte, for text in any encoding
+ * that is changed line by line and written back exactly (patches).
+ */
+export function toByteString(data: Uint8Array): string {
+  let text = "";
+  for (let i = 0; i < data.length; i += 0x8000) text += String.fromCharCode(...data.subarray(i, i + 0x8000));
+  return text;
+}
+
+/** The bytes of a {@link toByteString} string. */
+export const fromByteString = (text: string): Uint8Array => Uint8Array.from(text, (char) => char.charCodeAt(0));

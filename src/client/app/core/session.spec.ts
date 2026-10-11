@@ -115,10 +115,24 @@ describe("Session", () => {
     const { session, managers } = setup();
     await session.open({ kind: "local", path: "/repo" });
     await session.refresh();
-    expect(managers.workspace.snapshot).toHaveBeenCalledWith("w1", "v1");
+    expect(managers.workspace.snapshot).toHaveBeenCalledWith("w1", "v1", "head");
     managers.workspace.snapshot.mockResolvedValue(snapshot({ version: "v2", tasks: [] }));
     await session.refresh();
     expect(session.snapshot()?.version).toBe("v2");
+  });
+
+  it("compares staged changes with HEAD's parent while amending, until another repository opens", async () => {
+    const { session, managers } = setup();
+    await session.open({ kind: "local", path: "/repo" });
+    managers.workspace.snapshot.mockResolvedValue(snapshot({ version: "v2" }));
+    await session.compareWith("parent");
+    expect(session.changeBase()).toBe("parent");
+    expect(managers.workspace.snapshot).toHaveBeenLastCalledWith("w1", "v1", "parent");
+    expect(session.snapshot()?.version).toBe("v2");
+    await session.compareWith("parent");
+    expect(managers.workspace.snapshot).toHaveBeenCalledTimes(1);
+    await session.open({ kind: "local", path: "/other" });
+    expect(session.changeBase()).toBe("head");
   });
 
   it("runs actions, reports results and refreshes", async () => {

@@ -1,0 +1,42 @@
+:host {
+  display: block;
+}
+
+.change-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin: 0 6px;
+  padding-right: 6px;
+  border-radius: var(--radius-s);
+  color: var(--text-2);
+}
+
+.change-folder:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.change-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.count {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.change-actions {
+  display: none;
+}
+
+.change-folder:hover .change-actions {
+  display: flex;
+}
+
+.change-actions .icon-btn {
+  width: 22px;
+  height: 22px;
+}

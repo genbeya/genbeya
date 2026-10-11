@@ -8,12 +8,50 @@
 
 The **Changes** view lists staged and unstaged files. Select a file to see its diff; switch between side-by-side and inline with the button in the corner.
 
-- Stage or unstage files one by one or all at once.
-- Discard reverts a file to its staged version; untracked files are deleted. GitDesk asks first.
+- Stage or unstage files one by one or all at once, or parts of a file (see below).
+- Discard reverts a file to its staged version; untracked files are deleted, with the folders that are empty afterwards. GitDesk asks first.
 - Write a message and press `Ctrl+Enter`. With nothing staged, the button commits all changes.
-- **Amend last commit** loads the previous message for editing.
+- **Amend last commit** puts the last commit's changes back into the staged list (see [Amending](#amending)).
+- Right-click a file for more: stage, discard, open it, add it to .gitignore or stop tracking it.
 
 Fetch, pull (fast-forward only) and push sit above the file list, together with how far the branch is ahead of or behind its upstream. A branch without upstream shows **Publish branch** instead of push (see [Pushing](#pushing)). The **⋯** menu next to them has **Push to…** and **Undo last commit**, which takes the last commit off the branch and keeps its changes staged; **Redo** in the message afterwards puts it back.
+
+### Staging hunks and lines
+
+Commit only part of what you changed in a file. The diff of an unstaged file has a bar above every change with **Stage hunk** and **Discard hunk**; the diff of a staged file has **Unstage hunk**. Both the side-by-side and the inline diff have them.
+
+To act on single lines, select them: click a line number, `Shift`+click another to select the lines between, or move with `Shift+↑` / `Shift+↓` inside the diff. The bar above the diff then offers **Stage selected lines**, **Discard selected lines** or **Unstage selected lines**. Side by side, select removed lines on the left and added lines on the right; a removed line goes along once you select all the lines that replace it, which is how the inline diff, where removed lines have no numbers, stages a changed line. Lines that did not change are left alone.
+
+- Staging part of an untracked file adds the file with just those lines.
+- Discarding asks first and cannot be undone.
+- Binary files are staged as a whole.
+- When the file changed since its diff was shown, GitDesk refuses, shows the new diff, and you choose again.
+
+### Tree
+
+**Show as tree** (next to **Changes**) shows the staged and unstaged files in their folders; **Show as list** goes back. GitDesk remembers your choice. A folder shows how many changes it holds, and a folder that holds nothing but another folder shares its row, as `src/client/app`. Its buttons and menu stage, unstage or discard everything in it.
+
+In the tree, `↑` and `↓` move between rows, `→` opens a folder (again: goes to its first entry), `←` closes it (or goes to the folder above), `Home` and `End` go to the first and last row, and `Enter` shows a file's diff or opens and closes a folder.
+
+### Ignoring files
+
+Right-click a file or folder in **Changes**:
+
+- **Ignore file …** adds the file, **Ignore folder …** its folder (or the folder you clicked), and **Ignore all \*.ext files** every file with its extension.
+- A dialog asks whether the rule goes into the repository's `.gitignore` or the one in the file's folder, and shows the line it adds, such as `/src/app/debug.log` or `*.log`. Names that `.gitignore` would read as patterns are escaped, and paths start with `/`, so the rule matches only that file. The file keeps its line endings, and the rule is added once.
+- Git ignores only files it does not track. For a tracked file the dialog also offers **Stop tracking**, which keeps the file on disk but deletes it from the repository with the next commit. **Stop tracking…** in the menu does just that, after asking.
+
+The changed `.gitignore` then shows up in **Changes**, ready to commit.
+
+### Amending
+
+Tick **Amend last commit** to change the last commit. Its message is loaded into an empty message box (a message you started stays), and the staged list shows everything the amended commit will hold: the last commit's changes plus whatever you stage on top.
+
+- Unstage a file, a hunk or lines to leave them out of the commit: they stay in your working tree as unstaged changes.
+- Stage more to add it.
+- **Amend** commits exactly what is staged; untick the box to go back to normal. The message box then gets back what it held before, unless you edited the loaded message: your edits stay.
+
+When the last commit is a merge, its changes are shown against its first parent, and the amended commit keeps all its parents. When the commit is already on a remote branch, GitDesk warns you: amending rewrites it, so you would have to force-push (see [Force push](#force-push)). There is nothing to amend before the first commit.
 
 ## Stashes
 

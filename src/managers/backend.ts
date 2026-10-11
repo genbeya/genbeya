@@ -9,6 +9,7 @@ import type { Machine } from "../access/ports";
 import { PreferencesStore } from "../access/preferences/preferences-store";
 import { AgentEngine } from "../engines/agent-engine";
 import { LinkEngine } from "../engines/link-engine";
+import { PatchEngine } from "../engines/patch-engine";
 import { PeopleEngine } from "../engines/people-engine";
 import { RebaseEngine } from "../engines/rebase-engine";
 import { SampleEngine } from "../engines/sample-engine";
@@ -46,7 +47,7 @@ export async function createBackend(machine: Machine, dataFolder: string): Promi
   return {
     workspace: new WorkspaceManager(registry, hosts, folders, preferences, engines),
     content: new ContentManager(registry, engines),
-    versionControl: new VersionControlManager(registry, new RebaseEngine()),
+    versionControl: new VersionControlManager(registry, new RebaseEngine(), new PatchEngine()),
     terminal: new TerminalManager(registry, machine.terminals),
     async dispose() {
       folders.dispose();

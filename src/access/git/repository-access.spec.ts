@@ -68,6 +68,23 @@ describe("RepositoryAccess", () => {
     expect(await repository.exists("a.txt")).toBe(false);
   });
 
+  it("removes the folders that discarding untracked files leaves empty, and only those", async () => {
+    const repository = await createRepository({ ".gitignore": "*.log\n", "tasks/TP-1.md": "# One\n" });
+    const repo = await open(repository.root);
+    await repository.write("tasks/security/deep/GENBEYA-9.md", "# Moved\n");
+    await repository.write("tasks/kept/GENBEYA-10.md", "# Moved too\n");
+    await repository.write("tasks/kept/debug.log", "ignored\n");
+    await repository.write("top.md", "# Top\n");
+    await repo.discard(["tasks/security/deep/GENBEYA-9.md", "tasks/kept/GENBEYA-10.md", "top.md"]);
+    expect(await repository.exists("tasks/security")).toBe(false);
+    expect(await repository.exists("tasks/TP-1.md")).toBe(true);
+    // An ignored file still lives there.
+    expect(await repository.exists("tasks/kept/debug.log")).toBe(true);
+    expect(await repository.exists("tasks/kept/GENBEYA-10.md")).toBe(false);
+    expect(await repository.exists("top.md")).toBe(false);
+    expect(await repository.exists(".gitignore")).toBe(true);
+  });
+
   it("diffs the working tree, the index and commits", async () => {
     const repository = await createRepository();
     const repo = await open(repository.root);
