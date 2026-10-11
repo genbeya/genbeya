@@ -1,5 +1,5 @@
 import type { Commit } from "../../../../contracts/model";
-import { layoutGraph, relativeTime } from "./commit-graph";
+import { layoutGraph } from "./commit-graph";
 
 const commit = (hash: string, parents: string[]): Commit => ({
   hash,
@@ -32,13 +32,5 @@ describe("layoutGraph", () => {
   it("gives unrelated tips their own lanes", () => {
     const { lanes } = layoutGraph([commit("x", ["a"]), commit("y", ["b"]), commit("a", []), commit("b", [])]);
     expect(lanes).toBe(2);
-  });
-});
-
-describe("relativeTime", () => {
-  it("describes how long ago something happened", () => {
-    const now = Date.parse("2026-01-01T12:00:00Z");
-    expect(relativeTime("2026-01-01T11:57:00Z", now)).toMatch(/3 minutes ago/);
-    expect(relativeTime("2024-01-01T12:00:00Z", now)).toMatch(/2 years ago/);
   });
 });

@@ -6,8 +6,8 @@ import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
+import { relativeTime } from "../../ui/relative-time";
 import { DiffPane } from "../diff/diff-pane";
-import { relativeTime } from "../history/commit-graph";
 import { StashActions } from "./stash-actions";
 
 /** A stash: its message, actions, files, and the selected file's diff. */

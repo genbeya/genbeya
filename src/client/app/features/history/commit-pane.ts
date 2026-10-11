@@ -9,8 +9,8 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
+import { relativeTime } from "../../ui/relative-time";
 import { DiffPane } from "../diff/diff-pane";
-import { relativeTime } from "./commit-graph";
 import { CommitMenu } from "./commit-menu";
 import { RefChips } from "./ref-chips";
 

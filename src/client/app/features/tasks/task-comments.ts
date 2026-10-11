@@ -8,7 +8,7 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
-import { relativeTime } from "../history/commit-graph";
+import { relativeTime } from "../../ui/relative-time";
 import { WikiActions } from "../wiki/wiki-actions";
 
 interface CommentVersion {

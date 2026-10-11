@@ -5,20 +5,10 @@ import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Icon } from "../../ui/icon";
+import { relativeTime } from "../../ui/relative-time";
 import { Onboarding } from "../onboarding/onboarding";
 import { HostIcon, initials } from "../shell/repository-mark";
 import { ShellUi } from "../shell/shell-ui";
-
-/** "just now", "5 min ago", "3 h ago", "2 d ago", or a date. */
-export function ago(time: number, now = Date.now()): string {
-  const minutes = Math.round((now - time) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  const days = Math.round(hours / 24);
-  return days < 30 ? `${days} d ago` : new Date(time).toLocaleDateString();
-}
 
 @Component({
   selector: "gd-welcome",
@@ -81,7 +71,7 @@ export function ago(time: number, now = Date.now()): string {
                     ><gd-host-icon [location]="entry.location" [size]="11" />{{ describe(entry.location) }}</span
                   >
                 </span>
-                <span class="recent-time">{{ ago(entry.openedAt) }}</span>
+                <span class="recent-time">{{ relativeTime(entry.openedAt, now, "short") }}</span>
                 <svg gd-icon name="arrow-right" [size]="14" class="recent-arrow"></svg>
               </button>
               <button
@@ -122,7 +112,8 @@ export class Welcome {
   protected readonly busy = computed(() => this.session.phase() === "opening");
   protected readonly initials = initials;
   protected readonly describe = describeLocation;
-  protected readonly ago = ago;
+  protected readonly relativeTime = relativeTime;
+  protected readonly now = Date.now();
 
   constructor() {
     hotkey(

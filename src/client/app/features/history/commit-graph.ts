@@ -51,22 +51,3 @@ export function layoutGraph(commits: readonly Commit[]): { rows: GraphRow[]; lan
   });
   return { rows, lanes };
 }
-
-/** "3 minutes ago", "yesterday", "2 years ago", in the user's language. */
-export function relativeTime(iso: string, now = Date.now()): string {
-  const units: [number, Intl.RelativeTimeFormatUnit][] = [
-    [60, "second"],
-    [60, "minute"],
-    [24, "hour"],
-    [7, "day"],
-    [4.35, "week"],
-    [12, "month"],
-    [Infinity, "year"],
-  ];
-  let value = (now - new Date(iso).getTime()) / 1000;
-  for (const [size, unit] of units) {
-    if (Math.abs(value) < size) return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(-Math.round(value), unit);
-    value /= size;
-  }
-  return "";
-}
