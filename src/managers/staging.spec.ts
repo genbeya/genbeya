@@ -58,8 +58,9 @@ const wsl: Setup = async (files) => {
       ),
     );
   const quote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
-  const write = (path: string, content: string) =>
-    run(`mkdir -p "$(dirname ${quote(path)})" && printf %s ${Buffer.from(content).toString("base64")} | base64 -d > ${quote(path)}`);
+  const write = async (path: string, content: string) => {
+    await run(`mkdir -p "$(dirname ${quote(path)})" && printf %s ${Buffer.from(content).toString("base64")} | base64 -d > ${quote(path)}`);
+  };
   await new Promise((resolve, reject) =>
     execFile("wsl.exe", ["-d", "Ubuntu", "-e", "mkdir", "-p", dir], (error) => (error ? reject(error) : resolve(null))),
   );
