@@ -353,12 +353,15 @@ export interface Snapshot {
   /** Remote-tracking branches without a local counterpart, such as `origin/feature`. */
   readonly remoteBranches: readonly string[];
   readonly remotes: readonly Remote[];
+  /** Index letters compare the index with HEAD, or with HEAD's parent in snapshots taken while amending. */
   readonly changes: readonly Change[];
   readonly tags: readonly string[];
   /** Newest first. */
   readonly stashes: readonly Stash[];
   /** The merge, rebase, cherry-pick or revert in progress, if any. */
   readonly operation: Operation | null;
+  /** The commit an amend replaces, when the snapshot compares staged changes with its parent. */
+  readonly amending?: Amending;
   readonly files: readonly FileNode[];
   readonly wiki: readonly WikiNode[];
   readonly tasks: readonly Task[];
@@ -377,12 +380,62 @@ export interface FileContent {
 
 export type DiffSource = "worktree" | "index" | { readonly commit: string };
 
+/**
+ * What staged changes are compared with: HEAD, or while amending, the commit
+ * HEAD amends onto (its first parent; nothing for the first commit), so the
+ * staged changes are those the amended commit will hold.
+ */
+export type ChangeBase = "head" | "parent";
+
+export const CHANGE_BASES: readonly ChangeBase[] = ["head", "parent"];
+
+/** The commit an amend replaces, described in snapshots compared with its parent. */
+export interface Amending {
+  /** Short commit id. */
+  readonly commit: string;
+  /** Short id of the first parent the staged changes are compared with; null for the first commit. */
+  readonly parent: string | null;
+  /** A merge commit: the amended commit keeps all its parents. */
+  readonly merge: boolean;
+  /** Remote branches that already have the commit, so amending it means force-pushing them. */
+  readonly pushed: readonly string[];
+}
+
 export interface Diff {
   readonly path: string;
   readonly original: string;
   readonly modified: string;
   readonly binary: boolean;
+  /** Version of both sides; staging lines names it, so lines chosen in an outdated diff are refused. */
+  readonly version: string;
 }
+
+/** 1-based line numbers `from` to `to`, both included. */
+export interface LineRange {
+  readonly from: number;
+  readonly to: number;
+}
+
+/** Changed lines of a diff: removed ones by their number in the original, added ones by their number in the modified version. */
+export interface LineSelection {
+  readonly original: readonly LineRange[];
+  readonly modified: readonly LineRange[];
+}
+
+/** Lines of one file's diff to stage, unstage or discard: hunks, or lines within them. */
+export interface LinePatch {
+  readonly path: string;
+  /** The path in the original version of a renamed file. */
+  readonly oldPath?: string;
+  /** {@link Diff.version} of the diff the lines were chosen in. */
+  readonly version: string;
+  readonly lines: LineSelection;
+}
+
+/** What a .gitignore rule matches: the file itself, a folder, or every file with the file's extension. */
+export type IgnoreKind = "file" | "folder" | "extension";
+
+export const IGNORE_KINDS: readonly IgnoreKind[] = ["file", "folder", "extension"];
 
 export interface Commit {
   readonly hash: string;

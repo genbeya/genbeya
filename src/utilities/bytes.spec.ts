@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { concatBytes, decodeText, encodeText, isBinary, toBase64, sha256 } from "./bytes";
+import { concatBytes, decodeText, encodeText, fromByteString, isBinary, sha256, sha256Bytes, toBase64, toByteString } from "./bytes";
 
 describe("text and bytes", () => {
   it("round-trips UTF-8", () => {
@@ -18,6 +18,17 @@ describe("text and bytes", () => {
   it("detects binary data", () => {
     expect(isBinary(new Uint8Array([1, 2, 0]))).toBe(true);
     expect(isBinary(encodeText("plain"))).toBe(false);
+  });
+
+  it("keeps bytes of any encoding through byte strings", () => {
+    const data = new Uint8Array([0x61, 0xe4, 0x0d, 0x0a, 0xff, 0x00]);
+    expect(toByteString(data)).toBe("aä\r\nÿ\0");
+    expect(fromByteString(toByteString(data))).toEqual(data);
+    expect(toByteString(new Uint8Array(70_000).fill(65)).length).toBe(70_000);
+  });
+
+  it("hashes bytes", () => {
+    expect(sha256Bytes(encodeText("hello"))).toBe(sha256("hello"));
   });
 
   it("encodes base64", () => {
