@@ -11,6 +11,7 @@ import { Theme } from "../core/theme";
 import { Diagrams } from "./diagrams";
 import { resolveHref, type LinkTarget } from "./link-target";
 import { embedSource } from "./embeds";
+import { footnotePreview } from "./footnotes";
 import {
   icon,
   renderMarkdownTree,
@@ -28,7 +29,13 @@ const COPIED_FEEDBACK = 1200;
 @Component({
   selector: "gd-markdown",
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: "markdown selectable", "(click)": "click($event)", "(keydown)": "key($event)" },
+  host: {
+    class: "markdown selectable",
+    "(click)": "click($event)",
+    "(keydown)": "key($event)",
+    "(mouseover)": "hover($event)",
+    "(mouseout)": "unhover($event)",
+  },
   template: "",
 })
 export class MarkdownView {
@@ -58,6 +65,9 @@ export class MarkdownView {
   private files = new Map<string, Promise<string>>();
   /** Renders count up, so a slow image or diagram never lands in a newer render. */
   private generation = 0;
+  /** The footnote reference under the pointer and the preview of its note. */
+  private previewed: Element | null = null;
+  private preview: HTMLElement | null = null;
 
   constructor() {
     effect(() => {
@@ -83,6 +93,7 @@ export class MarkdownView {
   private show({ fragment, images, diagrams, formulas, embeds }: RenderedMarkdown) {
     const generation = ++this.generation;
     this.revoke();
+    this.preview = this.previewed = null;
     this.host.replaceChildren(fragment);
     this.rendered.emit(this.host);
     for (const image of images) void this.load(image, generation);
@@ -228,6 +239,22 @@ export class MarkdownView {
       event.preventDefault();
       this.checkboxToggled.emit(Number(checkbox.dataset["offset"]));
     }
+  }
+
+  /** Footnote references show their note while the pointer is on them. */
+  protected hover(event: MouseEvent) {
+    const reference = (event.target as Element).closest<HTMLAnchorElement>("a[data-footnote-ref]");
+    if (!reference || this.previewed === reference) return;
+    this.preview?.remove();
+    this.previewed = reference;
+    this.preview = footnotePreview(reference, this.host);
+  }
+
+  protected unhover(event: MouseEvent) {
+    const reference = (event.target as Element).closest("a[data-footnote-ref]");
+    if (!reference || reference.contains(event.relatedTarget as Node | null)) return;
+    this.preview?.remove();
+    this.preview = this.previewed = null;
   }
 
   private async copy(button: HTMLElement) {

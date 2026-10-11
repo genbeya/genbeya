@@ -82,6 +82,22 @@ describe("MarkdownView", () => {
     expect(element.querySelector(".md-code")?.classList.contains("is-wrapped")).toBe(false);
   });
 
+  it("previews footnotes at their reference and links back", async () => {
+    const { element, host } = await render("Claim.[^1]\n\n[^1]: The **source**.");
+    const reference = element.querySelector<HTMLAnchorElement>("a[data-footnote-ref]")!;
+    reference.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    const preview = element.querySelector(".md-footnote-preview")!;
+    expect([preview.textContent?.trim(), preview.querySelector("strong")?.textContent]).toEqual(["The source.", "source"]);
+    expect(preview.querySelector("[data-footnote-backref], [id]")).toBeNull();
+    reference.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+    expect(element.querySelector(".md-footnote-preview")).toBeNull();
+    const note = element.querySelector<HTMLElement>(`#${CSS.escape(reference.getAttribute("href")!.slice(1))}`)!;
+    note.scrollIntoView = vi.fn();
+    reference.click();
+    expect(note.scrollIntoView).toHaveBeenCalled();
+    expect(host.links).toEqual([]);
+  });
+
   it("re-renders when the source changes", async () => {
     const { element, fixture } = await render("# One");
     fixture.componentInstance.source.set("# Two");
