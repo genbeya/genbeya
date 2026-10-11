@@ -1,6 +1,16 @@
 /** Opening, closing and observing repositories; the recent list, preferences, and folders on remote machines. */
 import type { WorkspaceManagerContract } from "../contracts/manager-contracts";
-import type { ContentArea, FolderListing, OpenedWorkspace, Preferences, Snapshot, Storage, Theme } from "../contracts/model";
+import {
+  CHANGE_BASES,
+  type ChangeBase,
+  type ContentArea,
+  type FolderListing,
+  type OpenedWorkspace,
+  type Preferences,
+  type Snapshot,
+  type Storage,
+  type Theme,
+} from "../contracts/model";
 import { Git } from "../access/git/git";
 import { RepositoryAccess } from "../access/git/repository-access";
 import type { Host } from "../access/hosts/host";
@@ -142,9 +152,10 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     if (typeof id === "string") void this.registry.close(id);
   }
 
-  async snapshot(id: unknown, since?: unknown): Promise<Snapshot | null> {
+  async snapshot(id: unknown, since?: unknown, base?: unknown): Promise<Snapshot | null> {
     const workspace = this.registry.get(id);
-    const snapshot = await workspace.exclusive(() => this.compose(workspace));
+    if (base !== undefined && base !== null && !CHANGE_BASES.includes(base as ChangeBase)) throw new Error("Invalid comparison base.");
+    const snapshot = await workspace.exclusive(() => this.compose(workspace, (base as ChangeBase | null | undefined) ?? "head"));
     if (snapshot.version === since) return null;
     this.preferencesStore.rememberRemotes(workspace.location, remoteUrls(snapshot));
     return snapshot;
@@ -196,12 +207,12 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     return this.folders.list(validateFolderLocation(location));
   }
 
-  /** Everything the client shows, stamped with a version of its content. */
-  private async compose(workspace: Workspace): Promise<Snapshot> {
+  /** Everything the client shows, stamped with a version of its content; staged changes are compared with `base`. */
+  private async compose(workspace: Workspace, base: ChangeBase = "head"): Promise<Snapshot> {
     const { areas, branch: content } = await workspace.content.layout();
     const readsBranch = content && (areas.wiki === "branch" || areas.tasks === "branch");
     const [repository, branchFiles, contentBranch, loaded] = await Promise.all([
-      workspace.repository.state(),
+      workspace.repository.state(base),
       readsBranch ? content.git.files() : null,
       workspace.content.branchState(),
       workspace.settings(true),
@@ -238,6 +249,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       tags: repository.tags,
       stashes: repository.stashes,
       operation: repository.operation,
+      ...(repository.amending ? { amending: repository.amending } : {}),
       files: buildFileTree(repository.files),
       wiki: this.engines.wiki.tree(filesOf("wiki"), settings),
       tasks,

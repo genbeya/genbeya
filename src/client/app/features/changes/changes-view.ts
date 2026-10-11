@@ -1,16 +1,21 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, untracked } from "@angular/core";
+import { CdkContextMenuTrigger } from "@angular/cdk/menu";
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from "@angular/core";
 import { Router } from "@angular/router";
-import type { Change, ConflictKind } from "../../../../contracts/model";
-import { Dialogs } from "../../core/dialogs";
+import type { Change, ConflictKind, Diff, LineSelection } from "../../../../contracts/model";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
 import { relativeTime } from "../../ui/relative-time";
+import { recall, remember } from "../../ui/remembered";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
-import { DiffPane } from "../diff/diff-pane";
+import { DiffPane, type DiffAction } from "../diff/diff-pane";
+import { ChangeActions, type LineAction } from "./change-actions";
+import { ChangeMenu } from "./change-menu";
 import { ChangeRow } from "./change-row";
+import type { ChangeTarget } from "./change-target";
+import { ChangeTree } from "./change-tree";
 import { CommitDraft } from "./commit-draft";
 import { ConflictPane } from "./conflict-pane";
 import { StashActions } from "./stash-actions";
@@ -19,6 +24,9 @@ import { SyncBar } from "./sync-bar";
 
 const isStaged = (change: Change) => !change.conflict && change.index !== " " && change.index !== "?";
 const isUnstaged = (change: Change) => !change.conflict && change.worktree !== " ";
+
+/** Remembers whether the change lists show folders. */
+const TREE_KEY = "changes:tree";
 
 const CONFLICT_KINDS: Readonly<Record<ConflictKind, string>> = {
   "both-modified": "changed on both sides",
@@ -30,13 +38,33 @@ const CONFLICT_KINDS: Readonly<Record<ConflictKind, string>> = {
   "deleted-by-them": "deleted by incoming",
 };
 
+const STAGED_ACTIONS: readonly DiffAction[] = [{ id: "unstage", label: "Unstage", icon: "minus" }];
+const UNSTAGED_ACTIONS: readonly DiffAction[] = [
+  { id: "stage", label: "Stage", icon: "plus" },
+  { id: "discard", label: "Discard", icon: "undo-2", danger: true },
+];
+
 /**
  * Conflicts, staging, committing and stashes, with the selected change's diff
  * (`?file=&staged=`), conflict (`?conflict=`) or stash (`?stash=&file=`).
+ * The lists show files, or files in their folders.
  */
 @Component({
   selector: "gd-changes-view",
-  imports: [ChangeRow, ConflictPane, DiffPane, EmptyState, Icon, Resizable, ResizeHandle, StashPane, SyncBar],
+  imports: [
+    CdkContextMenuTrigger,
+    ChangeMenu,
+    ChangeRow,
+    ChangeTree,
+    ConflictPane,
+    DiffPane,
+    EmptyState,
+    Icon,
+    Resizable,
+    ResizeHandle,
+    StashPane,
+    SyncBar,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./changes.css",
   host: { class: "view" },
@@ -51,8 +79,8 @@ export class ChangesView {
 
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
-  private readonly dialogs = inject(Dialogs);
   private readonly router = inject(Router);
+  private readonly actions = inject(ChangeActions);
   protected readonly stashes = inject(StashActions);
   protected readonly mod = MOD_KEY;
   protected readonly relativeTime = relativeTime;
@@ -60,6 +88,7 @@ export class ChangesView {
   private readonly draft = inject(CommitDraft);
   protected readonly message = this.draft.message;
   protected readonly amend = this.draft.amend;
+  protected readonly tree = signal(recall(TREE_KEY) === "1");
 
   protected readonly snapshot = computed(() => this.session.snapshot()!);
   protected readonly conflicts = computed(() => this.snapshot().changes.filter((change) => change.conflict));
@@ -69,6 +98,8 @@ export class ChangesView {
   protected readonly current = computed(() => this.snapshot().changes.find((change) => change.path === this.file()));
   protected readonly selectedStash = computed(() => this.snapshot().stashes.find((entry) => entry.hash === this.stash()));
   protected readonly selectedConflict = computed(() => this.conflicts().find((change) => change.path === this.conflict()));
+  /** The commit an amend replaces, once the snapshot compares with its parent. */
+  protected readonly amending = computed(() => (this.amend() ? (this.snapshot().amending ?? null) : null));
   /** Without staged changes, a commit takes everything. */
   protected readonly commitsAll = computed(() => !this.stagedChanges().length && !this.amend());
   /** A merge, rebase, cherry-pick or revert in progress goes on with Continue instead. */
@@ -88,8 +119,15 @@ export class ChangesView {
     const file = this.file();
     const staged = this.showsStaged();
     const oldPath = staged ? this.current()?.oldPath : undefined;
-    return () => this.api.versionControl.diff(file!, staged ? "index" : "worktree", oldPath);
+    // Staged changes are compared with what the list compares them with.
+    const base = this.session.changeBase();
+    return () => this.api.versionControl.diff(file!, staged ? "index" : "worktree", oldPath, staged ? base : undefined);
   });
+  protected readonly diffActions = computed(() => (this.showsStaged() ? STAGED_ACTIONS : UNSTAGED_ACTIONS));
+  protected readonly applyLines = (action: string, lines: LineSelection, diff: Diff, hunk: boolean): Promise<boolean> => {
+    const change = this.current();
+    return change ? this.actions.lines(action as LineAction, change, lines, diff, hunk) : Promise.resolve(false);
+  };
 
   constructor() {
     // Keep a valid selection: fall back to the first conflict, else the first change.
@@ -129,6 +167,20 @@ export class ChangesView {
     return this.file() === change.path && this.showsStaged() === staged;
   }
 
+  /** The selected file's path when it is in the staged or unstaged list. */
+  protected selectedIn(staged: boolean): string | null {
+    return this.showsStaged() === staged ? (this.file() ?? null) : null;
+  }
+
+  protected target(change: Change, staged: boolean): ChangeTarget {
+    return { path: change.path, folder: false, changes: [change], staged };
+  }
+
+  protected toggleTree() {
+    this.tree.update((tree) => !tree);
+    remember(TREE_KEY, this.tree() ? "1" : "0");
+  }
+
   protected async commit() {
     if (!this.canCommit()) return;
     const all = this.commitsAll();
@@ -144,32 +196,34 @@ export class ChangesView {
   }
 
   protected async toggleAmend(amend: boolean) {
-    this.amend.set(amend);
+    this.draft.setAmend(amend);
     if (!amend || this.message().trim()) return;
     const last = await this.session.run(() => this.api.versionControl.lastCommitMessage());
     // Whatever the user typed meanwhile wins.
-    if (last && this.amend() && !this.message().trim()) this.message.set(last);
+    if (last) this.draft.loadAmended(last);
   }
 
-  protected stage(paths: string[]) {
-    void this.session.run(() => this.api.versionControl.stage(paths));
+  protected stage(paths: readonly string[]) {
+    void this.actions.stage(paths);
   }
 
-  protected unstage(paths: string[]) {
-    void this.session.run(() => this.api.versionControl.unstage(paths));
+  protected unstage(paths: readonly string[]) {
+    void this.actions.unstage(paths);
   }
 
-  protected async discard(paths: string[]) {
-    const single = paths.length === 1;
-    const confirmed = await this.dialogs.confirm({
-      title: single ? "Discard changes" : `Discard ${paths.length} changes`,
-      message: single
-        ? `Discard your changes to ${paths[0]}? This cannot be undone.`
-        : "Discard all unstaged changes? Untracked files are deleted. This cannot be undone.",
-      confirm: "Discard",
-      danger: true,
-    });
-    if (confirmed) await this.session.run(() => this.api.versionControl.discard(paths));
+  protected discard(paths: readonly string[]) {
+    return this.actions.discard(paths);
+  }
+
+  /** Stages or unstages a file or folder of the tree. */
+  protected toggleTarget(target: ChangeTarget) {
+    const paths = this.pathsOf(target.changes);
+    if (target.staged) this.unstage(paths);
+    else this.stage(paths);
+  }
+
+  protected discardTarget(target: ChangeTarget) {
+    void this.actions.discard(this.pathsOf(target.changes), target.folder ? target.path : undefined);
   }
 
   protected pathsOf(changes: readonly Change[]): string[] {

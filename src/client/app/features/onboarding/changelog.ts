@@ -33,6 +33,12 @@ export const CHANGELOG: readonly Release[] = [
         route: "/changes",
       },
       {
+        title: "Stage hunks and lines",
+        body: "In **Changes**, stage, unstage or discard one change of a file, or the lines you select by their numbers. Show the lists as a tree, add files to .gitignore from their menu, and amend with the last commit's files staged.",
+        target: '[data-tour="commit-box"]',
+        route: "/changes",
+      },
+      {
         title: "Mentions and dates",
         body: "Type `@` in a page, a task or a comment to mention someone, and `//` to insert a date. Mentions show who they mean and their tasks; dates show in your language, and open checklist items turn red once their date has passed.",
       },

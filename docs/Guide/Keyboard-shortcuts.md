@@ -26,6 +26,16 @@ On macOS, use `⌘` where this page says `Ctrl`, except for `` Ctrl+` ``: macOS 
 
 While a terminal has focus, every key except `` Ctrl+` `` goes to the shell.
 
+## In Changes
+
+| Keys | Action |
+| --- | --- |
+| `↑` / `↓`, `Home` / `End` | Move between the rows of the change tree |
+| `→` / `←` | Open / close a folder of the tree; again: go to its first entry / to the folder above |
+| `Enter`, `Space` | Show the file's diff; open or close the folder |
+| Click a line number, `Shift`+click | Select a line of the diff; select the lines up to another one ([Staging hunks and lines](Version-control.md#staging-hunks-and-lines)) |
+| `Shift+↑` / `Shift+↓` | Select lines inside the diff |
+
 ## In the editor
 
 The editor for code, pages and tasks follows VS Code; see [Code](Code.md). Where macOS differs by more than `⌘` for `Ctrl`, the second column says so.

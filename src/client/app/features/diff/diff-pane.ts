@@ -1,15 +1,34 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, signal, untracked } from "@angular/core";
-import type { Diff } from "../../../../contracts/model";
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked, viewChild } from "@angular/core";
+import type { Diff, LineSelection } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
-import { DiffView } from "../../editor/diff-view";
+import { DiffView, type HunkAction, type HunkEvent } from "../../editor/diff-view";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
+import type { IconName } from "../../ui/icon-data";
 import { recall, remember } from "../../ui/remembered";
 
 const INLINE_KEY = "diff:inline";
 
-/** A file's diff with a header; reloads whenever the repository changes. Project actions into the header. */
+/** Something to do with parts of a diff: "Stage" becomes "Stage hunk" and "Stage selected lines". */
+export interface DiffAction {
+  readonly id: string;
+  readonly label: string;
+  readonly icon: IconName;
+  readonly danger?: boolean;
+}
+
+/** Runs an action on lines of the diff shown; resolves to false when the user cancelled it, which keeps the selection. */
+export type DiffActionHandler = (action: string, lines: LineSelection, diff: Diff, hunk: boolean) => Promise<unknown>;
+
+const lineCount = (selection: LineSelection) =>
+  [...selection.original, ...selection.modified].reduce((total, range) => total + range.to - range.from + 1, 0);
+
+/**
+ * A file's diff with a header; reloads whenever the repository changes, and
+ * after its actions. Project actions into the header. With `actions`, each
+ * changed chunk offers them, and a toolbar offers them for selected lines.
+ */
 @Component({
   selector: "gd-diff-pane",
   imports: [DiffView, EmptyState, Icon],
@@ -47,7 +66,35 @@ const INLINE_KEY = "diff:inline";
     } @else if (diff()!.binary) {
       <gd-empty-state title="Binary file"><p>GitDesk does not show differences for binary files.</p></gd-empty-state>
     } @else {
-      <gd-diff-view [path]="path()" [original]="diff()!.original" [modified]="diff()!.modified" [inline]="inline()" />
+      @if (actions().length) {
+        <div class="diff-toolbar" role="toolbar" aria-label="Selected lines">
+          @if (selection(); as lines) {
+            <span class="diff-toolbar-text">{{ count() }} {{ count() === 1 ? "line" : "lines" }} selected</span>
+            @for (action of actions(); track action.id) {
+              <button
+                type="button"
+                class="btn btn-s"
+                [class.is-danger]="action.danger"
+                [disabled]="running()"
+                (click)="run(action.id, lines)"
+              >
+                <svg gd-icon [name]="action.icon" [size]="13"></svg>{{ action.label }} selected lines
+              </button>
+            }
+          } @else {
+            <span class="diff-toolbar-text">Select lines by their numbers, or use the bar above a change.</span>
+          }
+        </div>
+      }
+      <gd-diff-view
+        [path]="path()"
+        [original]="diff()!.original"
+        [modified]="diff()!.modified"
+        [inline]="inline()"
+        [hunkActions]="hunkActions()"
+        (hunk)="onHunk($event)"
+        (lines)="selection.set($event)"
+      />
     }
   `,
 })
@@ -56,11 +103,23 @@ export class DiffPane {
   /** Fetches the diff; called again on every repository change. */
   readonly load = input.required<() => Promise<Diff>>();
   readonly badge = input<string>();
+  readonly actions = input<readonly DiffAction[]>([]);
+  readonly apply = input<DiffActionHandler>(async () => undefined);
 
   private readonly session = inject(Session);
+  private readonly view = viewChild(DiffView);
   protected readonly diff = signal<Diff | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly inline = signal(recall(INLINE_KEY) === "1");
+  protected readonly selection = signal<LineSelection | null>(null);
+  protected readonly running = signal(false);
+  protected readonly count = computed(() => {
+    const selection = this.selection();
+    return selection ? lineCount(selection) : 0;
+  });
+  protected readonly hunkActions = computed<HunkAction[]>(() =>
+    this.actions().map((action) => ({ id: action.id, label: `${action.label} hunk`, danger: action.danger })),
+  );
   private request = 0;
 
   constructor() {
@@ -79,7 +138,13 @@ export class DiffPane {
       if (ticket !== this.request) return;
       // An unchanged diff keeps its view, so scrolling is not reset on every poll.
       const current = this.diff();
-      if (!current || current.original !== diff.original || current.modified !== diff.modified || current.binary !== diff.binary)
+      if (
+        !current ||
+        current.version !== diff.version ||
+        current.original !== diff.original ||
+        current.modified !== diff.modified ||
+        current.binary !== diff.binary
+      )
         this.diff.set(diff);
       this.error.set(null);
     } catch (failure) {
@@ -90,5 +155,28 @@ export class DiffPane {
   protected toggleInline() {
     this.inline.update((inline) => !inline);
     remember(INLINE_KEY, this.inline() ? "1" : "0");
+  }
+
+  protected onHunk(event: HunkEvent) {
+    void this.run(event.action, event.lines, true);
+  }
+
+  /**
+   * Runs an action on lines of the diff shown, then shows the diff as it is
+   * now: the snapshot may not change when a file was partly staged already.
+   */
+  protected async run(action: string, lines: LineSelection, hunk = false) {
+    const diff = this.diff();
+    if (!diff || this.running()) return;
+    this.running.set(true);
+    let outcome: unknown;
+    try {
+      outcome = await this.apply()(action, lines, diff, hunk);
+    } finally {
+      this.running.set(false);
+    }
+    if (outcome === false) return;
+    this.view()?.clearSelection();
+    await this.fetch(this.load());
   }
 }
