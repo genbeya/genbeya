@@ -250,6 +250,30 @@ describe("ContentStore with some areas on the content branch", () => {
     ]);
   });
 
+  it("empties the branch's copy of an area the checked-out commit has no files of", async () => {
+    const repository = await createRepository(FILES);
+    const store = storeFor(repository.root);
+    await move(store, ["tasks"], "branch");
+    await move(store, ["tasks"], "checkout");
+    await repository.git("rm", "-q", "-r", "tasks");
+    await repository.git("commit", "-q", "-m", "Remove the tasks");
+    await move(store, ["tasks"], "branch");
+    expect((await store.files("tasks")).filter((file) => file.startsWith("tasks/"))).toEqual([]);
+    expect(await repository.git("ls-tree", "-r", "--name-only", "gitdesk", "--", "tasks")).toBe("");
+  });
+
+  it("deletes the checkout's files of an area the branch has none of, as uncommitted changes", async () => {
+    const repository = await createRepository(FILES);
+    const store = storeFor(repository.root);
+    await move(store, ["tasks"], "branch");
+    const { files } = await store.locate("tasks");
+    await files.remove("tasks/TP-1.md");
+    await store.record("tasks", ["tasks/TP-1.md"], "Delete TP-1");
+    await move(store, ["tasks"], "checkout");
+    expect(await repository.exists("tasks/TP-1.md")).toBe(false);
+    expect((await repository.git("status", "--porcelain")).trim()).toBe("D tasks/TP-1.md");
+  });
+
   it("keeps the wiki on the branch and tasks in the checkout", async () => {
     const repository = await createRepository(FILES);
     const store = storeFor(repository.root);

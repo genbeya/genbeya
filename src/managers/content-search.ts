@@ -1,14 +1,16 @@
 /**
- * Full-text search of an open repository. The checkout supplies the code,
- * and the wiki and the tasks come from wherever their area lives, so the
- * copy an area on the content branch left in the checkout (or the reverse)
- * is not listed twice.
+ * Full-text search of an open repository. Each file is searched where its
+ * area lives: code in the checkout, and the wiki, the tasks and the settings
+ * file wherever theirs is, so the copy an area on the content branch left in
+ * the checkout (or the reverse) is not listed as well.
  */
-import type { SearchArea, SearchHit, SearchMatch, SearchRange, SearchResults, Settings, Task, TaskSearchHit } from "../contracts/model";
+import type { ContentArea, SearchArea, SearchHit, SearchMatch, SearchResults, Settings, Task, TaskSearchHit } from "../contracts/model";
+import { CONTENT_AREAS } from "../contracts/model";
 import type { FileStore } from "../access/files/file-store";
 import type { Git } from "../access/git/git";
 import { grepFiles, grepLines, type GrepLine } from "../access/git/git-grep";
 import { SEARCH_LIMITS, type SearchEngine, type SearchQuery } from "../engines/search-engine";
+import { contentAreaOf } from "../engines/settings-engine";
 import type { TaskEngine } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { baseName } from "../utilities/repository-path";
@@ -22,60 +24,58 @@ export interface SearchEngines {
 
 const AREAS: readonly SearchArea[] = ["wiki", "tasks", "code"];
 
-/** A working tree to search, and the areas it supplies. */
+/** A working tree to search, and the content areas it holds; "code" is everything else. */
 interface Source {
   readonly git: Git;
-  readonly areas: readonly SearchArea[];
+  readonly holds: readonly (ContentArea | "code")[];
 }
 
 export async function searchContent(workspace: Workspace, engines: SearchEngines, query: SearchQuery): Promise<SearchResults> {
   const { settings } = await workspace.settings();
-  const located = { wiki: await workspace.content.locate("wiki"), tasks: await workspace.content.locate("tasks") };
-  // One source per working tree: code is in the checkout, wiki and tasks wherever their area lives.
-  const byRoot = new Map<string, Source>([[workspace.checkout.root, { git: workspace.repository.git, areas: ["code"] }]]);
-  for (const area of ["wiki", "tasks"] as const) {
-    const { root, git } = located[area];
-    byRoot.set(root, { git, areas: [...(byRoot.get(root)?.areas ?? []), area] });
+  // One source per working tree: code is in the checkout, each content area wherever it lives.
+  const byRoot = new Map<string, Source>([[workspace.checkout.root, { git: workspace.repository.git, holds: ["code"] }]]);
+  for (const area of CONTENT_AREAS) {
+    const location = await workspace.content.locate(area);
+    byRoot.set(location.root, { git: location.git, holds: [...(byRoot.get(location.root)?.holds ?? []), area] });
   }
-  const sources = [...byRoot.values()];
 
   // The files with a match, at most so many per area; then only their lines are read.
   let truncated = false;
   const files = new Map<SearchArea, string[]>(AREAS.map((area) => [area, []]));
-  const lines = new Map<string, GrepLine[]>();
-  for (const source of sources) {
+  const matches = new Map<string, SearchMatch[]>();
+  for (const source of byRoot.values()) {
     const listed: string[] = [];
     for (const path of await grepFiles(source.git, query)) {
-      const area = engines.search.areaOf(path, settings);
-      if (!source.areas.includes(area)) continue;
-      const paths = files.get(area)!;
+      if (!source.holds.includes(contentAreaOf(path, settings) ?? "code")) continue;
+      const paths = files.get(engines.search.areaOf(path, settings))!;
       if (paths.length === SEARCH_LIMITS.filesPerArea) truncated = true;
       else {
         paths.push(path);
         listed.push(path);
       }
     }
-    for (const line of await grepLines(source.git, query, listed)) {
-      if (!lines.has(line.path)) lines.set(line.path, []);
-      lines.get(line.path)!.push(line);
-    }
+    // One more match than shown tells that a file has more.
+    const lines = new Map<string, GrepLine[]>(listed.map((path) => [path, []]));
+    for (const line of await grepLines(source.git, query, listed, SEARCH_LIMITS.matchesPerFile + 1)) lines.get(line.path)?.push(line);
+    for (const [path, found] of lines) matches.set(path, matchesOf(found, engines.search));
   }
 
-  const match = engines.search.matcher(query);
   const hits = (area: SearchArea): SearchHit[] =>
     files.get(area)!.flatMap((path) => {
-      const matches = matchesOf(lines.get(path) ?? [], match, engines.search);
-      if (matches.length > SEARCH_LIMITS.matchesPerFile) truncated = true;
-      if (!matches.length) return [];
+      const found = matches.get(path) ?? [];
+      if (found.length > SEARCH_LIMITS.matchesPerFile) truncated = true;
+      if (!found.length) return [];
       const title = area === "wiki" ? engines.wiki.titleOf(path) : baseName(path);
-      return [{ path, scope: area === "code" ? "repo" : "content", title, matches: matches.slice(0, SEARCH_LIMITS.matchesPerFile) }];
+      const scope = contentAreaOf(path, settings) ? "content" : "repo";
+      return [{ path, scope, title, matches: found.slice(0, SEARCH_LIMITS.matchesPerFile) }];
     });
   const [wiki, tasks, code] = [hits("wiki"), hits("tasks"), hits("code")];
-  return { wiki, tasks: await describeTasks(located.tasks.files, engines.tasks, settings, tasks), code, truncated };
+  const taskFiles = (await workspace.content.locate("tasks")).files;
+  return { wiki, tasks: await describeTasks(taskFiles, engines.tasks, settings, tasks), code, truncated };
 }
 
-/** The matching lines of one file, each with the lines around it. */
-function matchesOf(lines: readonly GrepLine[], match: (line: string) => SearchRange[], engine: SearchEngine): SearchMatch[] {
+/** The matching lines of one file, each with the lines around it, shortened as they are shown. */
+function matchesOf(lines: readonly GrepLine[], engine: SearchEngine): SearchMatch[] {
   const text = new Map(lines.map((line) => [line.line, line.text]));
   const around = (line: number) => {
     const value = text.get(line);
@@ -85,7 +85,7 @@ function matchesOf(lines: readonly GrepLine[], match: (line: string) => SearchRa
     .filter((line) => line.match)
     .map((line) => ({
       line: line.line,
-      ...engine.excerpt(line.text, match(line.text)),
+      ...engine.excerpt(line.text, line.ranges),
       before: around(line.line - 1),
       after: around(line.line + 1),
     }));

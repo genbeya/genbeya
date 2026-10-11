@@ -45,32 +45,6 @@ describe("SearchEngine.areaOf", () => {
   });
 });
 
-describe("SearchEngine.matcher", () => {
-  it("finds every literal occurrence, ignoring case", () => {
-    expect(engine.matcher(query("a.b"))("A.B axb a.b")).toEqual([
-      { start: 0, end: 3 },
-      { start: 8, end: 11 },
-    ]);
-  });
-
-  it("respects case, whole words and regular expressions", () => {
-    expect(engine.matcher(query("Log", { caseSensitive: true }))("log Log")).toEqual([{ start: 4, end: 7 }]);
-    expect(engine.matcher(query("log", { wholeWord: true }))("login log_x log, LOG")).toEqual([
-      { start: 12, end: 15 },
-      { start: 17, end: 20 },
-    ]);
-    expect(engine.matcher(query("colou?r", { regex: true }))("color colour")).toEqual([
-      { start: 0, end: 5 },
-      { start: 6, end: 12 },
-    ]);
-  });
-
-  it("finds nothing for patterns JavaScript cannot read, and skips empty matches", () => {
-    expect(engine.matcher(query("(?P<x>a)", { regex: true }))("abc")).toEqual([]);
-    expect(engine.matcher(query("x*", { regex: true }))("axxb")).toEqual([{ start: 1, end: 3 }]);
-  });
-});
-
 describe("SearchEngine.excerpt", () => {
   it("keeps short lines whole", () => {
     expect(engine.excerpt("short line", [{ start: 6, end: 10 }])).toEqual({ text: "short line", ranges: [{ start: 6, end: 10 }] });

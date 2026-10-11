@@ -4,6 +4,7 @@
  * so concurrent edits are never silently overwritten.
  */
 import { decodeText, encodeText, sha256 } from "../../utilities/bytes";
+import { parentOf, within } from "../../utilities/repository-path";
 import { HostError, isMissing, type EntryKind, type Host } from "../hosts/host";
 
 export const TEXT_LIMIT = 2 * 1024 * 1024;
@@ -56,13 +57,19 @@ export class FileStore {
 
   /** Writes `content` if the file is still at `expectedHash` (null: does not exist yet). */
   async write(path: string, content: string, expectedHash: string | null): Promise<VersionedFile> {
+    const { data, exists } = await this.check(path, content, expectedHash);
+    await this.host.write(this.root, path, data, !exists);
+    return { path, content, hash: sha256(content) };
+  }
+
+  /** Throws what {@link write} would refuse, without writing; for operations that check every file first. */
+  async check(path: string, content: string, expectedHash: string | null): Promise<{ data: Uint8Array; exists: boolean }> {
     const data = encodeText(content);
     if (data.length > TEXT_LIMIT) throw new Error("Files are limited to 2 MiB.");
     const actual = await this.versionOf(path);
     if (actual !== null && expectedHash === null) throw new HostError("EXISTS", path);
     if (actual !== expectedHash) throw new Error(`${path} changed on disk. Reload it before saving; your edits are kept.`);
-    await this.host.write(this.root, path, data, actual === null);
-    return { path, content, hash: sha256(content) };
+    return { data, exists: actual !== null };
   }
 
   remove(path: string): Promise<void> {
@@ -72,11 +79,35 @@ export class FileStore {
   /**
    * Moves entries in order, refusing before the first move when a target
    * exists; a target differing from its source only in case is left to the
-   * host, which knows whether they are the same entry.
+   * host, which knows whether they are the same entry. When a move fails,
+   * the ones before it are undone.
    */
   async moveAll(moves: readonly (readonly [string, string])[]): Promise<void> {
     for (const [from, to] of moves) if (from.toLowerCase() !== to.toLowerCase() && (await this.kind(to))) throw new HostError("EXISTS", to);
-    for (const [from, to] of moves) await this.host.move(this.root, from, to);
+    const done: (readonly [string, string])[] = [];
+    try {
+      for (const move of moves) {
+        await this.host.move(this.root, move[0], move[1]);
+        done.unshift(move);
+      }
+    } catch (error) {
+      try {
+        for (const [from, to] of done) await this.host.move(this.root, to, from);
+      } catch (undo) {
+        throw new Error(`${(error as Error).message} Undoing the moves before it failed too: ${(undo as Error).message}`, { cause: undo });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Removes the folders around `path` that are empty now that it moved or
+   * went, from its own up to (not including) `stop`. Git keeps no folders,
+   * so nothing else would.
+   */
+  async removeEmptyFolders(path: string, stop: string): Promise<void> {
+    for (let folder = parentOf(path); within(folder, stop); folder = parentOf(folder))
+      if (!(await this.host.removeEmptyFolder(this.root, folder))) return;
   }
 
   kind(path: string): Promise<EntryKind> {

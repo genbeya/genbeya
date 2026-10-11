@@ -48,9 +48,15 @@ export interface RunOptions {
   readonly env?: Readonly<Record<string, string>>;
 }
 
+/** The exit code of a process stopped because it ran out of time. */
+export const TIMED_OUT = 124;
+/** The exit code of a process stopped because it wrote more output than the runner keeps. */
+export const TOO_MUCH_OUTPUT = 125;
+
 /**
  * A finished process. A program that cannot start reports code 127 with an
- * explanation ("git was not found…" or "<cwd> does not exist.") in stderr.
+ * explanation ("git was not found…" or "<cwd> does not exist.") in stderr;
+ * one that was stopped reports {@link TIMED_OUT} or {@link TOO_MUCH_OUTPUT}.
  */
 export interface RunResult {
   readonly code: number;

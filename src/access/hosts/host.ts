@@ -25,6 +25,8 @@ export interface Host {
   remove(root: string, relative: string): Promise<void>;
   /** Moves a file or folder; fails when the target exists. */
   move(root: string, from: string, to: string): Promise<void>;
+  /** Removes a folder if it is empty; false when it is not, or is no folder. */
+  removeEmptyFolder(root: string, relative: string): Promise<boolean>;
   /** How to start the user's shell in `path` on this machine's pseudo-terminal. */
   terminalCommand(path: string): Promise<TerminalCommand>;
   dispose(): void;

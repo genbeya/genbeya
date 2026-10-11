@@ -5,8 +5,11 @@
  */
 import { validateRepositoryPath } from "./repository-path";
 
-/** `[[target]]` or `[[target|label]]`. */
-export const WIKILINK = /\[\[([^\]|\n]+)(?:\|([^\]\n]+))?\]\]/g;
+/**
+ * `[[target]]` or `[[target|label]]`. Neither holds `[[`, which starts the
+ * next reference, so matching takes linear time on any line.
+ */
+export const WIKILINK = /\[\[((?:[^\]|\n[]|\[(?!\[))+)(?:\|((?:[^\]\n[]|\[(?!\[))+))?\]\]/g;
 
 export interface ReferencePage {
   readonly title: string;

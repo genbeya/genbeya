@@ -8,7 +8,16 @@
  * (see {@link taskType}), or as `{ name, icon, tone }`.
  */
 import YAML from "yaml";
-import { FIELD_TYPES, TASK_KEYS, taskType, TONES, type FieldDefinition, type Settings, type TaskType } from "../contracts/model";
+import {
+  FIELD_TYPES,
+  TASK_KEYS,
+  taskType,
+  TONES,
+  type ContentArea,
+  type FieldDefinition,
+  type Settings,
+  type TaskType,
+} from "../contracts/model";
 import { validateRepositoryPath, within } from "../utilities/repository-path";
 import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
 
@@ -19,9 +28,20 @@ const LIMITS = { types: 20, fields: 30, options: 30, option: 60 } as const;
 /** A Lucide icon name, such as "trending-up". */
 const ICON = /^[a-z][a-z0-9-]{0,39}$/;
 /** Type names also name template files, so they stay plain. */
-const TYPE_NAME = /^[A-Za-z0-9][\w -]{0,39}$/;
+export const TYPE_NAME = /^[A-Za-z0-9][\w -]{0,39}$/;
 /** Field names are frontmatter keys that never need quoting. */
 const FIELD_NAME = /^[A-Za-z][\w-]{0,39}$/;
+
+/**
+ * The content area `path` belongs to: the settings file, the task folder
+ * with its templates, or the wiki folder with everything pages link to
+ * there, such as images; null for code.
+ */
+export function contentAreaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot">): ContentArea | null {
+  if (path === SETTINGS_FILE) return "settings";
+  if (within(path, settings.taskRoot)) return "tasks";
+  return within(path, settings.wikiRoot) ? "wiki" : null;
+}
 
 /** "GitDesk" → "GD", "my project" → "MP", "atlas" → "ATL". */
 function prefixFor(name: string): string {
@@ -95,6 +115,7 @@ export class SettingsEngine {
   }
 
   validate(value: Settings, windows: boolean): Settings {
+    if (!isRecord(value)) throw new Error("Invalid settings.");
     const text = (input: unknown, label: string, max: number) => {
       if (typeof input !== "string" || !input.trim() || input.length > max)
         throw new Error(`${label} is required (up to ${max} characters).`);

@@ -16,6 +16,7 @@ const FILES = [
   "docs/Getting-started.md",
   "docs/My Page.md",
   "docs/Other/Page.md",
+  "docs/Q&A.md",
   "tasks/GENBEYA-1.md",
   "src/app.ts",
 ];
@@ -136,5 +137,42 @@ describe("LinkEngine: names that need care", () => {
     ["docs/Guide.md", "docs/Archive/Home.md", "[[Guide]]", "[[Archive/Home]]"],
   ])("moving %s to %s rewrites %s", (from, to, before, after) => {
     expect(rewritten("docs/Home.md", before, moving(from, to))).toBe(after);
+  });
+});
+
+describe("LinkEngine: references and links as the renderer reads them", () => {
+  it.each([
+    ["docs/Guide.md", "docs/Manual.md", "| a |\n| - |\n| [[Guide/Wiki\\|the wiki]] |", "| a |\n| - |\n| [[Manual/Wiki\\|the wiki]] |"],
+    ["docs/Guide.md", "docs/Manual.md", "[[Guide/Wiki\\|the wiki]]", "[[Manual/Wiki\\|the wiki]]"],
+    ["docs/Guide.md", "docs/Manual.md", "[[Guide\\/Wiki]] [[&#71;uide]]", "[[Manual/Wiki]] [[Manual]]"],
+    ["docs/Q&A.md", "docs/FAQ.md", "[[Q&amp;A]] and [[Q&#38;A|questions]]", "[[FAQ]] and [[FAQ|questions]]"],
+    ["docs/Q&A.md", "docs/FAQ.md", "[x](Q&amp;A.md) [y](<Q&amp;A.md>)", "[x](FAQ.md) [y](<FAQ.md>)"],
+    // Windows and macOS file systems find a page by a link in other case.
+    ["docs/Guide.md", "docs/Manual.md", "[g](guide.md) [w](GUIDE/Wiki.md)", "[g](Manual.md) [w](Manual/Wiki.md)"],
+    ["docs/Guide.md", "docs/Manual.md", "[[docs/guide/diagram.png]]", "[[docs/Manual/diagram.png]]"],
+  ])("moving %s to %s rewrites %s", (from, to, before, after) => {
+    expect(rewritten("docs/Home.md", before, moving(from, to))).toBe(after);
+  });
+
+  it("leaves a link in other case alone where a file has exactly its name", () => {
+    const files = [...FILES, "docs/guide.md"];
+    const moves = wiki.planMove("docs/Guide.md", "docs/Manual.md", true);
+    const index = (list: readonly string[]) =>
+      referenceIndex({ wikiRoot: "docs", pages: wiki.pages(list, settings), tasks: [], files: list });
+    const context = { moves, before: index(files), after: index(files.map((file) => relocate(file, moves) ?? file)) };
+    expect(rewritten("docs/Home.md", "[g](guide.md)", context)).toBe("[g](guide.md)");
+  });
+});
+
+describe("LinkEngine: titles that collide after a move", () => {
+  // docs/Zeta/My-Page.md comes after docs/My Page.md, so "My Page" would name it.
+  const context = moving("docs/Getting-started.md", "docs/Zeta/My-Page.md");
+
+  it("keeps references to the other page with that title pointing at it", () => {
+    expect(rewritten("docs/Home.md", "[[My Page]] and [[my page|mine]]", context)).toBe("[[docs/My Page.md]] and [[docs/My Page.md|mine]]");
+  });
+
+  it("names the moved page by its path, as its title is no longer unique", () => {
+    expect(rewritten("docs/Home.md", "[[Getting started]]", context)).toBe("[[Zeta/My-Page]]");
   });
 });

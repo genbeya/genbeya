@@ -67,7 +67,8 @@ export class WikiEngine {
   planMove(from: string, to: string, hasSubpages: boolean): [string, string][] {
     if (from === to) return [];
     const folder = this.subpageFolder(from);
-    if (hasSubpages && within(to, folder)) throw new Error("A page cannot move below itself.");
+    // Ignoring case, as Windows and macOS see one folder in both spellings.
+    if (hasSubpages && within(to.toLowerCase(), folder.toLowerCase())) throw new Error("A page cannot move below itself.");
     return hasSubpages
       ? [
           [from, to],

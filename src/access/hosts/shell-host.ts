@@ -105,6 +105,20 @@ export class ShellHost implements Host {
     );
   }
 
+  async removeEmptyFolder(root: string, relative: string) {
+    try {
+      await this.file(
+        relative,
+        [root, relative],
+        `gd_check "$1" "$2" || exit $?; d=$1/$2; [ -d "$d" ] || exit 5; rmdir -- "$d" 2>/dev/null`,
+      );
+      return true;
+    } catch {
+      // Not empty, gone or out of reach: the folder stays.
+      return false;
+    }
+  }
+
   async move(root: string, from: string, to: string) {
     const caseOnly = from !== to && from.toLowerCase() === to.toLowerCase();
     await this.file(
