@@ -1,6 +1,6 @@
 import { toString } from "mdast-util-to-string";
 import { SKIP, visit } from "unist-util-visit";
-import type { Blockquote, Link, List, ListItem, Paragraph, PhrasingContent, Root, Text } from "mdast";
+import type { Link, List, ListItem, Paragraph, PhrasingContent, Root, Text } from "mdast";
 import { WIKILINK } from "../../../utilities/references";
 import type { DateOptions } from "./dates";
 import { headingIds } from "./headings";
@@ -87,7 +87,6 @@ function referenceLink(reference: Reference, label: string | undefined): Phrasin
       return link("gitdesk-missing:" + encodeURIComponent(reference.title), [], [{ type: "text", value: label ?? reference.title }]);
   }
 }
-const CALLOUT = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*\n?/i;
 
 function list(entries: Entry[], className?: string): List {
   return {
@@ -140,7 +139,6 @@ const pageEntries = (pages: PageRef[]): Entry[] =>
  * - `[SUBPAGES]` / `[[_TOSP_]]` for the pages below this one
  * - `[[GENBEYA-12]]`, `[[Page title]]`, `[[path/to/file.ts#L1-L9]]` references, `[[target|label]]`
  * - `![[path/to/file.ts#L1-L9]]` alone in a paragraph embeds the lines
- * - GitHub-style callouts: `> [!NOTE]`, `[!TIP]`, `[!WARNING]`, ...
  */
 export function remarkGitdesk(options: GitdeskOptions = {}) {
   return (tree: Root) => {
@@ -219,22 +217,6 @@ export function remarkGitdesk(options: GitdeskOptions = {}) {
       if (last < node.value.length) parts.push({ type: "text", value: node.value.slice(last) });
       (parent.children as PhrasingContent[]).splice(index, 1, ...parts);
       return [SKIP, index + parts.length];
-    });
-
-    visit(tree, "blockquote", (node: Blockquote) => {
-      const first = node.children[0];
-      if (first?.type !== "paragraph" || first.children[0]?.type !== "text") return;
-      const text = first.children[0] as Text;
-      const match = CALLOUT.exec(text.value);
-      if (!match) return;
-      const kind = match[1]!.toLowerCase();
-      text.value = text.value.slice(match[0].length);
-      if (!text.value && first.children.length === 1) node.children.shift();
-      else if (!text.value && first.children[1]?.type === "break") first.children.splice(0, 2);
-      node.data = {
-        ...node.data,
-        hProperties: { className: ["callout", `callout-${kind}`], "data-callout": kind },
-      };
     });
   };
 }

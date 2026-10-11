@@ -61,6 +61,43 @@ describe("MarkdownView", () => {
     await vi.waitFor(() => expect(element.querySelector(".md-diagram img")?.getAttribute("alt")).toBe("PlantUML diagram"));
   });
 
+  it("typesets math, and marks formulas KaTeX cannot read", async () => {
+    const { element } = await render("Inline $x^2$ and $\\frac{$.\n\n$$\n\\sum_i a_i\n$$");
+    await vi.waitFor(() => expect(element.querySelectorAll("math")).toHaveLength(2));
+    expect(element.querySelector("p > .md-math > math msup")).not.toBeNull();
+    expect(element.querySelector(".md-math.is-display > math")?.getAttribute("display")).toBe("block");
+    const error = element.querySelector<HTMLElement>(".md-math-error")!;
+    expect([error.textContent, error.title]).toEqual(["\\frac{", expect.stringContaining("KaTeX parse error")]);
+  });
+
+  it("wraps long lines of code on request", async () => {
+    const { element } = await render("```\nx\n```");
+    const wrap = element.querySelector<HTMLElement>("[aria-label='Wrap lines']")!;
+    wrap.click();
+    expect([element.querySelector(".md-code")?.classList.contains("is-wrapped"), wrap.getAttribute("aria-pressed")]).toEqual([
+      true,
+      "true",
+    ]);
+    wrap.click();
+    expect(element.querySelector(".md-code")?.classList.contains("is-wrapped")).toBe(false);
+  });
+
+  it("previews footnotes at their reference and links back", async () => {
+    const { element, host } = await render("Claim.[^1]\n\n[^1]: The **source**.");
+    const reference = element.querySelector<HTMLAnchorElement>("a[data-footnote-ref]")!;
+    reference.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    const preview = element.querySelector(".md-footnote-preview")!;
+    expect([preview.textContent?.trim(), preview.querySelector("strong")?.textContent]).toEqual(["The source.", "source"]);
+    expect(preview.querySelector("[data-footnote-backref], [id]")).toBeNull();
+    reference.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+    expect(element.querySelector(".md-footnote-preview")).toBeNull();
+    const note = element.querySelector<HTMLElement>(`#${CSS.escape(reference.getAttribute("href")!.slice(1))}`)!;
+    note.scrollIntoView = vi.fn();
+    reference.click();
+    expect(note.scrollIntoView).toHaveBeenCalled();
+    expect(host.links).toEqual([]);
+  });
+
   it("re-renders when the source changes", async () => {
     const { element, fixture } = await render("# One");
     fixture.componentInstance.source.set("# Two");

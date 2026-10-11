@@ -3,7 +3,8 @@
 The client displays content from repositories you may not fully trust, so it gets as little power as possible.
 
 - **Content security policy**: every shell serves the client with the same policy (`src/shells/content-security-policy.ts`): scripts only from the app itself, no inline scripts, no plugins, no frames, connections only to the app's own origin.
-- **Markdown**: raw HTML is not rendered. Pages become a syntax tree that is turned into DOM nodes through an allowlist of elements, attributes and URL schemes (`src/client/app/markdown/markdown-dom.ts`); nothing goes through `innerHTML`.
+- **Markdown**: raw HTML is not rendered, except `<kbd>`, `<sub>`, `<sup>`, `<br>` and `<details>`/`<summary>` written exactly so, without attributes (`src/client/app/markdown/raw-html.ts`). Pages become a syntax tree that is turned into DOM nodes through an allowlist of elements, attributes and URL schemes (`src/client/app/markdown/markdown-dom.ts`); nothing goes through `innerHTML`.
+- **Math**: KaTeX runs with `trust: false` and size and expansion limits, and renders MathML only — no HTML, no inline styles. Its markup is parsed in an inert document and rebuilt through an allowlist of MathML Core elements and presentational attributes (`src/client/app/markdown/mathml.ts`).
 - **Diagrams**: PlantUML renders locally with rockuml's WebAssembly engine, Mermaid with `securityLevel: strict`. Both, and SVGs from the repository, are shown as images, so scripts inside them never run.
 - **Remote content**: remote images never load implicitly. Nothing is sent to a server.
 - **Validated calls**: shells dispatch only the methods listed in `MANAGER_METHODS`, and the managers check every argument again. Repository paths are validated before they reach a host (see [Managers](Managers.md)).

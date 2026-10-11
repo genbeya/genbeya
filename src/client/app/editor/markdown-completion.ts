@@ -1,6 +1,7 @@
 /**
  * Completion while writing Markdown: `[[references]]`, `@mentions` of the
- * repository's people, and dates after `//`, never inside code or URLs.
+ * repository's people, dates after `//`, and blocks after `/` alone at the
+ * start of a line, never inside code or URLs.
  */
 import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
@@ -8,7 +9,9 @@ import type { EditorState, Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { Person } from "../../../contracts/model";
 import { formatDate, today } from "../ui/calendar-date";
+import { blockSource } from "./block-completion";
 import { openDatePicker } from "./date-picker";
+import { mathAt } from "./math-preview";
 import { MENTION_TRIGGER, mentionSuggestions, mentionText } from "./mention-suggestions";
 import { referenceSource, type ReferenceCandidate } from "./reference-completion";
 import { DATE_TRIGGER, dateSuggestions } from "./smart-dates";
@@ -20,11 +23,11 @@ export interface MarkdownCandidates {
   readonly today?: () => string;
 }
 
-/** Inside code, URLs or raw HTML, where `@` and `//` are what they are. */
+/** Inside code, URLs, raw HTML or math, where `@` and `//` are what they are. */
 function inCode(state: EditorState, pos: number): boolean {
   const inner = syntaxTree(state).resolveInner(pos, -1);
   for (let node: typeof inner | null = inner; node; node = node.parent) if (/Code|URL|Autolink|HTML|Comment/.test(node.name)) return true;
-  return false;
+  return mathAt(state.doc, pos) !== null;
 }
 
 /** The match of `trigger` in the line before the cursor, outside code. */
@@ -86,8 +89,12 @@ export function dateSource(now: () => string = () => today()) {
   };
 }
 
+/** Blocks to insert (block-completion.ts), but not in code blocks or math. */
+export const markdownBlockSource = (context: CompletionContext): CompletionResult | null =>
+  inCode(context.state, context.pos) ? null : blockSource(context);
+
 export const markdownCompletion = (candidates: MarkdownCandidates): Extension =>
   autocompletion({
-    override: [referenceSource(candidates.references), mentionSource(candidates.people), dateSource(candidates.today)],
+    override: [referenceSource(candidates.references), mentionSource(candidates.people), dateSource(candidates.today), markdownBlockSource],
     icons: true,
   });

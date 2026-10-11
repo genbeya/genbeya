@@ -1,6 +1,6 @@
 /**
- * Rendered Markdown: GitDesk's wiki syntax, highlighted code, diagrams and
- * repository images. Links and checkboxes are reported, not followed;
+ * Rendered Markdown: GitDesk's wiki syntax, highlighted code, diagrams, math
+ * and repository images. Links and checkboxes are reported, not followed;
  * mentions show who they mean.
  */
 import {
@@ -23,15 +23,31 @@ import { Theme } from "../core/theme";
 import { Diagrams } from "./diagrams";
 import { resolveHref, type LinkTarget } from "./link-target";
 import { embedSource } from "./embeds";
-import { icon, renderMarkdownTree, type Diagram, type Embed, type RenderedMarkdown, type RepositoryImage } from "./markdown-dom";
+import { footnotePreview } from "./footnotes";
+import {
+  icon,
+  renderMarkdownTree,
+  type Diagram,
+  type Embed,
+  type Formula,
+  type RenderedMarkdown,
+  type RepositoryImage,
+} from "./markdown-dom";
 import { parseMarkdown, type GitdeskOptions } from "./markdown-pipeline";
+import { Typesetter } from "./typesetter";
 
 const COPIED_FEEDBACK = 1200;
 
 @Component({
   selector: "gd-markdown",
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: "markdown selectable", "(click)": "click($event)", "(keydown)": "key($event)" },
+  host: {
+    class: "markdown selectable",
+    "(click)": "click($event)",
+    "(keydown)": "key($event)",
+    "(mouseover)": "hover($event)",
+    "(mouseout)": "unhover($event)",
+  },
   template: "",
 })
 export class MarkdownView {
@@ -52,6 +68,7 @@ export class MarkdownView {
   private readonly api = inject(WorkspaceApi);
   private readonly clipboard = inject(Clipboard);
   private readonly diagrams = inject(Diagrams);
+  private readonly typesetter = inject(Typesetter);
   private readonly theme = inject(Theme);
   private readonly injector = inject(Injector);
   private objectUrls: string[] = [];
@@ -61,6 +78,9 @@ export class MarkdownView {
   private files = new Map<string, Promise<string>>();
   /** Renders count up, so a slow image or diagram never lands in a newer render. */
   private generation = 0;
+  /** The footnote reference under the pointer and the preview of its note. */
+  private previewed: Element | null = null;
+  private preview: HTMLElement | null = null;
 
   constructor() {
     effect(() => {
@@ -83,13 +103,15 @@ export class MarkdownView {
     });
   }
 
-  private show({ fragment, images, diagrams, embeds }: RenderedMarkdown) {
+  private show({ fragment, images, diagrams, formulas, embeds }: RenderedMarkdown) {
     const generation = ++this.generation;
     this.revoke();
+    this.preview = this.previewed = null;
     this.host.replaceChildren(fragment);
     this.rendered.emit(this.host);
     for (const image of images) void this.load(image, generation);
     for (const diagram of diagrams) void this.draw(diagram, generation);
+    for (const formula of formulas) void this.typeset(formula, generation);
     for (const embed of embeds) void this.embed(embed, generation);
   }
 
@@ -182,6 +204,15 @@ export class MarkdownView {
     }
   }
 
+  private async typeset({ element, source, display }: Formula, generation: number) {
+    const result = await this.typesetter.render(source, display);
+    if (generation !== this.generation) return;
+    if ("math" in result) return element.replaceWith(result.math);
+    // The source stays, marked, with KaTeX's message on hover.
+    element.classList.add("md-math-error");
+    element.title = result.error;
+  }
+
   private missingImage(image: RepositoryImage): HTMLElement {
     const placeholder = document.createElement("span");
     placeholder.className = "md-remote-image";
@@ -198,6 +229,11 @@ export class MarkdownView {
     const target = event.target as Element;
     const copy = target.closest<HTMLElement>("[data-copy]");
     if (copy) return void this.copy(copy);
+    const wrap = target.closest<HTMLElement>("[data-wrap]");
+    if (wrap) {
+      const wrapped = wrap.closest(".md-code")?.classList.toggle("is-wrapped") ?? false;
+      return wrap.setAttribute("aria-pressed", String(wrapped));
+    }
     const checkbox = target.closest<HTMLElement>(".md-check.is-interactive");
     if (checkbox) return this.checkboxToggled.emit(Number(checkbox.dataset["offset"]));
     const anchor = target.closest("a");
@@ -224,6 +260,22 @@ export class MarkdownView {
     if (!person) return;
     const { openMentionPopover } = await import("./mention-popover");
     openMentionPopover(this.injector, anchor, person);
+  }
+
+  /** Footnote references show their note while the pointer is on them. */
+  protected hover(event: MouseEvent) {
+    const reference = (event.target as Element).closest<HTMLAnchorElement>("a[data-footnote-ref]");
+    if (!reference || this.previewed === reference) return;
+    this.preview?.remove();
+    this.previewed = reference;
+    this.preview = footnotePreview(reference, this.host);
+  }
+
+  protected unhover(event: MouseEvent) {
+    const reference = (event.target as Element).closest("a[data-footnote-ref]");
+    if (!reference || reference.contains(event.relatedTarget as Node | null)) return;
+    this.preview?.remove();
+    this.preview = this.previewed = null;
   }
 
   private async copy(button: HTMLElement) {

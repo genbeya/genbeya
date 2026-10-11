@@ -39,6 +39,9 @@ const ALLOWED = new Set([
   "sup",
   "sub",
   "section",
+  "kbd",
+  "details",
+  "summary",
 ]);
 /** Dropped together with their content. */
 const BLOCKED = new Set([
@@ -69,8 +72,9 @@ const ATTRIBUTES: Readonly<Record<string, string>> = {
   start: "start",
   ariaDescribedBy: "aria-describedby",
   ariaLabel: "aria-label",
+  open: "open",
 };
-/** Data attributes of callouts, footnotes and embeds; plugins name them `dataX` or `data-x`. */
+/** Data attributes of callouts, footnotes, embeds and code lines; plugins name them `dataX` or `data-x`. */
 const DATA_ATTRIBUTES = new Set([
   "data-callout",
   "data-footnote-ref",
@@ -78,6 +82,7 @@ const DATA_ATTRIBUTES = new Set([
   "data-footnotes",
   "data-embed",
   "data-lines",
+  "data-line",
 ]);
 
 function attributeName(property: string): string | undefined {
@@ -92,6 +97,14 @@ export interface Diagram {
   readonly element: HTMLElement;
   readonly language: "mermaid" | "plantuml";
   readonly source: string;
+}
+
+/** A LaTeX formula to typeset into `element` once inserted. */
+export interface Formula {
+  readonly element: HTMLElement;
+  readonly source: string;
+  /** A block (`$$`, ```math) rather than inline. */
+  readonly display: boolean;
 }
 
 export interface RepositoryImage {
@@ -113,6 +126,8 @@ export interface RenderedMarkdown {
   readonly embeds: readonly Embed[];
   /** Placeholders to draw diagrams into once inserted. */
   readonly diagrams: readonly Diagram[];
+  /** Placeholders to typeset formulas into once inserted. */
+  readonly formulas: readonly Formula[];
   /** Images from the repository, to load through the managers. */
   readonly images: readonly RepositoryImage[];
 }
@@ -139,6 +154,7 @@ const ICONS: Readonly<Record<string, readonly string[]>> = {
     "M8 10a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2z",
     "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2",
   ],
+  wrap: ["m16 16-3 3 3 3", "M3 12h14.5a1 1 0 0 1 0 7H13", "M3 19h6", "M3 5h18"],
   imageOff: [
     "m2 2 20 20",
     "M10.41 10.41a2 2 0 1 1-2.83-2.83",
@@ -176,6 +192,7 @@ const classesOf = (element: Element): string[] =>
 
 export function renderMarkdownTree(tree: Root, document: Document, options: RenderOptions): RenderedMarkdown {
   const diagrams: Diagram[] = [];
+  const formulas: Formula[] = [];
   const images: RepositoryImage[] = [];
   const embeds: Embed[] = [];
 
@@ -216,19 +233,59 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
       diagrams.push({ element: placeholder, language: diagram, source });
       return placeholder;
     }
-    const block = create("div", ["md-code"]);
+    const title = code?.properties["dataTitle"];
+    const block = create("div", ["md-code", ...(code?.properties["dataNumbered"] ? ["has-line-numbers"] : [])]);
     const bar = create("div", ["md-code-bar"]);
-    const label = create("span");
-    label.textContent = language;
-    const copy = create("button");
-    copy.setAttribute("type", "button");
-    copy.setAttribute("aria-label", "Copy code");
+    const label = create("span", ["md-code-label"]);
+    if (typeof title === "string") {
+      const name = create("span", ["md-code-title"]);
+      name.append(icon(document, "fileCode", 13), document.createTextNode(title));
+      label.append(name);
+    }
+    if (language) {
+      const name = create("span", ["md-code-language"]);
+      name.textContent = language;
+      label.append(name);
+    }
+    const wrap = button("Wrap lines", "wrap");
+    wrap.dataset["wrap"] = "";
+    wrap.setAttribute("aria-pressed", "false");
+    const copy = button("Copy code", "copy");
     copy.dataset["copy"] = source;
-    copy.append(icon(document, "copy", 13));
-    bar.append(label, copy);
+    const actions = create("span", ["md-code-actions"]);
+    actions.append(wrap, copy);
+    bar.append(label, actions);
     const body = create("pre");
     children(pre.children, body, null);
     block.append(bar, body);
+    return block;
+  };
+
+  const button = (label: string, image: keyof typeof ICONS) => {
+    const element = create("button");
+    element.setAttribute("type", "button");
+    element.setAttribute("aria-label", label);
+    element.title = label;
+    element.append(icon(document, image, 13));
+    return element;
+  };
+
+  /** The source stays readable until the formula is typeset. */
+  const formula = (node: Element): Node => {
+    const source = toText(node, { whitespace: "pre" });
+    const display = classesOf(node).includes("is-display");
+    const body = create("span", ["md-math-source"]);
+    body.textContent = source;
+    formulas.push({ element: body, source, display });
+    if (!display) {
+      const inline = create("span", ["md-math"]);
+      inline.append(body);
+      return inline;
+    }
+    const block = create("div", ["md-math", "is-display"]);
+    const copy = button("Copy LaTeX", "copy");
+    copy.dataset["copy"] = source;
+    block.append(body, copy);
     return block;
   };
 
@@ -297,6 +354,7 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
     if (tag === "a") return link(node, taskOffset);
     if (tag === "img") return image(node);
     if (tag === "div" && classesOf(node).includes("md-embed")) return embed(node);
+    if ((tag === "span" || tag === "div") && classesOf(node).includes("md-math")) return formula(node);
     if (!ALLOWED.has(tag)) {
       const unwrapped = document.createDocumentFragment();
       children(node.children, unwrapped, taskOffset);
@@ -316,5 +374,5 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
 
   const fragment = document.createDocumentFragment();
   children(tree.children, fragment, null);
-  return { fragment, embeds, diagrams, images };
+  return { fragment, embeds, diagrams, formulas, images };
 }

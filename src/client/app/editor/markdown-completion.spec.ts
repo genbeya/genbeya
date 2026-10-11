@@ -3,7 +3,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import type { Person } from "../../../contracts/model";
-import { dateSource, mentionSource } from "./markdown-completion";
+import { dateSource, markdownBlockSource, mentionSource } from "./markdown-completion";
 
 const people: Person[] = [
   { handle: "ada", name: "Ada Lovelace", email: "ada@example.com", aliases: [], commits: 2 },
@@ -82,5 +82,26 @@ describe("date completion", () => {
     document.querySelector(".date-picker [role='grid']")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(document.querySelector(".date-picker")).toBeNull();
     expect(view.state.sliceDoc()).toBe("Due //");
+  });
+});
+
+describe("blocks and dates", () => {
+  it("offers blocks after / alone at the start of a line, and dates after //", () => {
+    expect(complete("/|", markdownBlockSource).result?.options.map((option) => option.label)).toContain("Math");
+    expect(complete("/|", dates).result).toBeNull();
+    expect(complete("//|", markdownBlockSource).result).toBeNull();
+    expect(complete("//|", dates).result?.options.map((option) => option.label)).toContain("Today");
+    expect(complete("Due //|", markdownBlockSource).result).toBeNull();
+  });
+
+  it("offers no blocks inside code blocks or math", () => {
+    expect(complete("```sh\n/|\n```", markdownBlockSource).result).toBeNull();
+    expect(complete("$$\n/|\n$$", markdownBlockSource).result).toBeNull();
+  });
+
+  it("offers no mentions or dates inside math", () => {
+    expect(complete("$a @ad|$", mentions).result).toBeNull();
+    expect(complete("$$\nx //|\n$$", dates).result).toBeNull();
+    expect(complete("$a$ and @ad|", mentions).result).not.toBeNull();
   });
 });
