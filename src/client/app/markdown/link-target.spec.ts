@@ -14,10 +14,11 @@ describe("resolveHref", () => {
     expect(resolveHref("docs/Home.md", "My%20Page.md")).toEqual({ kind: "file", path: "docs/My Page.md", anchor: undefined });
   });
 
-  it("recognises external links, anchors and missing pages", () => {
+  it("recognises external links, anchors, missing pages and people", () => {
     expect(resolveHref("docs/Home.md", "https://example.com")).toEqual({ kind: "external", url: "https://example.com" });
     expect(resolveHref("docs/Home.md", "#top")).toEqual({ kind: "anchor", id: "top" });
     expect(resolveHref("docs/Home.md", "gitdesk-missing:New%20Page")).toEqual({ kind: "missing", title: "New Page" });
+    expect(resolveHref("docs/Home.md", "gitdesk-person:ada")).toEqual({ kind: "person", handle: "ada" });
   });
 
   it("keeps malformed escapes", () => {

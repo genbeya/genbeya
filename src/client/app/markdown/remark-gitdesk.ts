@@ -2,7 +2,9 @@ import { toString } from "mdast-util-to-string";
 import { SKIP, visit } from "unist-util-visit";
 import type { Blockquote, Link, List, ListItem, Paragraph, PhrasingContent, Root, Text } from "mdast";
 import { WIKILINK } from "../../../utilities/references";
+import type { DateOptions } from "./dates";
 import { headingIds } from "./headings";
+import type { MentionOptions } from "./mentions";
 import { normalizeTitle, referenceTargets, resolveReference, type Reference, type ReferenceSources } from "./references";
 
 export interface PageRef {
@@ -11,7 +13,7 @@ export interface PageRef {
   children: PageRef[];
 }
 
-export interface GitdeskOptions {
+export interface GitdeskOptions extends MentionOptions, DateOptions {
   /** Pages below the current one, for `[SUBPAGES]`. */
   subpages?: PageRef[];
   /** Tasks, pages and files that `[[references]]` and task IDs in text point to. */

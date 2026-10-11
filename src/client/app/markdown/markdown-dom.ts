@@ -5,7 +5,7 @@
  */
 import type { Element, ElementContent, Root, RootContent } from "hast";
 import { toText } from "hast-util-to-text";
-import { MISSING_PAGE, resolveHref, type LinkTarget } from "./link-target";
+import { MISSING_PAGE, PERSON_LINK, resolveHref, type LinkTarget } from "./link-target";
 
 const ALLOWED = new Set([
   "p",
@@ -240,7 +240,7 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
       anchor.className = "md-missing";
       anchor.title = "Create this page";
       anchor.setAttribute("href", href);
-    } else if (SAFE_URL.test(href)) {
+    } else if (href.startsWith(PERSON_LINK) || SAFE_URL.test(href)) {
       anchor.setAttribute("href", href);
       if (/^https?:/i.test(href)) anchor.title = href;
     }
