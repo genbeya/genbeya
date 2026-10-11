@@ -32,6 +32,10 @@ export const CHANGELOG: readonly Release[] = [
         target: "gd-sync-bar",
         route: "/changes",
       },
+      {
+        title: "Math and more for engineering docs",
+        body: "Pages, tasks and comments typeset LaTeX math (`$…$`, `$$…$$`), give code blocks titles, line numbers and highlighted lines, fold callouts, preview footnotes and show `<kbd>` keys and `<details>` sections. In the editor, `/` at the start of a line inserts blocks.",
+      },
     ],
   },
   {

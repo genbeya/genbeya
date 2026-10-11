@@ -5,6 +5,7 @@ How to work with GitDesk day to day, one area per page.
 | Page | Covers |
 | --- | --- |
 | [Wiki](Guide/Wiki.md) | Pages and subpages, the editor, links, callouts, diagrams and images |
+| [Writing pages](Guide/Writing.md) | Math, code blocks with titles and line numbers, foldable callouts, footnotes, keys, collapsible sections, and inserting blocks with `/` |
 | [References](Guide/References.md) | `[[…]]` links to tasks, pages and files, line ranges, embeds, and what happens when things move |
 | [Tasks](Guide/Tasks.md) | The board and the list, the task file, comments, activity, epics, workflow states, types, templates and custom fields |
 | [Code](Guide/Code.md) | The editor: find and replace, several cursors, folding, the minimap |

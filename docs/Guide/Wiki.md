@@ -9,6 +9,7 @@ Every page is a Markdown file in the wiki folder (`docs/` unless **Settings** na
 - `E` (or **Edit**) opens the editor, with a live preview next to the source; **Toggle preview** hides and shows it. `Ctrl+S` saves, `Esc` stops editing.
 - `N` (or the button above the page list) creates a page. Write `/` in its name to nest it: `Architecture/Database` becomes a subpage of *Architecture*.
 - Type `[[` to link a task, a page or a file — see [References](References.md).
+- Type `/` at the start of a line to insert math, a diagram, a callout, a table and other blocks — see [Writing pages](Writing.md).
 - The editor is the same as in **Code**, with find and replace, several cursors and the other keys in [Keyboard shortcuts](Keyboard-shortcuts.md).
 
 A page's file name is its title, with dashes for spaces: `Getting-started.md` is *Getting started*. The home page (`Home.md` unless **Settings** says otherwise) comes first in the list; the others are sorted by title.
@@ -61,6 +62,8 @@ A folder without a matching page still shows up and lists its children. **New su
 | ` ```plantuml ` | A PlantUML diagram |
 | ` ```ts ` (any language) | Syntax highlighting |
 | `- [ ]` and `- [x]` | A checklist |
+
+[Writing pages](Writing.md) has more: math, code blocks with titles, line numbers and highlighted lines, foldable callouts, footnotes, keys and collapsible sections.
 
 > [!TIP]
 > PlantUML diagrams render inside GitDesk with [rockuml](https://github.com/h3ll5ur7er/rockuml): no Java, no server, and the diagram source never leaves your machine. A diagram may start with `@startuml` or contain just the body.
