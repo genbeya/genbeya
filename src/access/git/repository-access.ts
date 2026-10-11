@@ -23,7 +23,9 @@ import { isMissing, isTooLarge, type Host } from "../hosts/host";
 import { Git, GitError, NETWORK_TIMEOUT } from "./git";
 import { LOG_FORMAT, parseLog, parseNameStatus, parseRemotes } from "./git-parsers";
 import { OperationAccess } from "./operation-access";
+import { PushAccess } from "./push-access";
 import { RefAccess } from "./ref-access";
+import { ResetAccess } from "./reset-access";
 import { restage, StagingAccess } from "./staging-access";
 import { StashAccess } from "./stash-access";
 
@@ -46,6 +48,8 @@ export class RepositoryAccess {
   readonly refs: RefAccess;
   readonly stashes: StashAccess;
   readonly operations: OperationAccess;
+  readonly resets: ResetAccess;
+  readonly pushes: PushAccess;
   readonly staging: StagingAccess;
 
   constructor(
@@ -54,6 +58,8 @@ export class RepositoryAccess {
   ) {
     this.git = new Git(host, root);
     this.refs = new RefAccess(this.git);
+    this.resets = new ResetAccess(this.git);
+    this.pushes = new PushAccess(this.git);
     this.operations = new OperationAccess(host, root, this.git);
     this.stashes = new StashAccess(this.git, () => this.operations.conflicted());
     this.staging = new StagingAccess(host, this.git, () => this.operations.gitDir());

@@ -30,6 +30,20 @@ describe("Notifications", () => {
     expect(notifications.visible().map((n) => n.message)).toEqual(["Fetch failed"]);
   });
 
+  it("keeps a success with an action longer, and dismisses a toast whose action runs", () => {
+    const undo = vi.fn();
+    notifications.success("Reset main", { label: "Undo", run: undo });
+    notifications.error("Push rejected", { label: "Force push…", run: vi.fn() });
+    vi.advanceTimersByTime(3000);
+    expect(notifications.visible().map((n) => n.action?.label)).toEqual(["Undo", "Force push…"]);
+    notifications.act(notifications.visible()[0]!);
+    expect(undo).toHaveBeenCalledOnce();
+    expect(notifications.visible().map((n) => n.message)).toEqual(["Push rejected"]);
+    notifications.success("Reset main", { label: "Undo", run: undo });
+    vi.advanceTimersByTime(10_000);
+    expect(notifications.visible().map((n) => n.message)).toEqual(["Push rejected"]);
+  });
+
   it("dismisses on request", () => {
     notifications.error("x");
     notifications.dismiss(notifications.visible()[0]!.id);

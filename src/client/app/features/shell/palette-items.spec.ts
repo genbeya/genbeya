@@ -27,6 +27,23 @@ describe("palette items", () => {
     expect(items.some((item) => item.id === "sync-content")).toBe(false);
   });
 
+  it("pushes, publishes a branch without upstream, pushes elsewhere and undoes the last commit", () => {
+    const run = (id: string) => items.find((item) => item.id === id)!.run();
+    expect(items.find((item) => item.id === "push")?.label).toBe("Push to origin");
+    run("push");
+    expect(calls.get("push")).toHaveBeenCalled();
+    run("push-to");
+    expect(calls.get("pushTo")).toHaveBeenCalled();
+    run("undo-commit");
+    expect(calls.get("undoLastCommit")).toHaveBeenCalled();
+
+    const keys = { mod: "⌘", ctrl: "⌃" };
+    const unpublished = allItems({ ...repository, head: { ...repository.head, upstream: null } }, [], "dark", keys, commands);
+    expect(unpublished.find((item) => item.id === "push")?.label).toBe("Publish branch");
+    const merging = allItems({ ...repository, operation: { kind: "merge" } as never }, [], "dark", keys, commands);
+    expect(merging.some((item) => item.id === "undo-commit")).toBe(false);
+  });
+
   it("lists the checkout's copy of an area on the content branch as files, and offers to sync it", () => {
     const shared = allItems({ ...repository, storage: contentBranch(["wiki"]) }, [], "dark", { mod: "⌘", ctrl: "⌃" }, commands);
     expect(shared.map((item) => item.id)).toEqual(expect.arrayContaining(["sync-content", "page:docs/Home.md", "file:docs/Home.md"]));

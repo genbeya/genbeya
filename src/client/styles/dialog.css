@@ -68,6 +68,21 @@
   color: var(--red);
 }
 
+/* Consequences to read before confirming, such as commits others lose. */
+.dialog-warning {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-active);
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dialog-warning.is-danger {
+  box-shadow: inset 3px 0 0 var(--red);
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

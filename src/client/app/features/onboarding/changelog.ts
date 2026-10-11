@@ -24,6 +24,17 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: "0.4",
+    items: [
+      {
+        title: "Reset, publish and force push",
+        body: "Right-click a commit in **History** to reset the branch to it, with **Undo** right afterwards. **Publish branch** pushes a new branch and tracks it, **Push to…** pushes anywhere, and a rejected push offers a force push with lease that shows what the remote loses.",
+        target: "gd-sync-bar",
+        route: "/changes",
+      },
+    ],
+  },
+  {
     version: "0.3",
     items: [
       {

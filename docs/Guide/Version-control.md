@@ -1,6 +1,6 @@
 # Version control
 
-**Changes** (`Ctrl+4`) and **History** (`Ctrl+5`) cover the Git work of every day — commit, branch, merge, rebase, stash, and resolve conflicts — without leaving the window.
+**Changes** (`Ctrl+4`) and **History** (`Ctrl+5`) cover the Git work of every day — commit, branch, push, merge, rebase, reset, stash, and resolve conflicts — without leaving the window.
 
 [TOC]
 
@@ -13,7 +13,7 @@ The **Changes** view lists staged and unstaged files. Select a file to see its d
 - Write a message and press `Ctrl+Enter`. With nothing staged, the button commits all changes.
 - **Amend last commit** loads the previous message for editing.
 
-Fetch, pull (fast-forward only) and push sit above the file list, together with how far the branch is ahead of or behind its upstream.
+Fetch, pull (fast-forward only) and push sit above the file list, together with how far the branch is ahead of or behind its upstream. A branch without upstream shows **Publish branch** instead of push (see [Pushing](#pushing)). The **⋯** menu next to them has **Push to…** and **Undo last commit**, which takes the last commit off the branch and keeps its changes staged; **Redo** in the message afterwards puts it back.
 
 ## Stashes
 
@@ -35,8 +35,41 @@ The branch button at the bottom of the sidebar switches branches; remote branche
 Right-click a commit in **History** for everything else:
 
 - **Create branch here…** starts a branch at the commit; tick **Switch to the new branch** to check it out right away.
-- For each branch pointing at the commit: **Switch to**, **Rename…**, **Set upstream of…** (the remote branch pull and push use) and **Delete…**. A branch with commits that are on neither its upstream nor the current branch is only deleted after a second confirmation, since its commits could be lost.
+- For each branch pointing at the commit: **Switch to**, **Rename…**, **Set upstream of…** (the remote branch pull and push use), **Push … to…** (see [Pushing](#pushing)) and **Delete…**. A branch with commits that are on neither its upstream nor the current branch is only deleted after a second confirmation, since its commits could be lost.
 - For each remote branch: **Check out** (when there is no local branch of that name) and **Delete on the remote…**, which removes it for everyone.
+
+## Pushing
+
+The push button in **Changes** pushes the current branch to its upstream. A branch without upstream offers **Publish branch** instead: it pushes the branch to `origin` (or the only remote) under the same name and makes that its upstream, so pull and push know where to go from then on. With several remotes and none called `origin`, GitDesk asks which one.
+
+**Push to…** — in the **⋯** menu of **Changes**, as **Push … to…** in the menu of a branch in **History**, and in the palette — pushes any local branch anywhere:
+
+- **Remote** and **Remote branch**: by default the upstream, else the same name on `origin`. The name can differ, for example your `feature` to the remote's `main`. GitDesk warns when you push to the remote's default branch or to another branch the remote already has, unless it is the upstream.
+- **Set as upstream** makes the remote branch the one pull and push use. It is ticked when the branch has no upstream yet.
+- **Force (with lease)** replaces the remote branch; see below.
+
+### Force push
+
+When the remote branch has commits yours lacks — after you amended or rebased commits you had pushed, say — the remote rejects the push. The message offers **Force push with lease…**, and so does the push dialog.
+
+Before anything happens, GitDesk lists the commits the remote branch loses: everyone who uses the remote loses them too. The push then only goes through while the remote branch is still where your last fetch saw it (`--force-with-lease` with that commit, plus `--force-if-includes` on Git 2.30 or newer). If someone pushed in the meantime, it fails with *origin/main changed since your last fetch* — fetch, look at what they pushed, and decide again. A fetch in between does not change what GitDesk expects; GitDesk never force pushes without a lease.
+
+The remote's default branch, usually `main`, is the history everyone starts from: force pushing to it needs a tick in **I know, rewrite main anyway**.
+
+## Resetting
+
+Right-click a commit in **History** and choose **Reset … to here…** to move the current branch to that commit. The dialog explains what each mode keeps:
+
+| Mode | The commits' changes | Your uncommitted changes |
+| --- | --- | --- |
+| **Soft** | staged | kept |
+| **Mixed** (default) | in your files, unstaged | kept |
+| **Keep** | gone | kept; refuses if the reset would overwrite them |
+| **Hard** | gone | gone |
+
+A hard reset lists the uncommitted files it would discard and needs **Discard my uncommitted changes** ticked; editors with unsaved edits are asked about first. When some of the commits are already on the upstream, the dialog says so: afterwards the branch is behind it, a pull brings them back, and removing them there as well takes a [force push](#force-push). GitDesk does not reset during a merge, rebase, cherry-pick or revert.
+
+The message after a reset has **Undo**, which moves the branch back with the same mode (a hard reset with **Keep**, which refuses to overwrite anything you changed since). After a hard reset that discarded uncommitted changes there is no **Undo**: the commits could come back, the changes could not.
 
 ## Tags
 
@@ -55,7 +88,7 @@ Rebasing replays the current branch's own commits on top of another branch, for 
 - **Rebase … onto …** in the menu of a branch, remote branch or tag in **History**, or **Rebase … onto…** in the palette. GitDesk says how many commits are replayed before it starts.
 - **Pull from … by rebasing** in the palette fetches the upstream and replays your unpushed commits on top of it, instead of the fast-forward-only **Pull**.
 
-Rebasing creates new commits. When some of them are already on a remote branch, GitDesk warns you: you would have to force-push that branch, which GitDesk does not do for you.
+Rebasing creates new commits. When some of them are already on a remote branch, GitDesk warns you: you would have to [force push](#force-push) that branch afterwards.
 
 Uncommitted changes are stashed while a rebase runs and put back afterwards; if they no longer apply cleanly, they stay in the stash list.
 

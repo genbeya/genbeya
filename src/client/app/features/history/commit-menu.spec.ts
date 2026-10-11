@@ -2,6 +2,8 @@ import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import type { Commit, Snapshot } from "../../../../contracts/model";
+import { Notifications } from "../../core/notifications";
+import { UnsavedChanges } from "../../core/unsaved-changes";
 import { openRepository, settle } from "../../testing/component-harness";
 import { CommitMenu } from "./commit-menu";
 import type { NewRef, RefDialogOptions } from "./ref-dialog";
@@ -60,6 +62,12 @@ async function rightClick(change: Partial<Snapshot> = {}, onHead: ReadonlySet<st
   return { ...harness, fixture, choose };
 }
 
+/** {@link rightClick}, with the services the tests look into. */
+async function withServices() {
+  const harness = await rightClick();
+  return { ...harness, unsaved: TestBed.inject(UnsavedChanges), notifications: TestBed.inject(Notifications) };
+}
+
 /** The ref dialog creates the ref with its answer before it closes. */
 const answer = (dialogs: { open: ReturnType<typeof vi.fn> }, ref: NewRef) =>
   dialogs.open.mockImplementation(async (_: unknown, options: RefDialogOptions) => ((await options.accept?.(ref)) ? undefined : ref));
@@ -81,13 +89,16 @@ describe("CommitMenu", () => {
       "Cherry-pick onto main",
       "Revert…",
       "Rebase interactively from here…",
+      "Reset main to here…",
       "Rename main…",
       "Set upstream of main…",
+      "Push main to…",
       "Merge feature into main…",
       "Rebase main onto feature…",
       "Switch to feature",
       "Rename feature…",
       "Set upstream of feature…",
+      "Push feature to…",
       "Delete feature…",
       "Merge origin/feature into main…",
       "Rebase main onto origin/feature…",
@@ -178,6 +189,65 @@ describe("CommitMenu", () => {
     await vi.waitFor(() => expect(managers.versionControl.cherryPick).toHaveBeenCalledWith("w1", COMMIT.hash));
     await choose("Revert…");
     await vi.waitFor(() => expect(managers.versionControl.revert).toHaveBeenCalledWith("w1", COMMIT.hash));
+  });
+
+  it("resets the branch to the commit in the chosen mode and offers to undo it", async () => {
+    const { dialogs, managers, choose, unsaved, notifications } = await withServices();
+    const plan = { branch: "main", head: "h".repeat(40), target: COMMIT.hash, commits: 1, upstream: null, pushed: 0, uncommitted: [] };
+    managers.versionControl.resetPlan.mockResolvedValue(plan);
+    managers.versionControl.reset.mockResolvedValue({ from: plan.head, to: plan.target });
+    dialogs.open.mockResolvedValue("hard");
+    unsaved.mark({}, true);
+    await choose("Reset main to here…");
+    await vi.waitFor(() => expect(managers.versionControl.reset).toHaveBeenCalledWith("w1", COMMIT.hash, "hard", plan.head));
+    expect(dialogs.open).toHaveBeenCalledWith(expect.anything(), { plan, at: "ccccccc Add things" });
+    // Unsaved editors are asked about first.
+    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Discard unsaved changes?" }));
+    const [done] = notifications.visible();
+    expect(done).toMatchObject({ message: "Reset main to ccccccc", action: { label: "Undo" } });
+    notifications.act(done!);
+    // A hard reset is undone with keep, which never overwrites changes made since.
+    await vi.waitFor(() => expect(managers.versionControl.reset).toHaveBeenLastCalledWith("w1", plan.head, "keep", plan.target));
+  });
+
+  it("offers no undo after a hard reset that discarded uncommitted changes", async () => {
+    const { dialogs, managers, choose, notifications } = await withServices();
+    const plan = {
+      branch: "main",
+      head: "h".repeat(40),
+      target: COMMIT.hash,
+      commits: 1,
+      upstream: null,
+      pushed: 0,
+      uncommitted: ["a.ts"],
+    };
+    managers.versionControl.resetPlan.mockResolvedValue(plan);
+    managers.versionControl.reset.mockResolvedValue({ from: plan.head, to: plan.target });
+    dialogs.open.mockResolvedValue("hard");
+    await choose("Reset main to here…");
+    await vi.waitFor(() => expect(notifications.visible()).toHaveLength(1));
+    expect(notifications.visible()[0]!.action).toBeUndefined();
+  });
+
+  it("asks where to push a branch, and pushes it there", async () => {
+    const { dialogs, managers, choose } = await rightClick();
+    managers.versionControl.pushPlan.mockResolvedValue({
+      branch: "feature",
+      upstream: null,
+      remotes: [{ remote: "origin", defaultBranch: "main", branches: [] }],
+    });
+    dialogs.open.mockResolvedValue({ remote: "origin", remoteBranch: "main", setUpstream: false, force: false });
+    managers.versionControl.push.mockResolvedValue("done");
+    await choose("Push feature to…");
+    await vi.waitFor(() =>
+      expect(managers.versionControl.push).toHaveBeenCalledWith("w1", {
+        branch: "feature",
+        remote: "origin",
+        remoteBranch: "main",
+        setUpstream: false,
+      }),
+    );
+    expect(managers.versionControl.pushPlan).toHaveBeenCalledWith("w1", "feature");
   });
 
   it("deletes remote branches after asking", async () => {
