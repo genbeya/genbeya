@@ -34,7 +34,7 @@ The Angular client is 613 kB of initial JavaScript (120 kB compressed). Mermaid 
 
 ## What each runtime costs
 
-**Electron**: the largest download, and Chromium updates come with the app. In exchange the best isolation (managers in their own process, sandboxed renderer, navigation guard), the same engine on every OS, and the end-to-end tests run against it. The [[Terminal]] uses node-pty, a native module that ships unpacked next to the app archive.
+**Electron**: the largest download, and Chromium updates come with the app. In exchange the best isolation (managers in their own process, sandboxed renderer, navigation guard), the same engine on every OS, and the end-to-end tests run against it. The [Terminal](../Guide/Terminal.md) uses node-pty, a native module that ships unpacked next to the app archive.
 
 **Tauri**
 - The managers run in the webview, so the page has file and process access through the Rust commands. Processes are limited to `git`, `ssh` and `wsl`, terminals to the user's shell, `wsl` and `ssh` (portable-pty), but file paths are not scoped yet. The content security policy and the Markdown allowlist are what keeps repository content from using it. Keeping a process boundary means moving the managers into a sidecar process or porting them to Rust.
@@ -45,7 +45,7 @@ The Angular client is 613 kB of initial JavaScript (120 kB compressed). Mermaid 
 - Labelled experimental. No folder dialog (the shell calls PowerShell, `osascript` or `zenity`), no theme override, no shell-level navigation guard, no single-instance or jump list support. It is packaged with all permissions (`-A`).
 - No handler for `gitdesk://` links: Deno Desktop cannot register a URL scheme with the operating system, so links are pasted into the command palette. Electron registers the scheme when the installed app starts, Tauri through its installers (and AppImages at start), both through the single-instance hand-over for a running app.
 - Would write its WebView2 profile next to the executable, which is read-only once installed. Deno Desktop creates the webview before the app's code runs and has no setting for the profile folder, so on Windows the app starts itself again with `WEBVIEW2_USER_DATA_FOLDER` pointing to `%LOCALAPPDATA%\GitDesk Deno\WebView2` (`src/shells/deno/main.ts`). The variable must be the running user's, so it cannot be set at build time.
-- No [[Terminal]]. node-pty loads under Deno's Node compatibility, but on Windows it opens its ConPTY pipes with `fs` calls Deno rejects, and `deno desktop` cannot bundle a native module. The shell gives the managers a machine without terminals, and the panel says so.
+- No [Terminal](../Guide/Terminal.md). node-pty loads under Deno's Node compatibility, but on Windows it opens its ConPTY pipes with `fs` calls Deno rejects, and `deno desktop` cannot bundle a native module. The shell gives the managers a machine without terminals, and the panel says so.
 - Ships its own runtime, so the size win is small, and it uses the most memory of the three.
 
 ## Trying the builds
@@ -60,4 +60,4 @@ Every push to `main` publishes one GitHub release with all variants for all plat
 
 The builds are unsigned: on Windows choose *More info → Run anyway*; on macOS open the app once with right-click → *Open*; on Linux `chmod +x` the AppImage.
 
-The Electron build installs as "GitDesk". Tauri installs as "GitDesk Tauri" with its own settings (`dev.gitdesk.tauri`), and Deno Desktop as "GitDesk Deno" with its own settings folder, so all three can be used side by side. To build locally, see [[Development]].
+The Electron build installs as "GitDesk". Tauri installs as "GitDesk Tauri" with its own settings (`dev.gitdesk.tauri`), and Deno Desktop as "GitDesk Deno" with its own settings folder, so all three can be used side by side. To build locally, see [Development](../Development.md).

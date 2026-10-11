@@ -1,5 +1,9 @@
 # Version control
 
+**Changes** (`Ctrl+4`) and **History** (`Ctrl+5`) cover the Git work of every day — commit, branch, merge, rebase, stash, and resolve conflicts — without leaving the window.
+
+[TOC]
+
 ## Changes
 
 The **Changes** view lists staged and unstaged files. Select a file to see its diff; switch between side-by-side and inline with the button in the corner.
@@ -73,11 +77,14 @@ Right-click a commit in **History**: **Cherry-pick onto …** applies its change
 
 When a merge, rebase, cherry-pick or revert conflicts, Git stops halfway. A banner above every view says what is going on — for example *Merging feature into main — 2 conflicts* — with:
 
+- **Resolve**, while conflicts are left: goes to **Changes**, where they are listed.
 - **Continue**, once every conflict is resolved: finishes the merge with its prepared message, or goes on with the next commit of a rebase.
 - **Skip** (rebase, cherry-pick and revert): leaves out the commit Git stopped at.
 - **Abort**: puts everything back as it was before the operation started. GitDesk asks first; resolutions made so far are lost.
 
 Conflicted files are listed under **Conflicts** at the top of **Changes**. Select one to resolve it:
+
+![A merge conflict in Changes: the banner above, the conflicted file with its markers, and the buttons that resolve it](../images/conflict.png)
 
 - The editor shows the file with Git's conflict markers. The bar above it steps through the conflicts; **Accept current** keeps your side (HEAD), **Accept incoming** the side being merged in, **Accept both** keeps both, yours first. Files written in Git's diff3 style also show the common ancestor, which accepting a side drops.
 - Edit the result freely in the editor — the buttons always act on the conflicts still marked in the text.
@@ -94,4 +101,4 @@ Binary files offer only whole sides. A file one side deleted and the other chang
 **History** shows every branch with a commit graph. Select a commit to see its message and files; merges are compared with their first parent.
 
 > [!NOTE]
-> GitDesk runs its own Git commands without repository hooks. Run Git in the [[Terminal]] when a workflow depends on hooks.
+> GitDesk runs its own Git commands without repository hooks. Run Git in the [Terminal](Terminal.md) when a workflow depends on hooks.
