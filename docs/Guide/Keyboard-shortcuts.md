@@ -1,32 +1,34 @@
 # Keyboard shortcuts
 
+Press `?` anywhere outside a text field for a short list. This page has all of them.
+
 On macOS, use `⌘` where this page says `Ctrl`, except for `` Ctrl+` ``: macOS switches windows with `` ⌘+` ``, so the terminal keeps `Ctrl` there.
 
 | Keys | Action |
 | --- | --- |
-| `Ctrl+K`, `Ctrl+P` | Search pages, tasks, files and commands |
-| `Ctrl+Shift+F`, or `/` first in the `Ctrl+K` palette | [[Search]] inside pages, tasks and files |
+| `Ctrl+K`, `Ctrl+P` | Find pages, tasks, files and commands; paste a GitDesk link to open it |
+| `Ctrl+Shift+F`, or `/` first in the `Ctrl+K` palette | [Search](Search.md) inside pages, tasks and files |
 | `Alt+C`, `Alt+W`, `Alt+R` | While searching inside files: match case, whole words, regular expression |
 | `Ctrl+1` … `Ctrl+5` | Wiki, Tasks, Code, Changes, History |
 | `Ctrl+,` | Settings |
-| `` Ctrl+` `` | Show or hide the [[Terminal]] |
+| `` Ctrl+` `` | Show or hide the [Terminal](Terminal.md) |
 | `Alt+←` / `Alt+→`, mouse back/forward | Back / forward |
 | `Ctrl+O` | Open a folder |
 | `/` | Focus the filter of the current view |
 | `?` | Show shortcuts |
 | `E` | Edit the open page or task |
-| `N` | New page |
-| `C` | New task |
-| `Ctrl+S` | Save |
-| `Esc` | Stop editing, close the task panel |
-| `Ctrl+Enter` | Commit (Changes), save (task) |
-| Context-menu key, `Shift+F10` | Copy a link to the focused page, task, file or commit |
+| `N` | New page (in the wiki) |
+| `C` | New task (on the board or list) |
+| `Ctrl+S` | Save a page, task, file or the settings |
+| `Esc` | Stop editing; again: close the task panel |
+| `Ctrl+Enter` | Commit (in Changes), save a task, add a comment |
+| Context-menu key, `Shift+F10` | Open the menu of the focused page, task, file or commit, as a right-click does |
 
 While a terminal has focus, every key except `` Ctrl+` `` goes to the shell.
 
 ## In the editor
 
-The editor for code, pages and tasks follows VS Code; see [[Code]]. Where macOS differs by more than `⌘` for `Ctrl`, the second column says so.
+The editor for code, pages and tasks follows VS Code; see [Code](Code.md). Where macOS differs by more than `⌘` for `Ctrl`, the second column says so.
 
 | Keys | macOS | Action |
 | --- | --- | --- |

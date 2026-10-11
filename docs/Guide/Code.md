@@ -1,6 +1,16 @@
 # Code
 
-The **Code** view (`Ctrl+3`) lists the repository's files. Select one to edit it; `Ctrl+S` saves. Markdown files can be previewed. The editor works like VS Code's for everyday editing — every key is in [[Keyboard shortcuts]].
+The **Code** view (`Ctrl+3`) lists the repository's files, without those `.gitignore` excludes. Select one to edit it; `Ctrl+S` saves, and the change shows up in **Changes**. `/` filters the file list, the button above it creates a file, and the `…` menu of a file shows its changes, copies links to it (see [Sharing](Sharing.md)) or deletes it.
+
+The same editor edits wiki pages and task descriptions. It works like VS Code's for everyday editing — every key is in [Keyboard shortcuts](Keyboard-shortcuts.md).
+
+![Find in the editor, with every match of "day" highlighted](../images/find-widget.png)
+
+[TOC]
+
+## Markdown files
+
+Markdown files switch between **Edit** and **Preview**. The preview renders like the wiki, including [References](References.md), and typing `[[` in the editor lists the tasks, pages and files to link.
 
 ## Find and replace
 
