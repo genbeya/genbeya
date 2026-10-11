@@ -21,6 +21,8 @@ import { posixPaths, windowsPaths } from "../../utilities/native-path";
 const KNOWN_CODES = new Set<string>(["ENOENT", "EEXIST", "EPERM", "EACCES", "EBUSY", "ENOTDIR", "EISDIR", "ENOTEMPTY"]);
 const DEFAULT_TIMEOUT = 60_000;
 const OUTPUT_LIMIT = 64 * 1024 * 1024;
+/** How long a Windows terminal may take to end after its programs were ended. */
+const KILL_FALLBACK = 3_000;
 
 async function translate<T>(operation: Promise<T>): Promise<T> {
   try {
@@ -144,10 +146,20 @@ export function nodeTerminals(os: Os): TerminalRunner {
       // node-pty throws when an ended terminal is written to or resized.
       let exited = false;
       child.onExit(() => (exited = true));
+      const kill = () => {
+        if (exited) return;
+        if (os !== "windows") return child.kill();
+        // node-pty's kill forks a helper that attaches to the console to list the programs in it.
+        // The console closes meanwhile, so the helper fails and prints "AttachConsole failed" to
+        // the app's stderr. Ending the shell's process tree ends the terminal as if the shell
+        // exited; node-pty's kill is the fallback.
+        execFile("taskkill", ["/pid", String(child.pid), "/t", "/f"], { windowsHide: true }, () => undefined);
+        setTimeout(() => exited || child.kill(), KILL_FALLBACK).unref();
+      };
       return {
         write: (data) => void (exited || child.write(data)),
         resize: (columns, lines) => void (exited || child.resize(columns, lines)),
-        kill: () => void (exited || child.kill()),
+        kill,
         onData: (listener) => void child.onData(listener),
         onExit: (listener) => void child.onExit(({ exitCode }) => listener(exitCode)),
       };

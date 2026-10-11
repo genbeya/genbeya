@@ -6,7 +6,7 @@ import type { Location, Snapshot, TaskInput } from "../contracts/model";
 import { connectManagers, dispatch } from "../contracts/rpc";
 import { nodeMachine } from "../platforms/node/node-machine";
 import { HostFactory } from "../access/hosts/host-factory";
-import { createRemote, createRepository, DEFAULT_FILES, onTestFinished } from "../testing/repository";
+import { cloneRepository, createRemote, createRepository, DEFAULT_FILES, onTestFinished } from "../testing/repository";
 import { temporaryFolder } from "../testing/temp";
 import { launchArgument } from "../utilities/launch-request";
 import { createBackend } from "./backend";
@@ -879,6 +879,38 @@ describe("VersionControlManager", () => {
     await expect(call(managers, id)).rejects.toThrow(message);
   });
 
+  it("refuses refs a clone brought whose names look like options", async () => {
+    const origin = await createRepository();
+    const evil = "--exec=touch${IFS}PWNED";
+    await origin.git("update-ref", `refs/tags/${evil}`, "HEAD");
+    await origin.git("update-ref", `refs/heads/${evil}`, "HEAD");
+    await origin.git("update-ref", `refs/heads/feature/-f`, "HEAD");
+    const repository = await cloneRepository(origin.root);
+    await repository.write("local.md", "local");
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Local");
+    const { workspace, versionControl } = await backend();
+    const { id } = await workspace.open({ kind: "local", path: repository.root });
+    const refused = "looks like an option";
+    await expect(versionControl.rebase(id, evil, false)).rejects.toThrow(refused);
+    await expect(versionControl.merge(id, `origin/${evil}`, { noFastForward: false, message: "" })).rejects.toThrow(refused);
+    await expect(versionControl.rebasePlan(id, evil)).rejects.toThrow(refused);
+    await expect(versionControl.createBranch(id, "copy", evil)).rejects.toThrow(refused);
+    await expect(versionControl.createTag(id, "copy", evil, "")).rejects.toThrow(refused);
+    await expect(versionControl.deleteTag(id, evil)).rejects.toThrow(refused);
+    await expect(versionControl.pushTag(id, evil, "origin")).rejects.toThrow(refused);
+    // Switching to a remote-only branch creates a local branch named after its last part.
+    await expect(versionControl.switchBranch(id, `origin/${evil}`)).rejects.toThrow(refused);
+    await expect(versionControl.switchBranch(id, "origin/feature/-f")).rejects.toThrow(refused);
+    await expect(versionControl.deleteRemoteBranch(id, `origin/${evil}`)).rejects.toThrow(refused);
+    await expect(versionControl.setUpstream(id, "main", `origin/${evil}`)).rejects.toThrow(refused);
+    await repository.git("branch", "--end-of-options", "feature/-f", "HEAD");
+    await expect(versionControl.deleteBranch(id, "feature/-f", true)).rejects.toThrow(refused);
+    await expect(versionControl.renameBranch(id, "feature/-f", "fine")).rejects.toThrow(refused);
+    expect(await repository.exists("PWNED")).toBe(false);
+    expect(await versionControl.rebase(id, "origin/main", false)).toBe("done");
+  });
+
   it("creates and switches branches", async () => {
     const { versionControl, id, latest } = await opened();
     await versionControl.createBranch(id, "feature/x");
@@ -919,6 +951,41 @@ describe("VersionControlManager", () => {
     expect(await versionControl.continueOperation(id)).toBe("done");
     expect(await latest()).toMatchObject({ operation: null, changes: [] });
     expect(await repository.read("src/code.ts")).toBe("feature\n");
+  });
+
+  it("starts no merge, rebase, pick, revert or stash apply while another operation is unfinished", async () => {
+    const { versionControl, id, repository } = await opened();
+    await repository.git("switch", "-q", "-c", "feature");
+    await repository.write("src/code.ts", "feature\n");
+    await repository.git("commit", "-qam", "Feature");
+    const feature = (await repository.git("rev-parse", "HEAD")).trim();
+    await repository.git("switch", "-q", "main");
+    await repository.write("src/code.ts", "main\n");
+    await repository.git("commit", "-qam", "Main");
+    await repository.write("other.txt", "stashed");
+    await versionControl.stash(id, { message: "", includeUntracked: true, keepIndex: false });
+    const stash = (await repository.git("rev-parse", "stash@{0}")).trim();
+    const initial = (await repository.git("rev-parse", "HEAD~1")).trim();
+    const refused = async () => {
+      for (const attempt of [
+        () => versionControl.merge(id, "feature", { noFastForward: false, message: "" }),
+        () => versionControl.rebase(id, "feature", true),
+        () => versionControl.pullRebase(id, "origin", true),
+        () => versionControl.rebaseInteractive(id, initial, [{ hash: feature, action: "pick" }], true),
+        () => versionControl.cherryPick(id, feature),
+        () => versionControl.revert(id, feature),
+        () => versionControl.applyStash(id, stash, false),
+      ])
+        await expect(attempt()).rejects.toThrow("Finish or abort the merge first.");
+    };
+
+    expect(await versionControl.merge(id, "feature", { noFastForward: false, message: "" })).toBe("stopped");
+    await refused();
+    // Resolved, the merge still waits to be continued.
+    await versionControl.resolveConflict(id, "src/code.ts", { use: "theirs" });
+    await refused();
+    await versionControl.abortOperation(id);
+    expect(await versionControl.applyStash(id, stash, false)).toBe("done");
   });
 
   it("rebases interactively, squashing and rewording through the contract", async () => {
@@ -966,6 +1033,10 @@ describe("VersionControlManager", () => {
     await repository.git("merge", "-q", "--no-ff", "-m", "Merge", "other");
     const merge = (await repository.git("rev-parse", "HEAD")).trim();
     await expect(versionControl.revert(id, merge)).rejects.toThrow("merge commits");
+    // A commit the branch has already is not picked again.
+    const other = (await repository.git("rev-parse", "other")).trim();
+    await expect(versionControl.cherryPick(id, other)).rejects.toThrow(`${other.slice(0, 7)} is already on main.`);
+    expect(await versionControl.continueOperation(id).catch((error: Error) => error.message)).toMatch("No merge, rebase");
   });
 
   it("stashes changes, shows and pops them", async () => {

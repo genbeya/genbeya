@@ -1,5 +1,6 @@
+import childProcess from "node:child_process";
 import { promises as fs } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { describeMachine } from "../../testing/machine-contract";
 import { temporaryFolder } from "../../testing/temp";
 import { defaultShell, nodeMachine } from "./node-machine";
@@ -41,6 +42,36 @@ describe("nodeMachine terminals", () => {
     terminal.onData((data) => (output += data));
     await new Promise((resolve) => terminal.onExit(resolve));
     expect(output).toContain(JSON.stringify(["-t", remote]));
+  });
+
+  // node-pty's own kill forks a helper that attaches to the console to list its programs; when the
+  // console closes first, which it does as the app quits, the helper prints "AttachConsole failed".
+  it.skipIf(process.platform !== "win32")("end a Windows terminal and the programs in it without node-pty's helper", async () => {
+    const fork = vi.spyOn(childProcess, "fork");
+    onTestFinished(() => fork.mockRestore());
+    const script = `const child = require("child_process").spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"]);
+      process.stdout.write("pids " + process.pid + " " + child.pid + "\\n"); setInterval(() => {}, 1000);`;
+    const terminal = await nodeMachine().terminals!.open(process.execPath, ["-e", script], {
+      cwd: await temporaryFolder("terminal-"),
+      cols: 100,
+      rows: 10,
+    });
+    let output = "";
+    terminal.onData((data) => (output += data));
+    const exited = new Promise((resolve) => terminal.onExit(resolve));
+    await expect.poll(() => /pids (\d+) (\d+)/.exec(output), { timeout: 10_000 }).not.toBeNull();
+    const pids = /pids (\d+) (\d+)/.exec(output)!.slice(1).map(Number);
+    terminal.kill();
+    await exited;
+    const running = (pid: number) => {
+      try {
+        return process.kill(pid, 0);
+      } catch {
+        return false;
+      }
+    };
+    await expect.poll(() => pids.filter(running), { timeout: 10_000 }).toEqual([]);
+    expect(fork.mock.calls.map(([module]) => String(module))).not.toContainEqual(expect.stringContaining("conpty_console_list_agent"));
   });
 });
 

@@ -123,6 +123,19 @@ jobs:
         run: |
           version=$(node scripts/version.mjs stamp "$GITHUB_RUN_NUMBER")
           tag="v$version"
+          # A re-run of an old run has the version of its first run, which is published already.
+          if gh release view "$tag" > /dev/null 2>&1 || git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "::error::$tag exists already; this run's version has been published."
+            exit 1
+          fi
+          # Only a version newer than every published one is the latest release.
+          # The step runs with pipefail; grep fails when no release matches.
+          newest=$(gh release list --limit 1000 --json tagName --jq '.[].tagName' | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; } | sed 's/^v//' | sort -V | tail -n 1)
+          latest=true
+          if [ -n "$newest" ] && [ "$(printf '%s\n%s\n' "$newest" "$version" | sort -V | tail -n 1)" != "$version" ]; then
+            echo "$version is older than $newest, which stays the latest release."
+            latest=false
+          fi
           sed "s/{{version}}/$version/g" .github/release-notes.md > out/release-notes.md
           ls -l out/installers
           gh release create "$tag" out/installers/* \
@@ -130,4 +143,4 @@ jobs:
             --title "GitDesk $version" \
             --notes-file out/release-notes.md \
             --generate-notes \
-            --latest
+            --latest="$latest"
