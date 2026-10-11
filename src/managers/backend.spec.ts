@@ -251,6 +251,21 @@ describe("ContentManager", () => {
     await expect(content.read(id, "content", "docs/Guides/Setup.md")).rejects.toThrow("does not exist");
   });
 
+  it("leaves no empty folders behind where pages moved out or were deleted", async () => {
+    const { content, id, repository } = await opened();
+    await content.createPage(id, "docs/Design/Notes/Ideas.md");
+    await content.createPage(id, "docs/Old/Page.md");
+    await content.movePage(id, "docs/Design/Notes/Ideas.md", "docs/Ideas.md");
+    expect(await repository.exists("docs/Design")).toBe(false);
+    await content.deletePage(id, "docs/Old/Page.md");
+    expect(await repository.exists("docs/Old")).toBe(false);
+    // A page moves with its subpages; the folder they left goes, the wiki folder stays.
+    await content.movePage(id, "docs/Architecture/Backend.md", "docs/Backend.md");
+    expect(await repository.exists("docs/Backend/Auth.md")).toBe(true);
+    expect(await repository.exists("docs/Architecture")).toBe(false);
+    expect(await repository.exists("docs/Architecture.md")).toBe(true);
+  });
+
   it("writes and removes repository files, rejecting stale edits", async () => {
     const { content, id } = await opened();
     const file = await content.read(id, "repo", "src/code.ts");
@@ -489,7 +504,7 @@ describe("ContentManager", () => {
     const path = await content.ensureTaskTemplate(id, "bug");
     expect(await repository.git("show", "--name-status", "--format=%s", "gitdesk")).toBe(`Create the bug task template\n\nA\t${path}\n`);
     expect(await repository.exists(path)).toBe(false);
-    expect((await content.taskTemplate(id, "bug"))!.body).toContain("## Context");
+    expect((await content.taskTemplate(id, "bug"))!.body).toContain("## Steps to reproduce");
   });
 
   it("keeps tasks of an epic in its folder and moves them between epics", async () => {
@@ -501,8 +516,12 @@ describe("ContentManager", () => {
     const moved = await content.updateTask(id, first.path, { ...input, epic: "Billing/Invoices", status: "done" }, first.hash);
     expect(moved).toMatchObject({ id: "TP-1", path: "tasks/Billing/Invoices/TP-1.md", epic: "Billing/Invoices", status: "done" });
     expect(await repository.exists("tasks/Login rework/TP-1.md")).toBe(false);
+    // The epic folder it left is gone, empty.
+    expect(await repository.exists("tasks/Login rework")).toBe(false);
     const back = await content.updateTask(id, moved.path, { ...input, epic: "" }, moved.hash);
     expect(back.path).toBe("tasks/TP-1.md");
+    expect(await repository.exists("tasks/Billing")).toBe(false);
+    expect(await repository.exists("tasks")).toBe(true);
     expect((await latest()).tasks.map((task) => [task.id, task.epic])).toEqual(
       expect.arrayContaining([
         ["TP-1", ""],

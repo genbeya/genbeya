@@ -4,6 +4,7 @@
  * so concurrent edits are never silently overwritten.
  */
 import { decodeText, encodeText, sha256 } from "../../utilities/bytes";
+import { parentOf, within } from "../../utilities/repository-path";
 import { HostError, isMissing, type EntryKind, type Host } from "../hosts/host";
 
 export const TEXT_LIMIT = 2 * 1024 * 1024;
@@ -97,6 +98,16 @@ export class FileStore {
       }
       throw error;
     }
+  }
+
+  /**
+   * Removes the folders around `path` that are empty now that it moved or
+   * went, from its own up to (not including) `stop`. Git keeps no folders,
+   * so nothing else would.
+   */
+  async removeEmptyFolders(path: string, stop: string): Promise<void> {
+    for (let folder = parentOf(path); within(folder, stop); folder = parentOf(folder))
+      if (!(await this.host.removeEmptyFolder(this.root, folder))) return;
   }
 
   kind(path: string): Promise<EntryKind> {

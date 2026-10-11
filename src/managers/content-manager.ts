@@ -166,6 +166,8 @@ export class ContentManager implements ContentManagerContract {
         throw error;
       }
       await record();
+      const { settings } = await workspace.settings();
+      for (const [from] of moves) await files.wiki.removeEmptyFolders(from, settings.wikiRoot);
       return target;
     });
   }
@@ -176,7 +178,9 @@ export class ContentManager implements ContentManagerContract {
       const folder = this.engines.wiki.subpageFolder(page);
       if ((await workspace.content.files("wiki")).some((file) => within(file, folder)))
         throw new Error("This page has subpages. Move or delete them first.");
-      await (await workspace.content.locate("wiki")).files.remove(page);
+      const { files } = await workspace.content.locate("wiki");
+      await files.remove(page);
+      await files.removeEmptyFolders(page, (await workspace.settings()).settings.wikiRoot);
       await workspace.content.record("wiki", [page], `Delete page ${this.engines.wiki.titleOf(page)}`);
     });
   }
@@ -214,8 +218,13 @@ export class ContentManager implements ContentManagerContract {
       const epic = this.engines.tasks.existingSpelling(valid.epic, await workspace.content.files("tasks"), settings.taskRoot);
       const target =
         epic === task.epic ? relative : workspace.path(this.engines.tasks.pathOf(settings.taskRoot, epic, baseName(relative).slice(0, -3)));
-      if (target !== relative) await files.moveAll([[relative, target]]);
-      const file = await files.write(target, this.engines.tasks.serializeUpdate(original.content, valid), original.hash);
+      const content = this.engines.tasks.serializeUpdate(original.content, valid);
+      if (target !== relative) {
+        await files.check(relative, content, original.hash);
+        await files.moveAll([[relative, target]]);
+        await files.removeEmptyFolders(relative, settings.taskRoot);
+      }
+      const file = await files.write(target, content, original.hash);
       await workspace.content.record("tasks", [...new Set([relative, target])], `Update ${task.id}: ${valid.title}`);
       return this.engines.tasks.parse(target, file.content, file.hash, settings.taskRoot);
     });
@@ -233,6 +242,7 @@ export class ContentManager implements ContentManagerContract {
         /* Unreadable task files can be deleted too. */
       }
       await files.remove(relative);
+      await files.removeEmptyFolders(relative, settings.taskRoot);
       await workspace.content.record("tasks", [relative], `Delete ${taskId}`);
     });
   }
