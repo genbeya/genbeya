@@ -5,7 +5,9 @@
  * refs after `--end-of-options` or in their full form all the same.
  */
 import type {
+  Amending,
   Change,
+  ChangeBase,
   Commit,
   CommitDetail,
   DiffSource,
@@ -22,6 +24,7 @@ import { Git, GitError, NETWORK_TIMEOUT } from "./git";
 import { LOG_FORMAT, parseLog, parseNameStatus, parseRemotes } from "./git-parsers";
 import { OperationAccess } from "./operation-access";
 import { RefAccess } from "./ref-access";
+import { restage, StagingAccess } from "./staging-access";
 import { StashAccess } from "./stash-access";
 
 export interface RepositoryState {
@@ -34,6 +37,8 @@ export interface RepositoryState {
   readonly tags: string[];
   readonly stashes: Stash[];
   readonly operation: Operation | null;
+  /** The commit being amended, in states compared with HEAD's parent. */
+  readonly amending: Amending | null;
 }
 
 export class RepositoryAccess {
@@ -41,6 +46,7 @@ export class RepositoryAccess {
   readonly refs: RefAccess;
   readonly stashes: StashAccess;
   readonly operations: OperationAccess;
+  readonly staging: StagingAccess;
 
   constructor(
     private readonly host: Host,
@@ -50,6 +56,7 @@ export class RepositoryAccess {
     this.refs = new RefAccess(this.git);
     this.operations = new OperationAccess(host, root, this.git);
     this.stashes = new StashAccess(this.git, () => this.operations.conflicted());
+    this.staging = new StagingAccess(host, this.git, () => this.operations.gitDir());
   }
 
   /** The top folder of the repository containing `path`, in the host's path style. */
@@ -68,7 +75,13 @@ export class RepositoryAccess {
     return host.paths.normalize(new TextDecoder().decode(result.stdout).trim());
   }
 
-  async state(): Promise<RepositoryState> {
+  /**
+   * Everything a snapshot shows of the repository. Compared with `parent`,
+   * staged changes are those of the index against HEAD's first parent, as
+   * amending the last commit would commit them; before the first commit,
+   * that is HEAD as usual.
+   */
+  async state(base: ChangeBase = "head"): Promise<RepositoryState> {
     const [files, { head, changes }, { branches, remoteBranches, tags }, remoteText, stashes] = await Promise.all([
       this.git.files(),
       this.git.status(),
@@ -78,8 +91,23 @@ export class RepositoryAccess {
     ]);
     // Remote branches with a local counterpart are switched to through that.
     const remoteOnly = remoteBranches.filter((ref) => !branches.includes(ref.slice(ref.indexOf("/") + 1)));
-    const operation = await this.operations.current(head.branch);
-    return { files, head, changes, branches, remoteBranches: remoteOnly, remotes: parseRemotes(remoteText), tags, stashes, operation };
+    const [operation, amending] = await Promise.all([
+      this.operations.current(head.branch),
+      base === "parent" ? this.staging.amending() : null,
+    ]);
+    const compared = amending ? restage(changes, await this.staging.staged(await this.staging.base("parent"))) : changes;
+    return {
+      files,
+      head,
+      changes: compared,
+      branches,
+      remoteBranches: remoteOnly,
+      remotes: parseRemotes(remoteText),
+      tags,
+      stashes,
+      operation,
+      amending,
+    };
   }
 
   async changes(): Promise<Change[]> {
@@ -90,13 +118,22 @@ export class RepositoryAccess {
     return (await this.git.status()).head;
   }
 
-  /** The two sides of a diff as bytes; missing sides are empty. Null when a side is larger than `limit` bytes. */
-  async diffSides(path: string, source: DiffSource, oldPath: string, limit: number): Promise<[Uint8Array, Uint8Array] | null> {
+  /**
+   * The two sides of a diff as bytes; missing sides are empty. Null when a
+   * side is larger than `limit` bytes. The index is compared with `base`.
+   */
+  async diffSides(
+    path: string,
+    source: DiffSource,
+    oldPath: string,
+    limit: number,
+    base: ChangeBase = "head",
+  ): Promise<[Uint8Array, Uint8Array] | null> {
     const [before, after] =
       source === "worktree"
         ? [await this.blob(`:${path}`, limit), await this.worktreeFile(path, limit)]
         : source === "index"
-          ? [await this.blob(`HEAD:${oldPath}`, limit), await this.blob(`:${path}`, limit)]
+          ? [await this.blob(`${await this.staging.base(base)}:${oldPath}`, limit), await this.blob(`:${path}`, limit)]
           : [await this.blob(`${source.commit}^:${oldPath}`, limit), await this.blob(`${source.commit}:${path}`, limit)];
     return before && after ? [before, after] : null;
   }

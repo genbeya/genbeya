@@ -1,12 +1,16 @@
 /** Staging, committing, history, branches and remotes of the checked-out repository. */
 import type { VersionControlManagerContract } from "../contracts/manager-contracts";
 import type {
+  ChangeBase,
   Commit,
   CommitDetail,
   ConflictFile,
   ConflictResolution,
   Diff,
   DiffSource,
+  IgnoreKind,
+  LinePatch,
+  LineRange,
   OperationOutcome,
   RebasePlan,
   RebaseStep,
@@ -14,15 +18,20 @@ import type {
   StashDetail,
   SyncAction,
 } from "../contracts/model";
-import { REBASE_ACTIONS } from "../contracts/model";
+import { CHANGE_BASES, IGNORE_KINDS, REBASE_ACTIONS } from "../contracts/model";
 import { TEXT_LIMIT } from "../access/files/file-store";
 import { isCommitId } from "../access/git/git-parsers";
 import { REBASE_LIMIT } from "../access/git/operation-access";
+import type { PatchTarget } from "../access/git/staging-access";
+import { isMissing } from "../access/hosts/host";
+import type { PatchEngine } from "../engines/patch-engine";
 import type { RebaseEngine } from "../engines/rebase-engine";
-import { decodeLenient, isBinary } from "../utilities/bytes";
+import { decodeLenient, isBinary, sha256, sha256Bytes } from "../utilities/bytes";
+import { appendIgnoreRule, extensionOf, ignoreFile, ignoreRule } from "../utilities/gitignore";
 import type { Workspace, WorkspaceRegistry } from "./workspace";
 
 const SYNC_ACTIONS: readonly SyncAction[] = ["fetch", "pull", "push"];
+const LINE_RANGE_LIMIT = 10_000;
 const MESSAGE_LIMIT = 20_000;
 const STASH_MESSAGE_LIMIT = 500;
 const HISTORY_PAGE_LIMIT = 1000;
@@ -38,10 +47,31 @@ function plainRef(name: string): string {
   return name;
 }
 
+/** What staged changes are compared with; HEAD unless given. */
+function changeBase(value: unknown): ChangeBase {
+  if (value === undefined || value === null) return "head";
+  if (!CHANGE_BASES.includes(value as ChangeBase)) throw new Error("Invalid comparison base.");
+  return value as ChangeBase;
+}
+
+/** The version of a diff's two sides; empty when they are too large to compare. */
+const versionOf = (sides: readonly [Uint8Array, Uint8Array] | null): string => (sides ? sha256(sides.map(sha256Bytes).join(":")) : "");
+
+function lineRanges(value: unknown): LineRange[] {
+  if (!Array.isArray(value) || value.length > LINE_RANGE_LIMIT) throw new Error("Invalid line selection.");
+  return value.map((range) => {
+    const { from, to } = (range ?? {}) as Partial<Record<string, unknown>>;
+    if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || (from as number) < 1 || (to as number) < (from as number))
+      throw new Error("Invalid line selection.");
+    return { from: from as number, to: to as number };
+  });
+}
+
 export class VersionControlManager implements VersionControlManagerContract {
   constructor(
     private readonly registry: WorkspaceRegistry,
     private readonly rebases: RebaseEngine,
+    private readonly patches: PatchEngine,
   ) {}
 
   private on<T>(id: unknown, operation: (workspace: Workspace) => Promise<T>): Promise<T> {
@@ -64,16 +94,22 @@ export class VersionControlManager implements VersionControlManagerContract {
     });
   }
 
-  diff(id: unknown, path: unknown, source: unknown, oldPath?: unknown): Promise<Diff> {
+  diff(id: unknown, path: unknown, source: unknown, oldPath?: unknown, base?: unknown): Promise<Diff> {
     return this.on(id, async (workspace) => {
       const relative = workspace.path(path);
       const old = oldPath === undefined || oldPath === null ? relative : workspace.path(oldPath);
       if (source !== "worktree" && source !== "index" && !isCommitId((source as { commit?: unknown } | null)?.commit))
         throw new Error("Invalid diff source.");
-      const sides = await workspace.repository.diffSides(relative, source as DiffSource, old, TEXT_LIMIT);
+      const sides = await workspace.repository.diffSides(relative, source as DiffSource, old, TEXT_LIMIT, changeBase(base));
       // Too large to show is shown like binary: no line-by-line comparison.
-      if (!sides || sides.some(isBinary)) return { path: relative, binary: true, original: "", modified: "" };
-      return { path: relative, binary: false, original: decodeLenient(sides[0]), modified: decodeLenient(sides[1]) };
+      if (!sides || sides.some(isBinary)) return { path: relative, binary: true, original: "", modified: "", version: versionOf(sides) };
+      return {
+        path: relative,
+        binary: false,
+        original: decodeLenient(sides[0]),
+        modified: decodeLenient(sides[1]),
+        version: versionOf(sides),
+      };
     });
   }
 
@@ -81,12 +117,90 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.on(id, (workspace) => workspace.repository.stage(workspace.paths(paths)));
   }
 
-  unstage(id: unknown, paths: unknown): Promise<void> {
-    return this.on(id, (workspace) => workspace.repository.unstage(workspace.paths(paths)));
+  unstage(id: unknown, paths: unknown, base?: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const valid = workspace.paths(paths);
+      if (changeBase(base) === "head") return workspace.repository.unstage(valid);
+      // Renames are compared with the parent too: their old side comes back as well.
+      const { staging } = workspace.repository;
+      const tree = await staging.base("parent");
+      const all = new Set(valid);
+      for (const file of await staging.staged(tree)) if (all.has(file.path) && file.oldPath) all.add(file.oldPath);
+      await staging.reset(tree, [...all]);
+    });
   }
 
   discard(id: unknown, paths: unknown): Promise<void> {
     return this.on(id, (workspace) => workspace.repository.discard(workspace.paths(paths)));
+  }
+
+  stageLines(id: unknown, patch: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const request = this.linePatch(workspace, patch);
+      const { staging } = workspace.repository;
+      const untracked = await this.isUntracked(workspace, request.path);
+      await this.current(workspace, request, "worktree", "head");
+      // An untracked file has no diff until the index knows it is coming.
+      if (untracked) await staging.intendToAdd(request.path);
+      try {
+        await this.applyLines(workspace, request, null, { cached: true, reverse: false });
+      } catch (error) {
+        if (untracked) await staging.untrack([request.path], true).catch(() => undefined);
+        throw error;
+      }
+    });
+  }
+
+  unstageLines(id: unknown, patch: unknown, base?: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const request = this.linePatch(workspace, patch);
+      const compared = changeBase(base);
+      await this.current(workspace, request, "index", compared);
+      const tree = await workspace.repository.staging.base(compared);
+      await this.applyLines(workspace, request, tree, { cached: true, reverse: true });
+    });
+  }
+
+  discardLines(id: unknown, patch: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const request = this.linePatch(workspace, patch);
+      const { staging } = workspace.repository;
+      const untracked = await this.isUntracked(workspace, request.path);
+      await this.current(workspace, request, "worktree", "head");
+      if (untracked) await staging.intendToAdd(request.path);
+      try {
+        await this.applyLines(workspace, request, null, { cached: false, reverse: true });
+      } finally {
+        // What is left of the file stays untracked.
+        if (untracked) await staging.untrack([request.path], true);
+      }
+    });
+  }
+
+  ignore(id: unknown, path: unknown, kind: unknown, location: unknown): Promise<void> {
+    return this.on(id, async (workspace) => {
+      const target = workspace.path(path);
+      if (!IGNORE_KINDS.includes(kind as IgnoreKind)) throw new Error("Invalid kind of rule.");
+      const folder = location === "" ? "" : workspace.path(location);
+      const rule = ignoreRule(kind as IgnoreKind, target, folder);
+      if (rule === null)
+        throw new Error(
+          kind === "extension" && !extensionOf(target) ? `${target} has no extension.` : `${ignoreFile(folder)} can't ignore ${target}.`,
+        );
+      const file = ignoreFile(folder);
+      let current: { content: string; hash: string | null } = { content: "", hash: null };
+      try {
+        current = await workspace.checkout.read(file);
+      } catch (error) {
+        if (!isMissing(error)) throw error;
+      }
+      const content = appendIgnoreRule(current.content, rule);
+      if (content !== null) await workspace.checkout.write(file, content, current.hash);
+    });
+  }
+
+  untrack(id: unknown, paths: unknown): Promise<void> {
+    return this.on(id, (workspace) => workspace.repository.staging.untrack(workspace.paths(paths), true));
   }
 
   commit(id: unknown, message: unknown, amend: unknown): Promise<void> {
@@ -332,6 +446,45 @@ export class VersionControlManager implements VersionControlManagerContract {
         throw new Error("Invalid commit message.");
       return { hash, action: action as RebaseStep["action"], ...(message === undefined ? {} : { message }) };
     });
+  }
+
+  private linePatch(workspace: Workspace, value: unknown): LinePatch {
+    const { path, oldPath, version, lines } = (value ?? {}) as Partial<Record<string, unknown>>;
+    const relative = workspace.path(path);
+    if (typeof version !== "string" || !/^[0-9a-f]{64}$/.test(version)) throw new Error("Invalid diff version.");
+    const { original, modified } = (lines ?? {}) as Partial<Record<string, unknown>>;
+    return {
+      path: relative,
+      ...(oldPath === undefined || oldPath === null ? {} : { oldPath: workspace.path(oldPath) }),
+      version,
+      lines: { original: lineRanges(original), modified: lineRanges(modified) },
+    };
+  }
+
+  private async isUntracked(workspace: Workspace, path: string): Promise<boolean> {
+    return (await workspace.repository.changes()).some((change) => change.path === path && change.index === "?");
+  }
+
+  /** Refuses lines chosen in a diff that is no longer current, or in one that has no lines. */
+  private async current(workspace: Workspace, request: LinePatch, source: "worktree" | "index", base: ChangeBase): Promise<void> {
+    const sides = await workspace.repository.diffSides(request.path, source, request.oldPath ?? request.path, TEXT_LIMIT, base);
+    if (!sides || sides.some(isBinary)) throw new Error(`GitDesk can only stage ${request.path} as a whole.`);
+    if (versionOf(sides) !== request.version)
+      throw new Error(`${request.path} changed since its diff was shown. Look at the diff again and choose the lines anew.`);
+  }
+
+  /** Applies the chosen lines of git's diff of the file: of the working tree when `tree` is null, else of the index against it. */
+  private async applyLines(workspace: Workspace, request: LinePatch, tree: string | null, target: PatchTarget): Promise<void> {
+    const { staging } = workspace.repository;
+    const diff = this.patches.parse(await staging.diff(request.path, request.oldPath ?? request.path, tree));
+    const patch = this.patches.patch(diff, request.lines, target.reverse ? "reverse" : "forward");
+    try {
+      await staging.apply(patch, target);
+    } catch (error) {
+      throw new Error(`The lines no longer apply to ${request.path}. Look at the diff again. (${(error as Error).message})`, {
+        cause: error,
+      });
+    }
   }
 
   /** Rewriting history needs a clean working tree, unless the changes are stashed meanwhile. */

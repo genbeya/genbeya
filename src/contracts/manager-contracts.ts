@@ -7,6 +7,7 @@ import type {
   AgentFile,
   AgentFileWrite,
   AgentTarget,
+  ChangeBase,
   CommitDetail,
   Commit,
   ConflictFile,
@@ -16,6 +17,8 @@ import type {
   DiffSource,
   FileContent,
   FolderListing,
+  IgnoreKind,
+  LinePatch,
   LinkUpdate,
   Location,
   MergeOptions,
@@ -52,8 +55,11 @@ export interface WorkspaceManagerContract {
   /** Creates a sample repository to try GitDesk with in a new folder below `parent`, and opens it. */
   createSample(parent: Location): Promise<OpenedWorkspace>;
   close(workspace: string): Promise<void>;
-  /** Resolves to null when nothing changed since `since`. */
-  snapshot(workspace: string, since?: string): Promise<Snapshot | null>;
+  /**
+   * Resolves to null when nothing changed since `since`. With `base`
+   * "parent", staged changes are compared with HEAD's parent, for amending.
+   */
+  snapshot(workspace: string, since?: string, base?: ChangeBase): Promise<Snapshot | null>;
   recent(): Promise<readonly RecentEntry[]>;
   forget(location: Location): Promise<void>;
   preferences(): Promise<Preferences>;
@@ -123,11 +129,26 @@ export interface ContentManagerContract {
 
 /** Staging, committing, history, branches and remotes of the checked-out repository. */
 export interface VersionControlManagerContract {
-  diff(workspace: string, path: string, source: DiffSource, oldPath?: string): Promise<Diff>;
+  /** The index is compared with `base` (HEAD unless given). */
+  diff(workspace: string, path: string, source: DiffSource, oldPath?: string, base?: ChangeBase): Promise<Diff>;
   stage(workspace: string, paths: readonly string[]): Promise<void>;
-  unstage(workspace: string, paths: readonly string[]): Promise<void>;
+  /**
+   * Compared with `parent` while amending, the paths get their version in
+   * HEAD's parent back, which leaves their changes out of the amended commit.
+   */
+  unstage(workspace: string, paths: readonly string[], base?: ChangeBase): Promise<void>;
   /** Reverts working-tree edits to the staged version and deletes untracked files. */
   discard(workspace: string, paths: readonly string[]): Promise<void>;
+  /** Stages lines of a working-tree diff; parts of an untracked file add it with just those lines. */
+  stageLines(workspace: string, patch: LinePatch): Promise<void>;
+  /** Unstages lines of the index's diff against `base` (HEAD unless given). */
+  unstageLines(workspace: string, patch: LinePatch, base?: ChangeBase): Promise<void>;
+  /** Reverts lines of a working-tree diff to the staged version. */
+  discardLines(workspace: string, patch: LinePatch): Promise<void>;
+  /** Adds the rule of `kind` for `path` to the .gitignore in the folder `location` ("" for the root), creating it if needed. */
+  ignore(workspace: string, path: string, kind: IgnoreKind, location: string): Promise<void>;
+  /** Removes files or folders from the index, keeping them in the working tree: the next commit deletes them. */
+  untrack(workspace: string, paths: readonly string[]): Promise<void>;
   commit(workspace: string, message: string, amend: boolean): Promise<void>;
   lastCommitMessage(workspace: string): Promise<string>;
   log(workspace: string, skip: number, limit: number): Promise<readonly Commit[]>;
@@ -256,6 +277,11 @@ export const MANAGER_METHODS = {
     "stage",
     "unstage",
     "discard",
+    "stageLines",
+    "unstageLines",
+    "discardLines",
+    "ignore",
+    "untrack",
     "commit",
     "lastCommitMessage",
     "log",

@@ -881,7 +881,13 @@ describe("VersionControlManager", () => {
   it("marks binary diffs", async () => {
     const { versionControl, id, repository } = await opened();
     await repository.write("bin.dat", new Uint8Array([0, 1, 2]));
-    expect(await versionControl.diff(id, "bin.dat", "worktree")).toEqual({ path: "bin.dat", binary: true, original: "", modified: "" });
+    expect(await versionControl.diff(id, "bin.dat", "worktree")).toEqual({
+      path: "bin.dat",
+      binary: true,
+      original: "",
+      modified: "",
+      version: expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
   });
 
   it("does not compare files too large to show", async () => {
@@ -892,7 +898,17 @@ describe("VersionControlManager", () => {
       binary: true,
       original: "",
       modified: "",
+      version: "",
     });
+  });
+
+  it("versions diffs by both sides", async () => {
+    const { versionControl, id, repository } = await opened();
+    await repository.write("src/code.ts", "two");
+    const first = await versionControl.diff(id, "src/code.ts", "worktree");
+    expect((await versionControl.diff(id, "src/code.ts", "worktree")).version).toBe(first.version);
+    await repository.write("src/code.ts", "three");
+    expect((await versionControl.diff(id, "src/code.ts", "worktree")).version).not.toBe(first.version);
   });
 
   it.each([
