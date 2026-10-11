@@ -32,6 +32,7 @@ interface Fixture {
   git(...args: string[]): Promise<string>;
   write(path: string, content: string): Promise<void>;
   read(path: string): Promise<string>;
+  exists(path: string): Promise<boolean>;
 }
 
 type Setup = (files: Record<string, string>) => Promise<Fixture>;
@@ -46,7 +47,7 @@ const local: Setup = async (files) => {
   const repository = await createRepository(files);
   const managers = await transport();
   const { id } = await managers.workspace.open({ kind: "local", path: repository.root });
-  return { managers, id, git: repository.git, write: repository.write, read: repository.read };
+  return { managers, id, git: repository.git, write: repository.write, read: repository.read, exists: repository.exists };
 };
 
 const wsl: Setup = async (files) => {
@@ -73,7 +74,14 @@ const wsl: Setup = async (files) => {
     await run(`rm -rf ${dir}`);
   });
   const { id } = await managers.workspace.open({ kind: "wsl", distro: "Ubuntu", path: dir });
-  return { managers, id, git: (...args) => run(`git ${args.map(quote).join(" ")}`), write, read: (path) => run(`cat ${quote(path)}`) };
+  return {
+    managers,
+    id,
+    git: (...args) => run(`git ${args.map(quote).join(" ")}`),
+    write,
+    read: (path) => run(`cat ${quote(path)}`),
+    exists: async (path) => (await run(`if [ -e ${quote(path)} ]; then echo yes; fi`)).trim() === "yes",
+  };
 };
 
 /** The cases every host must pass. */
@@ -105,6 +113,14 @@ function stagingCases(setup: Setup) {
     expect((await git("ls-tree", "--name-only", "HEAD")).split("\n").filter(Boolean)).toEqual(["a.txt", "c.txt"]);
     expect(await read("b.txt")).toBe("b\n");
     expect((await managers.workspace.snapshot(id))!.changes).toEqual([{ path: "b.txt", index: "?", worktree: "?" }]);
+  });
+
+  it("discards an untracked file with the folders it leaves empty", async () => {
+    const { managers, id, write, exists } = await setup({ "tasks/TP-1.md": "# One\n" });
+    await write("tasks/security/GENBEYA-9.md", "# Moved\n");
+    await managers.versionControl.discard(id, ["tasks/security/GENBEYA-9.md"]);
+    expect(await exists("tasks/security")).toBe(false);
+    expect(await exists("tasks/TP-1.md")).toBe(true);
   });
 
   it("adds a rule to the .gitignore of a folder, in its line endings", async () => {

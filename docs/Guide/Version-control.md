@@ -9,7 +9,7 @@
 The **Changes** view lists staged and unstaged files. Select a file to see its diff; switch between side-by-side and inline with the button in the corner.
 
 - Stage or unstage files one by one or all at once, or parts of a file (see below).
-- Discard reverts a file to its staged version; untracked files are deleted. GitDesk asks first.
+- Discard reverts a file to its staged version; untracked files are deleted, with the folders that are empty afterwards. GitDesk asks first.
 - Write a message and press `Ctrl+Enter`. With nothing staged, the button commits all changes.
 - **Amend last commit** puts the last commit's changes back into the staged list (see [Amending](#amending)).
 - Right-click a file for more: stage, discard, open it, add it to .gitignore or stop tracking it.

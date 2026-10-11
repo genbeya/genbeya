@@ -18,6 +18,7 @@ import type {
   Stash,
   SyncAction,
 } from "../../contracts/model";
+import { parentOf } from "../../utilities/repository-path";
 import { splitIntoBatches } from "../../utilities/serial-queue";
 import { isMissing, isTooLarge, type Host } from "../hosts/host";
 import { Git, GitError, NETWORK_TIMEOUT } from "./git";
@@ -175,7 +176,7 @@ export class RepositoryAccess {
       await this.git.text(born ? ["restore", "--staged", "--", ...batch] : ["rm", "--cached", "--quiet", "-r", "--", ...batch]);
   }
 
-  /** Reverts working-tree edits to the staged version and deletes untracked files. */
+  /** Reverts working-tree edits to the staged version and deletes untracked files, with the folders they leave empty. */
   async discard(paths: readonly string[]): Promise<void> {
     const wanted = new Set(paths);
     const changes = (await this.changes()).filter((change) => wanted.has(change.path));
@@ -183,6 +184,10 @@ export class RepositoryAccess {
     const edited = changes.filter((change) => change.index !== "?" && change.worktree !== " ").map((change) => change.path);
     for (const batch of splitIntoBatches(edited)) await this.git.text(["restore", "--worktree", "--", ...batch]);
     for (const file of untracked) await this.host.remove(this.root, file);
+    // Git keeps no folders, so the folders those files leave empty go too; any content, even ignored, keeps one.
+    for (const file of untracked)
+      for (let folder = parentOf(file); folder; folder = parentOf(folder))
+        if (!(await this.host.removeEmptyFolder(this.root, folder))) break;
   }
 
   async commit(message: string, amend: boolean): Promise<void> {
