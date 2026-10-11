@@ -44,3 +44,24 @@ test.describe("references", () => {
     await expect.poll(() => repository.read("docs/Home.md")).toContain("Next: [[DP-1]]");
   });
 });
+
+test.describe("task references in a table", () => {
+  test.use({
+    files: {
+      ...FILES,
+      "docs/Home.md":
+        "# Home\n\nSee [[DP-2]].\n\n| Task | Owner | Notes | Due |\n| --- | --- | --- | --- |\n| [[DP-2]] | Ann | Waiting for the vendor's answer about the new contract terms | Friday afternoon |\n",
+      "tasks/DP-2.md": "---\nid: DP-2\ntitle: Migrate the billing service to the new payment provider\nstatus: todo\n---\n",
+    },
+  });
+
+  test("wrap in narrow cells instead of cutting the title short, and stay on one line in text", async ({ window }) => {
+    const article = window.locator(".document-article");
+    const titles = article.locator("a.md-ref-task .md-ref-title");
+    await expect(titles).toHaveCount(2);
+    expect(await titles.nth(1).evaluate((title) => title.scrollWidth > title.clientWidth)).toBe(false);
+    const lines = (chip: HTMLElement) => Math.round(chip.getBoundingClientRect().height / parseFloat(getComputedStyle(chip).lineHeight));
+    expect(await article.locator(".md-table a.md-ref-task").evaluate(lines)).toBeGreaterThan(1);
+    expect(await article.locator("p a.md-ref-task").evaluate(lines)).toBe(1);
+  });
+});

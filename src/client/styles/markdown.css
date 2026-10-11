@@ -471,7 +471,9 @@
 
 .md-ref-id,
 .md-ref-lines {
+  flex: none;
   color: var(--text-3);
+  white-space: nowrap;
 }
 
 .md-ref-title {
@@ -479,6 +481,16 @@
   font-weight: 500;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* Table columns are often narrow: there a chip wraps, its title on lines of its own, instead of cutting the title short. */
+.md-table a.md-ref {
+  flex-wrap: wrap;
+}
+
+.md-table .md-ref-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .md-ref-state {
