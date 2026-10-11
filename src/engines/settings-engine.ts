@@ -5,7 +5,8 @@
  *
  * Workflow states are written as names, or as `{ name, icon }` once they
  * have an icon; task types as names while they look as usual for their name
- * (see {@link taskType}), or as `{ name, icon, tone }`.
+ * (see {@link taskType}), or as `{ name, icon, tone }`; people as
+ * `{ handle, name, email?, aliases? }`.
  */
 import YAML from "yaml";
 import {
@@ -15,16 +16,18 @@ import {
   TONES,
   type ContentArea,
   type FieldDefinition,
+  type PersonEntry,
   type Settings,
   type TaskType,
 } from "../contracts/model";
+import { HANDLE } from "../utilities/people";
 import { validateRepositoryPath, within } from "../utilities/repository-path";
 import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
 
 export const SETTINGS_FILE = ".gitdesk.yml";
 const DEFAULT_STATUSES = ["backlog", "todo", "in-progress", "review", "done"];
 const DEFAULT_TYPES = ["bug", "feature", "improvement", "chore"].map(taskType);
-const LIMITS = { types: 20, fields: 30, options: 30, option: 60 } as const;
+const LIMITS = { types: 20, fields: 30, options: 30, option: 60, people: 500, aliases: 20, personText: 120 } as const;
 /** A Lucide icon name, such as "trending-up". */
 const ICON = /^[a-z][a-z0-9-]{0,39}$/;
 /** Type names also name template files, so they stay plain. */
@@ -90,13 +93,44 @@ function validField(entry: unknown): FieldDefinition {
   return { name: fieldName, type: "choice", options: values };
 }
 
+const EMAIL = /^[^\s@]+@[^\s@]+$/;
+
+function validPerson(entry: unknown): PersonEntry {
+  const { handle, name, email, aliases } = isRecord(entry) ? entry : {};
+  const personHandle = trimmed(handle);
+  if (!HANDLE.test(personHandle))
+    throw new Error(`"${personHandle}" is not a valid handle: use letters, digits, - and _, starting and ending with a letter or digit.`);
+  const personName = trimmed(name);
+  if (!personName || personName.length > LIMITS.personText) throw new Error(`Give @${personHandle} a name.`);
+  const personEmail = trimmed(email);
+  if (email != null && (!EMAIL.test(personEmail) || personEmail.length > LIMITS.personText))
+    throw new Error(`The email of @${personHandle} is not valid.`);
+  const others = Array.isArray(aliases) ? aliases.map(trimmed) : null;
+  if (
+    (aliases != null && !others) ||
+    (others && (others.length > LIMITS.aliases || others.some((alias) => !alias || alias.length > LIMITS.personText)))
+  )
+    throw new Error(`List up to ${LIMITS.aliases} aliases of @${personHandle}.`);
+  return {
+    handle: personHandle,
+    name: personName,
+    ...(email != null ? { email: personEmail } : {}),
+    ...(others?.length ? { aliases: others } : {}),
+  };
+}
+
 /** Throws unless the names are unique, ignoring case. */
 function unique(names: readonly string[], message: string) {
   if (new Set(names.map((name) => name.toLowerCase())).size !== names.length) throw new Error(message);
 }
 
 /** Keys that stay out of the file while they hold these values. */
-const OPTIONAL: Readonly<Record<string, unknown>> = { hiddenColumns: [], types: DEFAULT_TYPES.map((type) => type.name), fields: [] };
+const OPTIONAL: Readonly<Record<string, unknown>> = {
+  hiddenColumns: [],
+  types: DEFAULT_TYPES.map((type) => type.name),
+  fields: [],
+  people: [],
+};
 
 export class SettingsEngine {
   defaults(name: string): Settings {
@@ -111,6 +145,7 @@ export class SettingsEngine {
       hiddenColumns: [],
       types: DEFAULT_TYPES,
       fields: [],
+      people: [],
     };
   }
 
@@ -160,7 +195,19 @@ export class SettingsEngine {
       fields.map((field) => field.name),
       "Custom field names must be unique.",
     );
-    return { name, wikiRoot, wikiHome, taskRoot, taskPrefix, statuses, statusIcons, hiddenColumns, types, fields };
+    if (!Array.isArray(value.people) || value.people.length > LIMITS.people) throw new Error(`List the people (up to ${LIMITS.people}).`);
+    const people = value.people.map(validPerson);
+    unique(
+      people.map((person) => person.handle),
+      "Handles of people must be unique.",
+    );
+    const handles = new Map(people.map((person) => [person.handle.toLowerCase(), person]));
+    for (const person of people)
+      for (const alias of person.aliases ?? []) {
+        const other = handles.get(alias.toLowerCase());
+        if (other && other !== person) throw new Error(`An alias of @${person.handle} is another person's handle: ${alias}.`);
+      }
+    return { name, wikiRoot, wikiHome, taskRoot, taskPrefix, statuses, statusIcons, hiddenColumns, types, fields, people };
   }
 
   /** Reads a settings file over `fallback`; unknown keys are ignored here and kept by {@link serialize}. */
@@ -169,7 +216,7 @@ export class SettingsEngine {
     if (document.errors.length) throw new Error(document.errors[0]!.message);
     const data: unknown = document.toJS() ?? {};
     if (!isRecord(data)) throw new Error("Settings must be a YAML mapping.");
-    const { statuses, types, fields } = data;
+    const { statuses, types, fields, people } = data;
     const entries: Record<string, unknown>[] | null = Array.isArray(statuses)
       ? statuses.map((entry) => (isRecord(entry) ? entry : { name: entry }))
       : null;
@@ -188,6 +235,7 @@ export class SettingsEngine {
           ? types.map((type) => (typeof type === "string" ? taskType(type.trim()) : (type as TaskType)))
           : ((types ?? fallback.types) as TaskType[]),
         fields: (fields ?? fallback.fields) as FieldDefinition[],
+        people: (people ?? fallback.people) as PersonEntry[],
       },
       windows,
     );
@@ -215,7 +263,7 @@ export class SettingsEngine {
     for (const [key, value] of Object.entries(this.fileData(valid))) {
       if (same(document.has(key) ? before[key] : OPTIONAL[key], value)) continue;
       // Optional lists stay out of the file while empty.
-      if ((key === "hiddenColumns" || key === "fields") && !(value as unknown[]).length) document.delete(key);
+      if ((key === "hiddenColumns" || key === "fields" || key === "people") && !(value as unknown[]).length) document.delete(key);
       else document.set(key, value);
     }
     // Flow lists keep the usual spelling, [a, b].

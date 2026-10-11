@@ -16,8 +16,10 @@ import {
 } from "@angular/core";
 import { wordWrap } from "./editor-keymap";
 import { editingSetup, isProse, languageFor } from "./editor-setup";
+import type { Person } from "../../../contracts/model";
+import { markdownCompletion } from "./markdown-completion";
 import { minimap } from "./minimap";
-import { referenceCompletion, type ReferenceCandidate } from "./reference-completion";
+import type { ReferenceCandidate } from "./reference-completion";
 
 const CRLF = String.fromCharCode(13, 10);
 /** Files keep their line endings: CodeMirror would otherwise turn CRLF into LF. */
@@ -56,6 +58,8 @@ export class CodeEditor {
   readonly reveal = input<LineRange | null>(null);
   /** Offers these after `[[` (Markdown references); null for none. */
   readonly references = input<readonly ReferenceCandidate[] | null>(null);
+  /** Offers these after `@` (Markdown mentions). Markdown editors, which have either, also offer dates after `//`. */
+  readonly people = input<readonly Person[] | null>(null);
   /** Shows a minimap for code; prose never has one. */
   readonly minimap = input(false);
   readonly valueChange = output<string>();
@@ -67,7 +71,7 @@ export class CodeEditor {
   private readonly separator = new Compartment();
   private readonly completion = new Compartment();
   private readonly overview = new Compartment();
-  private readonly offersReferences = computed(() => this.references() !== null);
+  private readonly offersCompletion = computed(() => this.references() !== null || this.people() !== null);
   private readonly showsMinimap = computed(() => this.minimap() && !isProse(this.path()));
   private view: EditorView | null = null;
 
@@ -91,7 +95,7 @@ export class CodeEditor {
     });
     effect(() => {
       // The extension reads the candidates when completing, so only switching it on or off reconfigures.
-      const offered = this.offersReferences();
+      const offered = this.offersCompletion();
       untracked(() => this.view?.dispatch({ effects: this.completion.reconfigure(this.completionFor(offered)) }));
     });
     effect(() => {
@@ -119,7 +123,7 @@ export class CodeEditor {
   }
 
   private completionFor(offered: boolean): Extension {
-    return offered ? referenceCompletion(() => this.references() ?? []) : [];
+    return offered ? markdownCompletion({ references: () => this.references() ?? [], people: () => this.people() ?? [] }) : [];
   }
 
   private create(path: string, numbered: boolean) {
@@ -129,7 +133,7 @@ export class CodeEditor {
       this.separator.of(separatorFor(value)),
       ...editingSetup(numbered),
       this.language.of([]),
-      this.completion.of(this.completionFor(untracked(this.offersReferences))),
+      this.completion.of(this.completionFor(untracked(this.offersCompletion))),
       wordWrap(isProse(path)),
       this.overview.of(untracked(this.showsMinimap) ? minimap() : []),
       EditorView.contentAttributes.of({ "aria-label": this.label(), spellcheck: isProse(path) ? "true" : "false" }),

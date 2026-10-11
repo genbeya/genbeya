@@ -1,8 +1,20 @@
 /**
  * Rendered Markdown: GitDesk's wiki syntax, highlighted code, diagrams and
- * repository images. Links and checkboxes are reported, not followed.
+ * repository images. Links and checkboxes are reported, not followed;
+ * mentions show who they mean.
  */
-import { ChangeDetectionStrategy, Component, DestroyRef, effect, ElementRef, inject, input, output, untracked } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  effect,
+  ElementRef,
+  inject,
+  Injector,
+  input,
+  output,
+  untracked,
+} from "@angular/core";
 import type { Scope } from "../../../contracts/model";
 import { Clipboard } from "../core/clipboard";
 import { Session } from "../core/session";
@@ -41,6 +53,7 @@ export class MarkdownView {
   private readonly clipboard = inject(Clipboard);
   private readonly diagrams = inject(Diagrams);
   private readonly theme = inject(Theme);
+  private readonly injector = inject(Injector);
   private objectUrls: string[] = [];
   /** Images by path, so re-renders (typing in the preview) do not read them again. Cleared when the repository changes. */
   private images = new Map<string, Promise<string>>();
@@ -194,6 +207,7 @@ export class MarkdownView {
     if (!href) return;
     const link = resolveHref(this.path(), href);
     if (link.kind === "anchor") this.host.querySelector(`#${CSS.escape(link.id)}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    else if (link.kind === "person") void this.showPerson(anchor, link.handle);
     else this.linkClicked.emit(link);
   }
 
@@ -203,6 +217,13 @@ export class MarkdownView {
       event.preventDefault();
       this.checkboxToggled.emit(Number(checkbox.dataset["offset"]));
     }
+  }
+
+  private async showPerson(anchor: HTMLElement, handle: string) {
+    const person = this.links().people?.find((candidate) => candidate.handle === handle);
+    if (!person) return;
+    const { openMentionPopover } = await import("./mention-popover");
+    openMentionPopover(this.injector, anchor, person);
   }
 
   private async copy(button: HTMLElement) {

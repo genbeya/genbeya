@@ -85,6 +85,7 @@ const PREVIEW_DELAY = 150;
             [path]="path()"
             [value]="draft()"
             [references]="wiki.referenceCandidates()"
+            [people]="wiki.people()"
             [lineNumbers]="false"
             [autofocus]="true"
             (valueChange)="draft.set($event)"

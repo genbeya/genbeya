@@ -88,6 +88,35 @@ export interface Settings {
   readonly hiddenColumns: readonly string[];
   readonly types: readonly TaskType[];
   readonly fields: readonly FieldDefinition[];
+  /** The project's people as `.gitdesk.yml` lists them; they win over what GitDesk derives from Git. */
+  readonly people: readonly PersonEntry[];
+}
+
+/** A person listed in the settings: the handle `@mentions` use, with the name and email shown for it. */
+export interface PersonEntry {
+  readonly handle: string;
+  readonly name: string;
+  readonly email?: string;
+  /** Other names and emails that mean this person, as commits, assignees or comments write them. */
+  readonly aliases?: readonly string[];
+}
+
+/** Someone who works on the repository: a commit author, assignee or comment author, or a person the settings list. */
+export interface Person {
+  /** Unique, ignoring case: `@handle` mentions this person. */
+  readonly handle: string;
+  readonly name: string;
+  readonly email: string | null;
+  /** Other names and emails that mean this person. */
+  readonly aliases: readonly string[];
+  /** Commits among the recent ones that the person authored. */
+  readonly commits: number;
+}
+
+/** The repository's people, by handle; `me` is the handle of the user, as Git knows them, if among them. */
+export interface People {
+  readonly people: readonly Person[];
+  readonly me: string | null;
 }
 
 /** What a new task of a type starts with, from `<taskRoot>/.templates/<type>.md`. */

@@ -8,7 +8,7 @@ Every page is a Markdown file in the wiki folder (`docs/` unless **Settings** na
 
 - `E` (or **Edit**) opens the editor, with a live preview next to the source; **Toggle preview** hides and shows it. `Ctrl+S` saves, `Esc` stops editing.
 - `N` (or the button above the page list) creates a page. Write `/` in its name to nest it: `Architecture/Database` becomes a subpage of *Architecture*.
-- Type `[[` to link a task, a page or a file — see [References](References.md).
+- Type `[[` to link a task, a page or a file — see [References](References.md). Type `@` to mention someone and `//` to insert a date — see [Writing pages](Writing.md).
 - The editor is the same as in **Code**, with find and replace, several cursors and the other keys in [Keyboard shortcuts](Keyboard-shortcuts.md).
 
 A page's file name is its title, with dashes for spaces: `Getting-started.md` is *Getting started*. The home page (`Home.md` unless **Settings** says otherwise) comes first in the list; the others are sorted by title.

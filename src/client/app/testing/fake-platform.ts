@@ -36,6 +36,7 @@ export const SETTINGS: Settings = {
   hiddenColumns: [],
   types: [taskType("bug"), taskType("feature")],
   fields: [],
+  people: [],
 };
 
 /** A user who has seen the tour and the news of this version. */
@@ -109,6 +110,7 @@ export function fakeManagers(): MockedManagers {
   managers.workspace.snapshot.mockResolvedValue(null);
   managers.workspace.open.mockResolvedValue({ id: "w1", snapshot: snapshot() });
   managers.content.agentFiles.mockResolvedValue([]);
+  managers.content.people.mockResolvedValue({ people: [], me: null });
   return managers;
 }
 

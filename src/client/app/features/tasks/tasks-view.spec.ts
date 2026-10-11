@@ -71,6 +71,41 @@ describe("TasksView", () => {
     document.querySelector(".cdk-overlay-container")?.replaceChildren();
   });
 
+  it("shows a person's tasks for ?assignee=, however tasks name them, and shows people by name", async () => {
+    localStorage.setItem("tasks:layout", "list");
+    const harness = await openRepository({
+      tasks: [task("TP-1", { assignee: "Ada Lovelace" }), task("TP-2", { assignee: "ada" }), task("TP-3", { assignee: "bob" })],
+    });
+    const ada = { handle: "ada", name: "Ada Lovelace", email: "ada@example.com", aliases: [], commits: 1 };
+    harness.managers.content.people.mockResolvedValue({ people: [ada], me: null });
+    const navigate = vi.spyOn(harness.router, "navigate").mockResolvedValue(true);
+    const fixture = TestBed.createComponent(TasksView);
+    fixture.componentRef.setInput("assignee", "ada");
+    await settle(fixture);
+    const element = fixture.nativeElement as HTMLElement;
+    const rows = [...element.querySelectorAll(".task-row")];
+    expect(rows.map((row) => row.querySelector(".task-id")!.textContent)).toEqual(["TP-2", "TP-1"]);
+    expect(rows.map((row) => row.querySelector("gd-avatar")!.getAttribute("title"))).toEqual(["Ada Lovelace", "Ada Lovelace"]);
+    expect(element.querySelector("button[aria-label='Remove filter Ada Lovelace']")).not.toBeNull();
+    expect(navigate).toHaveBeenCalledWith([], { queryParams: { assignee: null }, queryParamsHandling: "merge", replaceUrl: true });
+  });
+
+  it("shows date fields on cards, overdue ones as such until the task is done", async () => {
+    localStorage.setItem("tasks:layout", "list");
+    const settings = { ...SETTINGS, fields: [{ name: "due", type: "date" as const }] };
+    await openRepository({
+      settings,
+      tasks: [task("TP-1", { fields: { due: "2000-01-01" } }), task("TP-2", { status: "done", fields: { due: "2000-01-01" } })],
+    });
+    const fixture = TestBed.createComponent(TasksView);
+    await settle(fixture);
+    const dates = [...(fixture.nativeElement as HTMLElement).querySelectorAll(".task-row .md-date")];
+    expect(dates.map((date) => [date.classList.contains("is-overdue"), date.getAttribute("title")])).toEqual([
+      [true, expect.stringMatching(/^due: .*overdue$/)],
+      [false, expect.stringMatching(/^due: /)],
+    ]);
+  });
+
   it("keeps the open task's panel, with its draft, when the task moves to another epic", async () => {
     const { fixture, element, managers, session } = await render("TP-1");
     element.querySelector<HTMLButtonElement>(".task-panel-header .btn-default")!.click();

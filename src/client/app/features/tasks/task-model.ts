@@ -74,15 +74,30 @@ export function labelColor(label: string): string {
   return `hsl(${LABEL_HUES[Math.abs(hash) % LABEL_HUES.length]} 65% 60%)`;
 }
 
-/** Tasks matching the filters, sorted; `moving` shows dragged tasks in their new place while saving. */
-export function visibleTasks(tasks: readonly Task[], filters: TaskFilters, moving: ReadonlyMap<string, Placement> = new Map()): Task[] {
+/** Who an assignee is: the same for every way of writing them, such as a person's handle for their name. */
+export type Identify = (assignee: string) => string;
+const asWritten: Identify = (assignee) => assignee;
+
+/**
+ * Tasks matching the filters, sorted; `moving` shows dragged tasks in their new place while saving.
+ * An assignee filter finds the person however tasks write them.
+ */
+export function visibleTasks(
+  tasks: readonly Task[],
+  filters: TaskFilters,
+  moving: ReadonlyMap<string, Placement> = new Map(),
+  identify: Identify = asWritten,
+): Task[] {
+  const assignee = filters.assignee && filters.assignee !== UNASSIGNED ? identify(filters.assignee) : null;
   const query = filters.query.trim().toLowerCase();
   return tasks
     .map((task) => (moving.has(task.path) ? { ...task, ...moving.get(task.path)! } : task))
     .filter(
       (task) =>
         (!query || [task.id, task.title, task.assignee, ...task.labels].join(" ").toLowerCase().includes(query)) &&
-        (!filters.assignee || task.assignee === filters.assignee || (filters.assignee === UNASSIGNED && !task.assignee)) &&
+        (!filters.assignee ||
+          (assignee !== null && !!task.assignee && identify(task.assignee) === assignee) ||
+          (filters.assignee === UNASSIGNED && !task.assignee)) &&
         (!filters.label || task.labels.includes(filters.label)) &&
         (!filters.priority || task.priority === filters.priority) &&
         (filters.epic === null || task.epic === filters.epic) &&
@@ -97,7 +112,16 @@ export const columnsOf = (statuses: readonly string[], tasks: readonly Task[]): 
   ...new Set(tasks.map((task) => task.status).filter((status) => !statuses.includes(status))),
 ];
 
-export const peopleOf = (tasks: readonly Task[]): string[] => [...new Set(tasks.map((task) => task.assignee).filter(Boolean))].sort();
+/** The assignees of tasks, once per person. */
+export const peopleOf = (tasks: readonly Task[], identify: Identify = asWritten): string[] =>
+  [
+    ...new Set(
+      tasks
+        .map((task) => task.assignee)
+        .filter(Boolean)
+        .map(identify),
+    ),
+  ].sort();
 
 export const labelsOf = (tasks: readonly Task[]): string[] => [...new Set(tasks.flatMap((task) => task.labels))].sort();
 

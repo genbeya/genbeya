@@ -121,6 +121,26 @@ fields:
 
 Names start with a letter and use letters, digits, `-` and `_`, up to 40 characters, unique ignoring case. GitDesk's own task keys are taken: `id`, `title`, `type`, `status`, `priority`, `assignee`, `labels`, `epic`. The key is left out while there are no fields.
 
+### people
+
+The project's people, for `@mentions` and the **Assignee** menu. GitDesk finds people on its own, from commits, assignees and comments (see [Writing pages](Writing.md#who-is-in-the-list)); list them here to give them a handle of your choice, a name, or to join several names and emails into one person. Up to 500.
+
+```yaml
+people:
+  - handle: ada
+    name: Ada Lovelace
+    email: ada@example.com
+    aliases: [Ada King, ada@old.example]   # other names and emails of the same person
+  - handle: grace
+    name: Grace Hopper
+```
+
+- `handle` and `name` are required. Handles use letters, digits, `-` and `_`, starting and ending with a letter or digit, up to 39 characters, unique ignoring case.
+- `email` and `aliases` are optional. Commits, assignees and comments under the email or an alias count as this person; an alias shaped like a handle also mentions them (`@lovelace`). An alias must not be another person's handle.
+- A listed person keeps their handle; people GitDesk derives handles for get others when they would clash.
+
+The key is left out while no one is listed; **Settings** keeps it as written.
+
 ### Icons
 
 `icon` of a state or a type names one of these [Lucide](https://lucide.dev/icons) icons, which **Settings** offers in its icon picker:
