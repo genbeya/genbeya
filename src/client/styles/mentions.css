@@ -127,6 +127,16 @@
   color: var(--yellow);
 }
 
+/* Date fields on task cards and rows. */
+.due-dates {
+  display: contents;
+}
+
+.due-dates .md-date {
+  font-size: 11.5px;
+  line-height: 20px;
+}
+
 /* The calendar `//` offers in editors. */
 .date-picker {
   padding: 8px;
