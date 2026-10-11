@@ -43,6 +43,14 @@ export function findTarget(selector: string): HTMLElement | null {
   return null;
 }
 
+/** Scrolls an element that is not wholly in the window to its middle; at once when the user prefers less motion. */
+function reveal(element: HTMLElement) {
+  const { top, bottom, left, right } = element.getBoundingClientRect();
+  if (top >= 0 && left >= 0 && bottom <= innerHeight && right <= innerWidth) return;
+  const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  element.scrollIntoView?.({ block: "center", inline: "nearest", behavior: reduced ? "auto" : "smooth" });
+}
+
 async function waitForTarget(selector: string, ms: number): Promise<HTMLElement | null> {
   const deadline = Date.now() + ms;
   for (;;) {
@@ -112,6 +120,8 @@ export class Tour {
       const target = await waitForTarget(step.target, step.route ? TARGET_WAIT.route : TARGET_WAIT.inPlace);
       if (move !== this.moves) return;
       if (target) {
+        // The layer follows the element as it scrolls.
+        reveal(target);
         this.position.set({ step, index, count: this.steps.length });
         this.searching.set(false);
         return;

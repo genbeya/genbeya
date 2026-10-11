@@ -57,6 +57,21 @@ describe("Tour", () => {
     vi.restoreAllMocks();
   });
 
+  it("scrolls a step's element into view", async () => {
+    place("near", "far");
+    const far = placed[1]!;
+    vi.spyOn(far, "getBoundingClientRect").mockReturnValue(new DOMRect(10, 2400, 80, 20));
+    const scrolls: ScrollIntoViewOptions[] = [];
+    const scroll = (element: HTMLElement) => (element.scrollIntoView = (options) => void scrolls.push(options as ScrollIntoViewOptions));
+    placed.forEach(scroll);
+    void tour.start([step("near"), step("far")]);
+    await showing("1 of 2");
+    expect(scrolls).toEqual([]);
+    button("Next").click();
+    await showing("2 of 2");
+    expect(scrolls).toEqual([expect.objectContaining({ block: "center" })]);
+  });
+
   it("walks forward and back through the steps, then completes", async () => {
     place("one", "two", "three");
     const ended = tour.start([step("one"), step("two", { tryIt: "Click it" }), step("three")]);
