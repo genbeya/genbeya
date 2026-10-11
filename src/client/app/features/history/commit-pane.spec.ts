@@ -30,9 +30,9 @@ describe("CommitPane", () => {
     // A commit elsewhere moves HEAD, but not onto or off this commit.
     await refresh({ head: { ...head, commit: "1234567" } });
     expect(loads()).toBe(1);
-    await refresh({ head: { ...head, commit: HASH } });
+    await refresh({ head: { ...head, commit: HASH.slice(0, 7) } });
     expect(loads()).toBe(2);
-    await refresh({ head: { ...head, commit: HASH }, tags: ["v1"] });
+    await refresh({ head: { ...head, commit: HASH.slice(0, 7) }, tags: ["v1"] });
     expect(loads()).toBe(3);
   });
 });

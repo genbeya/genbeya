@@ -97,7 +97,9 @@ export class CommitPane {
    */
   private readonly refs = computed(() => {
     const snapshot = this.session.snapshot();
-    const head = snapshot?.head.commit === this.hash() ? `HEAD ${snapshot.head.branch}` : "";
+    // The snapshot names HEAD by its short hash.
+    const at = snapshot?.head.commit && this.hash().startsWith(snapshot.head.commit);
+    const head = at ? `HEAD ${snapshot.head.branch}` : "";
     return [head, ...(snapshot?.branches ?? []), ...(snapshot?.tags ?? [])].join(" ");
   });
   private readonly router = inject(Router);
