@@ -2,7 +2,7 @@ import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
 import { TestBed, type ComponentFixture } from "@angular/core/testing";
 import type { SearchMatch, SearchResults } from "../../../../contracts/model";
 import { openRepository, settle } from "../../testing/component-harness";
-import { Palette } from "./palette";
+import { Palette, toggledOption } from "./palette";
 import type { PaletteMode } from "./shell-ui";
 import { SEARCH_DELAY } from "./text-search";
 
@@ -98,6 +98,15 @@ describe("Palette full-text search", () => {
     await press(fixture, "®", { altKey: true, code: "KeyR" });
     await type(fixture, "/gadget");
     expect(search).toHaveBeenLastCalledWith("w1", "gadget", { caseSensitive: true, wholeWord: false, regex: true });
+  });
+
+  it("leaves Option and a letter to typing on macOS, where ⌥⌘ and the letter toggles", () => {
+    const key = (init: KeyboardEventInit) => new KeyboardEvent("keydown", { code: "KeyC", ...init });
+    expect(toggledOption(key({ key: "ç", altKey: true }), true)).toBeUndefined();
+    expect(toggledOption(key({ key: "c", altKey: true, metaKey: true }), true)).toBe("caseSensitive");
+    expect(toggledOption(key({ key: "c", altKey: true }), false)).toBe("caseSensitive");
+    expect(toggledOption(key({ key: "c", altKey: true, metaKey: true }), false)).toBeUndefined();
+    expect(toggledOption(key({ key: "c", altKey: true, ctrlKey: true }), false)).toBeUndefined();
   });
 
   it("opens ready to search with Ctrl+Shift+F, and explains what to type", async () => {
