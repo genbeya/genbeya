@@ -53,7 +53,7 @@ const MAX_LANES = 12;
           #panel="gdResizable"
           data-tour="history"
         >
-          <gd-commit-menu #commitMenu="gdCommitMenu" />
+          <gd-commit-menu #commitMenu="gdCommitMenu" [onHead]="onHead()" />
           <div class="side-panel-scroll" role="list" aria-label="Commits">
             <!-- A row whose refs changed is made anew: its context menu keeps the data it first opened with. -->
             @for (row of graph().rows; track row.commit.hash + row.commit.refs.join()) {
@@ -111,6 +111,21 @@ export class HistoryView {
   private ticket = 0;
   protected readonly graph = computed(() => layoutGraph(this.commits() ?? []));
   protected readonly graphWidth = computed(() => Math.min(this.graph().lanes, MAX_LANES) * LANE_WIDTH + 12);
+  /** The loaded commits HEAD contains: HEAD's and those its parents reach among them. */
+  protected readonly onHead = computed(() => {
+    const commits = this.commits() ?? [];
+    const head = this.session.snapshot()!.head.commit;
+    const byHash = new Map(commits.map((commit) => [commit.hash, commit]));
+    const reached = new Set<string>();
+    // The snapshot names HEAD by its short hash.
+    const pending = head ? commits.filter((commit) => commit.hash.startsWith(head)).map((commit) => commit.hash) : [];
+    for (let hash = pending.pop(); hash !== undefined; hash = pending.pop()) {
+      if (reached.has(hash)) continue;
+      reached.add(hash);
+      for (const parent of byHash.get(hash)?.parents ?? []) if (byHash.has(parent)) pending.push(parent);
+    }
+    return reached;
+  });
   /** Changes when HEAD or any branch moves, and when tags come and go. */
   private readonly refsKey = computed(() => {
     const snapshot = this.session.snapshot()!;

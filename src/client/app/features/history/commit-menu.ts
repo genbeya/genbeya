@@ -1,5 +1,5 @@
 import { CdkMenu } from "@angular/cdk/menu";
-import { ChangeDetectionStrategy, Component, computed, inject, type TemplateRef, viewChild } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject, input, type TemplateRef, viewChild } from "@angular/core";
 import type { Commit } from "../../../../contracts/model";
 import { Session } from "../../core/session";
 import { ShareLinks } from "../../core/share-links";
@@ -33,9 +33,12 @@ import { parseRefs, type Ref } from "./ref-chips";
         @if (current(); as branch) {
           <div class="menu-separator"></div>
           @if (commit.parents.length < 2) {
-            <button gd-menu-item (selected)="operations.cherryPick(commit)">
-              <svg icon gd-icon name="cherry" [size]="14"></svg>Cherry-pick onto {{ branch }}
-            </button>
+            <!-- A commit the branch contains already has nothing to bring. -->
+            @if (!onHead().has(commit.hash)) {
+              <button gd-menu-item (selected)="operations.cherryPick(commit)">
+                <svg icon gd-icon name="cherry" [size]="14"></svg>Cherry-pick onto {{ branch }}
+              </button>
+            }
             <button gd-menu-item (selected)="operations.revert(commit)"><svg icon gd-icon name="undo-2" [size]="14"></svg>Revert…</button>
           }
           <button gd-menu-item (selected)="operations.rebaseInteractive(commit)">
@@ -119,6 +122,8 @@ import { parseRefs, type Ref } from "./ref-chips";
   `,
 })
 export class CommitMenu {
+  /** Hashes of commits HEAD contains, as far as the view knows them; they are not offered for cherry-picking. */
+  readonly onHead = input<ReadonlySet<string>>(new Set());
   readonly menu = viewChild.required<TemplateRef<{ $implicit: Commit }>>("menu");
   protected readonly refs = inject(RefActions);
   protected readonly repository = inject(RepositoryActions);

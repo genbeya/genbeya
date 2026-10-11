@@ -20,7 +20,7 @@ const COMMIT: Commit = {
   imports: [CdkContextMenuTrigger, CommitMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <gd-commit-menu #commitMenu="gdCommitMenu" />
+    <gd-commit-menu #commitMenu="gdCommitMenu" [onHead]="onHead" />
     <div class="row" tabindex="0" [cdkContextMenuTriggerFor]="commitMenu.menu()" [cdkContextMenuTriggerData]="{ $implicit: commit }">
       commit
     </div>
@@ -28,13 +28,14 @@ const COMMIT: Commit = {
 })
 class Host {
   readonly commit = COMMIT;
+  onHead: ReadonlySet<string> = new Set();
 }
 
 const menuItems = () => [...document.querySelectorAll<HTMLElement>(".cdk-overlay-container [role=menuitem]")];
 const label = (item: HTMLElement) => item.textContent!.replace(/[\s›]+/g, " ").trim();
 const named = (name: string) => menuItems().find((item) => label(item) === name);
 
-async function rightClick(change: Partial<Snapshot> = {}) {
+async function rightClick(change: Partial<Snapshot> = {}, onHead: ReadonlySet<string> = new Set()) {
   const harness = await openRepository({
     branches: ["feature", "main"],
     remotes: [{ name: "origin", url: "https://github.com/acme/demo.git" }],
@@ -42,6 +43,7 @@ async function rightClick(change: Partial<Snapshot> = {}) {
     ...change,
   });
   const fixture = TestBed.createComponent(Host);
+  fixture.componentInstance.onHead = onHead;
   await settle(fixture);
   const row = (fixture.nativeElement as HTMLElement).querySelector(".row")!;
   const contextMenu = async () => {
@@ -63,6 +65,12 @@ const answer = (dialogs: { open: ReturnType<typeof vi.fn> }, ref: NewRef) =>
   dialogs.open.mockImplementation(async (_: unknown, options: RefDialogOptions) => ((await options.accept?.(ref)) ? undefined : ref));
 
 describe("CommitMenu", () => {
+  it("offers no cherry-pick of a commit the branch contains", async () => {
+    await rightClick({}, new Set([COMMIT.hash]));
+    expect(named("Cherry-pick onto main")).toBeUndefined();
+    expect(named("Revert…")).toBeDefined();
+  });
+
   afterEach(() => document.querySelector(".cdk-overlay-container")?.replaceChildren());
 
   it("offers branches and tags here, and acts on the refs pointing at the commit, without HEADs", async () => {
