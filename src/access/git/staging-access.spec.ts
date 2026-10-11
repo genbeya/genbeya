@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { nodeMachine } from "../../platforms/node/node-machine";
-import { createRepository } from "../../testing/repository";
+import { cloneRepository, createRemote, createRepository } from "../../testing/repository";
 import { LocalHost } from "../hosts/local-host";
 import { RepositoryAccess } from "./repository-access";
 import { restage } from "./staging-access";
@@ -49,6 +49,17 @@ describe("StagingAccess", () => {
     await repository.git("commit", "-q", "--allow-empty", "-m", "Second");
     expect(await staging.base("parent")).toBe((await repository.git("rev-parse", "HEAD~1")).trim());
     expect(await staging.amending()).toEqual({ commit: expect.any(String), parent: expect.any(String), merge: false, pushed: [] });
+  });
+
+  it("names the remote branches that have the commit being amended, without the remotes' HEADs", async () => {
+    const clone = await cloneRepository(await createRemote());
+    await clone.write("a.txt", "a\n");
+    await clone.git("add", ".");
+    await clone.git("commit", "-q", "-m", "First");
+    await clone.git("push", "-q", "origin", "main");
+    await clone.git("remote", "set-head", "origin", "main");
+    const { staging } = await open(clone.root);
+    expect((await staging.amending())!.pushed).toEqual(["origin/main"]);
   });
 
   it("diffs files with plain prefixes whatever the configuration says", async () => {

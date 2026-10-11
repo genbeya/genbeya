@@ -83,9 +83,10 @@ export class StagingAccess {
     if (!line?.trim()) return null;
     const [commit, parents] = line.trim().split("\0") as [string, string];
     const parent = parents.split(" ").filter(Boolean);
-    const pushed = (await this.git.lines(["for-each-ref", "--contains=HEAD", "--format=%(refname:short)", "refs/remotes"])).filter(
-      (ref) => !ref.endsWith("/HEAD"),
-    );
+    // Full names, since the short name of a remote's HEAD is the remote's name.
+    const pushed = (await this.git.lines(["for-each-ref", "--contains=HEAD", "--format=%(refname)", "refs/remotes"]))
+      .filter((ref) => !ref.endsWith("/HEAD"))
+      .map((ref) => ref.slice("refs/remotes/".length));
     return { commit, parent: parent[0] ?? null, merge: parent.length > 1, pushed };
   }
 
