@@ -88,13 +88,18 @@ export function openMentionPopover(injector: Injector, anchor: HTMLElement, pers
     scrollStrategy: overlay.scrollStrategies.close(),
     hasBackdrop: true,
     backdropClass: "cdk-overlay-transparent-backdrop",
+    disposeOnNavigation: true,
   });
+  let open = true;
   const close = () => {
-    if (!reference.hasAttached()) return;
+    if (!open) return;
+    open = false;
     reference.dispose();
-    anchor.focus();
+    if (anchor.isConnected) anchor.focus({ preventScroll: true });
   };
   reference.backdropClick().subscribe(close);
+  // Scrolling detaches it: dispose of it too.
+  reference.detachments().subscribe(close);
   const data: PopoverData = { person, close };
   reference.attach(
     new ComponentPortal(
