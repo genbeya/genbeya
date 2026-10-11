@@ -128,6 +128,7 @@ import { WikiActions } from "../wiki/wiki-actions";
           [value]="value()"
           [reveal]="lines()"
           [references]="markdown() ? wiki.referenceCandidates() : null"
+          [people]="markdown() ? wiki.people() : null"
           [minimap]="session.preferences().minimap"
           (valueChange)="draft.set($event)"
           (save)="save()"
