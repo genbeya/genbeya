@@ -18,20 +18,60 @@ const SUCCESS_DURATION = 2600;
 /** Long enough to read the message and reach the button. */
 const ACTION_DURATION = 8000;
 
+/** Why a toast stays: the pointer is on it, or the focus is in it. */
+export type HoldReason = "pointer" | "focus";
+
+/** A toast's time left, running or held. */
+interface Timer {
+  remaining: number;
+  started: number;
+  handle: ReturnType<typeof setTimeout> | null;
+  readonly holds: Set<HoldReason>;
+}
+
 /**
- * Toast messages. Successes fade on their own. Errors need reading, so no
- * timer takes them away: they stay until dismissed, or until an operation
- * started after them succeeds, which makes them stale.
+ * Toast messages. Successes fade on their own, but not while the pointer is
+ * on one or the focus is in it, so its button stays within reach. Errors
+ * need reading, so no timer takes them away: they stay until dismissed, or
+ * until an operation started after them succeeds, which makes them stale.
  */
 @Injectable({ providedIn: "root" })
 export class Notifications {
   private next = 0;
   private readonly list = signal<readonly Notification[]>([]);
+  private readonly timers = new Map<number, Timer>();
   readonly visible = this.list.asReadonly();
 
   success(message: string, action?: NotificationAction): void {
     const id = this.push("success", message, action);
-    setTimeout(() => this.dismiss(id), action ? ACTION_DURATION : SUCCESS_DURATION);
+    this.timers.set(id, { remaining: action ? ACTION_DURATION : SUCCESS_DURATION, started: 0, handle: null, holds: new Set() });
+    this.run(id);
+  }
+
+  /** Stops the time of toast `id` for `reason`. */
+  hold(id: number, reason: HoldReason): void {
+    const timer = this.timers.get(id);
+    if (!timer) return;
+    timer.holds.add(reason);
+    if (timer.handle === null) return;
+    clearTimeout(timer.handle);
+    timer.handle = null;
+    timer.remaining -= Date.now() - timer.started;
+  }
+
+  /** Lets the time of toast `id` run on once nothing holds it. */
+  release(id: number, reason: HoldReason): void {
+    const timer = this.timers.get(id);
+    if (!timer) return;
+    timer.holds.delete(reason);
+    this.run(id);
+  }
+
+  private run(id: number) {
+    const timer = this.timers.get(id)!;
+    if (timer.holds.size || timer.handle !== null) return;
+    timer.started = Date.now();
+    timer.handle = setTimeout(() => this.dismiss(id), Math.max(timer.remaining, 0));
   }
 
   error(error: unknown, action?: NotificationAction): void {
@@ -55,13 +95,18 @@ export class Notifications {
   }
 
   dismiss(id: number): void {
+    const timer = this.timers.get(id);
+    if (timer?.handle) clearTimeout(timer.handle);
+    this.timers.delete(id);
     this.list.update((all) => all.filter((notification) => notification.id !== id));
   }
 
   private push(kind: Notification["kind"], message: string, action?: NotificationAction): number {
     const id = ++this.next;
     const notification = { id, kind, message, ...(action ? { action } : {}) };
+    const before = this.list();
     this.list.update((all) => [...all.filter((n) => n.message !== message), notification].slice(-VISIBLE));
+    for (const gone of before) if (!this.list().includes(gone)) this.dismiss(gone.id);
     return id;
   }
 }
