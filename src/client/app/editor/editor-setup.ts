@@ -54,7 +54,8 @@ export const editorTheme = EditorView.theme({
     display: "flex",
     alignItems: "center",
     gap: "6px",
-    padding: "3px 12px",
+    padding: "3px 8px",
+    overflow: "hidden",
     borderTop: "1px solid var(--line)",
     background: "var(--bg-panel)",
     color: "var(--text-3)",
@@ -62,9 +63,12 @@ export const editorTheme = EditorView.theme({
     fontSize: "12px",
     lineHeight: "20px",
   },
-  ".cm-hunkLabel": { marginRight: "auto" },
+  // The label gives way first where the bar is narrow, as beside the original.
+  ".cm-hunkLabel": { flex: "1 1 0", minWidth: "0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   ".cm-hunkButton": {
+    flex: "none",
     padding: "0 8px",
+    whiteSpace: "nowrap",
     border: "1px solid var(--line)",
     borderRadius: "var(--radius-s)",
     background: "var(--bg-raised)",

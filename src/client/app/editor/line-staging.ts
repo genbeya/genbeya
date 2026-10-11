@@ -8,7 +8,7 @@
 import { standardKeymap } from "@codemirror/commands";
 import { getChunks } from "@codemirror/merge";
 import { EditorSelection, EditorState, Prec, StateField, type Extension, type Range } from "@codemirror/state";
-import { Decoration, EditorView, keymap, WidgetType, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, keymap, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
 
 /** An action on a whole chunk, such as "Stage hunk". */
 export interface HunkAction {
@@ -76,8 +76,8 @@ function bars(state: EditorState, staging: LineStaging): DecorationSet {
 }
 
 /** Selects whole lines from the clicked line number, or from the anchor's line with Shift. */
-function gutterClick(view: EditorView, event: MouseEvent): boolean {
-  if (event.button !== 0 || !(event.target as Element).closest(".cm-gutters")) return false;
+function gutterClick(view: EditorView, event: MouseEvent): void {
+  if (event.button !== 0 || !(event.target as Element).closest(".cm-gutters")) return;
   const block = view.lineBlockAtHeight(event.clientY - view.documentTop);
   const doc = view.state.doc;
   const clicked = doc.lineAt(block.from);
@@ -89,7 +89,6 @@ function gutterClick(view: EditorView, event: MouseEvent): boolean {
   view.dispatch({ selection: EditorSelection.create([range]), userEvent: "select.pointer" });
   view.focus();
   event.preventDefault();
-  return true;
 }
 
 export function lineStaging(staging: LineStaging): Extension[] {
@@ -105,12 +104,15 @@ export function lineStaging(staging: LineStaging): Extension[] {
     Prec.highest(EditorView.editable.of(true)),
     EditorState.readOnly.of(true),
     keymap.of(standardKeymap),
-    EditorView.domEventHandlers({
-      mousedown: (event, view) => {
-        if ((event.target as Element).closest(".cm-hunkBar")) return false;
+    // On the whole editor: content handlers would miss the gutters.
+    ViewPlugin.define((view) => {
+      const pressed = (event: MouseEvent) => {
+        if ((event.target as Element).closest(".cm-hunkBar")) return;
         staging.pointer(event.ctrlKey || event.metaKey);
-        return gutterClick(view, event);
-      },
+        gutterClick(view, event);
+      };
+      view.dom.addEventListener("mousedown", pressed);
+      return { destroy: () => view.dom.removeEventListener("mousedown", pressed) };
     }),
     EditorView.updateListener.of((update) => {
       if (update.selectionSet) staging.selected(update.view);

@@ -63,7 +63,7 @@ describe("DiffPane", () => {
     // Line 3 ("X"), as a click on its number selects it.
     view.dispatch({ selection: { anchor: view.state.doc.line(3).from, head: view.state.doc.line(4).from } });
     await settle(fixture);
-    expect(element.querySelector(".diff-toolbar")!.textContent).toContain("1 changed line selected");
+    expect(element.querySelector(".diff-toolbar")!.textContent).toContain("1 line selected");
     [...element.querySelectorAll<HTMLButtonElement>(".diff-toolbar button")]
       .find((b) => b.textContent!.includes("Stage selected lines"))!
       .click();

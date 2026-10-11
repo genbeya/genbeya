@@ -69,7 +69,7 @@ const lineCount = (selection: LineSelection) =>
       @if (actions().length) {
         <div class="diff-toolbar" role="toolbar" aria-label="Selected lines">
           @if (selection(); as lines) {
-            <span class="diff-toolbar-text">{{ count() }} changed {{ count() === 1 ? "line" : "lines" }} selected</span>
+            <span class="diff-toolbar-text">{{ count() }} {{ count() === 1 ? "line" : "lines" }} selected</span>
             @for (action of actions(); track action.id) {
               <button
                 type="button"
