@@ -37,7 +37,6 @@
               }
             ],
             "styles": ["src/client/styles.css"],
-            "baseHref": "./",
             "allowedCommonJsDependencies": [
               "@braintree/sanitize-url",
               "cytoscape-cose-bilkent",

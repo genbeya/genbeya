@@ -8,6 +8,17 @@ test.describe("shell", () => {
       .toBe("Demo Project — GitDesk");
   });
 
+  test("starts without errors in the console", async ({ window }) => {
+    const errors: string[] = [];
+    window.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text());
+    });
+    await window.reload();
+    await window.waitForSelector("gd-shell");
+    await expect(window.locator(".document-article").getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
   test("searches pages, tasks and files from the palette", async ({ window }) => {
     await window.keyboard.press(`${MOD}+k`);
     const palette = window.getByRole("dialog", { name: "Command palette" });
