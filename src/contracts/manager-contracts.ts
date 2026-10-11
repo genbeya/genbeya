@@ -16,6 +16,7 @@ import type {
   DiffSource,
   FileContent,
   FolderListing,
+  ForcePushPlan,
   LinkUpdate,
   Location,
   MergeOptions,
@@ -24,10 +25,16 @@ import type {
   PageMove,
   People,
   Preferences,
+  PushOutcome,
+  PushPlan,
+  PushRequest,
   RebasePlan,
   RebaseStep,
   RecentEntry,
   RemoteLocation,
+  ResetMode,
+  ResetPlan,
+  ResetResult,
   Scope,
   SearchOptions,
   SearchResults,
@@ -155,6 +162,12 @@ export interface VersionControlManagerContract {
   pushTag(workspace: string, name: string, remote: string): Promise<void>;
   deleteRemoteTag(workspace: string, name: string, remote: string): Promise<void>;
   sync(workspace: string, action: SyncAction, remote: string): Promise<void>;
+  /** Where a local branch can be pushed: its upstream, and each remote's branches and default branch. */
+  pushPlan(workspace: string, branch: string): Promise<PushPlan>;
+  /** What force pushing `branch` to `remoteBranch` on `remote` would remove there, as of the last fetch. */
+  forcePushPlan(workspace: string, branch: string, remote: string, remoteBranch: string): Promise<ForcePushPlan>;
+  /** Pushes a local branch to a branch of any name on a remote; see {@link PushRequest}. */
+  push(workspace: string, request: PushRequest): Promise<PushOutcome>;
   setRemote(workspace: string, name: string, url: string): Promise<void>;
   removeRemote(workspace: string, name: string): Promise<void>;
   /** Stashes uncommitted changes. */
@@ -179,6 +192,12 @@ export interface VersionControlManagerContract {
   cherryPick(workspace: string, hash: string): Promise<OperationOutcome>;
   /** Undoes a commit with a new commit on the current branch. */
   revert(workspace: string, hash: string): Promise<OperationOutcome>;
+  /** What resetting the current branch to the commit `hash` would do. */
+  resetPlan(workspace: string, hash: string): Promise<ResetPlan>;
+  /** Moves the current branch to the commit `hash`, if it is still at `expectedHead`. */
+  reset(workspace: string, hash: string, mode: ResetMode, expectedHead: string): Promise<ResetResult>;
+  /** Moves the current branch back to the parent of its last commit, keeping that commit's changes staged. */
+  undoLastCommit(workspace: string): Promise<ResetResult>;
   /** Continues the operation in progress once its conflicts are resolved. */
   continueOperation(workspace: string): Promise<OperationOutcome>;
   /** Leaves out the commit a rebase, cherry-pick or revert stopped at. */
@@ -279,6 +298,9 @@ export const MANAGER_METHODS = {
     "pushTag",
     "deleteRemoteTag",
     "sync",
+    "pushPlan",
+    "forcePushPlan",
+    "push",
     "setRemote",
     "removeRemote",
     "stash",
@@ -293,6 +315,9 @@ export const MANAGER_METHODS = {
     "rebaseInteractive",
     "cherryPick",
     "revert",
+    "resetPlan",
+    "reset",
+    "undoLastCommit",
     "continueOperation",
     "skipOperation",
     "abortOperation",

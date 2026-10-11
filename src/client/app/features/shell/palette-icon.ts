@@ -23,6 +23,7 @@ const ICONS: Readonly<Record<Kind, IconName>> = {
   sync: "refresh-cw",
   pull: "arrow-down-to-line",
   push: "arrow-up-from-line",
+  undo: "undo-2",
   folder: "folder-open",
   local: "folder-open",
   server: "server",

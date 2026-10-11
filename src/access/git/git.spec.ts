@@ -25,6 +25,15 @@ describe("Git", () => {
     await expect(new Git(host, repository.root).text(["commit", "-m", "Nothing"])).rejects.toThrow(/nothing to commit/);
   });
 
+  it("reads git's version once, for options newer versions have", async () => {
+    const git = new Git(host, (await createRepository()).root);
+    const version = await git.version();
+    expect(version?.major).toBeGreaterThanOrEqual(2);
+    expect(git.version()).toBe(git.version());
+    expect(await git.supports({ major: 2, minor: 0, patch: 0 })).toBe(true);
+    expect(await git.supports({ major: 99, minor: 0, patch: 0 })).toBe(false);
+  });
+
   it("passes a failed command's result through without throwing", async () => {
     const repository = await createRepository();
     const result = await new Git(host, repository.root).run(["rev-parse", "--verify", "--quiet", "no-such-ref"]);
