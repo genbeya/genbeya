@@ -81,6 +81,19 @@ export class AgentFiles {
   protected readonly files = signal<readonly AgentFile[]>([]);
   protected readonly error = signal<string | null>(null);
   private request = 0;
+  /**
+   * What the files' states depend on: the settings, the checked-out commit
+   * and uncommitted changes to the files. Other snapshots change none of it.
+   */
+  private readonly inputs = computed(() => {
+    const snapshot = this.session.snapshot();
+    if (!snapshot) return "";
+    const paths = this.files().map((file) => file.path);
+    // Untracked folders show as one change, such as ".claude/".
+    const touches = (path: string) => paths.some((file) => file === path || (path.endsWith("/") && file.startsWith(path)));
+    const changes = snapshot.changes.filter((change) => touches(change.path));
+    return JSON.stringify([snapshot.settingsHash, snapshot.settings, snapshot.head.commit, changes]);
+  });
 
   protected readonly action = computed(() => {
     const chosen = this.files().filter((file) => this.selected().includes(file.target));
@@ -91,9 +104,9 @@ export class AgentFiles {
   });
 
   constructor() {
-    // Settings and files change with every snapshot; the choice changes what the files say about each other.
+    // The choice changes what the files say about each other.
     effect(() => {
-      this.session.snapshot();
+      this.inputs();
       const targets = this.selected();
       untracked(() => void this.load(targets));
     });

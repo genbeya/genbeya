@@ -91,9 +91,14 @@ export class CommitPane {
 
   private readonly api = inject(WorkspaceApi);
   private readonly session = inject(Session);
+  /**
+   * What can change the refs shown on this commit: HEAD being on it, and the
+   * branches and tags there are. New commits elsewhere change none of them.
+   */
   private readonly refs = computed(() => {
     const snapshot = this.session.snapshot();
-    return [snapshot?.head.commit, ...(snapshot?.branches ?? []), ...(snapshot?.tags ?? [])].join(" ");
+    const head = snapshot?.head.commit === this.hash() ? `HEAD ${snapshot.head.branch}` : "";
+    return [head, ...(snapshot?.branches ?? []), ...(snapshot?.tags ?? [])].join(" ");
   });
   private readonly router = inject(Router);
   private readonly clipboard = inject(Clipboard);
