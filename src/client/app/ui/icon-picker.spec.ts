@@ -14,7 +14,7 @@ async function render(value: string | null, noneLabel?: string) {
   const trigger = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>("button[aria-label='Icon of Bug']")!;
   trigger.click();
   await settle(fixture);
-  const items = [...document.querySelectorAll<HTMLElement>(".cdk-overlay-container [role=menuitem]")];
+  const items = [...document.querySelectorAll<HTMLElement>(".cdk-overlay-container :is([role=menuitem], [role=menuitemradio])")];
   return {
     trigger,
     items,
@@ -32,6 +32,22 @@ describe("IconPicker", () => {
     expect(item("Bug")!.classList).toContain("is-active");
     item("Trending up")!.click();
     expect(chosen).toEqual(["trending-up"]);
+  });
+
+  it("marks the current icon as checked, and moves through the grid with the arrow keys", async () => {
+    const { item } = await render("bug", "Progress");
+    expect(item("Bug")!.getAttribute("role")).toBe("menuitemradio");
+    expect(item("Bug")!.getAttribute("aria-checked")).toBe("true");
+    expect(item("Sparkles")!.getAttribute("aria-checked")).toBe("false");
+    const key = (from: string, key: string) => item(from)!.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    key("Bug", "ArrowRight");
+    expect(document.activeElement).toBe(item("Sparkles"));
+    key("Sparkles", "ArrowDown");
+    expect(document.activeElement).toBe(item(ICON_NAMES[8]!.replace(/-/g, " ").replace(/^\w/, (letter) => letter.toUpperCase())));
+    key("Bug", "ArrowUp");
+    expect(document.activeElement).toBe(item("Progress"));
+    key("Sparkles", "ArrowLeft");
+    expect(document.activeElement).toBe(item("Bug"));
   });
 
   it("offers no icon when asked to", async () => {

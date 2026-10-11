@@ -140,7 +140,7 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
       @if (task()) {
         <!-- Hidden rather than removed while editing, and the comments while showing the activity, so an unsent comment survives. -->
         <section class="task-discussion" [class.is-hidden]="editing()">
-          <div class="segmented" role="tablist" aria-label="Comments and activity" (keydown)="tabKey($event)">
+          <div class="segmented" role="tablist" aria-label="Comments and activity">
             @for (name of tabs; track name) {
               <button
                 type="button"
@@ -151,6 +151,7 @@ const withTemplate = (draft: TaskInput, template: TaskTemplate): TaskInput => ({
                 [tabIndex]="tab() === name ? 0 : -1"
                 [class.is-active]="tab() === name"
                 (click)="tab.set(name)"
+                (keydown)="tabKey($event)"
               >
                 @if (name === "comments") {
                   Comments
@@ -325,7 +326,7 @@ ${this.task()!.hash}`,
     event.preventDefault();
     const tab = this.tabs[(next + this.tabs.length) % this.tabs.length]!;
     this.tab.set(tab);
-    (event.currentTarget as HTMLElement).querySelector<HTMLElement>(`#task-tab-${tab}`)?.focus();
+    (event.currentTarget as HTMLElement).parentElement!.querySelector<HTMLElement>(`#task-tab-${tab}`)?.focus();
   }
 
   protected async save() {

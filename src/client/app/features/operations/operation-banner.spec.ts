@@ -18,8 +18,13 @@ async function render(operation: Operation, changes: Change[]) {
 
 describe("OperationBanner", () => {
   it("names the operation and its conflicts, and waits for them before continuing", async () => {
-    const { element, button } = await render(MERGE, [CONFLICT]);
+    const { element, button, fixture } = await render(MERGE, [CONFLICT]);
     expect(element.textContent!.replace(/\s+/g, " ").trim()).toContain("Merging feature into main — 1 conflict");
+    // A landmark whose text, without the buttons, is announced.
+    expect(fixture.nativeElement.getAttribute("role")).toBe("region");
+    expect(fixture.nativeElement.getAttribute("aria-label")).toBe("Merge in progress");
+    expect(element.querySelector("[role=status]")!.textContent!.replace(/\s+/g, " ").trim()).toBe("Merging feature into main — 1 conflict");
+    expect(element.querySelector("[role=status] button")).toBeNull();
     expect((button("Continue") as HTMLButtonElement).disabled).toBe(true);
     expect(button("Skip")).toBeUndefined();
     expect(button("Resolve")).toBeDefined();

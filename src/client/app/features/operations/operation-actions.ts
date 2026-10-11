@@ -14,7 +14,13 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import type { MergeRequest } from "./merge-dialog";
 import type { RebaseRequest } from "./rebase-dialog";
 
-const NAMES: Readonly<Record<OperationKind, string>> = { merge: "Merge", rebase: "Rebase", "cherry-pick": "Cherry-pick", revert: "Revert" };
+/** The operations by name, as titles and messages use them. */
+export const OPERATION_NAMES: Readonly<Record<OperationKind, string>> = {
+  merge: "Merge",
+  rebase: "Rebase",
+  "cherry-pick": "Cherry-pick",
+  revert: "Revert",
+};
 
 @Injectable({ providedIn: "root" })
 export class OperationActions {
@@ -147,6 +153,6 @@ export class OperationActions {
 
   private name(): string {
     const kind = this.session.snapshot()?.operation?.kind;
-    return kind ? NAMES[kind] : "Operation";
+    return kind ? OPERATION_NAMES[kind] : "Operation";
   }
 }

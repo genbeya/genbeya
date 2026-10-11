@@ -85,6 +85,24 @@ describe("RebaseDialog", () => {
     ]);
   });
 
+  it("reorders without dragging, with each commit's arrows or Alt and the arrow keys", async () => {
+    const { element, fixture, submit, close } = await render();
+    const subjects = () => [...element.querySelectorAll(".rebase-subject")].map((subject) => subject.textContent);
+    const moveUp = element.querySelector<HTMLButtonElement>("button[aria-label='Move One up']")!;
+    expect(moveUp.disabled).toBe(true);
+    element.querySelector<HTMLButtonElement>("button[aria-label='Move One down']")!.click();
+    await settle(fixture);
+    expect(subjects()).toEqual(["Two", "One", "Three"]);
+    const action = element.querySelectorAll<HTMLSelectElement>("select")[2]!;
+    action.focus();
+    action.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", altKey: true, bubbles: true }));
+    await settle(fixture);
+    expect(subjects()).toEqual(["Two", "Three", "One"]);
+    expect(document.activeElement).toBe(action);
+    submit();
+    expect(close).toHaveBeenCalledWith([two, three, one].map(({ hash }) => ({ hash, action: "pick" })));
+  });
+
   it("refuses to squash the first commit, and warns about pushed commits", async () => {
     const { element, choose, submit, close } = await render({
       plan: { base: "f".repeat(40), commits: [one, two, three], pushed: ["origin/main"] },

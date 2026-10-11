@@ -1,6 +1,6 @@
 import { CdkDrag, type CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from "@angular/cdk/drag-drop";
 import { DIALOG_DATA, DialogRef } from "@angular/cdk/dialog";
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from "@angular/core";
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, inject, Injector, signal } from "@angular/core";
 import { REBASE_ACTIONS, type RebaseAction, type RebaseCommit, type RebasePlan, type RebaseStep } from "../../../../contracts/model";
 import { DialogFrame } from "../../ui/dialog-frame";
 import { Icon } from "../../ui/icon";
@@ -70,11 +70,16 @@ export function problemOf(rows: readonly Row[]): string | null {
   imports: [CdkDrag, CdkDragHandle, CdkDropList, DialogFrame, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./rebase-dialog.css",
+  // Alt+Up and Alt+Down move the commit whose row has focus.
+  host: { "(keydown.alt.arrowup)": "rowKey($event, -1)", "(keydown.alt.arrowdown)": "rowKey($event, 1)" },
   template: `
     <gd-dialog-frame [title]="'Rebase ' + request.branch + ' interactively'" [width]="680" (submitted)="submit()">
-      <p class="dialog-hint rebase-hint">Oldest first. Drag to reorder; squash and fixup join a commit to the one above it.</p>
+      <p class="dialog-hint rebase-hint">
+        Oldest first. Drag to reorder, or move a commit with its arrows or Alt+↑ and Alt+↓; squash and fixup join a commit to the one above
+        it.
+      </p>
       <ol class="rebase-rows" cdkDropList aria-label="Commits" (cdkDropListDropped)="move($event)">
-        @for (row of shown(); track row.commit.hash; let index = $index) {
+        @for (row of shown(); track row.commit.hash; let index = $index, first = $first, last = $last) {
           <li class="rebase-row" cdkDrag [class.is-dropped]="row.action === 'drop'">
             <div class="rebase-line">
               <span class="rebase-handle" cdkDragHandle aria-hidden="true"><svg gd-icon name="grip-vertical" [size]="14"></svg></span>
@@ -91,6 +96,26 @@ export function problemOf(rows: readonly Row[]): string | null {
               </select>
               <span class="rebase-subject ellipsis" [title]="row.commit.subject">{{ row.commit.subject }}</span>
               <span class="rebase-hash mono">{{ row.commit.hash.slice(0, 7) }}</span>
+              <button
+                type="button"
+                class="icon-btn"
+                [attr.aria-label]="'Move ' + row.commit.subject + ' up'"
+                title="Move up (Alt+↑)"
+                [disabled]="first"
+                (click)="moveBy(index, -1, $event)"
+              >
+                <svg gd-icon name="arrow-up" [size]="13"></svg>
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                [attr.aria-label]="'Move ' + row.commit.subject + ' down'"
+                title="Move down (Alt+↓)"
+                [disabled]="last"
+                (click)="moveBy(index, 1, $event)"
+              >
+                <svg gd-icon name="arrow-down" [size]="13"></svg>
+              </button>
             </div>
             @if (row.action === "reword" || row.action === "squash") {
               <textarea
@@ -127,6 +152,7 @@ export function problemOf(rows: readonly Row[]): string | null {
 export class RebaseDialog {
   protected readonly request = inject<RebaseRequest>(DIALOG_DATA);
   protected readonly dialog = inject<DialogRef<RebaseStep[]>>(DialogRef);
+  private readonly injector = inject(Injector);
   protected readonly actions = REBASE_ACTIONS;
   protected readonly labels = LABELS;
   protected readonly rows = signal<readonly Row[]>(
@@ -139,6 +165,33 @@ export class RebaseDialog {
     const rows = [...this.rows()];
     moveItemInArray(rows, event.previousIndex, event.currentIndex);
     this.rows.set(rows);
+  }
+
+  protected rowKey(event: Event, step: -1 | 1) {
+    const row = (event.target as HTMLElement).closest(".rebase-row");
+    if (row) this.moveBy([...row.parentElement!.children].indexOf(row), step, event);
+  }
+
+  /** Moves a row by one, from the keyboard or its arrows; the control that had focus keeps it. */
+  protected moveBy(index: number, step: -1 | 1, event: Event) {
+    const to = index + step;
+    if (to < 0 || to >= this.rows().length) return;
+    event.preventDefault();
+    const row = (event.target as HTMLElement).closest(".rebase-row")!;
+    const focused = document.activeElement instanceof HTMLElement && row.contains(document.activeElement) ? document.activeElement : null;
+    this.rows.update((rows) => {
+      const next = [...rows];
+      moveItemInArray(next, index, to);
+      return next;
+    });
+    // The row's elements move with it, which takes focus away; a button that is now disabled hands it to the row's action.
+    afterNextRender(
+      () => {
+        const target = focused && !(focused as HTMLButtonElement).disabled ? focused : row.querySelector<HTMLElement>(".rebase-action");
+        target?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   protected setAction(index: number, action: RebaseAction) {
