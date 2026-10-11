@@ -2,6 +2,7 @@ import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
 import { PRIORITIES, type TaskInput } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
+import { People } from "../../core/people";
 import { Session } from "../../core/session";
 import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
@@ -35,7 +36,7 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./tas
     </button>
     <button type="button" class="property" aria-label="Assignee" [cdkMenuTriggerFor]="assigneeMenu">
       @if (value().assignee) {
-        <gd-avatar [name]="value().assignee" [size]="16" />{{ value().assignee }}
+        <gd-avatar [name]="directory.nameOf(value().assignee)" [size]="16" />{{ directory.nameOf(value().assignee) }}
       } @else {
         <svg gd-icon name="user" [size]="14"></svg>Unassigned
       }
@@ -86,9 +87,14 @@ import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./tas
         <button gd-menu-item [checked]="!value().assignee" (selected)="changed.emit({ assignee: '' })">
           <svg icon gd-icon name="user" [size]="14"></svg>Unassigned
         </button>
-        @for (person of people(); track person) {
-          <button gd-menu-item [checked]="person === value().assignee" (selected)="changed.emit({ assignee: person })">
-            <gd-avatar icon [name]="person" [size]="16" />{{ person }}
+        @for (person of people(); track person.value) {
+          <button
+            gd-menu-item
+            [checked]="person.value === assigned()"
+            [hint]="person.handle ? '@' + person.handle : undefined"
+            (selected)="changed.emit({ assignee: person.value })"
+          >
+            <gd-avatar icon [name]="person.name" [size]="16" />{{ person.name }}
           </button>
         }
         <div class="menu-separator"></div>
@@ -129,13 +135,22 @@ export class TaskProperties {
   readonly changed = output<Partial<TaskInput>>();
   private readonly session = inject(Session);
   private readonly dialogs = inject(Dialogs);
+  protected readonly directory = inject(People);
   protected readonly priorities = PRIORITIES;
   protected readonly titleCase = titleCase;
   protected readonly statuses = computed(() => this.session.snapshot()!.settings.statuses);
   protected readonly statusIcons = computed(() => this.session.snapshot()!.settings.statusIcons);
   /** The configured types, and this task's type even when it is not configured. */
   protected readonly types = computed(() => typesOf(this.session.snapshot()!.settings.types, [{ type: this.value().type ?? "" }]));
-  protected readonly people = computed(() => peopleOf(this.session.snapshot()!.tasks));
+  /** The repository's people, assigned by handle, then assignees who are none of them. */
+  protected readonly people = computed(() => [
+    ...this.directory.list().map((person) => ({ value: person.handle, name: person.name, handle: person.handle })),
+    ...peopleOf(this.session.snapshot()!.tasks)
+      .filter((assignee) => !this.directory.find(assignee))
+      .map((assignee) => ({ value: assignee, name: assignee, handle: null })),
+  ]);
+  /** Who the task is assigned to, as the menu names them. */
+  protected readonly assigned = computed(() => this.directory.identify(this.value().assignee));
   protected readonly epicName = epicName;
   /** Epics of other tasks, and this one's even while it is the only task in it. */
   protected readonly epics = computed(() =>
@@ -153,7 +168,13 @@ export class TaskProperties {
   }
 
   protected async assignSomeoneElse() {
-    const name = await this.dialogs.prompt({ title: "Assign", label: "Name", placeholder: "alice", confirm: "Assign" });
+    const name = await this.dialogs.prompt({
+      title: "Assign",
+      label: "Name",
+      placeholder: "alice",
+      confirm: "Assign",
+      hint: "A handle, a name or an email.",
+    });
     if (name) this.changed.emit({ assignee: name });
   }
 

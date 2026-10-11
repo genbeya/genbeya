@@ -15,6 +15,7 @@ import { Router } from "@angular/router";
 import type { SearchOptions } from "../../../../contracts/model";
 import { CTRL_KEY, isMac, MOD_KEY, SHIFT_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
+import { People } from "../../core/people";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
 import { ContentFiles } from "../code/content-files";
@@ -25,7 +26,7 @@ import { WikiActions } from "../wiki/wiki-actions";
 import { MarkedText } from "./marked-text";
 import { PaletteIcon } from "./palette-icon";
 import { OperationActions } from "../operations/operation-actions";
-import { allItems, branchItems, linkItem, mergeItems, rank, rebaseItems, type PaletteCommands } from "./palette-items";
+import { allItems, branchItems, linkItem, mentionItems, mergeItems, rank, rebaseItems, type PaletteCommands } from "./palette-items";
 import { RepositoryActions } from "./repository-actions";
 import { describeResults, SEARCH_PREFIX, searchItems, searchText, type PaletteRow, type SearchCommands } from "./search-items";
 import { ShellUi, type PaletteMode } from "./shell-ui";
@@ -177,6 +178,7 @@ export class Palette {
   private readonly ui = inject(ShellUi);
   private readonly terminals = inject(Terminals);
   private readonly onboarding = inject(Onboarding);
+  private readonly people = inject(People);
   private readonly contentFiles = inject(ContentFiles);
   protected readonly label =
     this.mode === "branches"
@@ -186,7 +188,7 @@ export class Palette {
         : this.mode === "rebase"
           ? "Rebase onto"
           : "Command palette";
-  protected readonly query = signal(this.mode === "search" ? SEARCH_PREFIX : "");
+  protected readonly query = signal(this.ui.takeQuery() ?? (this.mode === "search" ? SEARCH_PREFIX : ""));
   protected readonly active = signal(0);
   private readonly recent = inject(Repositories).recent;
   private readonly list = viewChild.required<ElementRef<HTMLElement>>("list");
@@ -209,6 +211,7 @@ export class Palette {
     showRebase: () => void this.ui.openPalette("rebase"),
     pullRebase: (remote) => void this.operations.pullRebase(remote),
     searchText: () => void this.ui.openPalette("search"),
+    findMentions: (handle) => void this.ui.openPalette("search", `${SEARCH_PREFIX}@${handle}`),
     sync: (action, remote) => void this.repository.sync(action, remote),
     push: () => void this.pushes.push(),
     pushTo: () => void this.pushes.pushTo(),
@@ -248,13 +251,16 @@ export class Palette {
     if (this.mode === "branches") return branchItems(snapshot, this.query(), this.commands);
     if (this.mode === "merge") return mergeItems(snapshot, this.commands);
     if (this.mode === "rebase") return rebaseItems(snapshot, this.commands);
-    return allItems(
-      snapshot,
-      this.recent(),
-      this.session.preferences().theme,
-      { mod: MOD_KEY, ctrl: CTRL_KEY, shift: SHIFT_KEY },
-      this.commands,
-    );
+    return [
+      ...allItems(
+        snapshot,
+        this.recent(),
+        this.session.preferences().theme,
+        { mod: MOD_KEY, ctrl: CTRL_KEY, shift: SHIFT_KEY },
+        this.commands,
+      ),
+      ...mentionItems(this.people.me(), this.commands),
+    ];
   });
   protected readonly results = computed<readonly PaletteRow[]>(() => {
     if (this.fullText() !== null) {

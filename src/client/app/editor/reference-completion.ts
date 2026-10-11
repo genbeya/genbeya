@@ -1,6 +1,5 @@
-/** Completes `[[references]]` in Markdown: tasks, wiki pages and files. */
-import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
-import type { Extension } from "@codemirror/state";
+/** Completes `[[references]]` in Markdown: tasks, wiki pages and files; see markdown-completion.ts. */
+import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 
 export interface ReferenceCandidate {
   /** What goes between the brackets: a task ID, page title or file path. */
@@ -35,6 +34,3 @@ export function referenceSource(candidates: () => readonly ReferenceCandidate[])
     return { from, options, validFor: /^[^\]|\n]*$/ };
   };
 }
-
-export const referenceCompletion = (candidates: () => readonly ReferenceCandidate[]): Extension =>
-  autocompletion({ override: [referenceSource(candidates)], icons: true });

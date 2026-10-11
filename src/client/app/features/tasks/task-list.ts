@@ -1,9 +1,11 @@
 import { CdkContextMenuTrigger } from "@angular/cdk/menu";
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, inject, Injector, input, output } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
+import { People } from "../../core/people";
 import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
 import { ShareMenu } from "../share/share-menu";
+import { DueDates } from "./due-dates";
 import { LabelChip, PriorityIcon, StatusIcon, TypeIcon } from "./task-icons";
 import { displayId, titleCase } from "./task-model";
 
@@ -13,7 +15,7 @@ import { displayId, titleCase } from "./task-model";
  */
 @Component({
   selector: "gd-task-list",
-  imports: [Avatar, CdkContextMenuTrigger, Icon, LabelChip, PriorityIcon, ShareMenu, StatusIcon, TypeIcon],
+  imports: [Avatar, CdkContextMenuTrigger, DueDates, Icon, LabelChip, PriorityIcon, ShareMenu, StatusIcon, TypeIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-list" },
   template: `
@@ -62,8 +64,9 @@ import { displayId, titleCase } from "./task-model";
             @for (label of task.labels; track label) {
               <gd-label-chip [name]="label" />
             }
+            <gd-due-dates [task]="task" />
             @if (task.assignee) {
-              <gd-avatar [name]="task.assignee" [size]="20" />
+              <gd-avatar [name]="people.nameOf(task.assignee)" [size]="20" />
             } @else {
               <span class="avatar-placeholder"></span>
             }
@@ -87,6 +90,7 @@ export class TaskList {
   protected readonly titleCase = titleCase;
   protected readonly displayId = displayId;
   private readonly injector = inject(Injector);
+  protected readonly people = inject(People);
   /** Configured states always, other states while tasks are in them. */
   protected readonly groups = computed(() =>
     this.columns()

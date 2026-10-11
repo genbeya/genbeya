@@ -32,6 +32,10 @@ export const CHANGELOG: readonly Release[] = [
         target: "gd-sync-bar",
         route: "/changes",
       },
+      {
+        title: "Mentions and dates",
+        body: "Type `@` in a page, a task or a comment to mention someone, and `//` to insert a date. Mentions show who they mean and their tasks; dates show in your language, and open checklist items turn red once their date has passed.",
+      },
     ],
   },
   {

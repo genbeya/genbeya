@@ -3,6 +3,7 @@ import { computed, Injectable, inject } from "@angular/core";
 import { Router } from "@angular/router";
 import { Dialogs } from "../../core/dialogs";
 import { ExternalLinks } from "../../core/external-links";
+import { People } from "../../core/people";
 import { Session } from "../../core/session";
 import { sameJson } from "../../core/signals";
 import { WorkspaceApi } from "../../core/workspace-api";
@@ -21,9 +22,10 @@ export class WikiActions {
   private readonly dialogs = inject(Dialogs);
   private readonly router = inject(Router);
   private readonly external = inject(ExternalLinks);
+  private readonly directory = inject(People);
   private readonly root = computed(() => this.session.snapshot()?.settings.wikiRoot ?? "docs");
 
-  /** Tasks, pages and files that Markdown can reference by ID, title or path. */
+  /** Tasks, pages and files that Markdown can reference by ID, title or path, and the people it can mention. */
   readonly linkTargets = computed<GitdeskOptions>(
     () => {
       const snapshot = this.session.snapshot();
@@ -35,6 +37,7 @@ export class WikiActions {
           statuses: snapshot?.settings.statuses ?? [],
           files: filePaths(snapshot?.files ?? []),
         },
+        people: this.directory.list(),
       };
     },
     { equal: sameJson },
@@ -42,6 +45,9 @@ export class WikiActions {
 
   /** What `[[` offers in Markdown editors. */
   readonly referenceCandidates = computed(() => referenceCandidates(this.linkTargets().references!));
+
+  /** Whom `@` offers in Markdown editors. */
+  readonly people = this.directory.list;
 
   openPage(page: string, options: { anchor?: string; replace?: boolean } = {}): Promise<boolean> {
     return this.router.navigate(["/wiki"], { queryParams: { page, anchor: options.anchor }, replaceUrl: options.replace });

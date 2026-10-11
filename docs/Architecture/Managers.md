@@ -5,7 +5,7 @@ Four managers implement everything the client can do with a repository. Their co
 | Manager | Use cases |
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
-| `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [Content branch](Content-branch.md)), full-text [Search](../Guide/Search.md), and the files that teach [AI agents](../Guide/AI-agents.md) to use them |
+| `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [Content branch](Content-branch.md)), full-text [Search](../Guide/Search.md), the repository's people, and the files that teach [AI agents](../Guide/AI-agents.md) to use them |
 | `versionControl` | Diffs, staging, commits, stashes, branches, tags, remotes, fetch/pull/push, pushing anywhere and force pushing, history, merges, rebases, resets and conflicts |
 | `terminal` | Shells in the repository for the [Terminal](../Guide/Terminal.md): open, input, size, output, close |
 
@@ -66,6 +66,18 @@ git log --follow --no-merges --max-count=100 --patch --unified=1000000 -- <path>
 ```
 
 The patches carry whole files, so every commit yields both versions, and `rename from`/`rename to` lines give the path before and after; the task engine compares the two versions (status, priority, assignee, title, epic, labels, description, comments, other frontmatter fields). Task files over 256 KiB are listed without patch context, so the output stays small. Edits not committed yet come first, as an entry without commit; a task moved to another epic since the last commit is found under its committed path by its file name.
+
+## People
+
+`content.people(workspace)` answers `{ people, me }`: everyone who works on the repository, each with a unique handle for `@mentions` (rules in [Writing pages](../Guide/Writing.md#handles)), and the handle of the user. The people engine (`src/engines/people-engine.ts`) merges, in this order, the `people` of the settings, the authors of the latest 5000 commits of HEAD, comment authors and assignees; `src/utilities/people.ts` holds the handle and mention rules the client renders with.
+
+Commit authors come from one call, which applies `.mailmap`:
+
+```
+git log --max-count=5000 --format=%aN%x00%aE HEAD --
+```
+
+The manager keeps them per open repository until HEAD moves, so the call costs a `rev-parse` and one batched read of the task files. The user is `git var GIT_AUTHOR_IDENT`, found among the people by email, else by name. The client asks again when the snapshot's HEAD commit, settings version, assignees or comment authors change.
 
 ## Preferences
 

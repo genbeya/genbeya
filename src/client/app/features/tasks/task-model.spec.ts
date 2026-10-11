@@ -75,6 +75,17 @@ describe("task ordering and filters", () => {
     expect(peopleOf(tasks)).toEqual(["ann", "bob"]);
     expect(labelsOf(tasks)).toEqual(["api", "ui"]);
   });
+
+  it("filters and lists assignees as people, however the tasks write them", () => {
+    const written = [task("TP-7", { assignee: "Ann Smith" }), task("TP-8", { assignee: "ANN" }), ...tasks];
+    const identify = (assignee: string) => (["ann", "ann smith"].includes(assignee.toLowerCase()) ? "ann" : assignee);
+    expect(visibleTasks(written, { ...NO_FILTERS, assignee: "ann" }, new Map(), identify).map((t) => t.id)).toEqual([
+      "TP-1",
+      "TP-8",
+      "TP-7",
+    ]);
+    expect(peopleOf(written, identify)).toEqual(["ann", "bob"]);
+  });
 });
 
 describe("task labels", () => {
