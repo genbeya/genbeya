@@ -6,7 +6,7 @@ Four managers implement everything the client can do with a repository. Their co
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
 | `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [Content branch](Content-branch.md)), full-text [Search](../Guide/Search.md), and the files that teach [AI agents](../Guide/AI-agents.md) to use them |
-| `versionControl` | Diffs, staging, commits, stashes, branches, tags, remotes, fetch/pull/push, history, merges, rebases and conflicts |
+| `versionControl` | Diffs, staging, commits, stashes, branches, tags, remotes, fetch/pull/push, pushing anywhere and force pushing, history, merges, rebases, resets and conflicts |
 | `terminal` | Shells in the repository for the [Terminal](../Guide/Terminal.md): open, input, size, output, close |
 
 Every call names the workspace it was made for (or a terminal, which belongs to one), so a call racing a repository switch fails instead of touching the new repository. Every argument is validated again in the manager, so managers can sit directly behind IPC.
@@ -38,9 +38,18 @@ Git never opens an editor for GitDesk: every call runs with `GIT_EDITOR=:`, whic
 
 Rewriting history needs a clean working tree: `rebase`, `pullRebase` and `rebaseInteractive` refuse uncommitted changes to tracked files unless `autostash` is set, which passes `--autostash`. `rebasePlan(base)` lists the commits a rebase would rewrite and the remote branches that already have them, so the client can warn before anyone has to force-push. Merge commits are not cherry-picked, reverted or rebased interactively.
 
-### Interactive rebase
+### Resets
+
+`resetPlan(hash)` says what resetting the current branch to a commit would do: the commits that leave it, how many of them its upstream has (they come back as behind), and the tracked files with uncommitted changes, which a hard reset discards. `reset(hash, mode, expectedHead)` runs `git reset --soft|--mixed|--hard|--keep` only while HEAD is still at `expectedHead`, the commit the plan was made at, and resolves to `{ from, to }`; undoing is a reset back to `from` expecting `to`. `undoLastCommit` is a soft reset to the parent of HEAD, refused for the first commit and for merges. All three refuse while an operation is in progress or files are conflicted, like the operations above: aborting one afterwards would go back to before the reset.
+
 
 The client sends every commit after `base` once, in the new order, each with an action and, for reword and squash, a message. `src/engines/rebase-engine.ts` checks the steps against the commits and turns them into a todo list that needs no editor: squashes become `fixup`, and a commit whose message changes is followed by `exec git commit --amend --file=<message>`. Git access writes the todo list and the messages into `gitdesk-rebase/` in the git directory and runs `git rebase -i` with `GIT_SEQUENCE_EDITOR="cat '<todo>' >"`: Git runs editors and `exec` lines through its own `sh`, so the same commands work on Windows (Git for Windows' sh), WSL and SSH hosts. Shell hosts pass environment variables by exporting them in the request's subshell.
+
+## Pushing
+
+`sync(push)` pushes the current branch to its upstream, or publishes it with `--set-upstream`. `push(request)` pushes any local branch to a branch of any name on a remote, with the refspec `refs/heads/<local>:refs/heads/<remote>` after `--end-of-options`, and sets the upstream when asked. It resolves to `"rejected"` when the remote branch has commits the local one lacks (git's `non-fast-forward` or `fetch first`), so the client can offer a force push; other failures are errors. `pushPlan(branch)` lists the upstream and, per remote, its branches as last fetched and its default branch: `refs/remotes/<remote>/HEAD` when a clone or `remote set-head` recorded it, else `git ls-remote --symref` asks the remote.
+
+A force push never goes without a lease. `forcePushPlan(branch, remote, remoteBranch)` names the commit of the remote-tracking branch and lists the commits on it the local branch lacks — what others lose. The client shows them and sends that commit back as `force.expected`; the push runs with `--force-with-lease=refs/heads/<remote>:<expected>` (empty when the branch did not exist), so a fetch between the plan and the push cannot move what the lease expects, plus `--force-if-includes` when `git version` is 2.30 or newer (`Git.supports`). A lease that no longer holds (`stale info`) fails with *origin/main changed since your last fetch. Fetch and review it first.* Force pushing to the remote's default branch — main or master while it is unknown — is refused unless `force.defaultBranch` is set.
 
 ## Task comments and activity
 
