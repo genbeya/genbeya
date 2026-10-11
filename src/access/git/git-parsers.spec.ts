@@ -3,7 +3,9 @@ import {
   isCommitId,
   LOG_FORMAT,
   parseFileLog,
+  parseGitVersion,
   parseLog,
+  parsePushRejection,
   parseNameStatus,
   parseOperation,
   parseRemotes,
@@ -241,6 +243,27 @@ describe("parseWorktrees", () => {
       ["refs/heads/main", "/repo"],
       ["refs/heads/gitdesk", "/repo/.git/gitdesk/gitdesk"],
     ]);
+  });
+});
+
+describe("parseGitVersion", () => {
+  it("reads the version of every build of git", () => {
+    expect(parseGitVersion("git version 2.53.0.windows.1\n")).toEqual({ major: 2, minor: 53, patch: 0 });
+    expect(parseGitVersion("git version 2.39.5 (Apple Git-154)")).toEqual({ major: 2, minor: 39, patch: 5 });
+    expect(parseGitVersion("git version 2.30")).toEqual({ major: 2, minor: 30, patch: 0 });
+    expect(parseGitVersion("not git")).toBeNull();
+  });
+});
+
+describe("parsePushRejection", () => {
+  it("tells a failed lease from a remote that has other commits", () => {
+    const line = (reason: string) => ` ! [rejected]        main -> main (${reason})\nerror: failed to push some refs to '/srv/x.git'\n`;
+    expect(parsePushRejection(line("non-fast-forward"))).toBe("behind");
+    expect(parsePushRejection(line("fetch first"))).toBe("behind");
+    expect(parsePushRejection(line("stale info"))).toBe("stale");
+    expect(parsePushRejection(line("remote ref updated since checkout"))).toBe("stale");
+    expect(parsePushRejection(" ! [remote rejected] main -> main (pre-receive hook declined)\n")).toBeNull();
+    expect(parsePushRejection("fatal: could not read from remote repository\n")).toBeNull();
   });
 });
 

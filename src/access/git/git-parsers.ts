@@ -1,5 +1,6 @@
 /** Parsers for git's machine-readable output formats. */
 import type { Change, Commit, CommitFile, ConflictKind, Head, Operation, RebaseCommit, Stash } from "../../contracts/model";
+import { parseVersion, type Version } from "../../utilities/version";
 
 /** Files of the git directory that tell which operation is in progress, and how far it got. */
 export const OPERATION_FILES = [
@@ -290,6 +291,25 @@ export function parseRemotes(output: string): { name: string; url: string }[] {
     if (match) remotes.push({ name: match[1]!, url: match[2]! });
   }
   return remotes;
+}
+
+/** `git version` → its version; builds add their own suffixes, such as ".windows.1". */
+export function parseGitVersion(output: string): Version | null {
+  const match = /^git version (\d+\.\d+(?:\.\d+)?)/.exec(output.trim());
+  return match ? parseVersion(match[1]) : null;
+}
+
+/**
+ * Why a push was rejected, from the status lines git prints: `behind` when
+ * the remote branch has commits the pushed one lacks, `stale` when a force
+ * push's lease no longer holds. Null for any other failure.
+ */
+export function parsePushRejection(stderr: string): "behind" | "stale" | null {
+  // The reasons in parentheses are not translated.
+  const reasons = [...stderr.matchAll(/^ ! \[rejected\] .*\((.+)\)$/gm)].map((match) => match[1]);
+  if (reasons.some((reason) => reason === "stale info" || reason === "remote ref updated since checkout")) return "stale";
+  if (reasons.some((reason) => reason === "non-fast-forward" || reason === "fetch first")) return "behind";
+  return null;
 }
 
 export const isCommitId = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9]{40,64}$/.test(value);
