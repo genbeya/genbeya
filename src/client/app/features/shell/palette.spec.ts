@@ -87,6 +87,21 @@ describe("Palette full-text search", () => {
     expect(navigate).toHaveBeenLastCalledWith(["/code"], { queryParams: { file: "src/gadget.ts", lines: 2 } });
   });
 
+  it("explains a found file on the content branch, which the code view cannot show", async () => {
+    const { fixture, navigate, search, dialogs } = await setup();
+    const template = { path: "tasks/.templates/bug.md", scope: "content", title: "bug.md", matches: [match(1, "gadget", 0, 6)] } as const;
+    search.mockResolvedValue({ wiki: [], tasks: [], code: [template], truncated: false });
+    await type(fixture, "/gadget");
+    await press(fixture, "Enter");
+    expect(dialogs.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining("tasks/.templates/bug.md is on the gitdesk branch"),
+        confirm: "Copy path",
+      }),
+    );
+    expect(navigate).not.toHaveBeenCalledWith(["/code"], expect.anything());
+  });
+
   it("toggles case, whole words and regular expressions by button or Alt and a letter", async () => {
     const { fixture, search } = await setup();
     await type(fixture, "/gadget");

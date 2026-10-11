@@ -64,7 +64,10 @@ describe("SettingsView", () => {
     element.querySelector<HTMLButtonElement>("button[aria-label='Edit the bug template']")!.click();
     await settle(fixture);
     expect(dialogs.confirm).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining("tasks/.templates/bug.md on the gitdesk branch"), confirm: "Copy path" }),
+      expect.objectContaining({
+        message: expect.stringContaining("tasks/.templates/bug.md is on the gitdesk branch"),
+        confirm: "Copy path",
+      }),
     );
     expect(navigate).not.toHaveBeenCalledWith(["/code"], expect.anything());
   });

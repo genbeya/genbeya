@@ -10,13 +10,13 @@ import {
   type Theme,
 } from "../../../../contracts/model";
 import { APP_VERSION } from "../../core/app-version";
-import { Clipboard } from "../../core/clipboard";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { Icon } from "../../ui/icon";
+import { ContentFiles } from "../code/content-files";
 import { Onboarding } from "../onboarding/onboarding";
 import { titleCase } from "../tasks/task-model";
 import { AgentFiles } from "./agent-files";
@@ -43,7 +43,7 @@ export class SettingsView {
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
   private readonly router = inject(Router);
-  private readonly clipboard = inject(Clipboard);
+  private readonly contentFiles = inject(ContentFiles);
   protected readonly mod = MOD_KEY;
   protected readonly version = APP_VERSION;
   protected readonly themes: readonly Theme[] = ["system", "light", "dark"];
@@ -125,14 +125,7 @@ export class SettingsView {
       await this.router.navigate(["/code"], { queryParams: { file: path } });
       return;
     }
-    const copy = await this.dialogs.confirm({
-      title: `The ${type} template`,
-      message:
-        `The template is ${path} on the ${this.branchName()} branch, with the tasks. The code view shows the checkout, ` +
-        "so edit it in the branch's worktree inside .git (git worktree list names it), or move the tasks to the checkout.",
-      confirm: "Copy path",
-    });
-    if (copy) await this.clipboard.copy(path, "Path");
+    await this.contentFiles.explain(path, `The ${type} template`, "tasks");
   }
 
   protected discard() {

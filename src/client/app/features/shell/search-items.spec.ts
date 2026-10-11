@@ -47,7 +47,7 @@ describe("search items", () => {
     items[3]!.run();
     expect(commands.openPage).toHaveBeenCalledWith("docs/Home.md", 7);
     expect(commands.openTask).toHaveBeenCalledWith("TP-1");
-    expect(commands.openFile).toHaveBeenCalledWith("src/gadget.ts", 2);
+    expect(commands.openFile).toHaveBeenCalledWith("src/gadget.ts", 2, "repo");
   });
 
   it("cuts lines into plain and highlighted parts, dropping the indentation", () => {

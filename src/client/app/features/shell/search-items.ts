@@ -1,5 +1,5 @@
 /** Full-text search in the command palette: the "/" prefix, and its results as palette rows. */
-import type { SearchHit, SearchMatch, SearchRange, SearchResults } from "../../../../contracts/model";
+import type { Scope, SearchHit, SearchMatch, SearchRange, SearchResults } from "../../../../contracts/model";
 import type { PaletteItem } from "./palette-items";
 
 /** Typed first in the palette, it searches the text of pages, tasks and files. */
@@ -32,7 +32,8 @@ export type PaletteRow = PaletteItem & { readonly match?: MatchView };
 export interface SearchCommands {
   openPage(path: string, line: number): void;
   openTask(id: string): void;
-  openFile(path: string, line: number): void;
+  /** A file of a content area kept on the content branch has the scope "content". */
+  openFile(path: string, line: number, scope: Scope): void;
 }
 
 function rows<T extends SearchHit>(
@@ -82,7 +83,7 @@ export function searchItems(results: SearchResults, commands: SearchCommands): P
       "Code",
       "file",
       (file) => ({ file: file.path, fileDetail: "" }),
-      (file, match) => commands.openFile(file.path, match.line),
+      (file, match) => commands.openFile(file.path, match.line, file.scope),
     ),
   ];
 }

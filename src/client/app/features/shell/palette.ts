@@ -17,6 +17,7 @@ import { CTRL_KEY, isMac, MOD_KEY, SHIFT_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
+import { ContentFiles } from "../code/content-files";
 import { Onboarding } from "../onboarding/onboarding";
 import { WikiActions } from "../wiki/wiki-actions";
 import { MarkedText } from "./marked-text";
@@ -172,6 +173,7 @@ export class Palette {
   private readonly ui = inject(ShellUi);
   private readonly terminals = inject(Terminals);
   private readonly onboarding = inject(Onboarding);
+  private readonly contentFiles = inject(ContentFiles);
   protected readonly label =
     this.mode === "branches"
       ? "Switch branch"
@@ -220,11 +222,14 @@ export class Palette {
     openDocs: () => void this.onboarding.openDocs(),
   };
 
-  /** Pages scroll to the heading above the line, code selects it. */
+  /** Pages scroll to the heading above the line, code selects it; the code view cannot show files on the content branch. */
   private readonly found: SearchCommands = {
     openPage: (page, line) => void this.router.navigate(["/wiki"], { queryParams: { page, line } }),
     openTask: (task) => this.commands.openTask(task),
-    openFile: (file, line) => void this.router.navigate(["/code"], { queryParams: { file, lines: line } }),
+    openFile: (file, line, scope) =>
+      void (scope === "content"
+        ? this.contentFiles.explain(file, file.split("/").at(-1)!)
+        : this.router.navigate(["/code"], { queryParams: { file, lines: line } })),
   };
 
   /** The text after "/", which searches inside files; null for the other modes. */
