@@ -1,10 +1,11 @@
-/** Markdown → HTML syntax tree: GitHub Flavored Markdown, GitDesk's wiki extensions, code highlighting. */
+/** Markdown → HTML syntax tree: GitHub Flavored Markdown, math, GitDesk's wiki extensions, code highlighting. */
 import type { Root } from "hast";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
+import { remarkMath } from "./math";
 import { remarkGitdesk, type GitdeskOptions } from "./remark-gitdesk";
 
 /** Languages whose code blocks are diagrams or plain text, never highlighted. */
@@ -14,11 +15,12 @@ export function parseMarkdown(source: string, options: GitdeskOptions = {}): Roo
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(remarkMath)
     .use(remarkGitdesk, options)
     // Raw HTML in Markdown is dropped: pages render only what Markdown can express.
     .use(remarkRehype)
     .use(rehypeHighlight, { plainText: PLAIN, detect: false });
-  return processor.runSync(processor.parse(source)) as Root;
+  return processor.runSync(processor.parse(source), source) as Root;
 }
 
 export type { GitdeskOptions, PageRef } from "./remark-gitdesk";

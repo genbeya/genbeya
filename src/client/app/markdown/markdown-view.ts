@@ -1,6 +1,6 @@
 /**
- * Rendered Markdown: GitDesk's wiki syntax, highlighted code, diagrams and
- * repository images. Links and checkboxes are reported, not followed.
+ * Rendered Markdown: GitDesk's wiki syntax, highlighted code, diagrams, math
+ * and repository images. Links and checkboxes are reported, not followed.
  */
 import { ChangeDetectionStrategy, Component, DestroyRef, effect, ElementRef, inject, input, output, untracked } from "@angular/core";
 import type { Scope } from "../../../contracts/model";
@@ -11,8 +11,17 @@ import { Theme } from "../core/theme";
 import { Diagrams } from "./diagrams";
 import { resolveHref, type LinkTarget } from "./link-target";
 import { embedSource } from "./embeds";
-import { icon, renderMarkdownTree, type Diagram, type Embed, type RenderedMarkdown, type RepositoryImage } from "./markdown-dom";
+import {
+  icon,
+  renderMarkdownTree,
+  type Diagram,
+  type Embed,
+  type Formula,
+  type RenderedMarkdown,
+  type RepositoryImage,
+} from "./markdown-dom";
 import { parseMarkdown, type GitdeskOptions } from "./markdown-pipeline";
+import { Typesetter } from "./typesetter";
 
 const COPIED_FEEDBACK = 1200;
 
@@ -40,6 +49,7 @@ export class MarkdownView {
   private readonly api = inject(WorkspaceApi);
   private readonly clipboard = inject(Clipboard);
   private readonly diagrams = inject(Diagrams);
+  private readonly typesetter = inject(Typesetter);
   private readonly theme = inject(Theme);
   private objectUrls: string[] = [];
   /** Images by path, so re-renders (typing in the preview) do not read them again. Cleared when the repository changes. */
@@ -70,13 +80,14 @@ export class MarkdownView {
     });
   }
 
-  private show({ fragment, images, diagrams, embeds }: RenderedMarkdown) {
+  private show({ fragment, images, diagrams, formulas, embeds }: RenderedMarkdown) {
     const generation = ++this.generation;
     this.revoke();
     this.host.replaceChildren(fragment);
     this.rendered.emit(this.host);
     for (const image of images) void this.load(image, generation);
     for (const diagram of diagrams) void this.draw(diagram, generation);
+    for (const formula of formulas) void this.typeset(formula, generation);
     for (const embed of embeds) void this.embed(embed, generation);
   }
 
@@ -167,6 +178,15 @@ export class MarkdownView {
       failure.append(title, message, code);
       element.replaceWith(failure);
     }
+  }
+
+  private async typeset({ element, source, display }: Formula, generation: number) {
+    const result = await this.typesetter.render(source, display);
+    if (generation !== this.generation) return;
+    if ("math" in result) return element.replaceWith(result.math);
+    // The source stays, marked, with KaTeX's message on hover.
+    element.classList.add("md-math-error");
+    element.title = result.error;
   }
 
   private missingImage(image: RepositoryImage): HTMLElement {

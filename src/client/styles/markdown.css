@@ -575,3 +575,102 @@
   color: var(--text-3);
   font-size: 12.5px;
 }
+
+/* Math: $…$, $$…$$, ```math. MathML laid out with STIX Two Math, bundled and loaded on first use. */
+@font-face {
+  font-family: "GitDesk Math";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local("STIX Two Math"),
+    url("@fontsource/stix-two-math/files/stix-two-math-latin-400-normal.woff2") format("woff2");
+}
+
+.markdown math {
+  font-family: "GitDesk Math", math;
+  font-size: 1.12em;
+}
+
+.markdown mtext[mathvariant="bold"],
+.markdown mtext[mathvariant="bold-italic"] {
+  font-weight: 700;
+}
+
+.markdown mtext[mathvariant="italic"],
+.markdown mtext[mathvariant="bold-italic"] {
+  font-style: italic;
+}
+
+.markdown mtext[mathvariant="monospace"] {
+  font-family: var(--font-mono);
+}
+
+.markdown mtext[mathvariant="sans-serif"] {
+  font-family: var(--font-ui);
+}
+
+/* MathML Core draws no enclosures: \boxed and \cancel. */
+.markdown menclose[notation~="box"] {
+  padding: 0.15em 0.25em;
+  border: 1px solid currentColor;
+}
+
+.markdown menclose[notation~="updiagonalstrike"],
+.markdown menclose[notation~="downdiagonalstrike"] {
+  text-decoration: line-through;
+}
+
+.markdown .md-math-source {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  white-space: pre-wrap;
+}
+
+.markdown .md-math-source.md-math-error {
+  padding: 0.12em 0.38em;
+  border-radius: 4px;
+  background: var(--red-soft);
+  color: var(--red);
+  cursor: help;
+}
+
+.markdown .md-math.is-display {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 0 0 1em;
+  padding: 6px 32px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.markdown .md-math.is-display > math {
+  margin: 0;
+}
+
+.markdown .md-math.is-display > button {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-3);
+  opacity: 0;
+}
+
+.markdown .md-math.is-display:hover > button,
+.markdown .md-math.is-display > button:focus-visible {
+  opacity: 1;
+}
+
+.markdown .md-math.is-display > button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}

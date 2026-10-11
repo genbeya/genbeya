@@ -61,6 +61,15 @@ describe("MarkdownView", () => {
     await vi.waitFor(() => expect(element.querySelector(".md-diagram img")?.getAttribute("alt")).toBe("PlantUML diagram"));
   });
 
+  it("typesets math, and marks formulas KaTeX cannot read", async () => {
+    const { element } = await render("Inline $x^2$ and $\\frac{$.\n\n$$\n\\sum_i a_i\n$$");
+    await vi.waitFor(() => expect(element.querySelectorAll("math")).toHaveLength(2));
+    expect(element.querySelector("p > .md-math > math msup")).not.toBeNull();
+    expect(element.querySelector(".md-math.is-display > math")?.getAttribute("display")).toBe("block");
+    const error = element.querySelector<HTMLElement>(".md-math-error")!;
+    expect([error.textContent, error.title]).toEqual(["\\frac{", expect.stringContaining("KaTeX parse error")]);
+  });
+
   it("re-renders when the source changes", async () => {
     const { element, fixture } = await render("# One");
     fixture.componentInstance.source.set("# Two");

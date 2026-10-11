@@ -94,6 +94,14 @@ export interface Diagram {
   readonly source: string;
 }
 
+/** A LaTeX formula to typeset into `element` once inserted. */
+export interface Formula {
+  readonly element: HTMLElement;
+  readonly source: string;
+  /** A block (`$$`, ```math) rather than inline. */
+  readonly display: boolean;
+}
+
 export interface RepositoryImage {
   readonly element: HTMLImageElement;
   readonly path: string;
@@ -113,6 +121,8 @@ export interface RenderedMarkdown {
   readonly embeds: readonly Embed[];
   /** Placeholders to draw diagrams into once inserted. */
   readonly diagrams: readonly Diagram[];
+  /** Placeholders to typeset formulas into once inserted. */
+  readonly formulas: readonly Formula[];
   /** Images from the repository, to load through the managers. */
   readonly images: readonly RepositoryImage[];
 }
@@ -176,6 +186,7 @@ const classesOf = (element: Element): string[] =>
 
 export function renderMarkdownTree(tree: Root, document: Document, options: RenderOptions): RenderedMarkdown {
   const diagrams: Diagram[] = [];
+  const formulas: Formula[] = [];
   const images: RepositoryImage[] = [];
   const embeds: Embed[] = [];
 
@@ -229,6 +240,34 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
     const body = create("pre");
     children(pre.children, body, null);
     block.append(bar, body);
+    return block;
+  };
+
+  const button = (label: string, image: keyof typeof ICONS) => {
+    const element = create("button");
+    element.setAttribute("type", "button");
+    element.setAttribute("aria-label", label);
+    element.title = label;
+    element.append(icon(document, image, 13));
+    return element;
+  };
+
+  /** The source stays readable until the formula is typeset. */
+  const formula = (node: Element): Node => {
+    const source = toText(node, { whitespace: "pre" });
+    const display = classesOf(node).includes("is-display");
+    const body = create("span", ["md-math-source"]);
+    body.textContent = source;
+    formulas.push({ element: body, source, display });
+    if (!display) {
+      const inline = create("span", ["md-math"]);
+      inline.append(body);
+      return inline;
+    }
+    const block = create("div", ["md-math", "is-display"]);
+    const copy = button("Copy LaTeX", "copy");
+    copy.dataset["copy"] = source;
+    block.append(body, copy);
     return block;
   };
 
@@ -297,6 +336,7 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
     if (tag === "a") return link(node, taskOffset);
     if (tag === "img") return image(node);
     if (tag === "div" && classesOf(node).includes("md-embed")) return embed(node);
+    if ((tag === "span" || tag === "div") && classesOf(node).includes("md-math")) return formula(node);
     if (!ALLOWED.has(tag)) {
       const unwrapped = document.createDocumentFragment();
       children(node.children, unwrapped, taskOffset);
@@ -316,5 +356,5 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
 
   const fragment = document.createDocumentFragment();
   children(tree.children, fragment, null);
-  return { fragment, embeds, diagrams, images };
+  return { fragment, embeds, diagrams, formulas, images };
 }
