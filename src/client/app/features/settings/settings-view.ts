@@ -10,6 +10,7 @@ import {
   type Theme,
 } from "../../../../contracts/model";
 import { APP_VERSION } from "../../core/app-version";
+import { Demo } from "../../core/demo";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Session } from "../../core/session";
@@ -40,6 +41,7 @@ type TextSetting = "name" | "taskPrefix" | "wikiRoot" | "wikiHome" | "taskRoot";
 export class SettingsView {
   protected readonly session = inject(Session);
   protected readonly onboarding = inject(Onboarding);
+  protected readonly demo = inject(Demo);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
   private readonly router = inject(Router);

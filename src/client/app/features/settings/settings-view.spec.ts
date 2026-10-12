@@ -1,11 +1,13 @@
+import type { Provider } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import type { ContentArea, Storage } from "../../../../contracts/model";
+import { Demo } from "../../core/demo";
 import { openRepository, settle } from "../../testing/component-harness";
 import { contentBranch } from "../../testing/fake-platform";
 import { SettingsView } from "./settings-view";
 
-async function render(storage?: Storage) {
-  const harness = await openRepository(storage ? { storage } : {});
+async function render(storage?: Storage, providers: Provider[] = []) {
+  const harness = await openRepository(storage ? { storage } : {}, providers);
   const fixture = TestBed.createComponent(SettingsView);
   await settle(fixture);
   const element = fixture.nativeElement as HTMLElement;
@@ -32,6 +34,12 @@ describe("SettingsView", () => {
     await settle(fixture);
     expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Keep tasks on the content branch" }));
     expect(managers.content.setStorage).toHaveBeenCalledWith("w1", "tasks", "branch");
+  });
+
+  it("keeps every area in the checkout in the web demo, and says so", async () => {
+    const { choice, element } = await render(undefined, [{ provide: Demo, useValue: { active: true } }]);
+    expect(choice("tasks", "Content branch").disabled).toBe(true);
+    expect(element.textContent).toContain("In the demo, everything stays in the checkout");
   });
 
   it("leaves the area where it is when it lives there already or the user declines", async () => {
