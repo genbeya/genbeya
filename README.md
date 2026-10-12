@@ -1,3 +1,5 @@
+<p align="center"><img src="branding/genbeya.svg" width="160" alt="Genbeya"></p>
+
 # Genbeya
 
 A desktop workspace for one Git repository: a wiki, a task board, a code editor, Git tools and a terminal in one window. Everything it shows is a plain file in the repository — Markdown pages, one Markdown file per task, `.genbeya.yml` for settings — so it works with any Git host, any editor and any coding agent. No server, no account, no database.
