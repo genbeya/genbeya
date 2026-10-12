@@ -37,6 +37,19 @@ export interface MemoryRepositoryOptions {
   readonly now?: () => Date;
 }
 
+/** A commit that changed a file, with the file before and after it. */
+export interface FileRevision {
+  readonly hash: string;
+  readonly author: string;
+  readonly date: string;
+  readonly subject: string;
+  readonly path: string;
+  /** The path before the commit; null when the commit added the file. */
+  readonly oldPath: string | null;
+  readonly before: string | null;
+  readonly after: string;
+}
+
 /** The status letters of a conflicted file by which stages it has, as `git status` prints them. */
 const CONFLICT_LETTERS: Readonly<Record<string, [string, ConflictKind]>> = {
   "111": ["UU", "both-modified"],
@@ -51,7 +64,7 @@ const CONFLICT_LETTERS: Readonly<Record<string, [string, ConflictKind]>> = {
 const short = (hash: string) => hash.slice(0, 7);
 
 /** The list of `paths` for a message: "a", "a and b", "a, b and 2 more". */
-export function listPaths(paths: readonly string[]): string {
+function listPaths(paths: readonly string[]): string {
   if (paths.length <= 2) return paths.join(" and ");
   return paths.length === 3 ? `${paths[0]}, ${paths[1]} and ${paths[2]}` : `${paths[0]}, ${paths[1]} and ${paths.length - 2} more`;
 }
@@ -134,16 +147,6 @@ export class MemoryRepository {
       (this.commits.has(revision) ? revision : this.commits.expand(revision));
     if (!hash) throw new Error(`${revision} is not a branch, tag or commit.`);
     return hash;
-  }
-
-  /** Whether `revision` names a commit. */
-  exists(revision: string): boolean {
-    try {
-      this.resolve(revision);
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   isValidBranchName(name: string): boolean {
@@ -613,18 +616,3 @@ export class MemoryRepository {
     return [...this.treeOf(target).keys()].filter((path) => !head.has(path) && this.worktree.has(path) && !this.index.has(path)).sort();
   }
 }
-
-/** A commit that changed a file, with the file before and after it. */
-export interface FileRevision {
-  readonly hash: string;
-  readonly author: string;
-  readonly date: string;
-  readonly subject: string;
-  readonly path: string;
-  /** The path before the commit; null when the commit added the file. */
-  readonly oldPath: string | null;
-  readonly before: string | null;
-  readonly after: string;
-}
-
-export { short as shortHash };
