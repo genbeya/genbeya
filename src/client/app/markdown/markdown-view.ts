@@ -1,5 +1,5 @@
 /**
- * Rendered Markdown: GitDesk's wiki syntax, highlighted code, diagrams, math
+ * Rendered Markdown: Genbeya's wiki syntax, highlighted code, diagrams, math
  * and repository images. Links and checkboxes are reported, not followed;
  * mentions show who they mean.
  */
@@ -33,7 +33,7 @@ import {
   type RenderedMarkdown,
   type RepositoryImage,
 } from "./markdown-dom";
-import { parseMarkdown, type GitdeskOptions } from "./markdown-pipeline";
+import { parseMarkdown, type GenbeyaOptions } from "./markdown-pipeline";
 import { Typesetter } from "./typesetter";
 
 const COPIED_FEEDBACK = 1200;
@@ -58,7 +58,7 @@ export class MarkdownView {
   readonly path = input.required<string>();
   /** Where the document's images are read from. */
   readonly scope = input<Scope>("content");
-  readonly links = input<GitdeskOptions>({});
+  readonly links = input<GenbeyaOptions>({});
   /** Makes task-list checkboxes clickable. */
   readonly checkboxes = input(false);
   readonly linkClicked = output<LinkTarget>();

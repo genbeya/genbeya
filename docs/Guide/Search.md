@@ -38,6 +38,6 @@ The status line counts the matches. Search lists up to 30 files per group and 10
 
 - Files Git tracks, and new files not committed yet, such as a page created a moment ago.
 - Not files that `.gitignore` excludes, and not binary files such as images.
-- Pages, tasks, task templates, other text files in the wiki folder and `.gitdesk.yml` come from wherever their area lives, the checkout or the [Content branch](../Architecture/Content-branch.md), and code from your checkout; the copy an area on the content branch left in the checkout is not listed as well.
+- Pages, tasks, task templates, other text files in the wiki folder and `.genbeya.yml` come from wherever their area lives, the checkout or the [Content branch](../Architecture/Content-branch.md), and code from your checkout; the copy an area on the content branch left in the checkout is not listed as well.
 
 Search runs `git grep` on the machine the repository lives on, so it works the same for repositories on WSL and over SSH.

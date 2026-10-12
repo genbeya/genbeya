@@ -237,11 +237,11 @@ describe("parseWorktrees", () => {
   it("maps branches to their worktrees, skipping stale ones", () => {
     const output =
       "worktree /repo\nHEAD 1\nbranch refs/heads/main\n\n" +
-      "worktree /repo/.git/gitdesk/gitdesk\nHEAD 2\nbranch refs/heads/gitdesk\n\n" +
+      "worktree /repo/.git/genbeya/genbeya\nHEAD 2\nbranch refs/heads/genbeya\n\n" +
       "worktree /gone\nHEAD 3\nbranch refs/heads/old\nprunable gitdir file points to non-existent location\n";
     expect([...parseWorktrees(output)]).toEqual([
       ["refs/heads/main", "/repo"],
-      ["refs/heads/gitdesk", "/repo/.git/gitdesk/gitdesk"],
+      ["refs/heads/genbeya", "/repo/.git/genbeya/genbeya"],
     ]);
   });
 });

@@ -1,6 +1,6 @@
 # Writing pages
 
-What GitDesk adds to Markdown besides [References](References.md), wherever it shows Markdown: wiki pages, task descriptions, task comments, and Markdown files previewed in **Code**. The source stays plain Markdown, so it reads well on GitHub and in any editor; GitDesk only shows it richer. What GitHub does not know shows there as plain Markdown. [Wiki](Wiki.md) covers links, tables of contents, diagrams and images.
+What Genbeya adds to Markdown besides [References](References.md), wherever it shows Markdown: wiki pages, task descriptions, task comments, and Markdown files previewed in **Code**. The source stays plain Markdown, so it reads well on GitHub and in any editor; Genbeya only shows it richer. What GitHub does not know shows there as plain Markdown. [Wiki](Wiki.md) covers links, tables of contents, diagrams and images.
 
 [TOC]
 
@@ -10,11 +10,11 @@ In the editor of pages and task descriptions, `/` at the start of a line lists b
 
 ## Mentions
 
-Write `@` and a person's handle to mention them: `@ada`. GitDesk shows the mention as a chip with the person's initials and name; hover it for their email, click it for a card with their name, handle and email and **Tasks assigned to …**, which opens the board filtered to their tasks.
+Write `@` and a person's handle to mention them: `@ada`. Genbeya shows the mention as a chip with the person's initials and name; hover it for their email, click it for a card with their name, handle and email and **Tasks assigned to …**, which opens the board filtered to their tasks.
 
 Typing `@` in an editor or the comment box lists the repository's people. Keep typing to find someone by handle, name or email, and press `Enter` or `Tab` to insert their handle. The handle goes into the file, so the text reads `@ada` on GitHub too.
 
-| You write | GitDesk shows |
+| You write | Genbeya shows |
 | --- | --- |
 | `@ada` | A chip with Ada's initials and name |
 | `@nobody`, a handle no one has | `@nobody`, as written |
@@ -27,7 +27,7 @@ The repository's people are everyone who:
 
 - authored one of the latest 5000 commits of the checked-out branch, with names and emails as `.mailmap` corrects them;
 - is assigned a task, or wrote a comment on one;
-- is listed under `people` in `.gitdesk.yml` — see [Settings](Settings.md#people).
+- is listed under `people` in `.genbeya.yml` — see [Settings](Settings.md#people).
 
 The same person under several names or emails counts once: commits with the same email are one person, named as most of their commits name them, and names that match ignoring case are one person too. A person listed in the settings takes the commits, assignments and comments of their email and aliases.
 
@@ -95,10 +95,10 @@ $$
 A dollar sign only starts a formula when a non-space follows it, and only ends one after a non-space and before anything but a digit — so prices such as $5 and $10 stay text. Write `\$` for a dollar sign that should never start one.
 
 - In the editor, the formula under the cursor shows typeset in a tooltip.
-- Formulas GitDesk cannot read show their source in red; point at it for the reason.
+- Formulas Genbeya cannot read show their source in red; point at it for the reason.
 - **Copy LaTeX**, at the top right of a formula on its own line, copies its source.
 
-GitDesk typesets with [KaTeX](https://katex.org/docs/supported), which knows most of LaTeX's math. Commands that link or load something (`\href`, `\url`, `\includegraphics`, `\htmlClass`) show as red text instead.
+Genbeya typesets with [KaTeX](https://katex.org/docs/supported), which knows most of LaTeX's math. Commands that link or load something (`\href`, `\url`, `\includegraphics`, `\htmlClass`) show as red text instead.
 
 ## Code blocks
 
@@ -165,4 +165,4 @@ The tags must be written exactly like this, without attributes (`<details open>`
 
 ## Diagrams
 
-` ```mermaid ` draws [Mermaid](https://mermaid.js.org/intro/) diagrams: flowcharts, sequence, class, state and entity-relationship diagrams, Gantt charts, timelines, mind maps, user journeys, pie and quadrant charts, Git graphs and more. ` ```plantuml ` draws PlantUML diagrams. Graphviz (` ```dot `) is not supported: its engine would add more than a megabyte to GitDesk, and Mermaid's flowcharts cover most of what it is used for.
+` ```mermaid ` draws [Mermaid](https://mermaid.js.org/intro/) diagrams: flowcharts, sequence, class, state and entity-relationship diagrams, Gantt charts, timelines, mind maps, user journeys, pie and quadrant charts, Git graphs and more. ` ```plantuml ` draws PlantUML diagrams. Graphviz (` ```dot `) is not supported: its engine would add more than a megabyte to Genbeya, and Mermaid's flowcharts cover most of what it is used for.

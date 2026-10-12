@@ -5,7 +5,7 @@ test.describe("shell", () => {
     await expect(window.getByText("Demo Project").first()).toBeVisible();
     await expect
       .poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getTitle()))
-      .toBe("Demo Project — GitDesk");
+      .toBe("Demo Project — Genbeya");
   });
 
   test("starts without errors in the console", async ({ window }) => {
@@ -37,11 +37,11 @@ test.describe("shell", () => {
     expect(repository.git("branch", "--show-current").trim()).toBe("feature/e2e");
   });
 
-  test("saves project settings to .gitdesk.yml", async ({ window, repository }) => {
+  test("saves project settings to .genbeya.yml", async ({ window, repository }) => {
     await window.keyboard.press(`${MOD}+,`);
     await window.getByLabel("Name", { exact: true }).fill("Renamed Project");
     await window.getByRole("button", { name: /Save changes/ }).click();
-    await expect.poll(() => repository.read(".gitdesk.yml")).toContain("name: Renamed Project");
+    await expect.poll(() => repository.read(".genbeya.yml")).toContain("name: Renamed Project");
     await expect(window.locator(".workspace-name")).toHaveText("Renamed Project");
   });
 

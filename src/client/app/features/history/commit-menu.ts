@@ -116,9 +116,9 @@ import { parseRefs, type Ref } from "./ref-chips";
           gd-menu-item
           [disabled]="!!links.unavailable()"
           [attr.title]="links.unavailable()"
-          (selected)="links.copyGitdeskLink(link(commit))"
+          (selected)="links.copyGenbeyaLink(link(commit))"
         >
-          <svg icon gd-icon name="link" [size]="14"></svg>Copy GitDesk link
+          <svg icon gd-icon name="link" [size]="14"></svg>Copy Genbeya link
         </button>
         @if (links.webLink(link(commit))) {
           <button gd-menu-item (selected)="links.copyWebLink(link(commit))">

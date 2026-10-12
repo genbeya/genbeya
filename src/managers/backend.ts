@@ -6,7 +6,7 @@ import type { Managers } from "../contracts/manager-contracts";
 import { HostFactory } from "../access/hosts/host-factory";
 import { RemoteFolders } from "../access/hosts/remote-folders";
 import type { Machine } from "../access/ports";
-import { PreferencesStore } from "../access/preferences/preferences-store";
+import { PreferencesStore, type PreviousData } from "../access/preferences/preferences-store";
 import { AgentEngine } from "../engines/agent-engine";
 import { LinkEngine } from "../engines/link-engine";
 import { PatchEngine } from "../engines/patch-engine";
@@ -28,8 +28,11 @@ export interface Backend extends Managers {
   dispose(): Promise<void>;
 }
 
-/** Managers for `machine`; preferences live in `dataFolder`. */
-export async function createBackend(machine: Machine, dataFolder: string): Promise<Backend> {
+/**
+ * Managers for `machine`; preferences live in `dataFolder`, which takes over
+ * the `previous` data folder's state while it has none of its own.
+ */
+export async function createBackend(machine: Machine, dataFolder: string, previous?: PreviousData): Promise<Backend> {
   const engines = {
     settings: new SettingsEngine(),
     tasks: new TaskEngine(),
@@ -41,7 +44,7 @@ export async function createBackend(machine: Machine, dataFolder: string): Promi
     people: new PeopleEngine(),
   };
   const registry = new WorkspaceRegistry();
-  const preferences = await PreferencesStore.load(machine, dataFolder);
+  const preferences = await PreferencesStore.load(machine, dataFolder, previous);
   const hosts = new HostFactory(machine);
   const folders = new RemoteFolders(hosts);
   return {

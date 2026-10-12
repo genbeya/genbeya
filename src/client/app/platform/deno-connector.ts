@@ -5,9 +5,9 @@ import type { Platform } from "./platform";
 
 /** The managers in the Deno Desktop process, through its bindings. */
 export function connectDeno(bindings: DenoBindings): Platform {
-  const shell = (operation: ShellOperation, ...args: unknown[]) => bindings.gitdeskShell({ operation, args });
+  const shell = (operation: ShellOperation, ...args: unknown[]) => bindings.genbeyaShell({ operation, args });
   return {
-    managers: connectManagers((request) => bindings.gitdesk(request)),
+    managers: connectManagers((request) => bindings.genbeya(request)),
     shell: {
       runtime: "deno",
       pickFolder: () => shell("pickFolder") as Promise<Location | null>,

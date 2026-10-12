@@ -1,5 +1,5 @@
 /**
- * What's new in each release line, newest first. After an update GitDesk
+ * What's new in each release line, newest first. After an update Genbeya
  * shows the entries the user has not seen; "Show what's new" shows them all.
  * Releases bump the patch with every build, so entries are per `major.minor`.
  * See docs/Development.md for adding one.
@@ -23,6 +23,15 @@ export interface Release {
 }
 
 export const CHANGELOG: readonly Release[] = [
+  {
+    version: "0.5",
+    items: [
+      {
+        title: "GitDesk is now Genbeya",
+        body: "Same app, new name. Your settings, recent repositories and links carry over, and repositories set up with GitDesk keep working as they are: **Settings** offers to rename `.gitdesk.yml` to `.genbeya.yml` once your team has updated.",
+      },
+    ],
+  },
   {
     version: "0.4",
     items: [

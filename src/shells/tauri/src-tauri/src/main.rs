@@ -1,4 +1,4 @@
-// GitDesk on Tauri: a system webview plus the file and process primitives
+// Genbeya on Tauri: a system webview plus the file and process primitives
 // the managers need. The managers run in the webview (see src/platforms/tauri).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -15,8 +15,13 @@ use tauri_plugin_deep_link::DeepLinkExt;
 #[derive(Default)]
 struct LinksHandedOver(AtomicBool);
 
+/// The schemes of links: Genbeya's, and GitDesk's, whose links keep working.
+const LINK_SCHEMES: [&str; 2] = ["genbeya:", "gitdesk:"];
+
 fn is_link(arg: &str) -> bool {
-    arg.get(..8).is_some_and(|scheme| scheme.eq_ignore_ascii_case("gitdesk:"))
+    LINK_SCHEMES
+        .iter()
+        .any(|scheme| arg.get(..scheme.len()).is_some_and(|start| start.eq_ignore_ascii_case(scheme)))
 }
 
 /// The launch arguments plus `links`, or without any link once they were handed over.
@@ -27,7 +32,7 @@ fn launch_arguments(args: impl Iterator<Item = String>, links: &[Url], handed_ov
     args.chain(links.iter().map(Url::to_string)).collect()
 }
 
-/// The arguments of this launch, plus the GitDesk link that started it,
+/// The arguments of this launch, plus the Genbeya link that started it,
 /// which only the first call gets. Windows and Linux pass links as
 /// arguments, so there they appear twice; the client opens the first.
 /// macOS hands them over as an event, which comes before the page can listen.
@@ -50,16 +55,16 @@ fn forward_opened_links(app: &App) {
     });
 }
 
-/// Installers register gitdesk:// links; an AppImage registers itself when it
-/// runs. That needs desktop tools the system may lack, which is no reason not
-/// to start.
+/// Installers register genbeya:// and gitdesk:// links; an AppImage registers
+/// itself when it runs. That needs desktop tools the system may lack, which is
+/// no reason not to start.
 #[cfg(target_os = "linux")]
 fn register_links(app: &App) {
     if app.env().appimage.is_none() {
         return;
     }
     if let Err(error) = app.deep_link().register_all() {
-        eprintln!("GitDesk could not register gitdesk:// links: {error}");
+        eprintln!("Genbeya could not register its links: {error}");
     }
 }
 
@@ -79,7 +84,7 @@ fn is_app_url(url: &Url, dev_url: Option<&Url>) -> bool {
 fn create_main_window(app: &App) -> tauri::Result<()> {
     let dev_url = app.config().build.dev_url.clone().filter(|_| tauri::is_dev());
     WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-        .title("GitDesk")
+        .title("Genbeya")
         .inner_size(1440.0, 920.0)
         .min_inner_size(960.0, 600.0)
         .disable_drag_drop_handler()
@@ -132,7 +137,7 @@ fn main() {
             terminals::term_kill_all,
         ])
         .build(tauri::generate_context!())
-        .expect("GitDesk failed to start")
+        .expect("Genbeya failed to start")
         .run(|app, event| {
             if let RunEvent::Exit = event {
                 app.state::<processes::Processes>().kill_all();
@@ -164,12 +169,18 @@ mod tests {
 
     #[test]
     fn hands_launch_links_over_once() {
-        let args = || ["gitdesk.exe", "GitDesk://open?remote=x&task=a", "--flag"].map(String::from).into_iter();
-        let links = [url("gitdesk://open?remote=x&task=a")];
+        let args = || ["genbeya.exe", "Genbeya://open?remote=x&task=a", "--flag"].map(String::from).into_iter();
+        let links = [url("genbeya://open?remote=x&task=a")];
         assert_eq!(
             launch_arguments(args(), &links, false),
-            ["gitdesk.exe", "GitDesk://open?remote=x&task=a", "--flag", "gitdesk://open?remote=x&task=a"]
+            ["genbeya.exe", "Genbeya://open?remote=x&task=a", "--flag", "genbeya://open?remote=x&task=a"]
         );
-        assert_eq!(launch_arguments(args(), &links, true), ["gitdesk.exe", "--flag"]);
+        assert_eq!(launch_arguments(args(), &links, true), ["genbeya.exe", "--flag"]);
+    }
+
+    #[test]
+    fn knows_the_links_gitdesk_made() {
+        let args = || ["genbeya.exe", "GitDesk://open?remote=x&task=a", "gitdesk:", "gitdesks.txt", "gen"].map(String::from).into_iter();
+        assert_eq!(launch_arguments(args(), &[], true), ["genbeya.exe", "gitdesks.txt", "gen"]);
     }
 }

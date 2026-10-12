@@ -120,7 +120,7 @@ describe("CommitMenu", () => {
       "Push tag v1 to origin",
       "Delete tag v1…",
       "Delete tag v1 on origin…",
-      "Copy GitDesk link",
+      "Copy Genbeya link",
       "Copy web link",
     ]);
   });

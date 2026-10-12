@@ -4,12 +4,18 @@
  * content branch, checked out as a worktree inside `.git`, where every edit
  * is committed right away and sync rebases and pushes it.
  *
- * The content branch is `gitdesk` unless `git config gitdesk.branch` names
- * another. Its `.gitdesk-content` file lists which areas it holds, so the
+ * The content branch is `genbeya` unless `git config genbeya.branch` names
+ * another. Its `.genbeya-content` file lists which areas it holds, so the
  * whole team shares the layout; a branch without that file (made by earlier
  * versions) holds every area. A clone whose remote has the branch uses it
- * automatically; `git config gitdesk.storage worktree` keeps every area of
+ * automatically; `git config genbeya.storage worktree` keeps every area of
  * one clone in its checkout.
+ *
+ * Repositories set up before Genbeya was renamed from GitDesk keep working:
+ * a `gitdesk` branch serves as the content branch while there is no
+ * `genbeya` one, a branch with only `.gitdesk-content` keeps that file, the
+ * `gitdesk.*` config keys apply while the `genbeya.*` ones are not set, and
+ * the worktree moves from `.git/gitdesk/` to `.git/genbeya/`.
  */
 import { CONTENT_AREAS, type ContentArea, type Head, type StorageMode } from "../../contracts/model";
 import { encodeText } from "../../utilities/bytes";
@@ -20,9 +26,16 @@ import { Git, GitError } from "../git/git";
 import { parseWorktrees, type FileRevision } from "../git/git-parsers";
 import type { Host } from "../hosts/host";
 
-export const DEFAULT_CONTENT_BRANCH = "gitdesk";
+export const DEFAULT_CONTENT_BRANCH = "genbeya";
+/** The content branch GitDesk made, used while there is no {@link DEFAULT_CONTENT_BRANCH}. */
+export const LEGACY_CONTENT_BRANCH = "gitdesk";
 /** The file on the content branch that lists where each area lives. */
-export const AREAS_FILE = ".gitdesk-content";
+export const AREAS_FILE = ".genbeya-content";
+/** The areas file of content branches GitDesk made, read and kept while the branch has no {@link AREAS_FILE}. */
+export const LEGACY_AREAS_FILE = ".gitdesk-content";
+/** The folder in the git directory that holds the content branch's worktree, and where GitDesk kept it. */
+const WORKTREE_FOLDER = "genbeya";
+const LEGACY_WORKTREE_FOLDER = "gitdesk";
 const NETWORK_TIMEOUT = 5 * 60_000;
 
 export type AreaModes = Readonly<Record<ContentArea, StorageMode>>;
@@ -46,6 +59,8 @@ export interface ContentLayout {
   readonly areas: AreaModes;
   /** The content branch's worktree while this clone uses the branch, whether or not an area lives on it. */
   readonly branch: ContentLocation | null;
+  /** The branch's areas file, {@link AREAS_FILE} or GitDesk's {@link LEGACY_AREAS_FILE}; null without one. */
+  readonly areasFile: string | null;
 }
 
 export interface ContentBranchState {
@@ -56,9 +71,9 @@ export interface ContentBranchState {
 }
 
 /** The areas file, in Git's config format so Git reads it. */
-const areasFile = (areas: AreaModes) =>
+const areasText = (areas: AreaModes) =>
   [
-    `# Where GitDesk keeps each area: "branch" is this content branch,`,
+    `# Where Genbeya keeps each area: "branch" is this content branch,`,
     `# "checkout" is the checked-out code branch of every clone.`,
     "[areas]",
     ...CONTENT_AREAS.map((area) => `\t${area} = ${areas[area]}`),
@@ -73,10 +88,38 @@ function parseAreas(listed: string): AreaModes {
   ) as Record<ContentArea, StorageMode>;
 }
 
+interface CloneSettings {
+  readonly branch: string | null;
+  readonly storage: string | null;
+}
+
+/**
+ * The clone's `genbeya.branch` and `genbeya.storage`, each falling back to
+ * the `gitdesk` key GitDesk read while it is not set; in one call to Git,
+ * which may run on another machine.
+ */
+async function cloneSettings(git: Git): Promise<CloneSettings> {
+  const listed = (await git.attempt(["config", "--get-regexp", "^(genbeya|gitdesk)\\.(branch|storage)$"])) ?? "";
+  // "genbeya.branch notes"; Git prints the names in lower case, and a key without a value alone.
+  const values = new Map(
+    listed
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => (line.includes(" ") ? [line.slice(0, line.indexOf(" ")), line.slice(line.indexOf(" ") + 1).trim()] : [line, ""])),
+  );
+  const value = (key: string) => values.get(`genbeya.${key}`) || values.get(`gitdesk.${key}`) || null;
+  return { branch: value("branch"), storage: value("storage") };
+}
+
+interface Tip {
+  readonly ref: string;
+  readonly commit: string;
+}
+
 export class ContentStore {
   private readonly checkout: ContentLocation;
   private worktreeLocation: (ContentLocation & { key: string }) | null = null;
-  private listedAreas: { commit: string; areas: AreaModes } | null = null;
+  private listedAreas: { commit: string; areas: AreaModes; file: string | null } | null = null;
   private failedCommit: string | null = null;
   private readonly checkouts = new SerialQueue();
 
@@ -95,15 +138,33 @@ export class ContentStore {
 
   /** Where each area lives, checking the content branch out as a worktree when this clone uses it. */
   async layout(): Promise<ContentLayout> {
-    const [mode, configured] = await Promise.all([this.repository.config("gitdesk.storage"), this.repository.config("gitdesk.branch")]);
-    const name = configured ?? DEFAULT_CONTENT_BRANCH;
-    const tips = mode === "worktree" ? [] : await this.branchTips(name);
+    const settings = await cloneSettings(this.repository);
+    if (settings.storage === "worktree") return { areas: IN_CHECKOUT, branch: null, areasFile: null };
+    const { name, tips } = await this.contentBranch(settings);
     const local = tips.find((tip) => tip.ref === `refs/heads/${name}`);
     const remote = tips.find((tip) => tip.ref.startsWith("refs/remotes/"));
     const tip = local ?? remote;
-    if (!tip) return { areas: IN_CHECKOUT, branch: null };
+    if (!tip) return { areas: IN_CHECKOUT, branch: null, areasFile: null };
     const branch = await this.checkedOut(name, local ? null : remote!.ref.slice("refs/remotes/".length));
-    return { areas: await this.areasAt(tip.commit), branch };
+    const { areas, file } = await this.areasAt(tip.commit);
+    return { areas, branch, areasFile: file };
+  }
+
+  /**
+   * The content branch's name and its tips here and on remotes: the
+   * configured branch, else `genbeya`, else the `gitdesk` branch GitDesk
+   * made, while only that exists here or on a remote.
+   */
+  private async contentBranch({ branch }: CloneSettings): Promise<{ name: string; tips: Tip[] }> {
+    if (branch) return { name: branch, tips: await this.branchTips([branch]) };
+    const tips = await this.branchTips([DEFAULT_CONTENT_BRANCH, LEGACY_CONTENT_BRANCH]);
+    // Remote names may contain slashes; branch names here have none.
+    const of = (branch: string) => tips.filter((tip) => tip.ref.endsWith(`/${branch}`));
+    const current = of(DEFAULT_CONTENT_BRANCH);
+    const legacy = of(LEGACY_CONTENT_BRANCH);
+    return !current.length && legacy.length
+      ? { name: LEGACY_CONTENT_BRANCH, tips: legacy }
+      : { name: DEFAULT_CONTENT_BRANCH, tips: current };
   }
 
   /** Where `area` lives: the checkout or the content branch's worktree. */
@@ -117,23 +178,33 @@ export class ContentStore {
     return (await this.locate(area)).git.files();
   }
 
-  private async branchTips(branch: string): Promise<{ ref: string; commit: string }[]> {
+  private async branchTips(branches: readonly string[]): Promise<Tip[]> {
     const lines = await this.repository.lines([
       "for-each-ref",
       "--format=%(objectname) %(refname)",
-      `refs/heads/${branch}`,
-      `refs/remotes/*/${branch}`,
+      ...branches.flatMap((branch) => [`refs/heads/${branch}`, `refs/remotes/*/${branch}`]),
     ]);
     return lines.map((line) => ({ commit: line.slice(0, line.indexOf(" ")), ref: line.slice(line.indexOf(" ") + 1) }));
   }
 
-  /** The areas the content branch holds at `commit`; read once per commit. */
-  private async areasAt(commit: string): Promise<AreaModes> {
+  /**
+   * The areas the content branch holds at `commit`, and the file listing
+   * them: {@link AREAS_FILE}, or GitDesk's {@link LEGACY_AREAS_FILE} while
+   * the branch has only that; null without either. Read once per commit.
+   */
+  private async areasAt(commit: string): Promise<{ areas: AreaModes; file: string | null }> {
     if (this.listedAreas?.commit !== commit) {
-      const listed = await this.repository.attempt(["config", "--blob", `${commit}:${AREAS_FILE}`, "--list"]);
-      this.listedAreas = { commit, areas: listed === null ? ON_BRANCH : parseAreas(listed) };
+      const list = (file: string) => this.repository.attempt(["config", "--blob", `${commit}:${file}`, "--list"]);
+      const listed = await list(AREAS_FILE);
+      const legacy = listed === null ? await list(LEGACY_AREAS_FILE) : null;
+      const found = listed ?? legacy;
+      this.listedAreas = {
+        commit,
+        areas: found === null ? ON_BRANCH : parseAreas(found),
+        file: listed !== null ? AREAS_FILE : legacy !== null ? LEGACY_AREAS_FILE : null,
+      };
     }
-    return this.listedAreas.areas;
+    return this.listedAreas;
   }
 
   /** One at a time: callers asking together for a missing worktree would each add it. */
@@ -150,24 +221,52 @@ export class ContentStore {
     return this.worktreeLocation;
   }
 
-  /** The worktree of `branch`, created (tracking `upstream` when given) or repaired as needed. */
+  /**
+   * The worktree of `branch`, created (tracking `upstream` when given) or
+   * repaired as needed, and moved out of the folder GitDesk kept it in.
+   */
   private async worktree(branch: string, upstream: string | null): Promise<string> {
     const ref = `refs/heads/${branch}`;
+    const common = await this.commonDirectory();
+    const target = this.host.paths.join(common, WORKTREE_FOLDER, branch);
+    const legacy = this.host.paths.join(common, LEGACY_WORKTREE_FOLDER, branch);
     let root = (await this.worktrees()).get(ref);
     if (!root) {
-      root = this.host.paths.join(await this.commonDirectory(), "gitdesk", branch);
       // After the repository folder moved, the worktree is intact but its links are stale.
-      if ((await this.host.kind(root, ".").catch(() => null)) === "dir") {
-        await this.repository.attempt(["worktree", "repair", root]);
-        root = (await this.worktrees()).get(ref) ?? root;
-      }
+      for (const candidate of [target, legacy])
+        if (!root && (await this.host.kind(candidate, ".").catch(() => null)) === "dir") {
+          await this.repository.attempt(["worktree", "repair", candidate]);
+          root = (await this.worktrees()).get(ref);
+        }
       await this.repository.text(["worktree", "prune"]);
     }
-    if (!(await this.worktrees()).has(ref))
+    if (!root) {
+      root = target;
       await this.repository.text(
         upstream ? ["worktree", "add", "--quiet", "--track", "-b", branch, root, upstream] : ["worktree", "add", "--quiet", root, branch],
       );
+    } else if (this.host.paths.normalize(root) === this.host.paths.normalize(legacy))
+      root = await this.moveWorktree(legacy, target, common);
     return this.host.paths.normalize(root);
+  }
+
+  /**
+   * Moves the worktree from GitDesk's folder in the git directory to
+   * `target`, with whatever is uncommitted in it. Where git cannot move it
+   * (a program holds a file in it open, say), it stays and keeps working.
+   */
+  private async moveWorktree(legacy: string, target: string, common: string): Promise<string> {
+    if ((await this.host.kind(target, ".").catch(() => null)) !== null) return legacy;
+    // Git creates no missing folders for the move; writing a file in it does.
+    const marker = `${WORKTREE_FOLDER}/.moving`;
+    await this.host.write(common, marker, new Uint8Array(), false);
+    await this.host.remove(common, marker);
+    if ((await this.repository.attempt(["worktree", "move", legacy, target])) === null) {
+      await this.host.removeEmptyFolder(common, WORKTREE_FOLDER).catch(() => false);
+      return legacy;
+    }
+    await this.host.removeEmptyFolder(common, LEGACY_WORKTREE_FOLDER).catch(() => false);
+    return target;
   }
 
   private async worktrees(): Promise<Map<string, string>> {
@@ -234,7 +333,7 @@ export class ContentStore {
   private async commitPending(git: Git): Promise<void> {
     if (!(await git.text(["status", "--porcelain", "-z"]))) return;
     await git.text(["add", "-A"]);
-    await git.text(["commit", "--quiet", "-m", "Commit pending GitDesk edits"]);
+    await git.text(["commit", "--quiet", "-m", "Commit pending Genbeya edits"]);
   }
 
   /**
@@ -254,16 +353,18 @@ export class ContentStore {
         }`,
       );
     // A choice made here ends this clone's opt-out; the team's layout on the branch applies again.
-    await this.repository.attempt(["config", "--unset", "gitdesk.storage"]);
+    for (const section of ["genbeya", "gitdesk"]) await this.repository.attempt(["config", "--unset", `${section}.storage`]);
     const created = mode === "branch" && (await this.startBranch());
-    const { areas, branch } = await this.layout();
+    const { areas, branch, areasFile } = await this.layout();
     // A new branch starts with nothing on it; one without an areas file would hold every area.
     const before = created ? IN_CHECKOUT : areas;
     if (!branch || before[area] === mode) return;
     await this.commitPending(branch.git);
     await this.copyAcross(branch.git, mode, path);
-    await this.host.write(branch.root, AREAS_FILE, encodeText(areasFile({ ...before, [area]: mode })), false);
-    await branch.git.text(["add", "--", AREAS_FILE]);
+    // GitDesk's file keeps its name, as does a new one on GitDesk's branch: teammates still on GitDesk read it.
+    const file = areasFile ?? (branch.branch === LEGACY_CONTENT_BRANCH ? LEGACY_AREAS_FILE : AREAS_FILE);
+    await this.host.write(branch.root, file, encodeText(areasText({ ...before, [area]: mode })), false);
+    await branch.git.text(["add", "--", file]);
     await branch.git.text([
       "commit",
       "--quiet",
@@ -294,18 +395,48 @@ export class ContentStore {
 
   /** Creates the content branch from an empty root commit unless it exists here or on a remote; true when it did. */
   private async startBranch(): Promise<boolean> {
-    const name = (await this.repository.config("gitdesk.branch")) ?? DEFAULT_CONTENT_BRANCH;
-    if ((await this.branchTips(name)).length) return false;
+    const { name, tips } = await this.contentBranch(await cloneSettings(this.repository));
+    if (tips.length) return false;
     const common = await this.commonDirectory();
     // The empty tree must exist as an object, or `git fsck` reports it missing.
-    await this.host.write(common, "gitdesk-empty", new Uint8Array(), false);
+    await this.host.write(common, "genbeya-empty", new Uint8Array(), false);
     const emptyTree = (
-      await this.repository.text(["hash-object", "-w", "-t", "tree", this.host.paths.join(common, "gitdesk-empty")])
+      await this.repository.text(["hash-object", "-w", "-t", "tree", this.host.paths.join(common, "genbeya-empty")])
     ).trim();
-    await this.host.remove(common, "gitdesk-empty");
-    const start = (await this.repository.text(["commit-tree", emptyTree, "-m", "Start the GitDesk content branch"])).trim();
+    await this.host.remove(common, "genbeya-empty");
+    const start = (await this.repository.text(["commit-tree", emptyTree, "-m", "Start the Genbeya content branch"])).trim();
     await this.repository.text(["branch", name, start]);
     return true;
+  }
+
+  /**
+   * Gives the files GitDesk named Genbeya's names: the settings file
+   * (`settings`, from and to, when given) where the settings live, and
+   * GitDesk's areas file on the content branch. A rename in the checkout is
+   * staged, to commit like code; those on the content branch are committed
+   * together. Resolves to the files renamed.
+   */
+  async renameLegacyFiles(settings: readonly [string, string] | null): Promise<string[]> {
+    const { areas, branch, areasFile } = await this.layout();
+    const renames: [ContentLocation, string, string][] = [];
+    if (settings) renames.push([branch && areas.settings === "branch" ? branch : this.checkout, ...settings]);
+    if (branch && areasFile === LEGACY_AREAS_FILE) renames.push([branch, LEGACY_AREAS_FILE, AREAS_FILE]);
+    const committed: string[] = [];
+    for (const [{ git, files, branch: onBranch }, from, to] of renames) {
+      // A file git does not track yet just moves.
+      const tracked = (await git.attempt(["ls-files", "--error-unmatch", "--", from])) !== null;
+      if (tracked) await git.text(["mv", "--", from, to]);
+      else await files.moveAll([[from, to]]);
+      if (onBranch) {
+        await git.text(["add", "--", to]);
+        committed.push(...(tracked ? [from, to] : [to]));
+      }
+    }
+    if (branch && committed.length) {
+      const names = renames.filter(([location]) => location === branch).map(([, from, to]) => `${from} to ${to}`);
+      await branch.git.text(["commit", "--quiet", "-m", `Rename ${names.join(" and ")}`, "--", ...committed]);
+    }
+    return renames.map(([, from]) => from);
   }
 
   /** Rebases local content commits onto the remote branch, then pushes them. */

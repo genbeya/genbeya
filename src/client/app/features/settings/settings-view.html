@@ -13,7 +13,32 @@
   <div class="settings">
     <section class="settings-section" aria-labelledby="project-heading">
       <h2 id="project-heading">Project</h2>
-      <p class="settings-note">Shared with everyone through <code>.gitdesk.yml</code>.</p>
+      <p class="settings-note">
+        Shared with everyone through <code>{{ snapshot().settingsFile }}</code
+        >.
+      </p>
+      @if (legacy(); as legacy) {
+        <div class="settings-card legacy-files">
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Named for GitDesk</span>
+              <small
+                >Genbeya was called GitDesk before 0.5, and reads its files as they are: {{ legacy.files }}. Teammates still on GitDesk stop
+                finding them once they are renamed.</small
+              >
+            </div>
+            <div class="setting-control">
+              <button type="button" class="btn btn-default btn-m" (click)="renameLegacyFiles()">{{ legacy.action }}</button>
+            </div>
+          </div>
+        </div>
+      }
+      @if (snapshot().leftoverSettingsFile; as leftover) {
+        <p class="settings-warning" role="note">
+          <code>{{ leftover }}</code> is left over from GitDesk: Genbeya reads <code>{{ snapshot().settingsFile }}</code> instead. Delete
+          <code>{{ leftover }}</code> once everyone uses Genbeya.
+        </p>
+      }
       <div class="settings-card">
         <div class="setting-row">
           <div class="setting-label"><label for="setting-name">Name</label></div>
@@ -272,10 +297,10 @@
 
     <section class="settings-section" aria-labelledby="help-heading" data-tour="help">
       <h2 id="help-heading">Help</h2>
-      <p class="settings-note">You are using GitDesk {{ version }}.</p>
+      <p class="settings-note">You are using Genbeya {{ version }}.</p>
       <div class="settings-card">
         <div class="setting-row">
-          <div class="setting-label"><span>Guided tour</span><small>A short walk through GitDesk.</small></div>
+          <div class="setting-label"><span>Guided tour</span><small>A short walk through Genbeya.</small></div>
           <div class="setting-control">
             <button type="button" class="btn btn-default btn-m" (click)="onboarding.startTour()"><span>Start the tour</span></button>
           </div>

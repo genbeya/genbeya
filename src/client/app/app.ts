@@ -10,8 +10,8 @@ import { Welcome } from "./features/welcome/welcome";
 import { Toasts } from "./ui/toasts";
 
 /**
- * Starts the session, then shows the welcome screen or the open repository, opens the GitDesk links launches carry,
- * and introduces GitDesk to new users and what's new to updated ones.
+ * Starts the session, then shows the welcome screen or the open repository, opens the Genbeya links launches carry,
+ * and introduces Genbeya to new users and what's new to updated ones.
  */
 @Component({
   selector: "gd-root",

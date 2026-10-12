@@ -21,7 +21,7 @@ export interface FolderChoice {
   readonly open: boolean;
 }
 
-const SHOW_HIDDEN = "gitdesk.folder-browser.hidden";
+const SHOW_HIDDEN = "genbeya.folder-browser.hidden";
 /** Keys typed within this many milliseconds search together. */
 const TYPE_AHEAD = 700;
 

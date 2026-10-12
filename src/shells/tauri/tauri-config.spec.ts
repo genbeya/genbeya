@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
+import { LINK_SCHEMES } from "../../contracts/genbeya-link";
 import { CONTENT_SECURITY_POLICY } from "../content-security-policy";
 
 /** Tauri's IPC reaches Rust through these; the other shells have no use for them. */
@@ -22,6 +23,7 @@ it("keeps the Tauri CSP in step with the shared policy", () => {
   expect(tauri).toEqual(directives(CONTENT_SECURITY_POLICY));
 });
 
-it("registers the scheme of GitDesk links, and only that", () => {
-  expect(config.plugins["deep-link"].desktop.schemes).toEqual(["gitdesk"]);
+it("registers the schemes of Genbeya links and of GitDesk's, and only those", () => {
+  expect(config.plugins["deep-link"].desktop.schemes).toEqual(["genbeya", "gitdesk"]);
+  expect(config.plugins["deep-link"].desktop.schemes).toEqual(LINK_SCHEMES);
 });

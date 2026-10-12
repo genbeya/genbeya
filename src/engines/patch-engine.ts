@@ -41,7 +41,7 @@ export interface FileDiff {
   readonly hunks: readonly Hunk[];
 }
 
-const WHOLE_FILE = "GitDesk can only stage this file as a whole.";
+const WHOLE_FILE = "Genbeya can only stage this file as a whole.";
 const NO_NEWLINE = "\\ No newline at end of file";
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 

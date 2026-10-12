@@ -24,9 +24,9 @@ describe("mentions", () => {
   it("show known handles as the person's name with their initials, and say who it is", () => {
     const container = render("Ask @ada or @Bob, and @countess.");
     expect(chips(container).map((chip) => chip.getAttribute("href"))).toEqual([
-      "gitdesk-person:ada",
-      "gitdesk-person:bob",
-      "gitdesk-person:ada",
+      "genbeya-person:ada",
+      "genbeya-person:bob",
+      "genbeya-person:ada",
     ]);
     const [ada] = chips(container);
     expect(ada!.textContent).toBe("ALAda Lovelace");

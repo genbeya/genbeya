@@ -116,7 +116,7 @@ describe("Palette full-text search", () => {
     await press(fixture, "Enter");
     expect(dialogs.confirm).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: expect.stringContaining("tasks/.templates/bug.md is on the gitdesk branch"),
+        message: expect.stringContaining("tasks/.templates/bug.md is on the genbeya branch"),
         confirm: "Copy path",
       }),
     );

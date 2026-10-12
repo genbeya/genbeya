@@ -7,7 +7,7 @@
  * distributions do), else POSIX extended ones.
  *
  * Git also says where the pattern matches in a line: a regular expression
- * never runs in GitDesk itself, where a pathological one would block every
+ * never runs in Genbeya itself, where a pathological one would block every
  * repository, and it means exactly what it meant to git.
  */
 import type { SearchRange } from "../../contracts/model";

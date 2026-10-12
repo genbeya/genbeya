@@ -13,7 +13,7 @@ export interface PageRef {
   children: PageRef[];
 }
 
-export interface GitdeskOptions extends MentionOptions, DateOptions {
+export interface GenbeyaOptions extends MentionOptions, DateOptions {
   /** Pages below the current one, for `[SUBPAGES]`. */
   subpages?: PageRef[];
   /** Tasks, pages and files that `[[references]]` and task IDs in text point to. */
@@ -84,7 +84,7 @@ function referenceLink(reference: Reference, label: string | undefined): Phrasin
       );
     }
     case "missing-page":
-      return link("gitdesk-missing:" + encodeURIComponent(reference.title), [], [{ type: "text", value: label ?? reference.title }]);
+      return link("genbeya-missing:" + encodeURIComponent(reference.title), [], [{ type: "text", value: label ?? reference.title }]);
   }
 }
 
@@ -134,13 +134,13 @@ const pageEntries = (pages: PageRef[]): Entry[] =>
   pages.map((p) => ({ label: p.title, url: "/" + p.path, children: pageEntries(p.children) }));
 
 /**
- * GitDesk's wiki extensions:
+ * Genbeya's wiki extensions:
  * - heading ids, and `[TOC]` / `[[_TOC_]]` for a table of contents
  * - `[SUBPAGES]` / `[[_TOSP_]]` for the pages below this one
  * - `[[GENBEYA-12]]`, `[[Page title]]`, `[[path/to/file.ts#L1-L9]]` references, `[[target|label]]`
  * - `![[path/to/file.ts#L1-L9]]` alone in a paragraph embeds the lines
  */
-export function remarkGitdesk(options: GitdeskOptions = {}) {
+export function remarkGenbeya(options: GenbeyaOptions = {}) {
   return (tree: Root) => {
     const targets = referenceTargets(options.references ?? NO_REFERENCES);
     const headings = headingIds(tree).map(({ heading: node, id: slug }) => {

@@ -38,7 +38,7 @@ describe("ShareMenu", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     const { event, items, item } = await rightClick({ remotes: [{ name: "origin", url: "https://github.com/acme/demo.git" }] });
     expect(event.defaultPrevented).toBe(true);
-    expect(items.map((entry) => entry.textContent!.trim())).toEqual(["Copy GitDesk link", "Copy web link"]);
+    expect(items.map((entry) => entry.textContent!.trim())).toEqual(["Copy Genbeya link", "Copy web link"]);
     item("Copy web link")!.click();
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("https://github.com/acme/demo/blob/main/tasks/TP-1.md"));
   });
@@ -46,7 +46,7 @@ describe("ShareMenu", () => {
   it("explains why a repository without a remote can't be shared, and has no web link", async () => {
     const { items, item } = await rightClick({ remotes: [] });
     expect(items).toHaveLength(1);
-    expect(item("Copy GitDesk link")!.getAttribute("aria-disabled")).toBe("true");
-    expect(item("Copy GitDesk link")!.title).toMatch(/no remote/);
+    expect(item("Copy Genbeya link")!.getAttribute("aria-disabled")).toBe("true");
+    expect(item("Copy Genbeya link")!.title).toMatch(/no remote/);
   });
 });

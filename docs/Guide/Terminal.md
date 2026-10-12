@@ -16,4 +16,4 @@ Press `` Ctrl+` `` (also on macOS, where `` ⌘+` `` switches windows), click **
 - Closing the repository ends its terminals.
 
 > [!NOTE]
-> The Deno Desktop build has no terminal (and no **Terminal** button): Deno cannot run the native pseudo-terminal module GitDesk uses. Electron and Tauri builds have one.
+> The Deno Desktop build has no terminal (and no **Terminal** button): Deno cannot run the native pseudo-terminal module Genbeya uses. Electron and Tauri builds have one.

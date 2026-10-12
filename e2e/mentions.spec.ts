@@ -3,7 +3,7 @@ import { expect, FILES, MOD, test } from "./app";
 test.use({
   files: {
     ...FILES,
-    ".gitdesk.yml": "name: Demo Project\ntaskPrefix: DP\npeople:\n  - handle: ada\n    name: Ada Lovelace\n    email: ada@example.com\n",
+    ".genbeya.yml": "name: Demo Project\ntaskPrefix: DP\npeople:\n  - handle: ada\n    name: Ada Lovelace\n    email: ada@example.com\n",
     "docs/Home.md": "# Home\n\nPlan:\n\n- [ ] Pay the invoice 2000-01-03\n- [x] Send the offer 2000-01-02\n",
     "tasks/DP-1.md": "---\nid: DP-1\ntitle: First task\nstatus: todo\nassignee: Ada Lovelace\n---\n",
     "tasks/DP-2.md": "---\nid: DP-2\ntitle: Second task\nstatus: todo\n---\n",

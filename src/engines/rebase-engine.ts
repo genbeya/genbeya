@@ -22,7 +22,7 @@ export class RebaseEngine {
   todo(commits: readonly RebaseCommit[], steps: readonly RebaseStep[]): RebaseTodo {
     const byHash = new Map(commits.map((commit) => [commit.hash, commit]));
     if (commits.some((commit) => commit.merge))
-      throw new Error("These commits include a merge, which an interactive rebase in GitDesk can't rewrite. Use the terminal instead.");
+      throw new Error("These commits include a merge, which an interactive rebase in Genbeya can't rewrite. Use the terminal instead.");
     if (
       steps.length !== commits.length ||
       new Set(steps.map((step) => step.hash)).size !== steps.length ||

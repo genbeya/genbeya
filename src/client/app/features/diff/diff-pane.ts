@@ -68,11 +68,11 @@ const lineCount = (selection: LineSelection) =>
     } @else if (!diff()) {
       <div class="editor-loading"><span class="spinner" aria-label="Loading"></span></div>
     } @else if (diff()!.binary) {
-      <gd-empty-state title="Binary file"><p>GitDesk does not show differences for binary files.</p></gd-empty-state>
+      <gd-empty-state title="Binary file"><p>Genbeya does not show differences for binary files.</p></gd-empty-state>
     } @else {
       @if (actions().length && !diff()!.changes) {
         <div class="diff-toolbar">
-          <span class="diff-toolbar-text">GitDesk can only stage this file as a whole.</span>
+          <span class="diff-toolbar-text">Genbeya can only stage this file as a whole.</span>
         </div>
       } @else if (actions().length) {
         <div class="diff-toolbar" role="toolbar" aria-label="Selected lines">

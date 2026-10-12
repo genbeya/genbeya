@@ -4,7 +4,7 @@
  * user's preferences.
  */
 import { computed, DestroyRef, Injectable, inject, signal } from "@angular/core";
-import type { GitdeskLink } from "../../../contracts/gitdesk-link";
+import type { GenbeyaLink } from "../../../contracts/genbeya-link";
 import { syncsContentBranch, type ChangeBase, type Location, type Preferences, type Snapshot } from "../../../contracts/model";
 import { requestedLink, requestedLocation } from "../../../utilities/launch-request";
 import { MANAGERS, SHELL } from "../platform/platform";
@@ -36,7 +36,7 @@ export class Session {
   private readonly unsaved = inject(UnsavedChanges);
   private readonly current = signal<Open | null>(null);
   private readonly pending = signal(0);
-  private readonly link = signal<GitdeskLink | null>(null);
+  private readonly link = signal<GenbeyaLink | null>(null);
   private readonly base = signal<ChangeBase>("head");
   private syncTimer: ReturnType<typeof setTimeout> | undefined;
   private refreshes = 0;
@@ -47,7 +47,7 @@ export class Session {
   readonly id = computed(() => this.current()?.id ?? null);
   readonly snapshot = computed(() => this.current()?.snapshot ?? null);
   readonly busy = computed(() => this.pending() > 0);
-  /** A GitDesk link a launch asked to open, until whoever opens it takes it. */
+  /** A Genbeya link a launch asked to open, until whoever opens it takes it. */
   readonly requestedLink = this.link.asReadonly();
   /** What snapshots compare staged changes with: HEAD, or HEAD's parent while the last commit is being amended. */
   readonly changeBase = this.base.asReadonly();
@@ -69,7 +69,7 @@ export class Session {
 
   /**
    * Loads preferences and reopens the repository the launch or the last
-   * session asks for. A GitDesk link among the launch arguments waits in
+   * session asks for. A Genbeya link among the launch arguments waits in
    * {@link requestedLink}; the managers then reopen nothing, since the link
    * decides the repository.
    */
@@ -110,7 +110,7 @@ export class Session {
     if (!open || !(await this.unsaved.confirmDiscard())) return;
     await this.managers.workspace.close(open.id);
     this.current.set(null);
-    this.shell.setTitle("GitDesk");
+    this.shell.setTitle("Genbeya");
   }
 
   /** Compares staged changes with `base` from now on, and fetches a snapshot that does. */
@@ -193,7 +193,7 @@ export class Session {
   }
 
   /** The link a launch asked to open, which the caller now opens; null when there is none. */
-  takeRequestedLink(): GitdeskLink | null {
+  takeRequestedLink(): GenbeyaLink | null {
     const link = this.link();
     this.link.set(null);
     return link;
@@ -203,7 +203,7 @@ export class Session {
     if (!document.hidden) await this.refresh().catch(() => undefined);
   }
 
-  /** A second launch asks to open a GitDesk link, or a repository (the jump list) that the manager validates. */
+  /** A second launch asks to open a Genbeya link, or a repository (the jump list) that the manager validates. */
   private async openRequested(args: readonly string[]) {
     const link = requestedLink(args);
     if (link) return this.link.set(link);
@@ -229,6 +229,6 @@ export class Session {
     // Snapshots of an opened repository compare with HEAD, as the one it comes with does.
     this.base.set("head");
     this.current.set(opened);
-    this.shell.setTitle(`${opened.snapshot.settings.name} — GitDesk`);
+    this.shell.setTitle(`${opened.snapshot.settings.name} — Genbeya`);
   }
 }

@@ -68,13 +68,13 @@ export interface FieldDefinition {
   readonly options?: readonly string[];
 }
 
-/** The frontmatter keys GitDesk writes itself; the epic is the task's folder. Custom fields use other names. */
+/** The frontmatter keys Genbeya writes itself; the epic is the task's folder. Custom fields use other names. */
 export const TASK_KEYS = ["id", "title", "type", "status", "priority", "assignee", "labels", "epic"] as const;
 
 /** The value of a custom field; an empty string removes the field. */
 export type FieldValue = string | number | boolean;
 
-/** Project settings, stored in `.gitdesk.yml` next to the wiki and tasks. */
+/** Project settings, stored in `.genbeya.yml` next to the wiki and tasks. */
 export interface Settings {
   readonly name: string;
   readonly wikiRoot: string;
@@ -88,7 +88,7 @@ export interface Settings {
   readonly hiddenColumns: readonly string[];
   readonly types: readonly TaskType[];
   readonly fields: readonly FieldDefinition[];
-  /** The project's people as `.gitdesk.yml` lists them; they win over what GitDesk derives from Git. */
+  /** The project's people as the settings file lists them; they win over what Genbeya derives from Git. */
   readonly people: readonly PersonEntry[];
 }
 
@@ -205,7 +205,7 @@ export type TaskChange =
   | { readonly kind: "comments"; readonly added: number; readonly edited: number; readonly removed: number }
   /** A custom field with a plain value, written as text; "" where the task did not have it. */
   | { readonly kind: "custom"; readonly field: string; readonly from: string; readonly to: string }
-  /** Frontmatter fields GitDesk has no words for, such as lists. */
+  /** Frontmatter fields Genbeya has no words for, such as lists. */
   | { readonly kind: "other"; readonly fields: readonly string[] };
 
 /** A commit that changed a task, or its edits not committed yet. */
@@ -344,7 +344,7 @@ export interface Head {
   readonly behind: number;
 }
 
-/** The parts of a repository's GitDesk content that can each live in the checkout or on the content branch. */
+/** The parts of a repository's Genbeya content that can each live in the checkout or on the content branch. */
 export const CONTENT_AREAS = ["wiki", "tasks", "settings"] as const;
 export type ContentArea = (typeof CONTENT_AREAS)[number];
 
@@ -374,8 +374,18 @@ export interface Snapshot {
   readonly version: string;
   readonly location: Location;
   readonly settings: Settings;
-  /** Version of `.gitdesk.yml`, null while it does not exist. */
+  /** Version of the settings file, null while it does not exist. */
   readonly settingsHash: string | null;
+  /** The settings file: `.genbeya.yml`, or `.gitdesk.yml` in a repository GitDesk set up that has no `.genbeya.yml`. */
+  readonly settingsFile: string;
+  /** `.gitdesk.yml` next to `.genbeya.yml`, which wins: left over from GitDesk. Null without one. */
+  readonly leftoverSettingsFile: string | null;
+  /**
+   * Shared files still named for GitDesk, Genbeya's former name, which
+   * Genbeya reads as they are and can rename: `.gitdesk.yml` while it is the
+   * settings file, `.gitdesk-content` on the content branch.
+   */
+  readonly legacyFiles: readonly string[];
   readonly storage: Storage;
   readonly head: Head;
   readonly branches: readonly string[];
@@ -440,7 +450,7 @@ export interface Diff {
   /**
    * Git's changed lines, the ones hunks and lines are staged by, so the
    * diff shows them where git has them; absent for commits, and for files
-   * GitDesk can only stage as a whole.
+   * Genbeya can only stage as a whole.
    */
   readonly changes?: readonly DiffChange[];
 }
@@ -594,7 +604,7 @@ export const isDefaultBranch = (branch: string, defaultBranch: string | null): b
   defaultBranch === null ? branch === "main" || branch === "master" : branch === defaultBranch;
 
 /**
- * Files that teach coding agents to use GitDesk's tasks and wiki: the skill
+ * Files that teach coding agents to use Genbeya's tasks and wiki: the skill
  * where Claude Code and where other agents look for it, and the instruction
  * files AGENTS.md, CLAUDE.md and Copilot's.
  */
@@ -605,24 +615,31 @@ export interface AgentFile {
   readonly target: AgentTarget;
   /** In the checkout. */
   readonly path: string;
-  /** What GitDesk writes: the whole file, or its marked block in a file it shares with other text. */
+  /** What Genbeya writes: the whole file, or its marked block in a file it shares with other text. */
   readonly text: string;
-  /** `missing` also when the file exists without GitDesk's block. */
+  /** `missing` also when the file exists without Genbeya's block; `outdated` while it has {@link replaces}. */
   readonly state: "missing" | "current" | "outdated";
   /** Excluded by `.gitignore`, so it would not be committed. */
   readonly ignored: boolean;
+  /**
+   * The file GitDesk, as Genbeya was called before, wrote for the same
+   * agent elsewhere (its skill, under the old skill name), which adding
+   * this one deletes, edits and all; null when the checkout has none.
+   */
+  readonly replaces: string | null;
 }
 
 export interface AgentFileWrite {
   readonly path: string;
-  readonly result: "created" | "updated" | "unchanged";
+  /** `replaced`: a file GitDesk wrote, deleted as the file at its new place replaces it. */
+  readonly result: "created" | "updated" | "unchanged" | "replaced";
 }
 
 export interface RecentEntry {
   readonly location: Location;
   readonly name: string;
   readonly openedAt: number;
-  /** The repository's remote URLs when it was last seen, so GitDesk links find it. */
+  /** The repository's remote URLs when it was last seen, so Genbeya links find it. */
   readonly remotes: readonly string[];
 }
 

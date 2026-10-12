@@ -103,7 +103,7 @@ const rangeOf = (hunk: ConflictHunk): LineRange => ({ from: hunk.line, to: hunk.
       <div class="editor-loading"><span class="spinner" aria-label="Loading"></span></div>
     } @else if (!editable()) {
       <gd-empty-state [title]="kind().summary">
-        <p>{{ bothSides() ? "GitDesk can't merge this file line by line. Choose a side." : "Choose what to keep." }}</p>
+        <p>{{ bothSides() ? "Genbeya can't merge this file line by line. Choose a side." : "Choose what to keep." }}</p>
         <div class="conflict-choices">
           @for (choice of kind().choices; track choice.label) {
             <button

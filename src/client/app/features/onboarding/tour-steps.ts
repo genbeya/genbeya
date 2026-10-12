@@ -1,4 +1,4 @@
-/** The guided tour of GitDesk. Its elements carry `data-tour` attributes; the share step finds the page's menu button. */
+/** The guided tour of Genbeya. Its elements carry `data-tour` attributes; the share step finds the page's menu button. */
 import type { TourStep } from "../../ui/tour/tour";
 
 /** How the platform names the modifiers ("⌘" and "⌃" on macOS). */
@@ -29,7 +29,7 @@ export function appTour({ mod, ctrl }: Keys): TourStep[] {
       route: "/wiki",
       placement: "right",
       title: "The wiki",
-      body: "Pages are Markdown files in the wiki folder, `docs/` unless `.gitdesk.yml` names another. A folder named like a page holds its subpages.",
+      body: "Pages are Markdown files in the wiki folder, `docs/` unless `.genbeya.yml` names another. A folder named like a page holds its subpages.",
     },
     {
       target: at("wiki-edit"),
@@ -66,7 +66,7 @@ export function appTour({ mod, ctrl }: Keys): TourStep[] {
       route: "/code",
       placement: "right",
       title: "Code",
-      body: "Every file of the repository, with an editor. `.gitdesk.yml` at the root holds the settings everyone shares.",
+      body: "Every file of the repository, with an editor. `.genbeya.yml` at the root holds the settings everyone shares.",
     },
     {
       target: at("commit-box"),
@@ -98,21 +98,21 @@ export function appTour({ mod, ctrl }: Keys): TourStep[] {
       target: at("search"),
       placement: "right",
       title: "Search and commands",
-      body: "Find pages, tasks and files, and run commands. Paste a GitDesk link to open what it points at.",
+      body: "Find pages, tasks and files, and run commands. Paste a Genbeya link to open what it points at.",
       tryIt: `Press ${mod}+K`,
     },
     {
       target: at("settings"),
       placement: "right",
       title: "Settings",
-      body: "The project's settings, saved to `.gitdesk.yml`. The wiki, the tasks and the settings can each live on a content branch that every code branch shares. **Help** has the version and the documentation.",
+      body: "The project's settings, saved to `.genbeya.yml`. The wiki, the tasks and the settings can each live on a content branch that every code branch shares. **Help** has the version and the documentation.",
     },
     {
       target: `${at("page-header")} [aria-label="Page actions"]`,
       route: "/wiki",
       placement: "bottom",
       title: "Share",
-      body: "Copy a link that opens this page in a coworker's GitDesk, or on GitHub, GitLab, Bitbucket or Azure DevOps. Right-click any page, task, file or commit for the same. To see this tour again, run **Start the tour** from the command palette.",
+      body: "Copy a link that opens this page in a coworker's Genbeya, or on GitHub, GitLab, Bitbucket or Azure DevOps. Right-click any page, task, file or commit for the same. To see this tour again, run **Start the tour** from the command palette.",
     },
   ];
 }

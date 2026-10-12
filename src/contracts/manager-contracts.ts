@@ -60,7 +60,7 @@ export interface WorkspaceManagerContract {
   /** Reopens the repository requested at launch or, if the preference allows, the last one. */
   restore(launchArgs: readonly string[]): Promise<OpenedWorkspace | null>;
   clone(url: string, parent: Location): Promise<OpenedWorkspace>;
-  /** Creates a sample repository to try GitDesk with in a new folder below `parent`, and opens it. */
+  /** Creates a sample repository to try Genbeya with in a new folder below `parent`, and opens it. */
   createSample(parent: Location): Promise<OpenedWorkspace>;
   close(workspace: string): Promise<void>;
   /**
@@ -116,6 +116,13 @@ export interface ContentManagerContract {
   deleteComment(workspace: string, path: string, index: number, expectedHash: string): Promise<Task>;
   saveSettings(workspace: string, settings: Settings, expectedHash: string | null): Promise<void>;
   /**
+   * Renames the files named for GitDesk, Genbeya's former name, that
+   * teammates share: `.gitdesk.yml` to `.genbeya.yml` where the settings
+   * live, and `.gitdesk-content` on the content branch. Staged in the
+   * checkout, committed on the content branch; resolves to the old names.
+   */
+  renameLegacyFiles(workspace: string): Promise<readonly string[]>;
+  /**
    * Keeps one area (wiki, tasks or settings) in the checkout, or on the
    * content branch shared by all code branches. The area's files move along.
    */
@@ -124,7 +131,11 @@ export interface ContentManagerContract {
   syncContent(workspace: string): Promise<void>;
   /** Every agent file and whether the checkout has it, generated as if `targets` were added (they refer to each other). */
   agentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFile[]>;
-  /** Writes the agent files of `targets` into the checkout, leaving text outside GitDesk's blocks alone. */
+  /**
+   * Writes the agent files of `targets` into the checkout, leaving text
+   * outside Genbeya's blocks alone, then deletes the files GitDesk wrote in
+   * their place (see {@link AgentFile.replaces}).
+   */
   addAgentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFileWrite[]>;
   /**
    * Finds `text` inside pages, tasks and code: tracked and untracked files
@@ -296,6 +307,7 @@ export const MANAGER_METHODS = {
     "editComment",
     "deleteComment",
     "saveSettings",
+    "renameLegacyFiles",
     "setStorage",
     "syncContent",
     "agentFiles",

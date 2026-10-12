@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "GitDesk Tauri",
-  "version": "0.4.0",
-  "identifier": "dev.gitdesk.tauri",
+  "productName": "Genbeya Tauri",
+  "version": "0.5.0",
+  "identifier": "fyi.genbeya.tauri",
   "build": {
     "frontendDist": "../../../../dist/client/browser"
   },
@@ -13,16 +13,21 @@
   },
   "plugins": {
     "deep-link": {
-      "desktop": { "schemes": ["gitdesk"] }
+      "desktop": { "schemes": ["genbeya", "gitdesk"] }
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
     "category": "DeveloperTool",
+    "publisher": "Genbeya",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "macOS": {
       "signingIdentity": "-"
+    },
+    "windows": {
+      "wix": { "upgradeCode": "b50af3c1-3f60-5e8e-b488-6364423e9c33" },
+      "nsis": { "installerHooks": "windows/installer-hooks.nsh" }
     }
   }
 }

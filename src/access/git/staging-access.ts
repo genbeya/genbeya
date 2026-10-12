@@ -13,7 +13,7 @@ import { failure, GitError, type Git } from "./git";
 import { parseNameStatus } from "./git-parsers";
 
 /** Where a patch waits for `git apply`, in the git directory. */
-const PATCH_FILE = "gitdesk.patch";
+const PATCH_FILE = "genbeya.patch";
 
 /** The empty tree, which a first commit is compared with, by object format. */
 const EMPTY_TREES: Readonly<Record<string, string>> = {

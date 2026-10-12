@@ -8,7 +8,7 @@ import { ContentStore, type ContentLocation } from "../access/content/content-st
 import { FileStore } from "../access/files/file-store";
 import type { RepositoryAccess } from "../access/git/repository-access";
 import { isMissing, type Host } from "../access/hosts/host";
-import { contentAreaOf, SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
+import { contentAreaOf, LEGACY_SETTINGS_FILE, SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine } from "../engines/task-engine";
 import { baseName, validateRepositoryPath } from "../utilities/repository-path";
 import { SerialQueue } from "../utilities/serial-queue";
@@ -19,6 +19,10 @@ const CLOSE_GRACE = 10_000;
 
 export interface LoadedSettings {
   readonly settings: Settings;
+  /** The settings file: `.genbeya.yml`, or GitDesk's `.gitdesk.yml` while the repository has only that. */
+  readonly file: string;
+  /** GitDesk's `.gitdesk.yml` next to `.genbeya.yml`, which is not read; null without one. */
+  readonly leftover: string | null;
   /** Version of the settings file; null while it does not exist. */
   readonly hash: string | null;
   /** Why the file could not be used; defaults apply meanwhile. */
@@ -96,27 +100,36 @@ export class Workspace {
   /**
    * The project settings; a broken file falls back to defaults and says why.
    * Cached for validating edits; `fresh` re-reads the file, which other
-   * programs may have changed.
+   * programs may have changed. Repositories GitDesk set up have
+   * `.gitdesk.yml` instead of `.genbeya.yml`, which wins when both exist.
    */
   async settings(fresh = false): Promise<LoadedSettings> {
     if (this.loadedSettings && !fresh) return this.loadedSettings;
     const fallback = this.engines.settings.defaults(this.folderName);
     const files = (await this.content.locate("settings")).files;
+    const [current, legacy] = await Promise.all([files.kind(SETTINGS_FILE), files.kind(LEGACY_SETTINGS_FILE)]);
+    const name = current === null && legacy !== null ? LEGACY_SETTINGS_FILE : SETTINGS_FILE;
+    const names = { file: name, leftover: current !== null && legacy !== null ? LEGACY_SETTINGS_FILE : null };
     let file;
     try {
-      file = await files.read(SETTINGS_FILE);
+      file = await files.read(name);
     } catch (error) {
       if (!isMissing(error)) throw error;
-      return (this.loadedSettings = { settings: fallback, hash: null });
+      return (this.loadedSettings = { settings: fallback, ...names, hash: null });
     }
     try {
-      return (this.loadedSettings = { settings: this.engines.settings.parse(file.content, fallback, this.windows), hash: file.hash });
+      return (this.loadedSettings = {
+        settings: this.engines.settings.parse(file.content, fallback, this.windows),
+        ...names,
+        hash: file.hash,
+      });
     } catch (error) {
       // A broken settings file must not lock anyone out of the settings screen.
       return (this.loadedSettings = {
         settings: fallback,
+        ...names,
         hash: file.hash,
-        problem: `${SETTINGS_FILE}: ${(error as Error).message} Using defaults until it is fixed.`,
+        problem: `${name}: ${(error as Error).message} Using defaults until it is fixed.`,
       });
     }
   }

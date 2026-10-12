@@ -1,11 +1,11 @@
 /**
- * Links to items of the open repository: GitDesk links, which open the item
+ * Links to items of the open repository: Genbeya links, which open the item
  * in a coworker's clone, and the item's page on the Git host's website.
  * Both name the repository by a remote: origin, else the first one.
  */
 import { computed, Injectable, inject } from "@angular/core";
-import type { LinkItem } from "../../../contracts/gitdesk-link";
-import { formatGitdeskLink } from "../../../utilities/gitdesk-link";
+import type { LinkItem } from "../../../contracts/genbeya-link";
+import { formatGenbeyaLink } from "../../../utilities/genbeya-link";
 import { parseRemote, webUrl } from "../../../utilities/remote-url";
 import { Clipboard } from "./clipboard";
 import { Session } from "./session";
@@ -28,19 +28,19 @@ export class ShareLinks {
     return upstream.slice(remote ? remote.name.length + 1 : 0);
   });
 
-  /** Why GitDesk links can't be made here, or null when they can. */
+  /** Why Genbeya links can't be made here, or null when they can. */
   readonly unavailable = computed(() => {
     const remote = this.remote();
     if (!remote) return "This repository has no remote. Others find their clone by its remote, so add one to share links.";
     return parseRemote(remote.url) ? null : `The remote ${remote.name} is a local path, which other computers can't reach.`;
   });
 
-  gitdeskLink(item: LinkItem): string | null {
+  genbeyaLink(item: LinkItem): string | null {
     const remote = this.remote();
-    return remote && !this.unavailable() ? formatGitdeskLink({ remote: remote.url, item }) : null;
+    return remote && !this.unavailable() ? formatGenbeyaLink({ remote: remote.url, item }) : null;
   }
 
-  /** The item on the host's website; pages and tasks are files there. Null for hosts GitDesk does not know. */
+  /** The item on the host's website; pages and tasks are files there. Null for hosts Genbeya does not know. */
   webLink(item: LinkItem): string | null {
     const snapshot = this.session.snapshot();
     const remote = this.remote();
@@ -54,9 +54,9 @@ export class ShareLinks {
     return path && branch ? webUrl(remote.url, { kind: "file", path, branch }) : null;
   }
 
-  async copyGitdeskLink(item: LinkItem): Promise<void> {
-    const link = this.gitdeskLink(item);
-    if (link) await this.clipboard.copy(link, "GitDesk link");
+  async copyGenbeyaLink(item: LinkItem): Promise<void> {
+    const link = this.genbeyaLink(item);
+    if (link) await this.clipboard.copy(link, "Genbeya link");
   }
 
   async copyWebLink(item: LinkItem): Promise<void> {

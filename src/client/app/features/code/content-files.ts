@@ -15,7 +15,7 @@ export class ContentFiles {
 
   /** Says where `path` is and how to edit it, and offers to copy the path. `area` names what lives with it, such as "tasks". */
   async explain(path: string, title: string, area = "content"): Promise<void> {
-    const branch = this.session.snapshot()?.storage.branch?.name ?? "gitdesk";
+    const branch = this.session.snapshot()?.storage.branch?.name ?? "genbeya";
     const copy = await this.dialogs.confirm({
       title,
       message:

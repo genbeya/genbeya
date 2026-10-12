@@ -1,7 +1,7 @@
 import { CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
 import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
 import { Router } from "@angular/router";
-import type { LinkItem } from "../../../../contracts/gitdesk-link";
+import type { LinkItem } from "../../../../contracts/genbeya-link";
 import { Clipboard } from "../../core/clipboard";
 import { ShareLinks } from "../../core/share-links";
 import { Icon } from "../../ui/icon";
@@ -39,9 +39,9 @@ import { WikiActions } from "./wiki-actions";
           gd-menu-item
           [disabled]="!!links.unavailable()"
           [attr.title]="links.unavailable()"
-          (selected)="links.copyGitdeskLink(item())"
+          (selected)="links.copyGenbeyaLink(item())"
         >
-          <svg icon gd-icon name="link" [size]="14"></svg>Copy GitDesk link
+          <svg icon gd-icon name="link" [size]="14"></svg>Copy Genbeya link
         </button>
         @if (links.webLink(item())) {
           <button gd-menu-item (selected)="links.copyWebLink(item())">

@@ -1,4 +1,4 @@
-/** Launches GitDesk on a disposable repository and profile for each test. */
+/** Launches Genbeya on a disposable repository and profile for each test. */
 import { _electron as electron, test as base, type ElectronApplication, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -8,7 +8,7 @@ import type { Preferences } from "../src/contracts/model";
 import { launchArgument } from "../src/utilities/launch-request";
 
 export const FILES: Readonly<Record<string, string>> = {
-  ".gitdesk.yml": "name: Demo Project\ntaskPrefix: DP\n",
+  ".genbeya.yml": "name: Demo Project\ntaskPrefix: DP\n",
   "docs/Home.md":
     "# Home\n\n[TOC]\n\n## Start\n\nSee [[Guide]] and DP-1. Missing: [[Glossary]].\n\n## Diagrams\n\n```plantuml\nAlice -> Bob: hello\n```\n",
   "docs/Guide.md": "# Guide\n\nHow it works.\n",
@@ -24,7 +24,7 @@ export interface Repository {
 }
 
 function createRepository(files: Readonly<Record<string, string>>): Repository {
-  const root = mkdtempSync(path.join(tmpdir(), "gitdesk-e2e-"));
+  const root = mkdtempSync(path.join(tmpdir(), "genbeya-e2e-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
   const write = (relative: string, content: string) => {
     mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });
@@ -47,7 +47,7 @@ export const VERSION: string = (JSON.parse(readFileSync("package.json", "utf8"))
 /** A user who has seen the tour and this version's news, so neither gets in the way of tests. */
 export const SEEN: Partial<Preferences> = { lastSeenVersion: VERSION, tourSeen: true };
 
-/** The preferences GitDesk saved in `profile`. */
+/** The preferences Genbeya saved in `profile`. */
 export const savedPreferences = (profile: string): Partial<Preferences> =>
   (JSON.parse(readFileSync(path.join(profile, "state.json"), "utf8")) as { preferences: Partial<Preferences> }).preferences;
 
@@ -58,7 +58,7 @@ interface Fixtures {
   /** The app's data folder for the test. */
   profile: string;
   repository: Repository;
-  /** Starts GitDesk with these arguments on the test's profile; every launch closes after the test. */
+  /** Starts Genbeya with these arguments on the test's profile; every launch closes after the test. */
   launch: (...args: string[]) => Promise<ElectronApplication>;
   app: ElectronApplication;
   window: Page;
@@ -115,7 +115,7 @@ export const test = base.extend<Fixtures>({
   files: [FILES, { option: true }],
   preferences: [SEEN, { option: true }],
   profile: async ({ preferences }, use) => {
-    const profile = mkdtempSync(path.join(tmpdir(), "gitdesk-profile-"));
+    const profile = mkdtempSync(path.join(tmpdir(), "genbeya-profile-"));
     if (preferences) writeFileSync(path.join(profile, "state.json"), JSON.stringify({ preferences }));
     await use(profile);
     // After a launch that had to be ended, its helper processes may hold the profile for a few seconds.

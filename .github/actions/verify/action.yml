@@ -7,8 +7,8 @@ runs:
     - name: Configure Git for tests
       shell: bash
       run: |
-        git config --global user.name "GitDesk CI"
-        git config --global user.email "ci@gitdesk.invalid"
+        git config --global user.name "Genbeya CI"
+        git config --global user.email "ci@genbeya.invalid"
         git config --global init.defaultBranch main
 
     - name: Lint

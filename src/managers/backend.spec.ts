@@ -47,7 +47,7 @@ describe("WorkspaceManager", () => {
     const { snapshot, repository } = await opened();
     expect(snapshot.settings.name).toBe("Test Project");
     expect(snapshot.wiki.map((node) => node.title)).toEqual(["Home", "Architecture"]);
-    expect(snapshot.files.map((node) => node.name)).toEqual(["docs", "src", ".gitdesk.yml"]);
+    expect(snapshot.files.map((node) => node.name)).toEqual(["docs", "src", ".genbeya.yml"]);
     expect(snapshot.head).toMatchObject({ branch: "main" });
     expect(snapshot.location).toEqual({ kind: "local", path: repository.root });
   });
@@ -103,13 +103,14 @@ describe("WorkspaceManager", () => {
     expect(restored?.snapshot.settings.name).toBe("Test Project");
   });
 
-  it("leaves the repository to the client when a launch carries a GitDesk link", async () => {
+  it("leaves the repository to the client when a launch carries a Genbeya link, or one GitDesk made", async () => {
     const data = await temporaryFolder("data-");
     const first = await createBackend(machine, data);
     await first.workspace.open({ kind: "local", path: (await createRepository()).root });
     await first.dispose();
     const managers = await backend(data);
-    expect(await managers.workspace.restore(["app", "gitdesk://open?remote=https://github.com/acme/demo.git&task=TP-1"])).toBeNull();
+    expect(await managers.workspace.restore(["app", "genbeya://open?remote=https://github.com/acme/demo.git&task=TP-1"])).toBeNull();
+    expect(await managers.workspace.restore(["app", "genbeya://open?remote=https://github.com/acme/demo.git&task=TP-1"])).toBeNull();
   });
 
   it("remembers the remotes of recent repositories as they change", async () => {
@@ -180,21 +181,21 @@ describe("WorkspaceManager", () => {
     const parent = await temporaryFolder("parent-");
     const managers = await backend();
     const { id, snapshot } = await managers.workspace.createSample({ kind: "local", path: parent });
-    expect(snapshot.location).toEqual({ kind: "local", path: path.join(parent, "gitdesk-sample") });
+    expect(snapshot.location).toEqual({ kind: "local", path: path.join(parent, "genbeya-sample") });
     expect(snapshot).toMatchObject({ settings: { name: "Pocket Weather" }, head: { branch: "main" }, warnings: [] });
     expect(snapshot.tasks).toHaveLength(6);
     expect(snapshot.changes).toEqual([{ path: "src/forecast.ts", index: " ", worktree: "M" }]);
     const log = await managers.versionControl.log(id, 0, 10);
     expect(log.map((commit) => [commit.subject, commit.author])).toEqual([
-      ["Plan the first release", "GitDesk"],
-      ["Write the wiki", "GitDesk"],
-      ["Start Pocket Weather", "GitDesk"],
+      ["Plan the first release", "Genbeya"],
+      ["Write the wiki", "Genbeya"],
+      ["Start Pocket Weather", "Genbeya"],
     ]);
     expect((await managers.workspace.recent())[0]!.name).toBe("Pocket Weather");
 
     // A second sample goes next to the first.
     const second = await managers.workspace.createSample({ kind: "local", path: parent });
-    expect(second.snapshot.location).toEqual({ kind: "local", path: path.join(parent, "gitdesk-sample-2") });
+    expect(second.snapshot.location).toEqual({ kind: "local", path: path.join(parent, "genbeya-sample-2") });
     await expect(managers.workspace.createSample({ kind: "ssh", host: "-oProxyCommand=x", path: "/x" })).rejects.toThrow(
       "Invalid repository location.",
     );
@@ -293,7 +294,7 @@ describe("ContentManager", () => {
 
   it.skipIf(!windows)("never lets settings reach .git through Windows aliases", async () => {
     const { content, id, latest, repository } = await opened({
-      ".gitdesk.yml": "name: T\ntaskPrefix: TP\ntaskRoot: GIT~1/info\n",
+      ".genbeya.yml": "name: T\ntaskPrefix: TP\ntaskRoot: GIT~1/info\n",
       "docs/Home.md": "# Home\n",
     });
     const snapshot = await latest();
@@ -373,14 +374,14 @@ describe("ContentManager", () => {
   it("moves the page back when a link update fails after the move, committing nothing", async () => {
     const { content, id, latest, repository } = await opened(LINKED);
     await shareEverything(content, id);
-    const worktree = path.join(repository.root, ".git", "gitdesk", "gitdesk");
-    const commits = await repository.git("rev-parse", "gitdesk");
+    const worktree = path.join(repository.root, ".git", "genbeya", "genbeya");
+    const commits = await repository.git("rev-parse", "genbeya");
     // A file that cannot be written, as one another program holds open on Windows.
     const home = path.join(worktree, "docs", "Home.md");
     await fs.chmod(home, 0o444);
     onTestFinished(() => fs.chmod(home, 0o644));
     await expect(content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true })).rejects.toThrow();
-    expect(await repository.git("rev-parse", "gitdesk")).toBe(commits);
+    expect(await repository.git("rev-parse", "genbeya")).toBe(commits);
     expect(await repository.git("-C", worktree, "status", "--porcelain")).toBe("");
     expect((await latest()).warnings).toEqual([]);
   });
@@ -399,32 +400,32 @@ describe("ContentManager", () => {
   it("commits a move and its link updates as one commit on the content branch", async () => {
     const { content, id, latest, repository } = await opened(LINKED);
     await shareEverything(content, id);
-    const commits = Number(await repository.git("rev-list", "--count", "gitdesk"));
+    const commits = Number(await repository.git("rev-list", "--count", "genbeya"));
     await content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true });
-    expect(Number(await repository.git("rev-list", "--count", "gitdesk"))).toBe(commits + 1);
-    const changed = await repository.git("show", "--name-status", "--format=%B", "gitdesk");
+    expect(Number(await repository.git("rev-list", "--count", "genbeya"))).toBe(commits + 1);
+    const changed = await repository.git("show", "--name-status", "--format=%B", "genbeya");
     expect(changed).toMatch(
       /^Move page Architecture to docs\/Design\.md\n\nUpdate links in docs\/Design\/Backend\.md, docs\/Home\.md, tasks\/TP-1\.md\.\n/,
     );
     expect(changed).toMatch(/^M\tdocs\/Home\.md$/m);
     expect(changed).toMatch(/^M\ttasks\/TP-1\.md$/m);
     expect(changed).toMatch(/^R\d+\tdocs\/Architecture\/Backend\/Auth\.md\tdocs\/Design\/Backend\/Auth\.md$/m);
-    expect(await repository.git("show", "gitdesk:docs/Home.md")).toContain("[the backend](Design/Backend.md#auth) and [[Design]]");
-    expect(await repository.git("show", "gitdesk:docs/Design/Backend.md")).toContain("[[Design/Backend/Auth]]");
+    expect(await repository.git("show", "genbeya:docs/Home.md")).toContain("[the backend](Design/Backend.md#auth) and [[Design]]");
+    expect(await repository.git("show", "genbeya:docs/Design/Backend.md")).toContain("[[Design/Backend/Auth]]");
     const snapshot = await latest();
     expect(snapshot.changes).toEqual([]);
     expect(snapshot.warnings).toEqual([]);
-    expect(await repository.git("-C", path.join(repository.root, ".git", "gitdesk", "gitdesk"), "status", "--porcelain")).toBe("");
+    expect(await repository.git("-C", path.join(repository.root, ".git", "genbeya", "genbeya"), "status", "--porcelain")).toBe("");
   });
 
   it("updates links where each area lives: tasks on the content branch, the wiki in the checkout", async () => {
     const { content, id, latest, repository } = await opened(LINKED);
     await content.setStorage(id, "tasks", "branch");
     await content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true });
-    expect(await repository.git("show", "--name-status", "--format=%s", "gitdesk")).toBe(
+    expect(await repository.git("show", "--name-status", "--format=%s", "genbeya")).toBe(
       "Move page Architecture to docs/Design.md\n\nM\ttasks/TP-1.md\n",
     );
-    expect(await repository.git("show", "gitdesk:tasks/TP-1.md")).toContain("Read [[Design/Backend]].");
+    expect(await repository.git("show", "genbeya:tasks/TP-1.md")).toContain("Read [[Design/Backend]].");
     expect(await repository.read("tasks/TP-1.md")).toBe(LINKED["tasks/TP-1.md"]);
     expect(await repository.read("docs/Home.md")).toContain("[[Design]]");
     const changes = (await latest()).changes.map((change) => change.path);
@@ -436,7 +437,7 @@ describe("ContentManager", () => {
     const { content, id, latest, repository } = await opened(LINKED);
     await content.setStorage(id, "wiki", "branch");
     await content.movePage(id, "docs/Architecture.md", "docs/Design.md", { updateLinks: true });
-    const changed = await repository.git("show", "--name-status", "--format=%s", "gitdesk");
+    const changed = await repository.git("show", "--name-status", "--format=%s", "genbeya");
     expect(changed).toMatch(/^Move page Architecture to docs\/Design\.md\n/);
     expect(changed).not.toMatch(/tasks\//);
     expect(await repository.read("tasks/TP-1.md")).toContain("Read [[Design/Backend]].");
@@ -472,7 +473,7 @@ describe("ContentManager", () => {
 
   it("starts tasks of a type from its template, which is not a task itself", async () => {
     const { content, id, latest, repository } = await opened({
-      ".gitdesk.yml": "name: T\ntaskPrefix: TP\n",
+      ".genbeya.yml": "name: T\ntaskPrefix: TP\n",
       "tasks/.templates/bug.md": "---\npriority: urgent\nseverity: major\n---\n\n## Steps\n",
     });
     expect(await latest()).toMatchObject({ tasks: [], warnings: [] });
@@ -502,7 +503,7 @@ describe("ContentManager", () => {
     const { content, id, repository } = await opened();
     await content.setStorage(id, "tasks", "branch");
     const path = await content.ensureTaskTemplate(id, "bug");
-    expect(await repository.git("show", "--name-status", "--format=%s", "gitdesk")).toBe(`Create the bug task template\n\nA\t${path}\n`);
+    expect(await repository.git("show", "--name-status", "--format=%s", "genbeya")).toBe(`Create the bug task template\n\nA\t${path}\n`);
     expect(await repository.exists(path)).toBe(false);
     expect((await content.taskTemplate(id, "bug"))!.body).toContain("## Steps to reproduce");
   });
@@ -575,7 +576,7 @@ describe("ContentManager", () => {
     const task = await content.createTask(id, { ...input, assignee: "sam" });
     await content.addComment(id, task.path, "Hello");
     await repository.write(
-      ".gitdesk.yml",
+      ".genbeya.yml",
       "name: Test Project\ntaskPrefix: TP\npeople:\n  - handle: tester\n    name: The Tester\n    email: test@example.com\n",
     );
     const { people, me } = await content.people(id);
@@ -690,12 +691,12 @@ describe("ContentManager", () => {
   });
 
   it("skips task IDs whose files exist in any epic", async () => {
-    const { content, id } = await opened({ ".gitdesk.yml": "name: T\ntaskPrefix: TP\n", "tasks/Old/TP-1.md": "not a task" });
+    const { content, id } = await opened({ ".genbeya.yml": "name: T\ntaskPrefix: TP\n", "tasks/Old/TP-1.md": "not a task" });
     expect((await content.createTask(id, input)).id).toBe("TP-2");
   });
 
   it("skips task IDs whose files exist without a task", async () => {
-    const { content, id } = await opened({ ...{ ".gitdesk.yml": "name: T\ntaskPrefix: TP\n" }, "tasks/TP-1.md": "not a task" });
+    const { content, id } = await opened({ ...{ ".genbeya.yml": "name: T\ntaskPrefix: TP\n" }, "tasks/TP-1.md": "not a task" });
     expect((await content.createTask(id, input)).id).toBe("TP-2");
   });
 
@@ -710,23 +711,23 @@ describe("ContentManager", () => {
     expect(snapshot.tasks).toHaveLength(2);
     expect(snapshot.warnings.join("\n")).toMatch(/bad\.md: Invalid YAML/);
     expect(snapshot.warnings.join("\n")).toMatch(/X-1 is also used by tasks\/a\.md/);
-    await repository.write(".gitdesk.yml", "name: [broken\nextra: 1\n");
+    await repository.write(".genbeya.yml", "name: [broken\nextra: 1\n");
     await content.write(id, "repo", "touch.txt", "", null);
     snapshot = await latest();
     expect(snapshot.settings.wikiRoot).toBe("docs");
-    expect(snapshot.warnings[0]).toMatch(/\.gitdesk\.yml/);
+    expect(snapshot.warnings[0]).toMatch(/\.genbeya\.yml/);
     await content.saveSettings(id, { ...snapshot.settings, name: "Fixed" }, snapshot.settingsHash);
     expect((await latest()).settings.name).toBe("Fixed");
   });
 
   it("saves settings over the file, keeping unknown keys, and rejects stale or invalid saves", async () => {
     const { content, id, latest, repository } = await opened({
-      ".gitdesk.yml": "# comment\nname: A\ncustom: true\n",
+      ".genbeya.yml": "# comment\nname: A\ncustom: true\n",
       "docs/Home.md": "# Home\n",
     });
     const snapshot = await latest();
     await content.saveSettings(id, { ...snapshot.settings, name: "B", statuses: ["open", "closed"] }, snapshot.settingsHash);
-    expect(await repository.read(".gitdesk.yml")).toMatch(/# comment[\s\S]*custom: true/);
+    expect(await repository.read(".genbeya.yml")).toMatch(/# comment[\s\S]*custom: true/);
     await expect(content.saveSettings(id, snapshot.settings, snapshot.settingsHash)).rejects.toThrow("changed on disk");
     const next = await latest();
     expect(next.settings).toMatchObject({ name: "B", statuses: ["open", "closed"] });
@@ -735,13 +736,44 @@ describe("ContentManager", () => {
     );
   });
 
+  it("reads and saves .gitdesk.yml in a repository GitDesk set up, until it is renamed", async () => {
+    const { content, id, latest, repository } = await opened({ ".gitdesk.yml": "# team\nname: Old\n", "docs/Home.md": "# Home\n" });
+    let snapshot = await latest();
+    expect(snapshot).toMatchObject({
+      settings: { name: "Old" },
+      settingsFile: ".gitdesk.yml",
+      leftoverSettingsFile: null,
+      legacyFiles: [".gitdesk.yml"],
+    });
+    await content.saveSettings(id, { ...snapshot.settings, name: "Kept" }, snapshot.settingsHash);
+    expect(await repository.read(".gitdesk.yml")).toMatch(/# team[\s\S]*name: Kept/);
+    expect(await repository.exists(".genbeya.yml")).toBe(false);
+
+    expect(await content.renameLegacyFiles(id)).toEqual([".gitdesk.yml"]);
+    snapshot = await latest();
+    expect(snapshot).toMatchObject({ settings: { name: "Kept" }, settingsFile: ".genbeya.yml", legacyFiles: [] });
+    expect(snapshot.changes.map((change) => [change.index, change.path])).toEqual([["R", ".genbeya.yml"]]);
+    expect(await content.renameLegacyFiles(id)).toEqual([]);
+  });
+
+  it("reads .genbeya.yml next to a leftover .gitdesk.yml, and does not rename over it", async () => {
+    const { content, id, latest } = await opened({ ".genbeya.yml": "name: New\n", ".gitdesk.yml": "name: Old\n" });
+    expect(await latest()).toMatchObject({
+      settings: { name: "New" },
+      settingsFile: ".genbeya.yml",
+      leftoverSettingsFile: ".gitdesk.yml",
+      legacyFiles: [],
+    });
+    await expect(content.renameLegacyFiles(id)).rejects.toThrow(".genbeya.yml exists already. Delete .gitdesk.yml");
+  });
+
   it("keeps every area on the content branch when asked", async () => {
     const { content, id, latest, repository } = await opened();
     expect((await latest()).storage).toEqual({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null });
     for (const area of ["wiki", "tasks", "settings"] as const) await content.setStorage(id, area, "branch");
     expect((await latest()).storage).toEqual({
       areas: { wiki: "branch", tasks: "branch", settings: "branch" },
-      branch: { name: "gitdesk", remote: null, ahead: 0, behind: 0 },
+      branch: { name: "genbeya", remote: null, ahead: 0, behind: 0 },
     });
     const task = await content.createTask(id, input);
     const page = await content.read(id, "content", "docs/Home.md");
@@ -750,7 +782,7 @@ describe("ContentManager", () => {
     expect(snapshot.changes).toEqual([]);
     expect(snapshot.tasks.map((t) => t.id)).toEqual(["TP-1"]);
     expect(await repository.exists(task.path)).toBe(false);
-    expect((await repository.git("log", "--format=%s", "gitdesk")).split("\n").slice(0, 2)).toEqual([
+    expect((await repository.git("log", "--format=%s", "genbeya")).split("\n").slice(0, 2)).toEqual([
       "Edit docs/Home.md",
       "Create TP-1: Build it",
     ]);
@@ -776,7 +808,7 @@ describe("ContentManager", () => {
     expect(snapshot.wiki.map((node) => node.title)).toContain("Notes");
     expect(snapshot.changes.map((change) => change.path)).toEqual(["docs/Notes.md"]);
     expect(await repository.exists(task.path)).toBe(false);
-    expect((await repository.git("log", "-1", "--format=%s", "gitdesk")).trim()).toBe("Create TP-1: Build it");
+    expect((await repository.git("log", "-1", "--format=%s", "genbeya")).trim()).toBe("Create TP-1: Build it");
     expect((await content.read(id, "content", task.path)).content).toContain("title: Build it");
     expect(await content.image(id, "content", "docs/pixel.png")).toBe("data:image/png;base64,iVBORw==");
   });
@@ -796,7 +828,7 @@ describe("ContentManager", () => {
     await repository.git("config", "user.name", "");
     const page = await content.read(id, "content", "docs/Home.md");
     await content.write(id, "content", page.path, "# Offline\n", page.hash);
-    expect((await latest()).warnings.join("\n")).toMatch(/not committed to the gitdesk branch/);
+    expect((await latest()).warnings.join("\n")).toMatch(/not committed to the genbeya branch/);
   });
 });
 
@@ -810,20 +842,20 @@ describe("ContentManager: agent files", () => {
     expect(Object.values(await states(content, id))).toEqual(["missing", "missing", "missing", "missing", "missing"]);
     const written = await content.addAgentFiles(id, ["claudeSkill", "agentsSkill", "agents", "claude"]);
     expect(written).toEqual([
-      { path: ".claude/skills/gitdesk/SKILL.md", result: "created" },
-      { path: ".agents/skills/gitdesk/SKILL.md", result: "created" },
+      { path: ".claude/skills/genbeya/SKILL.md", result: "created" },
+      { path: ".agents/skills/genbeya/SKILL.md", result: "created" },
       { path: "AGENTS.md", result: "created" },
       { path: "CLAUDE.md", result: "created" },
     ]);
-    expect(await repository.read(".agents/skills/gitdesk/SKILL.md")).toContain("`tasks/TP-12.md`");
+    expect(await repository.read(".agents/skills/genbeya/SKILL.md")).toContain("`tasks/TP-12.md`");
     expect(await repository.read("CLAUDE.md")).toContain("@AGENTS.md");
     expect(await repository.exists(".github/copilot-instructions.md")).toBe(false);
     expect((await latest()).changes.map((change) => change.path)).toEqual(
-      expect.arrayContaining([".claude/skills/gitdesk/SKILL.md", "AGENTS.md", "CLAUDE.md"]),
+      expect.arrayContaining([".claude/skills/genbeya/SKILL.md", "AGENTS.md", "CLAUDE.md"]),
     );
     expect(await states(content, id, ["claudeSkill", "agentsSkill", "agents", "claude"])).toEqual({
-      ".claude/skills/gitdesk/SKILL.md": "current",
-      ".agents/skills/gitdesk/SKILL.md": "current",
+      ".claude/skills/genbeya/SKILL.md": "current",
+      ".agents/skills/genbeya/SKILL.md": "current",
       "AGENTS.md": "current",
       "CLAUDE.md": "current",
       ".github/copilot-instructions.md": "missing",
@@ -836,7 +868,7 @@ describe("ContentManager: agent files", () => {
     await repository.write("AGENTS.md", `# Agents${crlf}${crlf}Run the tests.${crlf}`);
     await content.addAgentFiles(id, ["agents"]);
     const agents = await repository.read("AGENTS.md");
-    expect(agents.startsWith(`# Agents${crlf}${crlf}Run the tests.${crlf}${crlf}<!-- gitdesk:begin -->${crlf}`)).toBe(true);
+    expect(agents.startsWith(`# Agents${crlf}${crlf}Run the tests.${crlf}${crlf}<!-- genbeya:begin -->${crlf}`)).toBe(true);
     expect(agents).not.toMatch(/[^\r]\n/);
     expect(await content.addAgentFiles(id, ["agents"])).toEqual([{ path: "AGENTS.md", result: "unchanged" }]);
     expect(await repository.read("AGENTS.md")).toBe(agents);
@@ -848,11 +880,11 @@ describe("ContentManager: agent files", () => {
     const snapshot = await latest();
     await content.saveSettings(id, { ...snapshot.settings, taskPrefix: "NEW" }, snapshot.settingsHash);
     expect(await states(content, id, ["agentsSkill", "agents"])).toMatchObject({
-      ".agents/skills/gitdesk/SKILL.md": "outdated",
+      ".agents/skills/genbeya/SKILL.md": "outdated",
       "AGENTS.md": "outdated",
     });
     expect(await content.addAgentFiles(id, ["agentsSkill", "agents"])).toEqual([
-      { path: ".agents/skills/gitdesk/SKILL.md", result: "updated" },
+      { path: ".agents/skills/genbeya/SKILL.md", result: "updated" },
       { path: "AGENTS.md", result: "updated" },
     ]);
     expect(await repository.read("AGENTS.md")).toContain("`NEW-12.md`");
@@ -863,18 +895,57 @@ describe("ContentManager: agent files", () => {
     await shareEverything(content, id);
     await content.addAgentFiles(id, ["agents"]);
     expect(await repository.read("AGENTS.md")).toContain("`tasks/`");
-    expect(await repository.git("log", "--format=%s", "-1", "gitdesk")).not.toContain("AGENTS");
+    expect(await repository.git("log", "--format=%s", "-1", "genbeya")).not.toContain("AGENTS");
   });
 
   it("writes nothing when one file has broken markers, and warns about ignored files", async () => {
     const { content, id, repository } = await opened();
     await repository.write(".gitignore", ".claude/\n");
     const ignored = (await content.agentFiles(id, ALL)).filter((file) => file.ignored).map((file) => file.path);
-    expect(ignored).toEqual([".claude/skills/gitdesk/SKILL.md"]);
-    await repository.write("CLAUDE.md", "<!-- gitdesk:begin -->\nUnfinished.\n");
-    await expect(content.agentFiles(id, ALL)).rejects.toThrow("CLAUDE.md has unmatched GitDesk markers");
-    await expect(content.addAgentFiles(id, ["agents", "claude"])).rejects.toThrow("CLAUDE.md has unmatched GitDesk markers");
+    expect(ignored).toEqual([".claude/skills/genbeya/SKILL.md"]);
+    await repository.write("CLAUDE.md", "<!-- genbeya:begin -->\nUnfinished.\n");
+    await expect(content.agentFiles(id, ALL)).rejects.toThrow("CLAUDE.md has unmatched markers");
+    await expect(content.addAgentFiles(id, ["agents", "claude"])).rejects.toThrow("CLAUDE.md has unmatched markers");
     expect(await repository.exists("AGENTS.md")).toBe(false);
+  });
+
+  it("replaces what GitDesk wrote: its skills under the old name, and its blocks in place", async () => {
+    const { content, id, repository } = await opened({
+      ".gitdesk.yml": "name: T\ntaskPrefix: TP\n",
+      "docs/Home.md": "# Home\n",
+      ".claude/skills/gitdesk/SKILL.md": "---\nname: gitdesk\n---\n\nEdited by hand.\n",
+      ".agents/skills/gitdesk/SKILL.md": "---\nname: gitdesk\n---\n",
+      ".agents/skills/gitdesk/notes.md": "Mine.\n",
+      "AGENTS.md": "# Agents\n\n<!-- gitdesk:begin -->\n\nOld.\n\n<!-- gitdesk:end -->\n\nAfter.\n",
+    });
+    const files = await content.agentFiles(id, ["claudeSkill", "agentsSkill", "agents"]);
+    expect(files.map(({ path, state, replaces }) => [path, state, replaces])).toEqual([
+      [".claude/skills/genbeya/SKILL.md", "outdated", ".claude/skills/gitdesk/SKILL.md"],
+      [".agents/skills/genbeya/SKILL.md", "outdated", ".agents/skills/gitdesk/SKILL.md"],
+      ["AGENTS.md", "outdated", null],
+      ["CLAUDE.md", "missing", null],
+      [".github/copilot-instructions.md", "missing", null],
+    ]);
+    expect(files[0]!.text).toContain("Read `.gitdesk.yml` where the settings live.");
+
+    expect(await content.addAgentFiles(id, ["claudeSkill", "agentsSkill", "agents"])).toEqual([
+      { path: ".claude/skills/genbeya/SKILL.md", result: "created" },
+      { path: ".agents/skills/genbeya/SKILL.md", result: "created" },
+      { path: "AGENTS.md", result: "updated" },
+      { path: ".claude/skills/gitdesk/SKILL.md", result: "replaced" },
+      { path: ".agents/skills/gitdesk/SKILL.md", result: "replaced" },
+    ]);
+    expect(await repository.exists(".claude/skills/gitdesk")).toBe(false);
+    expect(await repository.exists(".agents/skills/gitdesk/SKILL.md")).toBe(false);
+    expect(await repository.read(".agents/skills/gitdesk/notes.md")).toBe("Mine.\n");
+    const agents = await repository.read("AGENTS.md");
+    expect(agents).toMatch(/^# Agents\n\n<!-- genbeya:begin -->\n[\s\S]*\n<!-- genbeya:end -->\n\nAfter\.\n$/);
+    expect(agents).not.toContain("gitdesk:");
+    expect(Object.values(await states(content, id, ["claudeSkill", "agentsSkill", "agents"])).slice(0, 3)).toEqual([
+      "current",
+      "current",
+      "current",
+    ]);
   });
 
   it("validates the targets", async () => {
@@ -1159,7 +1230,7 @@ describe("WSL repositories", async () => {
   const ubuntu = (await new HostFactory(machine).distributions()).includes("Ubuntu");
   it.skipIf(!ubuntu)("open, edit and commit through the shell transport", async () => {
     const managers = await createBackend(machine, await temporaryFolder("data-"));
-    const dir = `/tmp/gitdesk-test-${Date.now()}`;
+    const dir = `/tmp/genbeya-test-${Date.now()}`;
     const run = async (script: string) => {
       const { execFile } = await import("node:child_process");
       await new Promise((resolve, reject) =>
@@ -1188,8 +1259,8 @@ describe("WSL repositories", async () => {
     const root = await managers.workspace.browse({ kind: "wsl", distro: "Ubuntu", path: "/" });
     expect(root).toMatchObject({ path: "/", parent: null, truncated: false });
     expect(root.folders).toContainEqual({ name: "tmp", repository: false });
-    await expect(managers.workspace.browse({ kind: "wsl", distro: "GitDeskNoSuchDistro", path: "" })).rejects.toThrow(
-      "WSL has no distribution named GitDeskNoSuchDistro.",
+    await expect(managers.workspace.browse({ kind: "wsl", distro: "GenbeyaNoSuchDistro", path: "" })).rejects.toThrow(
+      "WSL has no distribution named GenbeyaNoSuchDistro.",
     );
   });
 });

@@ -1,8 +1,8 @@
-/** Opens the shell's overlays from anywhere: the command palette, shortcut help, the repository dialogs and GitDesk links. */
+/** Opens the shell's overlays from anywhere: the command palette, shortcut help, the repository dialogs and Genbeya links. */
 import { Injectable, inject } from "@angular/core";
-import type { GitdeskLink } from "../../../../contracts/gitdesk-link";
+import type { GenbeyaLink } from "../../../../contracts/genbeya-link";
 import type { Location } from "../../../../contracts/model";
-import { describeLinkItem } from "../../../../utilities/gitdesk-link";
+import { describeLinkItem } from "../../../../utilities/genbeya-link";
 import { Dialogs } from "../../core/dialogs";
 import { LinkOpener } from "../../core/link-opener";
 import { Session } from "../../core/session";
@@ -51,14 +51,14 @@ export class ShellUi {
     return true;
   }
 
-  /** Shows the item a GitDesk link names; without a known clone of its repository, offers to clone it. */
-  async openLink(link: GitdeskLink): Promise<void> {
+  /** Shows the item a Genbeya link names; without a known clone of its repository, offers to clone it. */
+  async openLink(link: GenbeyaLink): Promise<void> {
     if (await this.links.open(link)) return;
     const clone = await this.dialogs.confirm({
       title: "Repository not cloned here",
       message:
         `None of your recent repositories has the remote ${link.remote}. Clone it to open ${describeLinkItem(link.item)}, ` +
-        "or open your existing clone once so GitDesk knows it.",
+        "or open your existing clone once so Genbeya knows it.",
       confirm: "Clone…",
     });
     if (clone && (await this.openClone(link.remote))) await this.links.open(link);

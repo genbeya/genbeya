@@ -38,7 +38,7 @@ export type HostErrorCode = "ENOENT" | "SYMLINK" | "NOTFILE" | "TOOLARGE" | "EXI
 
 const MESSAGES: Record<HostErrorCode, (relative: string) => string> = {
   ENOENT: (r) => `${r} does not exist.`,
-  SYMLINK: (r) => `${r} is behind a symbolic link, which GitDesk does not follow.`,
+  SYMLINK: (r) => `${r} is behind a symbolic link, which Genbeya does not follow.`,
   NOTFILE: (r) => `${r} is not a regular file.`,
   TOOLARGE: (r) => `${r} is too large to open.`,
   EXISTS: (r) => `${r} already exists.`,

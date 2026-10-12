@@ -15,7 +15,7 @@ import type { WhatsNew } from "./onboarding";
     <gd-dialog-frame [title]="title" [width]="500">
       @for (release of data.releases; track release.version) {
         @if (data.releases.length > 1) {
-          <h3 class="news-version">GitDesk {{ release.version }}</h3>
+          <h3 class="news-version">Genbeya {{ release.version }}</h3>
         }
         <ul class="news-list">
           @for (item of release.items; track item.title) {
@@ -60,7 +60,7 @@ import type { WhatsNew } from "./onboarding";
 export class WhatsNewDialog {
   protected readonly dialog = inject<DialogRef<"tour">>(DialogRef);
   protected readonly data = inject<WhatsNew>(DIALOG_DATA);
-  protected readonly title = `What's new in GitDesk ${this.data.releases[0]!.version}`;
+  protected readonly title = `What's new in Genbeya ${this.data.releases[0]!.version}`;
   private readonly links = inject(ExternalLinks);
 
   protected follow(target: LinkTarget) {

@@ -1,5 +1,5 @@
 /**
- * The shapes of GitDesk's icons, copied from Lucide (ISC license,
+ * The shapes of Genbeya's icons, copied from Lucide (ISC license,
  * https://lucide.dev) as plain data and drawn by `svg[gd-icon]`.
  * The icon components of @lucide/angular share one module, so using them
  * would put each icon's compiled template into the bundle every window
@@ -639,5 +639,5 @@ export const ICONS = {
   ],
 } satisfies Readonly<Record<string, IconShape>>;
 
-/** The name of an icon GitDesk has. */
+/** The name of an icon Genbeya has. */
 export type IconName = keyof typeof ICONS;

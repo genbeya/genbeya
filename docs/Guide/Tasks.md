@@ -27,7 +27,7 @@ Render only visible rows in the file tree and history.
 
 - IDs are `PREFIX-number`; the prefix is set in **Settings** (`taskPrefix`). IDs stay unique across epics.
 - `status` is one of the workflow states, `priority` is `urgent`, `high`, `medium` or `low` (none when left out), `type` one of the task types.
-- Extra frontmatter fields and YAML comments survive edits made in GitDesk; configure them as [custom fields](#custom-fields) to edit them in GitDesk too.
+- Extra frontmatter fields and YAML comments survive edits made in Genbeya; configure them as [custom fields](#custom-fields) to edit them in Genbeya too.
 
 Write `[[GENBEYA-12]]` in a page, a description or a comment to show the task's title and current status anywhere; a plain `GENBEYA-12` links too. See [References](References.md).
 
@@ -98,11 +98,11 @@ An epic is a folder in the task folder: `tasks/Login rework/GENBEYA-14.md` belon
 
 ## Workflow states
 
-The board's columns are the workflow states, set in **Settings → Workflow** (`statuses` in `.gitdesk.yml`), in order; the last one counts as done. To keep the board short, untick a state in the list layout: it disappears from the board for everyone (`hiddenColumns` in `.gitdesk.yml`) and stays in the list. Tasks in a state that is no longer configured appear in an extra column so nothing gets lost — move them into a configured state.
+The board's columns are the workflow states, set in **Settings → Workflow** (`statuses` in `.genbeya.yml`), in order; the last one counts as done. To keep the board short, untick a state in the list layout: it disappears from the board for everyone (`hiddenColumns` in `.genbeya.yml`) and stays in the list. Tasks in a state that is no longer configured appear in an extra column so nothing gets lost — move them into a configured state.
 
 ### Column icons
 
-A state shows a ring that fills as work advances, and a check for the last one. To give a column its own icon, pick one next to the state in **Settings → Workflow**. In `.gitdesk.yml` such a state is written as a name with an icon; states without one stay plain names:
+A state shows a ring that fills as work advances, and a check for the last one. To give a column its own icon, pick one next to the state in **Settings → Workflow**. In `.genbeya.yml` such a state is written as a name with an icon; states without one stay plain names:
 
 ```yaml
 statuses:
@@ -115,7 +115,7 @@ statuses:
 
 ## Types
 
-A task can have a type, such as bug or feature: its icon shows on the card, in the list and under the title, where **Type** changes it. **Filter by** narrows the board to one type. Without `types` in `.gitdesk.yml`, the types are bug, feature, improvement and chore. Configure your own in **Settings → Task types**, with an icon and an optional colour each:
+A task can have a type, such as bug or feature: its icon shows on the card, in the list and under the title, where **Type** changes it. **Filter by** narrows the board to one type. Without `types` in `.genbeya.yml`, the types are bug, feature, improvement and chore. Configure your own in **Settings → Task types**, with an icon and an optional colour each:
 
 ```yaml
 types:
@@ -150,7 +150,7 @@ The template button next to a type in **Settings → Task types** opens its temp
 
 ## Custom fields
 
-Fields that every task of the project should have, such as an estimate or a due date, are configured in **Settings → Custom fields**, or as `fields` in `.gitdesk.yml`:
+Fields that every task of the project should have, such as an estimate or a due date, are configured in **Settings → Custom fields**, or as `fields` in `.genbeya.yml`:
 
 ```yaml
 fields:
@@ -164,6 +164,6 @@ fields:
   - name: reviewer    # text, unless a type is given
 ```
 
-They appear under a task's properties and are saved to its frontmatter as you change them; emptying a field removes it from the file. Names start with a letter and use letters, digits, `-` and `_`; GitDesk's own keys (id, title, type, status, priority, assignee, labels, epic) are taken. Field types are `text`, `number`, `date` and `choice`. Other frontmatter fields of a task show below the configured ones, read-only, and are never lost: removing a field from the settings leaves the values in the task files.
+They appear under a task's properties and are saved to its frontmatter as you change them; emptying a field removes it from the file. Names start with a letter and use letters, digits, `-` and `_`; Genbeya's own keys (id, title, type, status, priority, assignee, labels, epic) are taken. Field types are `text`, `number`, `date` and `choice`. Other frontmatter fields of a task show below the configured ones, read-only, and are never lost: removing a field from the settings leaves the values in the task files.
 
-Every key of `.gitdesk.yml` is described in [Settings](Settings.md).
+Every key of `.genbeya.yml` is described in [Settings](Settings.md).

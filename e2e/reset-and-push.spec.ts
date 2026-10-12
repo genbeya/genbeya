@@ -8,7 +8,7 @@ const remotes: string[] = [];
 
 /** A bare repository as the repository's origin, with main pushed and tracked; runs git in it. */
 function addOrigin(repository: Repository): (...args: string[]) => string {
-  const remote = mkdtempSync(path.join(tmpdir(), "gitdesk-e2e-remote-"));
+  const remote = mkdtempSync(path.join(tmpdir(), "genbeya-e2e-remote-"));
   remotes.push(remote);
   execFileSync("git", ["init", "-q", "--bare", "-b", "main", remote]);
   repository.git("remote", "add", "origin", remote);

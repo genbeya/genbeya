@@ -9,7 +9,7 @@ npm install
 npm start
 ```
 
-`npm start` runs the client with hot reload and the Electron app. Restart it after changing anything outside `src/client/`. Open this folder in GitDesk: its wiki is this documentation and its task board is the real backlog.
+`npm start` runs the client with hot reload and the Electron app. Restart it after changing anything outside `src/client/`. Open this folder in Genbeya: its wiki is this documentation and its task board is the real backlog.
 
 ## Scripts
 
@@ -32,7 +32,7 @@ Code is written test first. Specs sit next to the code they test.
 
 - **Backend** (`npm run test:backend`, Vitest): engines with plain data; resource access and managers against disposable repositories in `.test-work/`, including a content branch synced through a bare remote with some areas on it and the others in the checkout, and a WSL repository when the `Ubuntu` distribution exists. `backend.spec.ts` drives the managers through the RPC envelope, as a shell does. Both platforms pass the same machine contract (`src/testing/machine-contract.ts`); on Node it includes pseudo-terminals with the user's real shell. Managers that start terminals get fake ones (`src/testing/terminals.ts`).
 - **Client** (`npm run test:client`, Vitest through `ng test`): components with a fake platform (`src/client/app/testing/fake-platform.ts`), engines of the client such as fuzzy search and the commit graph, and the Markdown pipeline.
-- **End to end** (`npm run e2e`, Playwright): the packaged Electron app with a fresh profile and a fresh repository per test, opened through the `--open` launch argument. Covers wiki, tasks, version control, sharing, the shell, the terminal and the onboarding, and browsing WSL folders when the `Ubuntu` distribution exists. A test can launch the app again on the same profile (`launch`), e.g. with a `gitdesk://` link. Unpackaged builds do not register for `gitdesk://` links, so development never takes them over from the installed app. Profiles start as a user who has seen the tour and this version's news, so neither gets in the way; `test.use({ preferences: null })` starts like a first start, and other values set what the profile's `state.json` holds.
+- **End to end** (`npm run e2e`, Playwright): the packaged Electron app with a fresh profile and a fresh repository per test, opened through the `--open` launch argument. Covers wiki, tasks, version control, sharing, the shell, the terminal and the onboarding, and browsing WSL folders when the `Ubuntu` distribution exists. A test can launch the app again on the same profile (`launch`), e.g. with a `genbeya://` link. Unpackaged builds do not register for `genbeya://` links, so development never takes them over from the installed app. Profiles start as a user who has seen the tour and this version's news, so neither gets in the way; `test.use({ preferences: null })` starts like a first start, and other values set what the profile's `state.json` holds.
 
 ## Continuous integration
 
@@ -40,16 +40,16 @@ Code is written test first. Specs sit next to the code they test.
 
 - `scripts/version.mjs stamp <run>` sets the patch number of the version to the run number before anything is built, so every build has a higher version than the one before (`0.3.0` in `package.json` becomes `0.3.57`) and installers upgrade an installed older version instead of refusing or installing next to it. `package.json` holds the major and minor version: raise the minor version for a release with new features.
 - Deno Desktop's MSIs take their version from a generated `dist/deno/deno.json`; `scripts/msi-major-upgrade.ps1` adds the upgrade rules they lack, and refuses to install over a newer version. Local builds are not stamped, so their MSIs are always `X.Y.0`, older than any CI build of the same release line.
-- `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `GitDesk-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `GitDesk-0.3.57-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
+- `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `Genbeya-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `Genbeya-0.5.57-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
 - `scripts/report-sizes.mjs` lists their sizes in the job summary.
-- Each run uploads one artifact per variant and platform, such as `GitDesk-tauri-macOS`.
+- Each run uploads one artifact per variant and platform, such as `Genbeya-tauri-macOS`.
 - Pushes to `main` also publish all installers as one GitHub release tagged `v<version>`, with the text of `.github/release-notes.md` above the generated notes. A release is marked latest only when no published `v*` release is newer, and re-running a run whose tag exists fails instead of publishing again.
 
 macOS builds Electron for Apple silicon and Intel; Tauri and Deno Desktop only for the runner's Apple silicon.
 
 ## What's new and the tour
 
-The app's version comes from `package.json` at build time (`src/client/app/core/app-version.ts`); CI stamps each build's patch number there. When the version is newer than the one the user saw last, GitDesk shows the news of every release line in between, once. First-time users get the tour instead.
+The app's version comes from `package.json` at build time (`src/client/app/core/app-version.ts`); CI stamps each build's patch number there. When the version is newer than the one the user saw last, Genbeya shows the news of every release line in between, once. First-time users get the tour instead.
 
 To announce a change, add an item to the entry of its release line in `src/client/app/features/onboarding/changelog.ts`, newest release first:
 
@@ -83,7 +83,7 @@ The tour's steps are in `src/client/app/features/onboarding/tour-steps.ts`. A st
 
 ## Documentation
 
-`docs/` is GitDesk's own wiki, and **Open the documentation** (in **Settings → Help**, the command palette and on the start screen) opens it on GitHub, so it has to make sense to people who never cloned the repository. Write it as the rest of the wiki: short, concrete, second person, present tense, with the labels the app shows in bold.
+`docs/` is Genbeya's own wiki, and **Open the documentation** (in **Settings → Help**, the command palette and on the start screen) opens it on GitHub, so it has to make sense to people who never cloned the repository. Write it as the rest of the wiki: short, concrete, second person, present tense, with the labels the app shows in bold.
 
 - Prefer live examples: `[[GENBEYA-12]]` next to its source shows readers what a reference does. Point them at tasks, pages and files that exist, so nothing renders as missing by accident.
 - Screenshots live in `docs/images/`: the Electron app at its end-to-end window size (1000 × 680), light theme, the sample project as subject, reduced to 256 colours so each stays well under 150 KB. Link them relatively (`../images/search.png`).

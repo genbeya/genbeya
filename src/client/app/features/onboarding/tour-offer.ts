@@ -11,7 +11,7 @@ import { Onboarding } from "./onboarding";
     <div aria-live="polite">
       @if (onboarding.offer()) {
         <section class="tour-offer" aria-labelledby="tour-offer-title">
-          <h2 id="tour-offer-title"><svg gd-icon name="compass" [size]="14"></svg>New to GitDesk?</h2>
+          <h2 id="tour-offer-title"><svg gd-icon name="compass" [size]="14"></svg>New to Genbeya?</h2>
           <p>A short tour shows where everything is.</p>
           <div class="row">
             <button type="button" class="btn btn-primary btn-s" (click)="onboarding.startTour()"><span>Show me around</span></button>

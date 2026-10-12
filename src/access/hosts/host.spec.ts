@@ -217,7 +217,7 @@ describe("WSL", async () => {
   else it.skip("needs the Ubuntu distribution", () => undefined);
 
   it.skipIf(!ubuntu)("opens a terminal in the repository's folder", async () => {
-    const root = "/tmp/gitdesk terminal's test";
+    const root = "/tmp/genbeya terminal's test";
     const host = new HostFactory(machine).connect({ kind: "wsl", distro: "Ubuntu", path: root });
     await host.run("mkdir", ["-p", root], { cwd: "/" });
     const { command, args } = await host.terminalCommand(root);
@@ -232,7 +232,7 @@ describe("WSL", async () => {
     const exit = new Promise<number>((resolve) => terminal.onExit(resolve));
     // The folder is printed in a form that differs from the typed command.
     terminal.write("pwd | tr a-z A-Z\r");
-    await expect.poll(() => output, { timeout: 20_000 }).toContain("/TMP/GITDESK TERMINAL'S TEST");
+    await expect.poll(() => output, { timeout: 20_000 }).toContain("/TMP/GENBEYA TERMINAL'S TEST");
     terminal.write("exit\r");
     expect(await exit).toBe(0);
   });
@@ -273,7 +273,7 @@ describe.skipIf(!shell)("shell transport", () => {
   });
 
   it("explains a machine that cannot be reached", async () => {
-    const session = new ShellSession(machine.processes, "gitdesk-no-such-program", [], "nowhere");
+    const session = new ShellSession(machine.processes, "genbeya-no-such-program", [], "nowhere");
     await expect(session.exec("true")).rejects.toThrow(/Lost the connection to nowhere/);
   });
 });
@@ -360,6 +360,6 @@ describe("terminal commands of hosts", () => {
 });
 
 it("HostError explains each failure", () => {
-  expect(new HostError("SYMLINK", "a").message).toBe("a is behind a symbolic link, which GitDesk does not follow.");
+  expect(new HostError("SYMLINK", "a").message).toBe("a is behind a symbolic link, which Genbeya does not follow.");
   expect(new HostError("FAILED", "a", "detail").message).toBe("detail");
 });

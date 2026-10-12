@@ -18,13 +18,13 @@ test.describe("board columns and epics", () => {
     const backlog = window.getByRole("checkbox", { name: "Show Backlog on the board" });
     await expect(backlog).toBeChecked();
     await backlog.uncheck();
-    await expect.poll(() => repository.read(".gitdesk.yml")).toContain("hiddenColumns:\n  - backlog");
+    await expect.poll(() => repository.read(".genbeya.yml")).toContain("hiddenColumns:\n  - backlog");
     await window.getByRole("radio", { name: "Board" }).click();
     await expect(window.getByRole("region", { name: "Todo" })).toBeVisible();
     await expect(window.getByRole("region", { name: "Backlog" })).toHaveCount(0);
     await window.getByRole("radio", { name: "List" }).click();
     await window.getByRole("checkbox", { name: "Show Backlog on the board" }).check();
-    await expect.poll(() => repository.read(".gitdesk.yml")).not.toContain("hiddenColumns");
+    await expect.poll(() => repository.read(".genbeya.yml")).not.toContain("hiddenColumns");
   });
 
   test("shows epics as swimlanes and moves a card into another epic by dragging", async ({ window, repository }) => {

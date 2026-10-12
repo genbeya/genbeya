@@ -229,7 +229,7 @@ export class VersionControlManager implements VersionControlManagerContract {
       // A line break in a name would write rules of its own; POSIX hosts allow such names.
       // eslint-disable-next-line no-control-regex
       if (/[\u0000-\u001f\u007f]/.test(target))
-        throw new Error("GitDesk can't write a .gitignore rule for a name with control characters.");
+        throw new Error("Genbeya can't write a .gitignore rule for a name with control characters.");
       const folder = location === "" ? "" : workspace.path(location);
       const rule = ignoreRule(kind as IgnoreKind, target, folder);
       if (rule === null)
@@ -587,7 +587,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   /** Refuses lines chosen in a diff that is no longer current, or in one that has no lines. */
   private async current(workspace: Workspace, request: LinePatch, source: "worktree" | "index", base: ChangeBase): Promise<void> {
     const sides = await workspace.repository.diffSides(request.path, source, request.oldPath ?? request.path, TEXT_LIMIT, base);
-    if (!sides || sides.some(isBinary)) throw new Error(`GitDesk can only stage ${request.path} as a whole.`);
+    if (!sides || sides.some(isBinary)) throw new Error(`Genbeya can only stage ${request.path} as a whole.`);
     if (versionOf(sides) !== request.version)
       throw new Error(`${request.path} changed since its diff was shown. Look at the diff again and choose the lines anew.`);
   }
@@ -617,7 +617,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   private async singleParent(workspace: Workspace, hash: unknown): Promise<string> {
     if (!isCommitId(hash)) throw new Error("Invalid commit ID.");
     const { commit } = await workspace.repository.commitDetail(hash);
-    if (commit.parents.length > 1) throw new Error("GitDesk does not cherry-pick or revert merge commits. Use the terminal instead.");
+    if (commit.parents.length > 1) throw new Error("Genbeya does not cherry-pick or revert merge commits. Use the terminal instead.");
     return hash;
   }
 
@@ -647,7 +647,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     throw new Error(
       (known
         ? `${branch} is the default branch of ${remote}. `
-        : `GitDesk can't tell the default branch of ${remote}, and ${branch} may be it. `) +
+        : `Genbeya can't tell the default branch of ${remote}, and ${branch} may be it. `) +
         "Force pushing to it rewrites the history everyone starts from; confirm that you mean it.",
     );
   }

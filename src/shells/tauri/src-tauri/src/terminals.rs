@@ -17,7 +17,7 @@ const EXIT: u8 = 2;
 
 // A shell runs whatever is typed into it; that is what a terminal is for, and
 // on this runtime the page could already run git with any arguments. So the
-// limit is on what a terminal may start: only the shells GitDesk opens
+// limit is on what a terminal may start: only the shells Genbeya opens
 // (src/access/hosts/terminal-commands.ts), i.e. the user's own shell, and wsl
 // or ssh for repositories on other machines, with the terminal environment of
 // terminal-session.ts. A script injected into the page cannot start other
@@ -68,10 +68,10 @@ fn found(program: &str) -> bool {
 fn check(program: &str, env: &HashMap<String, String>) -> Result<(), Failure> {
     let allowed = shells(cfg!(windows), variable("COMSPEC").as_deref(), variable("SHELL").as_deref());
     if !allowed.iter().any(|shell| shell == program) {
-        return Err(Failure::invalid(&format!("GitDesk does not open terminals with {program}.")));
+        return Err(Failure::invalid(&format!("Genbeya does not open terminals with {program}.")));
     }
     match env.keys().find(|key| !ENVIRONMENT.contains(&key.as_str())) {
-        Some(key) => Err(Failure::invalid(&format!("GitDesk does not set {key}."))),
+        Some(key) => Err(Failure::invalid(&format!("Genbeya does not set {key}."))),
         None => Ok(()),
     }
 }
@@ -274,9 +274,9 @@ mod tests {
     #[test]
     fn runs_a_program_on_a_terminal_until_it_exits() {
         let (program, args) = if cfg!(windows) {
-            ("cmd.exe", ["/c", "echo gitdesk-terminal & exit 3"])
+            ("cmd.exe", ["/c", "echo genbeya-terminal & exit 3"])
         } else {
-            ("sh", ["-c", "echo gitdesk-terminal; exit 3"])
+            ("sh", ["-c", "echo genbeya-terminal; exit 3"])
         };
         let size = size(80, 24).unwrap();
         let Started { open, mut output, mut child } = start(program, &args.map(String::from), None, size, &HashMap::new()).unwrap();
@@ -297,7 +297,7 @@ mod tests {
         drop(open);
         let text = reader.join().unwrap();
         assert_eq!(code, 3);
-        assert!(text.contains("gitdesk-terminal"), "{text}");
+        assert!(text.contains("genbeya-terminal"), "{text}");
     }
 
     #[test]
@@ -320,9 +320,9 @@ mod tests {
     #[test]
     fn explains_what_cannot_start() {
         let size = size(80, 24).unwrap();
-        let missing = start("gitdesk-no-such-program", &[], None, size, &HashMap::new()).err().unwrap();
+        let missing = start("genbeya-no-such-program", &[], None, size, &HashMap::new()).err().unwrap();
         assert!(format!("{missing:?}").contains("was not found"));
-        let folder = start("ssh", &[], Some("/gitdesk/no/such/folder"), size, &HashMap::new()).err().unwrap();
+        let folder = start("ssh", &[], Some("/genbeya/no/such/folder"), size, &HashMap::new()).err().unwrap();
         assert!(format!("{folder:?}").contains("does not exist"));
         assert!(super::size(0, 24).is_err());
     }

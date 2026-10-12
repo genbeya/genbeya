@@ -92,7 +92,7 @@ function describeListing(name: string, command: string, args: string[]) {
       const { root, list } = await fixture("echo x > file.txt");
       await expect(list(`${root}/missing`)).rejects.toThrow(`${root}/missing does not exist.`);
       await expect(list(`${root}/file.txt`)).rejects.toThrow(`${root}/file.txt is not a folder.`);
-      await expect(list("~/gitdesk-missing-folder")).rejects.toThrow("~/gitdesk-missing-folder does not exist.");
+      await expect(list("~/genbeya-missing-folder")).rejects.toThrow("~/genbeya-missing-folder does not exist.");
     });
 
     it("stops at the limit and says so", async () => {
@@ -137,7 +137,7 @@ describe.skipIf(!shell)("RemoteFolders sessions", () => {
 describe("RemoteFolders connection failures", () => {
   const unreachable = (distributions: string[] = []) =>
     new RemoteFolders({
-      session: () => new ShellSession(machine.processes, "gitdesk-no-such-program", [], "nowhere"),
+      session: () => new ShellSession(machine.processes, "genbeya-no-such-program", [], "nowhere"),
       distributions: async () => distributions,
     });
 

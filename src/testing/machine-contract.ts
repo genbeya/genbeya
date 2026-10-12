@@ -97,8 +97,8 @@ export function describeMachine(name: string, fixture: () => MachineFixture) {
     it("explains programs that cannot start", async () => {
       const { machine, folder } = fixture();
       const root = await folder();
-      const missingProgram = await machine.processes.run("gitdesk-no-such-program", [], { cwd: root });
-      expect(missingProgram).toMatchObject({ code: 127, stderr: "gitdesk-no-such-program was not found. Install it and add it to PATH." });
+      const missingProgram = await machine.processes.run("genbeya-no-such-program", [], { cwd: root });
+      expect(missingProgram).toMatchObject({ code: 127, stderr: "genbeya-no-such-program was not found. Install it and add it to PATH." });
       const missingFolder = machine.paths.join(root, "missing");
       const result = await machine.processes.run("git", ["--version"], { cwd: missingFolder });
       expect(result).toMatchObject({ code: 127, stderr: `${missingFolder} does not exist.` });
@@ -118,7 +118,7 @@ export function describeMachine(name: string, fixture: () => MachineFixture) {
 
     it("reports spawned programs that cannot start", async () => {
       const { machine } = fixture();
-      const child = machine.processes.spawn("gitdesk-no-such-program", []);
+      const child = machine.processes.spawn("genbeya-no-such-program", []);
       expect(await new Promise<number>((resolve) => child.onExit(resolve))).toBe(127);
     });
   });
@@ -159,7 +159,7 @@ export function describeMachine(name: string, fixture: () => MachineFixture) {
     });
 
     it("rejects programs that cannot start", async () => {
-      await expect(open("gitdesk-no-such-program", [])).rejects.toThrow("gitdesk-no-such-program was not found");
+      await expect(open("genbeya-no-such-program", [])).rejects.toThrow("genbeya-no-such-program was not found");
     });
   });
 }

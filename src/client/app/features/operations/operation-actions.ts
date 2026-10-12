@@ -80,7 +80,7 @@ export class OperationActions {
     if (!plan.commits.length) return this.notifications.error(`${branch} has no commits after ${base.hash.slice(0, 7)}.`);
     if (plan.commits.some((commit) => commit.merge))
       return this.notifications.error(
-        "These commits include a merge, which an interactive rebase in GitDesk can't rewrite. Use the terminal instead.",
+        "These commits include a merge, which an interactive rebase in Genbeya can't rewrite. Use the terminal instead.",
       );
     const { RebaseDialog } = await import("./rebase-dialog");
     const dirty = this.dirty();

@@ -26,18 +26,18 @@ import { ShellUi } from "../shell/shell-ui";
           <circle cx="10" cy="23" r="2.6" fill="#fff" />
           <circle cx="22" cy="9" r="2.6" fill="#fff" />
         </svg>
-        <h1>GitDesk</h1>
+        <h1>Genbeya</h1>
       </div>
 
       @if (onboarding.introduce()) {
         <section class="welcome-intro" aria-labelledby="intro-heading">
-          <h2 id="intro-heading">Welcome to GitDesk</h2>
+          <h2 id="intro-heading">Welcome to Genbeya</h2>
           <p>
             A wiki, a task board, a code editor and version control for a Git repository, all kept as plain files in it. Open a repository
-            below for a short tour of it, or try GitDesk on a sample project first.
+            below for a short tour of it, or try Genbeya on a sample project first.
           </p>
           <button type="button" class="btn btn-primary btn-m" [disabled]="busy()" (click)="onboarding.createSample()">
-            <svg gd-icon name="flask-conical" [size]="14"></svg><span>Try GitDesk with a sample project</span>
+            <svg gd-icon name="flask-conical" [size]="14"></svg><span>Try Genbeya with a sample project</span>
           </button>
         </section>
       }
@@ -92,7 +92,7 @@ import { ShellUi } from "../shell/shell-ui";
       }
 
       <footer class="welcome-footer">
-        <span>GitDesk {{ version }}</span>
+        <span>Genbeya {{ version }}</span>
         <button type="button" class="btn btn-ghost btn-s" (click)="onboarding.showWhatsNew()"><span>What's new</span></button>
         <button type="button" class="btn btn-ghost btn-s" (click)="onboarding.openDocs()">
           <span>Documentation</span><svg gd-icon name="external-link" [size]="12"></svg>

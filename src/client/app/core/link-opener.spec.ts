@@ -1,5 +1,5 @@
 import { TestBed } from "@angular/core/testing";
-import type { GitdeskLink } from "../../../contracts/gitdesk-link";
+import type { GenbeyaLink } from "../../../contracts/genbeya-link";
 import type { Location, RecentEntry, Snapshot } from "../../../contracts/model";
 import { openRepository } from "../testing/component-harness";
 import { snapshot } from "../testing/fake-platform";
@@ -22,7 +22,7 @@ async function setup(change: Partial<Snapshot>, entries: RecentEntry[] = []) {
 }
 
 describe("LinkOpener", () => {
-  it.each<[GitdeskLink["item"], string, Record<string, string>]>([
+  it.each<[GenbeyaLink["item"], string, Record<string, string>]>([
     [{ kind: "page", path: "docs/Guide.md" }, "/wiki", { page: "docs/Guide.md" }],
     [{ kind: "task", id: "TP-1" }, "/tasks", { task: "TP-1" }],
     [{ kind: "file", path: "src/index.ts" }, "/code", { file: "src/index.ts" }],
@@ -57,7 +57,7 @@ describe("LinkOpener", () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it("reports when no repository GitDesk knows has the remote", async () => {
+  it("reports when no repository Genbeya knows has the remote", async () => {
     const { opener, navigate } = await setup({ remotes: [{ name: "origin", url: "https://github.com/acme/else.git" }] }, [
       recent(other, ["https://gitlab.com/acme/demo.git"]),
     ]);

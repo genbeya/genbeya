@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, type ElementRef, inject, input, signal, viewChild } from "@angular/core";
-import type { LinkItem } from "../../../../contracts/gitdesk-link";
+import type { LinkItem } from "../../../../contracts/genbeya-link";
 import type { WikiNode } from "../../../../contracts/model";
 import { hotkey } from "../../core/hotkeys";
 import { Session } from "../../core/session";

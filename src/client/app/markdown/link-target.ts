@@ -10,9 +10,9 @@ export type LinkTarget =
   | { readonly kind: "file"; readonly path: string; readonly anchor: string | undefined };
 
 /** Links to wiki pages that do not exist yet; following one offers to create it. */
-export const MISSING_PAGE = "gitdesk-missing:";
+export const MISSING_PAGE = "genbeya-missing:";
 /** Links of `@mentions`; following one shows who the person is. */
-export const PERSON_LINK = "gitdesk-person:";
+export const PERSON_LINK = "genbeya-person:";
 
 const decode = (text: string) => {
   try {

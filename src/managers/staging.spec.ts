@@ -51,7 +51,7 @@ const local: Setup = async (files) => {
 };
 
 const wsl: Setup = async (files) => {
-  const dir = `/tmp/gitdesk-staging-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const dir = `/tmp/genbeya-staging-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const run = (script: string) =>
     new Promise<string>((resolve, reject) =>
       execFile("wsl.exe", ["-d", "Ubuntu", "-e", "sh", "-c", `cd ${dir} && ${script}`], { encoding: "buffer" }, (error, stdout) =>
@@ -339,7 +339,7 @@ describe("Staging on this computer", () => {
     expect(await git("diff", "--cached", "--name-only")).toBe("");
     await write("b.bin", "\0y");
     await expect(vc.stageLines(id, { path: "b.bin", version: await version("b.bin"), lines: select([[1, 1]]) })).rejects.toThrow(
-      "GitDesk can only stage b.bin as a whole.",
+      "Genbeya can only stage b.bin as a whole.",
     );
   });
 

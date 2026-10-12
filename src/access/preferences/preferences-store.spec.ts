@@ -43,6 +43,55 @@ describe("PreferencesStore", () => {
     expect(reloaded.recent.map((entry) => entry.name)).toEqual(["A again"]);
   });
 
+  describe("after the app was renamed", () => {
+    const saved = { recent: [{ location: a, name: "A", openedAt: 1, remotes: [] }], preferences: { theme: "dark", tourSeen: true } };
+
+    /** Data folders as GitDesk left them (`files` besides state.json) and the new, missing one. */
+    async function folders(files: Record<string, string> = {}) {
+      const root = await temporaryFolder("prefs-");
+      const old = path.join(root, "GitDesk");
+      await fs.mkdir(old);
+      await fs.writeFile(path.join(old, "state.json"), JSON.stringify(saved));
+      for (const [name, content] of Object.entries(files)) await fs.writeFile(path.join(old, name), content);
+      return { root, old, folder: path.join(root, "Genbeya") };
+    }
+
+    it("copies the state of the old data folder, and leaves that as it was", async () => {
+      const { root, old, folder } = await folders({ "window.json": "{}", Cookies: "x" });
+      const missing = path.join(root, "Elsewhere");
+      const store = await PreferencesStore.load(machine, folder, { folders: [missing, old], files: ["window.json", "absent.json"] });
+      expect(store.recent.map((entry) => entry.name)).toEqual(["A"]);
+      expect(store.preferences).toMatchObject({ theme: "dark", tourSeen: true, reopenLast: true });
+      expect((await fs.readdir(folder)).sort()).toEqual(["state.json", "window.json"]);
+      expect((await fs.readdir(old)).sort()).toEqual(["Cookies", "state.json", "window.json"]);
+      expect(JSON.parse(await fs.readFile(path.join(old, "state.json"), "utf8"))).toEqual(saved);
+    });
+
+    it("keeps the state the new folder has, and files it has", async () => {
+      const { old, folder } = await folders({ "window.json": "old" });
+      await fs.mkdir(folder);
+      await fs.writeFile(path.join(folder, "window.json"), "new");
+      const fresh = await PreferencesStore.load(machine, folder, { folders: [old], files: ["window.json"] });
+      expect(fresh.recent).toHaveLength(1);
+      expect(await fs.readFile(path.join(folder, "window.json"), "utf8")).toBe("new");
+
+      fresh.setPreferences({ ...fresh.preferences, theme: "light" });
+      await fresh.flush();
+      await fs.writeFile(path.join(old, "state.json"), JSON.stringify({ ...saved, recent: [] }));
+      const again = await PreferencesStore.load(machine, folder, { folders: [old] });
+      expect(again.preferences.theme).toBe("light");
+      expect(again.recent).toHaveLength(1);
+    });
+
+    it("starts fresh when no old folder has state, or it cannot be copied", async () => {
+      const { root, old, folder } = await folders();
+      expect((await PreferencesStore.load(machine, folder, { folders: [path.join(root, "None")] })).recent).toEqual([]);
+      const { machine: readOnly } = flakyMachine();
+      const other = path.join(root, "Other");
+      expect((await PreferencesStore.load(readOnly, other, { folders: [old] })).recent).toEqual([]);
+    });
+  });
+
   it("fills in preferences that older versions did not save", async () => {
     const folder = await temporaryFolder("prefs-");
     await fs.writeFile(path.join(folder, "state.json"), JSON.stringify({ recent: [], preferences: { theme: "light", reopenLast: false } }));
