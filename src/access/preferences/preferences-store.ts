@@ -38,6 +38,8 @@ export class PreferencesStore {
   private timer: ReturnType<typeof setTimeout> | null = null;
   /** Changes not yet on disk. */
   private dirty = false;
+  /** The save in progress, if any; saves never overlap. */
+  private saving: Promise<void> = Promise.resolve();
 
   private constructor(
     private readonly machine: Machine,
@@ -110,13 +112,24 @@ export class PreferencesStore {
   }
 
   /**
-   * Writes pending changes now. The state goes to a temporary file first and
-   * then replaces the old one (rename replaces files on every platform), so
-   * a crash mid-write never leaves a truncated file.
+   * Writes pending changes now, after any save already in progress, so that
+   * when this resolves everything changed so far is on disk (the app flushes
+   * as it quits, possibly while a background save is still writing).
    */
-  async flush(): Promise<void> {
+  flush(): Promise<void> {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
+    const save = this.saving.then(() => this.write());
+    this.saving = save.catch(() => undefined);
+    return save;
+  }
+
+  /**
+   * The state goes to a temporary file first and then replaces the old one
+   * (rename replaces files on every platform), so a crash mid-write never
+   * leaves a truncated file.
+   */
+  private async write(): Promise<void> {
     if (!this.dirty) return;
     this.dirty = false;
     const { fileSystem } = this.machine;

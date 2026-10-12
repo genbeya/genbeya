@@ -77,6 +77,30 @@ describe("PreferencesStore", () => {
     expect((await PreferencesStore.load(machine, folder)).recent.map((entry) => entry.name)).toEqual(["A"]);
   });
 
+  it("waits for a save in progress, so a flush at shutdown finds the file written", async () => {
+    // The background save is still writing when the app quits and flushes.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const fileSystem: FileSystem = {
+      ...machine.fileSystem,
+      rename: async (from, to) => {
+        await held;
+        return machine.fileSystem.rename(from, to);
+      },
+    };
+    const folder = await temporaryFolder("prefs-");
+    const store = await PreferencesStore.load({ ...machine, fileSystem } as Machine, folder);
+    store.remember(a, "A", [], 1);
+    const background = store.flush().catch(() => undefined);
+    let flushed = false;
+    const atShutdown = store.flush().then(() => (flushed = true));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(flushed).toBe(false);
+    release();
+    await Promise.all([background, atShutdown]);
+    expect((await PreferencesStore.load(machine, folder)).recent.map((entry) => entry.name)).toEqual(["A"]);
+  });
+
   it("replaces the file in one step, through a temporary file", async () => {
     const folder = await temporaryFolder("prefs-");
     const rename = vi.spyOn(machine.fileSystem, "rename");
