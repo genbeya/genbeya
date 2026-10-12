@@ -30,6 +30,67 @@ export interface Engines {
   readonly tasks: TaskEngine;
 }
 
+/** The settings in `files`: `fallback` while there are none, and also, saying why, while they are broken. */
+export async function readSettings(
+  files: FileStore,
+  fallback: Settings,
+  engine: SettingsEngine,
+  windows: boolean,
+): Promise<LoadedSettings> {
+  let file;
+  try {
+    file = await files.read(SETTINGS_FILE);
+  } catch (error) {
+    if (!isMissing(error)) throw error;
+    return { settings: fallback, hash: null };
+  }
+  try {
+    return { settings: engine.parse(file.content, fallback, windows), hash: file.hash };
+  } catch (error) {
+    // A broken settings file must not lock anyone out of the settings screen.
+    return {
+      settings: fallback,
+      hash: file.hash,
+      problem: `${SETTINGS_FILE}: ${(error as Error).message} Using defaults until it is fixed.`,
+    };
+  }
+}
+
+/** The tasks among `files`, read from `store`; problems, such as two tasks with one ID, become `warnings`. */
+export async function readTasks(
+  store: FileStore,
+  files: readonly string[],
+  settings: Settings,
+  engine: TaskEngine,
+  warnings: string[],
+): Promise<Task[]> {
+  const paths = files.filter((file) => engine.isTaskFile(file, settings.taskRoot));
+  const contents = await store.readMany(paths);
+  const tasks: Task[] = [];
+  const owners = new Map<string, string>();
+  contents.forEach((file, i) => {
+    const path = paths[i]!;
+    if (!file) {
+      warnings.push(`${path}: could not be read.`);
+      return;
+    }
+    if (file instanceof Error) {
+      warnings.push(`${path}: ${file.message}`);
+      return;
+    }
+    try {
+      const task = engine.parse(path, file.content, file.hash, settings.taskRoot);
+      const owner = owners.get(task.id);
+      if (owner) warnings.push(`${path}: task ID ${task.id} is also used by ${owner}.`);
+      else owners.set(task.id, path);
+      tasks.push(task);
+    } catch (error) {
+      warnings.push(`${path}: ${(error as Error).message}`);
+    }
+  });
+  return tasks;
+}
+
 export class Workspace {
   readonly checkout: FileStore;
   readonly content: ContentStore;
@@ -100,25 +161,13 @@ export class Workspace {
    */
   async settings(fresh = false): Promise<LoadedSettings> {
     if (this.loadedSettings && !fresh) return this.loadedSettings;
-    const fallback = this.engines.settings.defaults(this.folderName);
     const files = (await this.content.locate("settings")).files;
-    let file;
-    try {
-      file = await files.read(SETTINGS_FILE);
-    } catch (error) {
-      if (!isMissing(error)) throw error;
-      return (this.loadedSettings = { settings: fallback, hash: null });
-    }
-    try {
-      return (this.loadedSettings = { settings: this.engines.settings.parse(file.content, fallback, this.windows), hash: file.hash });
-    } catch (error) {
-      // A broken settings file must not lock anyone out of the settings screen.
-      return (this.loadedSettings = {
-        settings: fallback,
-        hash: file.hash,
-        problem: `${SETTINGS_FILE}: ${(error as Error).message} Using defaults until it is fixed.`,
-      });
-    }
+    return (this.loadedSettings = await readSettings(
+      files,
+      this.engines.settings.defaults(this.folderName),
+      this.engines.settings,
+      this.windows,
+    ));
   }
 
   forgetSettings(): void {
@@ -127,31 +176,7 @@ export class Workspace {
 
   /** Reads every task file below the task folder; problems become `warnings`. */
   async tasks(files: readonly string[], settings: Settings, warnings: string[]): Promise<Task[]> {
-    const paths = files.filter((file) => this.engines.tasks.isTaskFile(file, settings.taskRoot));
-    const contents = await (await this.content.locate("tasks")).files.readMany(paths);
-    const tasks: Task[] = [];
-    const owners = new Map<string, string>();
-    contents.forEach((file, i) => {
-      const path = paths[i]!;
-      if (!file) {
-        warnings.push(`${path}: could not be read.`);
-        return;
-      }
-      if (file instanceof Error) {
-        warnings.push(`${path}: ${file.message}`);
-        return;
-      }
-      try {
-        const task = this.engines.tasks.parse(path, file.content, file.hash, settings.taskRoot);
-        const owner = owners.get(task.id);
-        if (owner) warnings.push(`${path}: task ID ${task.id} is also used by ${owner}.`);
-        else owners.set(task.id, path);
-        tasks.push(task);
-      } catch (error) {
-        warnings.push(`${path}: ${(error as Error).message}`);
-      }
-    });
-    return tasks;
+    return readTasks((await this.content.locate("tasks")).files, files, settings, this.engines.tasks, warnings);
   }
 
   /**

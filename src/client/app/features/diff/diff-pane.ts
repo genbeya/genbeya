@@ -6,7 +6,7 @@ import { DiffView, type DiffLines, type HunkAction, type HunkEvent } from "../..
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
 import type { IconName } from "../../ui/icon-data";
-import { recall, remember } from "../../ui/remembered";
+import { Remembered } from "../../ui/remembered";
 
 const INLINE_KEY = "diff:inline";
 
@@ -114,10 +114,11 @@ export class DiffPane {
   readonly apply = input<DiffActionHandler>(async () => "done");
 
   private readonly session = inject(Session);
+  private readonly memory = inject(Remembered);
   private readonly view = viewChild(DiffView);
   protected readonly diff = signal<Diff | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly inline = signal(recall(INLINE_KEY) === "1");
+  protected readonly inline = signal(this.memory.recall(INLINE_KEY) === "1");
   protected readonly selection = signal<DiffLines | null>(null);
   protected readonly running = signal(false);
   protected readonly count = computed(() => {
@@ -162,7 +163,7 @@ export class DiffPane {
 
   protected toggleInline() {
     this.inline.update((inline) => !inline);
-    remember(INLINE_KEY, this.inline() ? "1" : "0");
+    this.memory.remember(INLINE_KEY, this.inline() ? "1" : "0");
   }
 
   protected onHunk(event: HunkEvent) {

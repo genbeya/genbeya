@@ -5,8 +5,8 @@
 import type { Location, Theme } from "./model";
 
 export interface ShellContract {
-  /** Which runtime hosts the client; shown in diagnostics only. */
-  readonly runtime: "electron" | "tauri" | "deno";
+  /** Which runtime hosts the client; shown in diagnostics only. The web demo runs in a browser. */
+  readonly runtime: "electron" | "tauri" | "deno" | "demo";
   /** Shows a folder picker; a picked `\\wsl$` folder opens through WSL. Null when cancelled. */
   pickFolder(): Promise<Location | null>;
   /** Opens an http(s) or mailto link in the system's default application. */

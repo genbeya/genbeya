@@ -4,7 +4,9 @@ release-deno/
 .angular/
 .test-work/
 test-results/
+test-results-demo/
 playwright-report/
+playwright-report-demo/
 package-lock.json
 src/shells/tauri/src-tauri/target/
 src/shells/tauri/src-tauri/gen/

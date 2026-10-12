@@ -113,6 +113,9 @@
         In the checkout, files change with each code branch and you commit them like code. On the shared content branch, they are the same
         on every code branch, each edit is committed right away, and Sync shares them. Everyone gets these choices through the content
         branch.
+        @if (demo.active) {
+          In the demo, everything stays in the checkout; download Genbeya to share a content branch.
+        }
       </p>
       <div class="settings-card">
         @for (item of areas(); track item.area) {
@@ -129,6 +132,7 @@
                     role="radio"
                     [attr.aria-checked]="snapshot().storage.areas[item.area] === option.mode"
                     [class.is-active]="snapshot().storage.areas[item.area] === option.mode"
+                    [disabled]="demo.active"
                     (click)="setStorage(item.area, option.mode)"
                   >
                     {{ option.label }}

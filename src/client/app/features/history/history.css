@@ -166,8 +166,10 @@
   background: var(--bg-active);
 }
 
+/* A column, so the diff takes the pane's width instead of that of its longest line. */
 .commit-diff {
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
 }

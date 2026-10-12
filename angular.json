@@ -74,6 +74,40 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "demo": {
+              "outputPath": "dist/demo",
+              "index": {
+                "input": "src/client/index.demo.html",
+                "output": "index.html"
+              },
+              "fileReplacements": [
+                {
+                  "replace": "src/client/app/platform/connect.ts",
+                  "with": "src/client/app/platform/connect.demo.ts"
+                }
+              ],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "750kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
+                }
+              ],
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": false
+              }
             }
           },
           "defaultConfiguration": "production"
@@ -90,6 +124,9 @@
             },
             "development": {
               "buildTarget": "genbeya:build:development"
+            },
+            "demo": {
+              "buildTarget": "genbeya:build:demo"
             }
           },
           "defaultConfiguration": "development"

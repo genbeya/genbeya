@@ -10,7 +10,9 @@
   "scripts": {
     "postinstall": "node scripts/fix-node-pty.mjs",
     "start": "node scripts/dev.mjs",
+    "start:demo": "ng serve --configuration demo",
     "build": "ng build && node scripts/build-backend.mjs",
+    "build:demo": "ng build --configuration demo",
     "check": "tsc -p tsconfig.backend.json && ng build --configuration development",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -18,6 +20,7 @@
     "test:backend": "vitest run --config vitest.backend.config.ts",
     "test:client": "ng test --watch=false",
     "e2e": "npm run build && playwright test",
+    "e2e:demo": "npm run build:demo && playwright test --config playwright.demo.config.ts",
     "icons": "electron scripts/make-icons.mjs",
     "package": "npm run build && electron-builder",
     "package:deno": "ng build && node scripts/package-deno.mjs",

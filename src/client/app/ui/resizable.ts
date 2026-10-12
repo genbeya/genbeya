@@ -1,15 +1,10 @@
 import { computed, Directive, effect, ElementRef, inject, input, signal } from "@angular/core";
-import { recall, remember } from "./remembered";
+import { Remembered } from "./remembered";
 
 /** The edge the user drags: the right one sets the width, the top one the height. */
 export type ResizeEdge = "right" | "top";
 
 const STORAGE_PREFIX: Readonly<Record<ResizeEdge, string>> = { right: "width:", top: "height:" };
-
-function stored(key: string, fallback: number): number {
-  const value = Number(recall(key));
-  return value > 0 ? value : fallback;
-}
 
 /**
  * A panel the user can resize by dragging its right edge (or, for a bottom
@@ -35,10 +30,14 @@ export class Resizable {
   readonly size = signal(260);
   readonly dragging = signal(false);
   private readonly element: HTMLElement = inject(ElementRef).nativeElement;
+  private readonly memory = inject(Remembered);
   private readonly storageKey = computed(() => STORAGE_PREFIX[this.edge()] + this.key());
 
   constructor() {
-    effect(() => this.size.set(stored(this.storageKey(), this.initial())));
+    effect(() => {
+      const stored = Number(this.memory.recall(this.storageKey()));
+      this.size.set(stored > 0 ? stored : this.initial());
+    });
   }
 
   start(event: PointerEvent): void {
@@ -57,7 +56,7 @@ export class Resizable {
       this.dragging.set(false);
       removeEventListener("pointermove", move);
       removeEventListener("pointerup", end);
-      remember(this.storageKey(), String(clamp(ended)));
+      this.memory.remember(this.storageKey(), String(clamp(ended)));
     };
     addEventListener("pointermove", move);
     addEventListener("pointerup", end);
