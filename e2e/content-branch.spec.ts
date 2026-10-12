@@ -19,7 +19,7 @@ test.describe("content branch", () => {
     await window.getByRole("textbox", { name: "Task title" }).fill("Shared task");
     await window.keyboard.press(`${MOD}+s`);
     await expect(window.getByRole("dialog", { name: "Task DP-2" })).toBeVisible();
-    await expect.poll(() => repository.git("log", "-1", "--format=%s", "gitdesk").trim()).toBe("Create DP-2: Shared task");
+    await expect.poll(() => repository.git("log", "-1", "--format=%s", "genbeya").trim()).toBe("Create DP-2: Shared task");
     expect(repository.read("tasks/DP-2.md")).toBeNull();
     await window.keyboard.press("Escape");
 
@@ -30,8 +30,8 @@ test.describe("content branch", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
     await expect.poll(() => repository.read("docs/Notes.md")).toBe("# Notes\n\n");
     expect(repository.git("status", "--porcelain").trim()).toBe("?? docs/Notes.md");
-    expect(repository.git("ls-tree", "-r", "--name-only", "gitdesk").trim().split("\n")).toEqual([
-      ".gitdesk-content",
+    expect(repository.git("ls-tree", "-r", "--name-only", "genbeya").trim().split("\n")).toEqual([
+      ".genbeya-content",
       "tasks/DP-1.md",
       "tasks/DP-2.md",
     ]);

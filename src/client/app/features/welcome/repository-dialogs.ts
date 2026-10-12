@@ -166,7 +166,7 @@ export class RemoteDialog {
   }
 }
 
-/** A URL and where to clone it; the dialog's data is a URL to start with, such as the remote of a GitDesk link. */
+/** A URL and where to clone it; the dialog's data is a URL to start with, such as the remote of a Genbeya link. */
 @Component({
   selector: "gd-clone-dialog",
   imports: [DialogFrame, Icon, RemoteFields],

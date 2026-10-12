@@ -176,10 +176,10 @@ describe("tauriTerminals", () => {
 
   it("asks Rust for the user's shell and rejects programs that cannot start", async () => {
     const { run } = fakeInvoke((call) =>
-      call.command === "term_shell" ? "pwsh.exe" : Promise.reject({ code: "EINVAL", message: "GitDesk does not open terminals with git." }),
+      call.command === "term_shell" ? "pwsh.exe" : Promise.reject({ code: "EINVAL", message: "Genbeya does not open terminals with git." }),
     );
     const terminals = tauriTerminals(run, () => ({ onmessage: () => undefined }) as unknown as Channel<ArrayBuffer>);
     expect(await terminals.shell()).toBe("pwsh.exe");
-    await expect(terminals.open("git", [], { cols: 80, rows: 24 })).rejects.toThrow("GitDesk does not open terminals with git.");
+    await expect(terminals.open("git", [], { cols: 80, rows: 24 })).rejects.toThrow("Genbeya does not open terminals with git.");
   });
 });

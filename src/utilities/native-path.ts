@@ -1,6 +1,6 @@
 /**
  * Absolute paths on the machine a repository lives on. The style is chosen by
- * the host, not by the process GitDesk runs in: a Windows app opening a WSL
+ * the host, not by the process Genbeya runs in: a Windows app opening a WSL
  * repository uses POSIX paths for it.
  */
 export interface PathStyle {

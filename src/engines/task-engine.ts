@@ -36,10 +36,10 @@ const LIMITS = {
   value: 2000,
   comment: 64 * 1024,
 } as const;
-/** Keys a field must not have, in lower case: GitDesk's own, and names that would reach object prototypes. */
+/** Keys a field must not have, in lower case: Genbeya's own, and names that would reach object prototypes. */
 const NOT_FIELDS: readonly string[] = [...TASK_KEYS, "__proto__", "constructor", "prototype"];
 
-/** A key a custom field may have: one line, not GitDesk's own in any spelling. */
+/** A key a custom field may have: one line, not Genbeya's own in any spelling. */
 const isFieldKey = (key: string) =>
   // eslint-disable-next-line no-control-regex
   !!key.trim() && key.length <= LIMITS.field && !/[\x00-\x1f\x7f]/.test(key) && !NOT_FIELDS.includes(key.toLowerCase());
@@ -79,7 +79,7 @@ const toList = (value: unknown): string[] =>
 const isFieldValue = (value: unknown): value is FieldValue =>
   typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value));
 
-/** Frontmatter fields other than GitDesk's own that hold a plain value. */
+/** Frontmatter fields other than Genbeya's own that hold a plain value. */
 const extraFields = (data: Record<string, unknown>): Record<string, FieldValue> =>
   Object.fromEntries(Object.entries(data).filter((entry): entry is [string, FieldValue] => isFieldKey(entry[0]) && isFieldValue(entry[1])));
 
@@ -169,7 +169,7 @@ export class TaskEngine {
     };
   }
 
-  /** A first template for a type, to edit in GitDesk. */
+  /** A first template for a type, to edit in Genbeya. */
   newTemplate(type: string): string {
     return [
       "---",

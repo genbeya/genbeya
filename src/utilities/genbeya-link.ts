@@ -1,16 +1,19 @@
 /**
- * `gitdesk://open?remote=<url>&task=<id>` and its siblings `page=`, `file=`
- * and `commit=`. Links come from outside (the clipboard, the operating
- * system), so parsing accepts only these keys, once each, with values that
- * name an item: never a local path as remote, never a path outside the
- * repository. Opening a link only shows the item.
+ * `genbeya://open?remote=<url>&task=<id>` and its siblings `page=`, `file=`
+ * and `commit=`; `gitdesk://` links, as GitDesk made them, alike. Links
+ * come from outside (the clipboard, the operating system), so parsing
+ * accepts only these keys, once each, with values that name an item: never
+ * a local path as remote, never a path outside the repository. Opening a
+ * link only shows the item.
  */
-import { GITDESK_LINK_PREFIX, type GitdeskLink, type LinkItem } from "../contracts/gitdesk-link";
+import { LINK_PREFIX, LINK_SCHEMES, type GenbeyaLink, type LinkItem } from "../contracts/genbeya-link";
 import { parseRemote, withoutCredentials } from "./remote-url";
 import { validateRepositoryPath } from "./repository-path";
 
 const MAX_LENGTH = 8192;
-const LINK = /^gitdesk:\/\/open\/?\?([^#]*)$/i;
+const LINK = new RegExp(`^(?:${LINK_SCHEMES.join("|")}):\\/\\/open\\/?\\?([^#]*)$`, "i");
+/** Anything in one of the link schemes, valid link or not. */
+export const LINK_SCHEME = new RegExp(`^(?:${LINK_SCHEMES.join("|")}):`, "i");
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const COMMIT = /^[0-9a-f]{7,64}$/i;
 
@@ -20,8 +23,8 @@ const encode = (value: string) => encodeURIComponent(value).replace(/%(2F|3A|40)
 const valueOf = (item: LinkItem): string => (item.kind === "task" ? item.id : item.kind === "commit" ? item.hash : item.path);
 
 /** The link to `link.item`; credentials in an http(s) remote URL are left out. */
-export const formatGitdeskLink = ({ remote, item }: GitdeskLink): string =>
-  `${GITDESK_LINK_PREFIX}?remote=${encode(withoutCredentials(remote))}&${item.kind}=${encode(valueOf(item))}`;
+export const formatGenbeyaLink = ({ remote, item }: GenbeyaLink): string =>
+  `${LINK_PREFIX}?remote=${encode(withoutCredentials(remote))}&${item.kind}=${encode(valueOf(item))}`;
 
 function itemOf(kind: string, value: string): LinkItem | null {
   const path = (check: (path: string) => boolean = () => true) => {
@@ -50,7 +53,7 @@ function itemOf(kind: string, value: string): LinkItem | null {
 }
 
 /** The link `text` holds, or null when it is anything else or carries anything unexpected. */
-export function parseGitdeskLink(text: unknown): GitdeskLink | null {
+export function parseGenbeyaLink(text: unknown): GenbeyaLink | null {
   if (typeof text !== "string" || text.length > MAX_LENGTH) return null;
   const query = LINK.exec(text.trim())?.[1];
   if (!query) return null;

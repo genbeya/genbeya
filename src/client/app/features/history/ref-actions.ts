@@ -91,7 +91,7 @@ export class RefActions {
       label: "Remote branch",
       initial: `${remotes[0]?.name ?? "origin"}/${branch}`,
       confirm: "Set upstream",
-      hint: `Pull and push of ${branch} go to this branch. Fetch first if the remote has it but GitDesk does not list it yet.`,
+      hint: `Pull and push of ${branch} go to this branch. Fetch first if the remote has it but Genbeya does not list it yet.`,
     });
     if (upstream) await this.session.succeeded(() => this.api.versionControl.setUpstream(branch, upstream), `${branch} tracks ${upstream}`);
   }

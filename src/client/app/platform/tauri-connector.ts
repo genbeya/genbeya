@@ -5,7 +5,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { appDataDir } from "@tauri-apps/api/path";
+import { appDataDir, dataDir, join } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -15,8 +15,12 @@ import { createBackend } from "../../../managers/backend";
 import { tauriMachine } from "../../../platforms/tauri/tauri-machine";
 import type { Platform } from "./platform";
 
+/** The identifier of GitDesk Tauri, as the app was called before 0.5, which names its data folder. */
+const PREVIOUS_IDENTIFIER = "dev.gitdesk.tauri";
+
 export async function connectTauri(): Promise<Platform> {
-  const backend = await createBackend(tauriMachine(), await appDataDir());
+  const previous = { folders: [await join(await dataDir(), PREVIOUS_IDENTIFIER)] };
+  const backend = await createBackend(tauriMachine(), await appDataDir(), previous);
   const window = getCurrentWindow();
   return {
     managers: connectManagers(async (request) => structuredClone(await dispatch(backend, structuredClone(request)))),
@@ -30,7 +34,7 @@ export async function connectTauri(): Promise<Platform> {
         if (!/^(https?:|mailto:)/i.test(url)) throw new Error("Only web and mail links open externally.");
         await openUrl(url);
       },
-      setTitle: (title) => void window.setTitle(title.length < 300 ? title : "GitDesk"),
+      setTitle: (title) => void window.setTitle(title.length < 300 ? title : "Genbeya"),
       setTheme: (theme) => void window.setTheme(theme === "system" ? null : theme),
       launchArgs: () => invoke<string[]>("launch_args"),
       onSecondLaunch(listener) {

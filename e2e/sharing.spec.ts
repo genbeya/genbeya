@@ -2,7 +2,7 @@ import type { ElectronApplication, Page } from "@playwright/test";
 import type { ElectronBridge } from "../src/contracts/bridges";
 import { expect, mainWindow, MOD, test } from "./app";
 
-const LINK = "gitdesk://open?remote=https://github.com/acme/demo.git&task=DP-1";
+const LINK = "genbeya://open?remote=https://github.com/acme/demo.git&task=DP-1";
 
 const clipboard = (app: ElectronApplication) => app.evaluate(({ clipboard }) => clipboard.readText());
 
@@ -26,11 +26,11 @@ test.describe("sharing", () => {
     await window.keyboard.press(`${MOD}+2`);
     await window.locator("gd-task-card", { hasText: "First task" }).focus();
     await window.keyboard.press("Shift+F10");
-    await expect(window.getByRole("menuitem", { name: "Copy GitDesk link" })).toBeFocused();
+    await expect(window.getByRole("menuitem", { name: "Copy Genbeya link" })).toBeFocused();
   });
 
-  test("opens a copied GitDesk link pasted into the palette", async ({ app, window }) => {
-    await copyFromTaskMenu(window, "Copy GitDesk link");
+  test("opens a copied Genbeya link pasted into the palette", async ({ app, window }) => {
+    await copyFromTaskMenu(window, "Copy Genbeya link");
     await expect.poll(() => clipboard(app)).toBe(LINK);
     await window.keyboard.press(`${MOD}+1`);
     await window.keyboard.press(`${MOD}+k`);
@@ -42,16 +42,30 @@ test.describe("sharing", () => {
     await expect(window.getByRole("dialog", { name: "Task DP-1" })).toBeVisible();
   });
 
-  test("opens a GitDesk link the app is launched with, in the clone it has seen", async ({ app, window, launch }) => {
-    // The first launch shows the repository, so GitDesk knows its remote.
+  test("opens a Genbeya link the app is launched with, in the clone it has seen", async ({ app, window, launch }) => {
+    // The first launch shows the repository, so Genbeya knows its remote.
     await expect(window.getByText("Demo Project").first()).toBeVisible();
     await app.close();
     const linked = await mainWindow(await launch(LINK));
     await expect(linked.getByRole("dialog", { name: "Task DP-1" })).toBeVisible();
     // A reloaded page asks for the launch arguments again; it must not open the link again.
     const again = await linked.evaluate(() =>
-      (globalThis as unknown as { gitdeskElectron: ElectronBridge }).gitdeskElectron.shell("launchArgs", []),
+      (globalThis as unknown as { genbeyaElectron: ElectronBridge }).genbeyaElectron.shell("launchArgs", []),
     );
     expect(again).not.toContain(LINK);
+  });
+
+  test("opens a link GitDesk made, launched with it or pasted into the palette", async ({ app, window, launch }) => {
+    const gitdesk = "gitdesk://open?remote=https://github.com/acme/demo.git&page=docs/Guide.md";
+    await expect(window.getByText("Demo Project").first()).toBeVisible();
+    await app.close();
+    const linked = await mainWindow(await launch(gitdesk));
+    await expect(linked.locator(".document-article").getByRole("heading", { level: 1, name: "Guide" })).toBeVisible();
+
+    await linked.keyboard.press(`${MOD}+2`);
+    await linked.keyboard.press(`${MOD}+k`);
+    await linked.getByRole("dialog", { name: "Command palette" }).getByRole("combobox").fill(LINK.replace("genbeya:", "gitdesk:"));
+    await linked.getByRole("option", { name: /Open link/ }).click();
+    await expect(linked.getByRole("dialog", { name: "Task DP-1" })).toBeVisible();
   });
 });

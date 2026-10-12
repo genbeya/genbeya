@@ -10,7 +10,7 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import type { WikiNode } from "../../../../contracts/model";
 import type { LinkTarget } from "../../markdown/link-target";
 import { parseLines, referenceCandidates } from "../../markdown/references";
-import type { GitdeskOptions } from "../../markdown/markdown-pipeline";
+import type { GenbeyaOptions } from "../../markdown/markdown-pipeline";
 import { filePaths } from "../../../../utilities/file-tree";
 import type { MovePageOptions, PageMoveChoice } from "./move-page-dialog";
 import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
@@ -26,7 +26,7 @@ export class WikiActions {
   private readonly root = computed(() => this.session.snapshot()?.settings.wikiRoot ?? "docs");
 
   /** Tasks, pages and files that Markdown can reference by ID, title or path, and the people it can mention. */
-  readonly linkTargets = computed<GitdeskOptions>(
+  readonly linkTargets = computed<GenbeyaOptions>(
     () => {
       const snapshot = this.session.snapshot();
       return {

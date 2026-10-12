@@ -1,6 +1,6 @@
 # Guide
 
-How to work with GitDesk day to day, one area per page.
+How to work with Genbeya day to day, one area per page.
 
 | Page | Covers |
 | --- | --- |
@@ -12,10 +12,10 @@ How to work with GitDesk day to day, one area per page.
 | [Search](Guide/Search.md) | Finding text in pages, tasks and code |
 | [Version control](Guide/Version-control.md) | Changes, stashes, branches, tags, merging, rebasing, cherry-pick, revert, conflicts and history |
 | [Terminal](Guide/Terminal.md) | A shell in the repository, locally, on WSL or over SSH |
-| [Sharing](Guide/Sharing.md) | Links that open a page, task, file or commit in a coworker's GitDesk or on the Git host |
+| [Sharing](Guide/Sharing.md) | Links that open a page, task, file or commit in a coworker's Genbeya or on the Git host |
 | [AI agents](Guide/AI-agents.md) | Teaching coding agents to plan in tasks and document in the wiki |
 | [Keyboard shortcuts](Guide/Keyboard-shortcuts.md) | Every key, in the app and in the editor |
-| [Settings](Guide/Settings.md) | The Settings view and every key of `.gitdesk.yml` |
+| [Settings](Guide/Settings.md) | The Settings view and every key of `.genbeya.yml` |
 
 ## The window
 
@@ -23,7 +23,7 @@ The sidebar on the left switches between the five views of the open repository �
 
 ## Moving around
 
-- `Ctrl+K` jumps to a page, task or file by name, or runs a command such as switching branch, merging or pushing. Paste a GitDesk link there to open it.
+- `Ctrl+K` jumps to a page, task or file by name, or runs a command such as switching branch, merging or pushing. Paste a Genbeya link there to open it.
 - `Ctrl+Shift+F`, or `/` at the start of the `Ctrl+K` palette, finds text inside pages, tasks and code — see [Search](Guide/Search.md).
 - `Alt+←` and `Alt+→`, or the mouse's back and forward buttons, walk through where you have been.
 - `/` focuses the filter of the current view, `?` lists the shortcuts.

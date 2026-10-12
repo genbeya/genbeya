@@ -52,7 +52,7 @@ export function contentAreaOf(path: string, settings: Pick<Settings, "wikiRoot" 
   return within(path, settings.wikiRoot) ? "wiki" : null;
 }
 
-/** "GitDesk" → "GD", "my project" → "MP", "atlas" → "ATL". */
+/** "TaskBoard" → "TB", "my project" → "MP", "atlas" → "ATL". */
 function prefixFor(name: string): string {
   const capitals = name.match(/[A-Z]/g) ?? [];
   const words = name.split(/[^A-Za-z0-9]+/).filter(Boolean);

@@ -8,5 +8,5 @@ export interface Platform {
   readonly shell: ShellContract;
 }
 
-export const MANAGERS = new InjectionToken<Managers>("GitDesk managers");
-export const SHELL = new InjectionToken<ShellContract>("GitDesk shell");
+export const MANAGERS = new InjectionToken<Managers>("Genbeya managers");
+export const SHELL = new InjectionToken<ShellContract>("Genbeya shell");

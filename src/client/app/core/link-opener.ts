@@ -1,12 +1,12 @@
 /**
- * Opens the item a GitDesk link names: in the open repository when it has
+ * Opens the item a Genbeya link names: in the open repository when it has
  * the link's remote, else in a recent repository that had it. Remote URLs
  * match in any form (https or ssh, with or without user name and `.git`).
  * Links only ever show an item; they run nothing.
  */
 import { ApplicationRef, Injectable, inject } from "@angular/core";
 import { Router } from "@angular/router";
-import type { GitdeskLink, LinkItem } from "../../../contracts/gitdesk-link";
+import type { GenbeyaLink, LinkItem } from "../../../contracts/genbeya-link";
 import { sameLocation, type RecentEntry } from "../../../contracts/model";
 import { sameRepository } from "../../../utilities/remote-url";
 import { MANAGERS } from "../platform/platform";
@@ -33,8 +33,8 @@ export class LinkOpener {
   private readonly router = inject(Router);
   private readonly app = inject(ApplicationRef);
 
-  /** Resolves to false when no repository GitDesk knows has the link's remote. */
-  async open({ remote, item }: GitdeskLink): Promise<boolean> {
+  /** Resolves to false when no repository Genbeya knows has the link's remote. */
+  async open({ remote, item }: GenbeyaLink): Promise<boolean> {
     const matches = (urls: readonly string[]) => urls.some((url) => sameRepository(url, remote));
     const open = this.session.snapshot();
     if (!open || !matches(open.remotes.map((candidate) => candidate.url))) {

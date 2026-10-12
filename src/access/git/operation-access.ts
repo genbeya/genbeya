@@ -17,7 +17,7 @@ import { OPERATION_FILES, parseOperation, parseRebaseCommits, REBASE_FORMAT, typ
 /** The operation files are small; a larger one is not git's. */
 const OPERATION_FILE_LIMIT = 64 * 1024;
 /** Where the todo list and messages of an interactive rebase are prepared, in the git directory. */
-const REBASE_FOLDER = "gitdesk-rebase";
+const REBASE_FOLDER = "genbeya-rebase";
 /** Git's folder for the state of an interactive rebase, in the git directory; it goes when the rebase ends. */
 const REBASE_STATE = "rebase-merge";
 /** Rebases rewriting more commits than this are for the terminal. */
@@ -95,7 +95,7 @@ export class OperationAccess {
   async plan(base: string): Promise<RebasePlan> {
     const hash = (await this.git.text(["rev-parse", "--verify", "--end-of-options", `${base}^{commit}`])).trim();
     const count = Number(await this.git.text(["rev-list", "--count", `${hash}..HEAD`]));
-    if (count > REBASE_LIMIT) throw new GitError(`That rewrites ${count} commits; GitDesk rebases up to ${REBASE_LIMIT} at a time.`);
+    if (count > REBASE_LIMIT) throw new GitError(`That rewrites ${count} commits; Genbeya rebases up to ${REBASE_LIMIT} at a time.`);
     const commits = parseRebaseCommits(await this.git.text(["log", "--reverse", `--format=${REBASE_FORMAT}`, `${hash}..HEAD`]));
     // History is linear from the oldest rewritten commit, so a branch with any of them has that one.
     const pushed = commits.length

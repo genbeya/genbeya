@@ -6,6 +6,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SHELL_OPERATIONS, type ShellOperation } from "../../contracts/bridges";
+import { LINK_SCHEMES } from "../../contracts/genbeya-link";
 import type { Theme } from "../../contracts/model";
 import { dispatch } from "../../contracts/rpc";
 import { locationOfFolder } from "../../access/hosts/host-factory";
@@ -14,14 +15,14 @@ import { nodeMachine } from "../../platforms/node/node-machine";
 import { withoutLinks } from "../../utilities/launch-request";
 import { updateJumpList } from "./jump-list";
 import { CONTENT_SECURITY_POLICY } from "../content-security-policy";
-import { isRendererPage, RENDERER_URL, resolveAsset } from "./renderer-protocol";
-import { placeOnScreen, WindowState } from "./window-state";
+import { isRendererPage, RENDERER_SCHEME, RENDERER_URL, resolveAsset } from "./renderer-protocol";
+import { placeOnScreen, WINDOW_STATE_FILE, WindowState } from "./window-state";
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: "gitdesk", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
+  { scheme: RENDERER_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ]);
 
-const DEV_ORIGIN = !app.isPackaged ? (process.env["GITDESK_DEV_SERVER"] ?? null) : null;
+const DEV_ORIGIN = !app.isPackaged ? (process.env["GENBEYA_DEV_SERVER"] ?? null) : null;
 const CLIENT_ROOT = path.resolve(__dirname, "../client/browser");
 const THEMES: readonly Theme[] = ["system", "light", "dark"];
 /** Workspace calls after which the recent list may have changed. */
@@ -31,9 +32,10 @@ const RECENT_CHANGES = new Set(["open", "restore", "clone", "forget"]);
 const primary = app.requestSingleInstanceLock();
 if (!primary) app.exit(0);
 
-// The installed app opens gitdesk://open links (the renderer's own gitdesk://app is not one): Windows and
-// Linux start it with the link as an argument, macOS hands it over with `open-url`.
-if (primary && app.isPackaged) app.setAsDefaultProtocolClient("gitdesk");
+// The installed app opens genbeya://open links (the renderer's own genbeya://app is not one), and the
+// gitdesk://open links GitDesk made: Windows and Linux start it with the link as an argument, macOS
+// hands it over with `open-url`.
+if (primary && app.isPackaged) for (const scheme of LINK_SCHEMES) app.setAsDefaultProtocolClient(scheme);
 
 /** Links from `open-url`, which comes before the window exists on a cold start; the page reads them with the launch arguments. */
 const openedLinks: string[] = [];
@@ -48,7 +50,7 @@ app.on("open-url", (event, url) => {
 });
 
 function serveClient() {
-  protocol.handle("gitdesk", async (request) => {
+  protocol.handle(RENDERER_SCHEME, async (request) => {
     if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
     try {
       const response = await net.fetch(pathToFileURL(resolveAsset(CLIENT_ROOT, request.url)).href);
@@ -80,7 +82,7 @@ function createWindow(state: WindowState): BrowserWindow {
     ...(saved ? { x: saved.x, y: saved.y } : {}),
     minWidth: 960,
     minHeight: 600,
-    title: "GitDesk",
+    title: "Genbeya",
     show: false,
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#121316" : "#ffffff",
     webPreferences: {
@@ -142,7 +144,7 @@ function connect(window: BrowserWindow, backend: Backend) {
       throw new Error("Untrusted sender.");
   };
 
-  ipcMain.handle("gitdesk:call", async (event, request: { manager?: unknown; method?: unknown }) => {
+  ipcMain.handle("genbeya:call", async (event, request: { manager?: unknown; method?: unknown }) => {
     trusted(event);
     const reply = await dispatch(backend, request);
     if (reply.ok && request?.manager === "workspace" && RECENT_CHANGES.has(String(request.method)))
@@ -160,7 +162,7 @@ function connect(window: BrowserWindow, backend: Backend) {
       await shell.openExternal(url);
     },
     async setTitle(title) {
-      window.setTitle(typeof title === "string" && title.length < 300 ? title : "GitDesk");
+      window.setTitle(typeof title === "string" && title.length < 300 ? title : "Genbeya");
     },
     async setTheme(theme) {
       if (THEMES.includes(theme as Theme)) nativeTheme.themeSource = theme as Theme;
@@ -171,7 +173,7 @@ function connect(window: BrowserWindow, backend: Backend) {
       return [...process.argv, ...openedLinks.splice(0)];
     },
   };
-  ipcMain.handle("gitdesk:shell", (event, operation: unknown, args: unknown) => {
+  ipcMain.handle("genbeya:shell", (event, operation: unknown, args: unknown) => {
     trusted(event);
     if (!SHELL_OPERATIONS.includes(operation as ShellOperation)) throw new Error("Unknown shell operation.");
     return operations[operation as ShellOperation](...(Array.isArray(args) ? args : []));
@@ -180,9 +182,20 @@ function connect(window: BrowserWindow, backend: Backend) {
 
 if (primary) void app.whenReady().then(start);
 
+/**
+ * The data folder of GitDesk, as Genbeya was called before 0.5: named after
+ * its product name, or its package name while unpackaged.
+ */
+const previousData = () => ({
+  folders: ["GitDesk", "gitdesk"].map((name) => path.join(app.getPath("appData"), name)),
+  files: [WINDOW_STATE_FILE],
+});
+
 async function start() {
   const userData = app.getPath("userData");
-  const [backend, state] = await Promise.all([createBackend(nodeMachine(), userData), WindowState.load(userData)]);
+  // The backend takes GitDesk's data over on a first start, the window's included.
+  const backend = await createBackend(nodeMachine(), userData, previousData());
+  const state = await WindowState.load(userData);
   serveClient();
   setMenu();
   const window = createWindow(state);
@@ -191,7 +204,7 @@ async function start() {
   handOver = (args) => {
     if (window.isMinimized()) window.restore();
     window.focus();
-    window.webContents.send("gitdesk:second-launch", args);
+    window.webContents.send("genbeya:second-launch", args);
   };
   app.on("second-instance", (_event, argv) => handOver?.(argv));
   // Once the window has closed (the page may still veto that), quitting waits for repositories to close and state to be written.

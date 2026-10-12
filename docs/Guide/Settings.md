@@ -1,6 +1,6 @@
 # Settings
 
-**Settings** (`Ctrl+,`, or at the bottom of the sidebar) holds the project's shared settings and your own preferences. This page also describes every key of `.gitdesk.yml`, for editing it by hand.
+**Settings** (`Ctrl+,`, or at the bottom of the sidebar) holds the project's shared settings and your own preferences. This page also describes every key of `.genbeya.yml`, for editing it by hand.
 
 [TOC]
 
@@ -8,21 +8,21 @@
 
 | Section | What it holds | Shared with |
 | --- | --- | --- |
-| **Project** | Name, task ID prefix, wiki folder and home page, task folder, **Workflow**, **Task types**, **Custom fields** | Everyone: saved to `.gitdesk.yml` |
+| **Project** | Name, task ID prefix, wiki folder and home page, task folder, **Workflow**, **Task types**, **Custom fields** | Everyone: saved to `.genbeya.yml` |
 | **Where content lives** | Whether the wiki, the tasks and the settings live in the checkout or on the [Content branch](../Architecture/Content-branch.md), and **Sync automatically** | Everyone, through the content branch |
 | **AI agents** | Files that teach coding agents to use the tasks and the wiki — see [AI agents](AI-agents.md) | Everyone, once committed |
 | **Remotes** | Add, edit and remove Git remotes | This clone |
 | **App** | Theme, **Reopen last repository** on start, **Show minimap** in the editor | This computer |
 | **Help** | The version, **Start the tour**, **Show what's new**, **Open the documentation** | — |
 
-Changes to **Project** wait for **Save** (`Ctrl+S`) or **Discard**; everything else applies right away. Saving writes `.gitdesk.yml`, an ordinary change to commit in **Changes** — unless the settings live on the content branch, where the save is committed right away.
+Changes to **Project** wait for **Save** (`Ctrl+S`) or **Discard**; everything else applies right away. Saving writes `.genbeya.yml`, an ordinary change to commit in **Changes** — unless the settings live on the content branch, where the save is committed right away.
 
-## .gitdesk.yml
+## .genbeya.yml
 
-`.gitdesk.yml` sits at the root of the checkout, or of the content branch when the settings live there. Every key is optional; a repository without the file uses the defaults below. This is GitDesk's own file:
+`.genbeya.yml` sits at the root of the checkout, or of the content branch when the settings live there. Every key is optional; a repository without the file uses the defaults below. This is Genbeya's own file:
 
 ```yaml
-name: GitDesk
+name: Genbeya
 wikiRoot: docs
 wikiHome: Home.md
 taskRoot: tasks
@@ -35,7 +35,13 @@ statuses:
   - done
 ```
 
-GitDesk rewrites only the keys whose values you changed. Comments, keys it does not know and the spelling of everything else stay as they are, so the file can be edited by hand and in **Settings** alike.
+Genbeya rewrites only the keys whose values you changed. Comments, keys it does not know and the spelling of everything else stay as they are, so the file can be edited by hand and in **Settings** alike.
+
+### Settings file names
+
+Genbeya was called GitDesk before 0.5, and repositories set up then have `.gitdesk.yml` instead. Genbeya reads that file, and saves to it, while the repository has no `.genbeya.yml`: teammates still on GitDesk keep sharing the settings. **Settings → Project** says which file it uses and offers **Rename to .genbeya.yml** once everyone has updated. The rename is staged in the checkout, to commit like any change, or committed on the content branch when the settings live there; it also renames `.gitdesk-content` on the content branch.
+
+When both files exist, `.genbeya.yml` wins, and **Settings** warns that `.gitdesk.yml` is left over: delete it once nobody uses GitDesk any more.
 
 ### Project
 
@@ -45,7 +51,7 @@ GitDesk rewrites only the keys whose values you changed. Comments, keys it does 
 | `wikiRoot` | folder | `docs` | The wiki folder, relative to the repository root |
 | `wikiHome` | Markdown file | `Home.md` | The wiki's first page, relative to `wikiRoot` |
 | `taskRoot` | folder | `tasks` | The task folder. It must not contain the wiki folder, nor the other way round |
-| `taskPrefix` | letters and digits, starting with a letter, up to 12 | From the name: its capitals (`GitDesk` → `GD`), the first letters of its words (`my project` → `MP`), or its first three letters (`atlas` → `ATL`) | New tasks are `GENBEYA-1`, `GENBEYA-2`, … Written in capitals |
+| `taskPrefix` | letters and digits, starting with a letter, up to 12 | From the name: its capitals (`TaskBoard` → `TB`), the first letters of its words (`my project` → `MP`), or its first three letters (`atlas` → `ATL`) | New tasks are `GENBEYA-1`, `GENBEYA-2`, … Written in capitals |
 
 Changing a folder does not move any files: move them first, then change the setting. Changing the prefix leaves existing IDs as they are.
 
@@ -119,11 +125,11 @@ fields:
 | `date` | `YYYY-MM-DD` |
 | `choice` | One of `options`: 1 to 30 unique values of up to 60 characters |
 
-Names start with a letter and use letters, digits, `-` and `_`, up to 40 characters, unique ignoring case. GitDesk's own task keys are taken: `id`, `title`, `type`, `status`, `priority`, `assignee`, `labels`, `epic`. The key is left out while there are no fields.
+Names start with a letter and use letters, digits, `-` and `_`, up to 40 characters, unique ignoring case. Genbeya's own task keys are taken: `id`, `title`, `type`, `status`, `priority`, `assignee`, `labels`, `epic`. The key is left out while there are no fields.
 
 ### people
 
-The project's people, for `@mentions` and the **Assignee** menu. GitDesk finds people on its own, from commits, assignees and comments (see [Writing pages](Writing.md#who-is-in-the-list)); list them here to give them a handle of your choice, a name, or to join several names and emails into one person. Up to 500.
+The project's people, for `@mentions` and the **Assignee** menu. Genbeya finds people on its own, from commits, assignees and comments (see [Writing pages](Writing.md#who-is-in-the-list)); list them here to give them a handle of your choice, a name, or to join several names and emails into one person. Up to 500.
 
 ```yaml
 people:
@@ -137,7 +143,7 @@ people:
 
 - `handle` and `name` are required. Handles use letters, digits, `-` and `_`, starting and ending with a letter or digit, up to 39 characters, unique ignoring case.
 - `email` and `aliases` are optional. Commits, assignees and comments under the email or an alias count as this person; an alias shaped like a handle also mentions them (`@lovelace`). An alias must not be another person's handle.
-- A listed person keeps their handle; people GitDesk derives handles for get others when they would clash.
+- A listed person keeps their handle; people Genbeya derives handles for get others when they would clash.
 
 The key is left out while no one is listed; **Settings** keeps it as written.
 
@@ -149,12 +155,12 @@ The key is left out while no one is listed; **Settings** keeps it as written.
 
 Any other name shows a generic icon.
 
-## .gitdesk-content
+## .genbeya-content
 
-When a [Content branch](../Architecture/Content-branch.md) exists, the file `.gitdesk-content` at its root says where each area lives. GitDesk writes it whenever an area moves in **Settings → Where content lives**; there is no need to edit it.
+When a [Content branch](../Architecture/Content-branch.md) exists, the file `.genbeya-content` at its root says where each area lives. Genbeya writes it whenever an area moves in **Settings → Where content lives**; there is no need to edit it.
 
 ```ini
-# Where GitDesk keeps each area: "branch" is this content branch,
+# Where Genbeya keeps each area: "branch" is this content branch,
 # "checkout" is the checked-out code branch of every clone.
 [areas]
 	wiki = checkout
@@ -162,19 +168,21 @@ When a [Content branch](../Architecture/Content-branch.md) exists, the file `.gi
 	settings = checkout
 ```
 
-Areas it does not name live in the checkout. A content branch without the file holds all three, as content branches did before areas could be split.
+Areas it does not name live in the checkout. A content branch without the file holds all three, as content branches did before areas could be split. A content branch GitDesk made may have `.gitdesk-content` instead, which Genbeya reads and keeps writing until it is renamed in **Settings**.
 
 ## Git configuration
 
-Two keys of `git config` change how GitDesk treats one clone:
+Two keys of `git config` change how Genbeya treats one clone:
 
 | Key | Meaning |
 | --- | --- |
-| `gitdesk.branch` | The name of the content branch, instead of `gitdesk` |
-| `gitdesk.storage` | `worktree` keeps every area of this clone in its checkout, whatever the team's layout: a personal opt-out. Choosing a layout in **Settings** removes it |
+| `genbeya.branch` | The name of the content branch, instead of `genbeya` (or `gitdesk`, where GitDesk made that branch) |
+| `genbeya.storage` | `worktree` keeps every area of this clone in its checkout, whatever the team's layout: a personal opt-out. Choosing a layout in **Settings** removes it |
+
+GitDesk's keys, `gitdesk.branch` and `gitdesk.storage`, still apply while the `genbeya` key is not set.
 
 ```bash
-git config gitdesk.branch team-content
+git config genbeya.branch team-content
 ```
 
 ## Personal preferences

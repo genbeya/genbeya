@@ -1,5 +1,5 @@
 /**
- * Getting to know GitDesk: the welcome card and sample repository for new
+ * Getting to know Genbeya: the welcome card and sample repository for new
  * users, the tour offered once in each repository until the user has seen
  * it, and what's new after an update. What the user has seen is kept in the
  * preferences. The tour's steps and the news load when they are shown.
@@ -33,7 +33,7 @@ export class Onboarding {
   private readonly repositories = inject(Repositories);
   private readonly offered = signal(false);
 
-  /** The welcome screen introduces GitDesk until the user opened a repository or took the tour. */
+  /** The welcome screen introduces Genbeya until the user opened a repository or took the tour. */
   readonly introduce = computed(() => !this.session.preferences().tourSeen && !this.repositories.recent().length);
   /** Whether the open repository offers the tour. */
   readonly offer = this.offered.asReadonly();

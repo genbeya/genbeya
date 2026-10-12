@@ -9,7 +9,7 @@ const defaults = engine.defaults("Test Project");
 
 describe("SettingsEngine", () => {
   it("derives a task prefix from the project name", () => {
-    expect(engine.defaults("GitDesk").taskPrefix).toBe("GD");
+    expect(engine.defaults("TaskBoard").taskPrefix).toBe("TB");
     expect(engine.defaults("my project").taskPrefix).toBe("MP");
     expect(engine.defaults("atlas").taskPrefix).toBe("ATL");
     expect(engine.defaults("---").taskPrefix).toBe("T");

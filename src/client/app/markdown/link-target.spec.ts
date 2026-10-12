@@ -17,8 +17,8 @@ describe("resolveHref", () => {
   it("recognises external links, anchors, missing pages and people", () => {
     expect(resolveHref("docs/Home.md", "https://example.com")).toEqual({ kind: "external", url: "https://example.com" });
     expect(resolveHref("docs/Home.md", "#top")).toEqual({ kind: "anchor", id: "top" });
-    expect(resolveHref("docs/Home.md", "gitdesk-missing:New%20Page")).toEqual({ kind: "missing", title: "New Page" });
-    expect(resolveHref("docs/Home.md", "gitdesk-person:ada")).toEqual({ kind: "person", handle: "ada" });
+    expect(resolveHref("docs/Home.md", "genbeya-missing:New%20Page")).toEqual({ kind: "missing", title: "New Page" });
+    expect(resolveHref("docs/Home.md", "genbeya-person:ada")).toEqual({ kind: "person", handle: "ada" });
   });
 
   it("keeps malformed escapes", () => {

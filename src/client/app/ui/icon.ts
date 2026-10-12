@@ -1,5 +1,5 @@
 /**
- * GitDesk's icons: `<svg gd-icon name="name">` in templates, {@link iconElement}
+ * Genbeya's icons: `<svg gd-icon name="name">` in templates, {@link iconElement}
  * for DOM that Angular does not render (CodeMirror's panels and gutters).
  * Both draw the shapes in icon-data.ts the way Lucide draws them.
  */

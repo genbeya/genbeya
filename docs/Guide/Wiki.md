@@ -66,7 +66,7 @@ A folder without a matching page still shows up and lists its children. **New su
 [Writing pages](Writing.md) has more: math, code blocks with titles, line numbers and highlighted lines, foldable callouts, footnotes, keys and collapsible sections.
 
 > [!TIP]
-> PlantUML diagrams render inside GitDesk with [rockuml](https://github.com/h3ll5ur7er/rockuml): no Java, no server, and the diagram source never leaves your machine. A diagram may start with `@startuml` or contain just the body.
+> PlantUML diagrams render inside Genbeya with [rockuml](https://github.com/h3ll5ur7er/rockuml): no Java, no server, and the diagram source never leaves your machine. A diagram may start with `@startuml` or contain just the body.
 
 ## Diagrams
 
@@ -88,4 +88,4 @@ flowchart LR
 
 ## Images
 
-Images stored in the repository render inline: `![Board](images/task-board.png)`, relative to the page. They belong to the wiki, so while the wiki lives on the [Content branch](../Architecture/Content-branch.md), GitDesk loads them from there. Remote images are not loaded; they show as a link.
+Images stored in the repository render inline: `![Board](images/task-board.png)`, relative to the page. They belong to the wiki, so while the wiki lives on the [Content branch](../Architecture/Content-branch.md), Genbeya loads them from there. Remote images are not loaded; they show as a link.

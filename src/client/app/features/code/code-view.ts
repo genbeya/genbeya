@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, type ElementRef, inject, input, signal, viewChild } from "@angular/core";
 import { Router } from "@angular/router";
-import type { LinkItem } from "../../../../contracts/gitdesk-link";
+import type { LinkItem } from "../../../../contracts/genbeya-link";
 import type { FileNode } from "../../../../contracts/model";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";

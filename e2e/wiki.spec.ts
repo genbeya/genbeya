@@ -27,13 +27,13 @@ test.describe("wiki", () => {
     const editor = window.getByRole("textbox", { name: "Page source" });
     await expect(editor).toBeFocused();
     await window.keyboard.press(`${MOD}+End`);
-    await window.keyboard.type("\nEdited in GitDesk.\n");
-    await expect(window.locator(".wiki-preview")).toContainText("Edited in GitDesk.");
+    await window.keyboard.type("\nEdited in Genbeya.\n");
+    await expect(window.locator(".wiki-preview")).toContainText("Edited in Genbeya.");
     await window.keyboard.press(`${MOD}+s`);
     await expect(window.getByLabel("Unsaved changes")).toBeHidden();
-    expect(repository.read("docs/Home.md")).toContain("Edited in GitDesk.");
+    expect(repository.read("docs/Home.md")).toContain("Edited in Genbeya.");
     await window.keyboard.press("Escape");
-    await expect(window.locator(".document-article")).toContainText("Edited in GitDesk.");
+    await expect(window.locator(".document-article")).toContainText("Edited in Genbeya.");
   });
 
   test("asks before leaving a page with unsaved edits", async ({ window }) => {

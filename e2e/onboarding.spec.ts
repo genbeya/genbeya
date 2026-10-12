@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, MOD, savedPreferences, SEEN, sizedWindow, test, VERSION } from "./app";
 
@@ -26,23 +26,25 @@ test.describe("onboarding", () => {
   test.describe("a first start", () => {
     test.use({ preferences: null });
 
-    test("introduces GitDesk, creates the sample project and tours it", async ({ launch, profile }, testInfo) => {
+    test("introduces Genbeya, creates the sample project and tours it", async ({ launch, profile }, testInfo) => {
       const parent = testInfo.outputPath("projects");
       mkdirSync(parent, { recursive: true });
       const app = await launch();
       const window = await sizedWindow(app);
-      const welcome = window.getByRole("region", { name: "Welcome to GitDesk" });
+      const welcome = window.getByRole("region", { name: "Welcome to Genbeya" });
       await expect(welcome).toBeVisible();
 
       // The folder dialog is the system's; it answers with the test's folder.
       await app.evaluate(({ dialog }, folder) => {
         dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [folder] });
       }, parent);
-      await welcome.getByRole("button", { name: "Try GitDesk with a sample project" }).click();
+      await welcome.getByRole("button", { name: "Try Genbeya with a sample project" }).click();
       await expect(window.locator(".workspace-name")).toHaveText("Pocket Weather");
+      expect(existsSync(path.join(parent, "genbeya-sample", ".genbeya.yml"))).toBe(true);
+      expect(existsSync(path.join(parent, "genbeya-sample", ".gitdesk.yml"))).toBe(false);
       await expect(window.locator(".document-article").getByRole("heading", { level: 1, name: "Pocket Weather" })).toBeVisible();
 
-      const offer = window.getByRole("region", { name: "New to GitDesk?" });
+      const offer = window.getByRole("region", { name: "New to Genbeya?" });
       await offer.getByRole("button", { name: "Show me around" }).click();
       const titles = await takeTour(window);
       expect(titles).toEqual(expect.arrayContaining(["The wiki", "Write pages", "Tasks", "Changes", "Terminal", "Share"]));
@@ -52,7 +54,7 @@ test.describe("onboarding", () => {
       await expect.poll(() => savedPreferences(profile).tourSeen).toBe(true);
       expect(savedPreferences(profile)).toMatchObject({
         lastSeenVersion: VERSION,
-        tourOffered: [`local:${path.join(parent, "gitdesk-sample")}`],
+        tourOffered: [`local:${path.join(parent, "genbeya-sample")}`],
       });
     });
   });
@@ -61,7 +63,7 @@ test.describe("onboarding", () => {
     test.use({ preferences: { ...SEEN, lastSeenVersion: "0.2.0" } });
 
     test("shows what's new once", async ({ window, profile }) => {
-      const news = window.getByRole("dialog", { name: /^What's new in GitDesk / });
+      const news = window.getByRole("dialog", { name: /^What's new in Genbeya / });
       await expect(news).toBeVisible();
       await news.getByRole("button", { name: "Got it" }).click();
       await expect(news).toBeHidden();
@@ -74,7 +76,7 @@ test.describe("onboarding", () => {
     test.use({ preferences: { theme: "system", reopenLast: true, autoSyncContent: false, minimap: true } });
 
     test("shows what's new rather than treating the user as new", async ({ window, profile }) => {
-      const news = window.getByRole("dialog", { name: /^What's new in GitDesk / });
+      const news = window.getByRole("dialog", { name: /^What's new in Genbeya / });
       await expect(news).toBeVisible();
       await news.getByRole("button", { name: "Got it" }).click();
       await expect.poll(() => savedPreferences(profile).lastSeenVersion).toBe(VERSION);
@@ -82,7 +84,7 @@ test.describe("onboarding", () => {
   });
 
   test("brings the tour back from the palette, and Escape ends it", async ({ window }) => {
-    await expect(window.getByRole("region", { name: "New to GitDesk?" })).toBeHidden();
+    await expect(window.getByRole("region", { name: "New to Genbeya?" })).toBeHidden();
     await window.keyboard.press(`${MOD}+k`);
     await window.getByRole("dialog", { name: "Command palette" }).getByRole("combobox").fill("start the tour");
     await window.keyboard.press("Enter");

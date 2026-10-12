@@ -1,5 +1,5 @@
 import { renderMarkdownTree } from "./markdown-dom";
-import { parseMarkdown, type GitdeskOptions } from "./markdown-pipeline";
+import { parseMarkdown, type GenbeyaOptions } from "./markdown-pipeline";
 import type { ReferenceSources } from "./references";
 
 const references: ReferenceSources = {
@@ -13,7 +13,7 @@ const references: ReferenceSources = {
   files: ["src/app.ts"],
 };
 
-function render(markdown: string, options: GitdeskOptions = {}, interactiveCheckboxes = false) {
+function render(markdown: string, options: GenbeyaOptions = {}, interactiveCheckboxes = false) {
   const rendered = renderMarkdownTree(parseMarkdown(markdown, options), document, { path: "docs/Guide/Wiki.md", interactiveCheckboxes });
   const container = document.createElement("div");
   container.append(rendered.fragment);
@@ -48,7 +48,7 @@ describe("wiki extensions", () => {
     expect(pages[0]!.querySelector("svg")).not.toBeNull();
     const missing = container.querySelector(".md-missing")!;
     expect([missing.getAttribute("href"), missing.getAttribute("title"), missing.textContent]).toEqual([
-      "gitdesk-missing:Nope",
+      "genbeya-missing:Nope",
       "Create this page",
       "Nope",
     ]);

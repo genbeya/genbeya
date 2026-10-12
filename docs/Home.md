@@ -1,11 +1,11 @@
-# GitDesk
+# Genbeya
 
-GitDesk gives one Git repository a wiki, a task board, a code editor, Git tools and a terminal, in one desktop window. Everything it shows is a plain file in the repository — Markdown pages, one Markdown file per task, `.gitdesk.yml` for settings — so it works with any Git host and any other tool, and your project's knowledge travels with its code.
+Genbeya gives one Git repository a wiki, a task board, a code editor, Git tools and a terminal, in one desktop window. Everything it shows is a plain file in the repository — Markdown pages, one Markdown file per task, `.genbeya.yml` for settings — so it works with any Git host and any other tool, and your project's knowledge travels with its code.
 
 ![The wiki, showing references to pages, a task and a file, and an embed of a file's lines](images/wiki-references.png)
 
 > [!TIP]
-> You are reading GitDesk's own wiki. Open this repository in GitDesk to see it as intended: the references below show live titles and states, and the task board holds the real backlog.
+> You are reading Genbeya's own wiki. Open this repository in Genbeya to see it as intended: the references below show live titles and states, and the task board holds the real backlog.
 
 [TOC]
 
@@ -20,9 +20,9 @@ GitDesk gives one Git repository a wiki, a task board, a code editor, Git tools 
 | Search | Find text in pages, tasks and code | — | [Search](Guide/Search.md) |
 | Version control | Commit, branch, merge, rebase, stash and resolve conflicts | Git | [Version control](Guide/Version-control.md) |
 | Terminal | A shell in the repository, wherever it lives | — | [Terminal](Guide/Terminal.md) |
-| Sharing | Send a link that opens a page, task, file or commit in a coworker's GitDesk | — | [Sharing](Guide/Sharing.md) |
+| Sharing | Send a link that opens a page, task, file or commit in a coworker's Genbeya | — | [Sharing](Guide/Sharing.md) |
 | AI agents | Teach coding agents to work with the tasks and the wiki | Skill and instruction files | [AI agents](Guide/AI-agents.md) |
-| Settings | Folders, task prefix, workflow, types, fields | `.gitdesk.yml` | [Settings](Guide/Settings.md) |
+| Settings | Folders, task prefix, workflow, types, fields | `.genbeya.yml` | [Settings](Guide/Settings.md) |
 
 Repositories can live on this computer, in WSL or on an SSH server; Git always runs where the repository is.
 

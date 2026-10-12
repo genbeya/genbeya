@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "gitdesk": {
+    "genbeya": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -86,10 +86,10 @@
           },
           "configurations": {
             "production": {
-              "buildTarget": "gitdesk:build:production"
+              "buildTarget": "genbeya:build:production"
             },
             "development": {
-              "buildTarget": "gitdesk:build:development"
+              "buildTarget": "genbeya:build:development"
             }
           },
           "defaultConfiguration": "development"

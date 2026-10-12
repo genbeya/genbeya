@@ -1,6 +1,6 @@
 # References
 
-Write `[[` and a name, and GitDesk links it to a task, a page or a file in the repository and shows what it points at: a task's title and current status, a page's title, a file's lines. Like smart links in Confluence and Jira, but the reference is plain text in your repository, so it diffs, merges and greps like everything else, and it works offline.
+Write `[[` and a name, and Genbeya links it to a task, a page or a file in the repository and shows what it points at: a task's title and current status, a page's title, a file's lines. Like smart links in Confluence and Jira, but the reference is plain text in your repository, so it diffs, merges and greps like everything else, and it works offline.
 
 ![A wiki page with references to pages, a task and a file, and an embed of a file's lines](../images/wiki-references.png)
 
@@ -8,25 +8,25 @@ Write `[[` and a name, and GitDesk links it to a task, a page or a file in the r
 
 ## At a glance
 
-Each row shows what you write and, next to it, how this page renders it. The examples point at this repository's own tasks, pages and files, so open GitDesk's repository in GitDesk to see them live.
+Each row shows what you write and, next to it, how this page renders it. The examples point at this repository's own tasks, pages and files, so open Genbeya's repository in Genbeya to see them live.
 
-| You write | GitDesk shows |
+| You write | Genbeya shows |
 | --- | --- |
 | A task by ID: `[[GENBEYA-9]]` | [[GENBEYA-9]] |
 | A page by title: `[[Getting started]]` | [[Getting started]] |
 | A page by path: `[[Guide/Wiki]]` | [[Guide/Wiki]] |
 | A section of a page: `[[Tasks#comments]]` | [[Tasks#comments]] |
 | A file: `[[src/client/app/app.ts]]` | [[src/client/app/app.ts]] |
-| Lines of a file: `[[.gitdesk.yml#L6-L11]]` | [[.gitdesk.yml#L6-L11]] |
+| Lines of a file: `[[.genbeya.yml#L6-L11]]` | [[.genbeya.yml#L6-L11]] |
 | Your own text: `[[GENBEYA-14\|the rewrite]]` | [[GENBEYA-14\|the rewrite]] |
 | A page that does not exist yet: `[[Meeting notes]]` | [[Meeting notes]] — click to create it |
 | A file that is not in the repository: `[[src/old-name.ts]]` | [[src/old-name.ts]] |
 | A task ID in plain text: `GENBEYA-17` | GENBEYA-17, with its title and status as a tooltip |
-| An embed, on its own line: `![[.gitdesk.yml#L6-L11]]` | The lines themselves, as below |
+| An embed, on its own line: `![[.genbeya.yml#L6-L11]]` | The lines themselves, as below |
 
-![[.gitdesk.yml#L6-L11]]
+![[.genbeya.yml#L6-L11]]
 
-References work wherever GitDesk shows Markdown: wiki pages, task descriptions, task comments, and Markdown files previewed in **Code**.
+References work wherever Genbeya shows Markdown: wiki pages, task descriptions, task comments, and Markdown files previewed in **Code**.
 
 ## Tasks
 
@@ -85,7 +85,7 @@ A file reference alone on its own line, starting with `!`, shows the lines thems
 
 ## Writing references
 
-Type `[[` in the editor of a page, a task description or a Markdown file in **Code**, and GitDesk lists what you can link: tasks by ID and title (with their status), pages by title (by path when titles repeat) and files by path. Type to narrow the list, `Enter` inserts the reference with its closing `]]`. Add `#L10-L20` or `|text` by hand.
+Type `[[` in the editor of a page, a task description or a Markdown file in **Code**, and Genbeya lists what you can link: tasks by ID and title (with their status), pages by title (by path when titles repeat) and files by path. Type to narrow the list, `Enter` inserts the reference with its closing `]]`. Add `#L10-L20` or `|text` by hand.
 
 The comment box under a task has no list: type the reference in full, such as `[[GENBEYA-12]]`; it renders once the comment is added.
 
@@ -95,7 +95,7 @@ The comment box under a task has no list: type the reference in full, such as `[
 - **Tasks**: references by ID never break, whichever epic the task is in.
 - **Files**: renaming a code file outside the wiki does not rewrite references to it. They turn dashed, so you see what to fix; [search](Search.md) for the old path to find them.
 
-## Outside GitDesk
+## Outside Genbeya
 
 References are plain text. On GitHub, GitLab or in any editor, `[[GENBEYA-12]]` reads as written: still clear to a human, and still found by search. Relative Markdown links (`[Tasks](Tasks.md)`) work in both places; use them for pages that are mostly read on a Git host, and references where the live status and titles matter. This documentation does both: its pages link each other with relative links, so they also work on GitHub, and its examples use references.
 

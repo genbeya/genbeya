@@ -92,7 +92,7 @@ describe("StagingAccess", () => {
     await expect(staging.apply(patch, { cached: true, reverse: false })).rejects.toThrow("patch does not apply");
     await staging.apply(patch, { cached: false, reverse: true });
     expect(await repository.read("a.txt")).toBe("a\n");
-    expect(await repository.exists(".git/gitdesk.patch")).toBe(false);
+    expect(await repository.exists(".git/genbeya.patch")).toBe(false);
   });
 
   it("adds untracked files with intent, resets index entries and stops tracking", async () => {

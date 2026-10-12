@@ -10,7 +10,7 @@ const BASE = path.resolve(".test-work");
 export async function temporaryFolder(prefix = "t-", outsideRepository = false): Promise<string> {
   const base = outsideRepository ? await fs.realpath(tmpdir()) : BASE;
   await fs.mkdir(base, { recursive: true });
-  const folder = await fs.mkdtemp(path.join(base, `gitdesk-${prefix}`));
+  const folder = await fs.mkdtemp(path.join(base, `genbeya-${prefix}`));
   onTestFinished(() => fs.rm(folder, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }).catch(() => undefined));
   return folder;
 }

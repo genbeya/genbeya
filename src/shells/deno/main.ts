@@ -18,9 +18,11 @@ const CLIENT = new URL("../client/browser/", import.meta.url);
 // WEBVIEW2_USER_DATA_FOLDER names another folder. Deno Desktop creates the webview before this code
 // runs, so setting the variable here is too late: the app starts again with it set, and this
 // instance ends. Its own webview fails without a window. (Deno hides spawned windows by default.)
+// The profile is not taken over from GitDesk Deno, as the app was called before 0.5: it holds caches,
+// and storage for an origin with a new random port on every start.
 if (Deno.build.os === "windows" && !Deno.env.get("WEBVIEW2_USER_DATA_FOLDER")) {
   spawn(Deno.execPath(), Deno.args, {
-    env: { ...Deno.env.toObject(), WEBVIEW2_USER_DATA_FOLDER: `${Deno.env.get("LOCALAPPDATA")}\\GitDesk Deno\\WebView2` },
+    env: { ...Deno.env.toObject(), WEBVIEW2_USER_DATA_FOLDER: `${Deno.env.get("LOCALAPPDATA")}\\Genbeya Deno\\WebView2` },
     detached: true,
     windowsHide: false,
     stdio: "ignore",
@@ -82,23 +84,27 @@ function openExternal(url: unknown): void {
   spawn(command, args, { windowsHide: true, detached: true, stdio: "ignore" }).unref();
 }
 
-const dataFolder =
+/** The app's settings folder, named as the installers name the app (`linux` for Linux). */
+const settingsFolder = (name: string, linux: string) =>
   Deno.build.os === "windows"
-    ? `${Deno.env.get("APPDATA")}\\GitDesk Deno`
+    ? `${Deno.env.get("APPDATA")}\\${name}`
     : Deno.build.os === "darwin"
-      ? `${Deno.env.get("HOME")}/Library/Application Support/GitDesk Deno`
-      : `${Deno.env.get("XDG_CONFIG_HOME") ?? `${Deno.env.get("HOME")}/.config`}/gitdesk-deno`;
+      ? `${Deno.env.get("HOME")}/Library/Application Support/${name}`
+      : `${Deno.env.get("XDG_CONFIG_HOME") ?? `${Deno.env.get("HOME")}/.config`}/${linux}`;
+const dataFolder = settingsFolder("Genbeya Deno", "genbeya-deno");
+/** GitDesk Deno's, whose recent repositories and preferences a first start takes over. */
+const previousFolder = settingsFolder("GitDesk Deno", "gitdesk-deno");
 
 // A failure nobody awaited (a background save) is reported, not fatal: Deno would otherwise end the app.
 addEventListener("unhandledrejection", (event) => {
   event.preventDefault();
-  console.error("GitDesk:", event.reason);
+  console.error("Genbeya:", event.reason);
 });
 
 // node-pty loads under Deno, but opens its Windows pipes with fs calls Deno does not support, and
 // `deno desktop` cannot bundle native modules; the client says the terminal is not available.
-const backend = await createBackend({ ...nodeMachine(), terminals: null }, dataFolder);
-const window = new Deno.BrowserWindow({ title: "GitDesk", width: 1440, height: 920 });
+const backend = await createBackend({ ...nodeMachine(), terminals: null }, dataFolder, { folders: [previousFolder] });
+const window = new Deno.BrowserWindow({ title: "Genbeya", width: 1440, height: 920 });
 
 const operations: Record<ShellOperation, (...args: unknown[]) => Promise<unknown>> = {
   pickFolder: async () => {
@@ -106,14 +112,14 @@ const operations: Record<ShellOperation, (...args: unknown[]) => Promise<unknown
     return folder ? locationOfFolder(folder) : null;
   },
   openExternal: async (url) => openExternal(url),
-  setTitle: async (title) => window.setTitle(typeof title === "string" && title.length < 300 ? title : "GitDesk"),
+  setTitle: async (title) => window.setTitle(typeof title === "string" && title.length < 300 ? title : "Genbeya"),
   // The webview follows the system theme; Deno Desktop cannot change it.
   setTheme: async () => undefined,
   launchArgs: async () => Deno.args,
 };
 
-window.bind("gitdesk", (request: unknown) => dispatch(backend, request));
-window.bind("gitdeskShell", (request: { operation?: unknown; args?: unknown }) => {
+window.bind("genbeya", (request: unknown) => dispatch(backend, request));
+window.bind("genbeyaShell", (request: { operation?: unknown; args?: unknown }) => {
   if (!SHELL_OPERATIONS.includes(request?.operation as ShellOperation)) throw new Error("Unknown shell operation.");
   return operations[request.operation as ShellOperation](...(Array.isArray(request.args) ? request.args : []));
 });

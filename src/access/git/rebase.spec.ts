@@ -41,8 +41,8 @@ async function fixture(host: Host, root: string): Promise<Fixture> {
 
 const subjects = async ({ git }: Fixture, range: string) => (await git("log", "--reverse", "--format=%s", range)).trim().split("\n");
 const pick = (hash: string) => ({ command: "pick", hash }) as const;
-/** True while the todo list and messages GitDesk prepared are still in the git directory. */
-const prepared = async ({ repo, host }: Fixture) => (await host.kind(await repo.operations.gitDir(), "gitdesk-rebase")) !== null;
+/** True while the todo list and messages Genbeya prepared are still in the git directory. */
+const prepared = async ({ repo, host }: Fixture) => (await host.kind(await repo.operations.gitDir(), "genbeya-rebase")) !== null;
 
 function describeInteractiveRebase(name: string, setup: () => Promise<Fixture>) {
   describe(`interactive rebase (${name})`, () => {
@@ -140,7 +140,7 @@ describe("WSL", async () => {
   if (!ubuntu) return it.skip("needs the Ubuntu distribution", () => undefined);
   describeInteractiveRebase("WSL", async () => {
     const host = new HostFactory(machine).connect({ kind: "wsl", distro: "Ubuntu", path: "/tmp" });
-    const root = `/tmp/gitdesk-rebase-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const root = `/tmp/genbeya-rebase-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const script = `mkdir -p ${root} && cd ${root} && git init -q -b main && git config user.name T && git config user.email t@x && git commit -q --allow-empty -m Initial`;
     await host.run("sh", ["-c", script], { cwd: "/" });
     onTestFinished(async () => {

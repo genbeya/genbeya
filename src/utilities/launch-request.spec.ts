@@ -15,18 +15,23 @@ describe("launch requests", () => {
     expect(requestedLocation([42, null])).toBeUndefined();
   });
 
-  it("finds a GitDesk link among the arguments, as operating systems pass it", () => {
-    const link = "gitdesk://open?remote=https://github.com/acme/demo.git&task=DP-1";
-    expect(requestedLink(["GitDesk.exe", "--flag", link])).toEqual({
+  it.each(["genbeya", "gitdesk"])("finds a %s:// link among the arguments, as operating systems pass it", (scheme) => {
+    const link = `${scheme}://open?remote=https://github.com/acme/demo.git&task=DP-1`;
+    expect(requestedLink(["Genbeya.exe", "--flag", link])).toEqual({
       remote: "https://github.com/acme/demo.git",
       item: { kind: "task", id: "DP-1" },
     });
-    expect(requestedLink(["GitDesk.exe"])).toBeUndefined();
-    expect(requestedLink(["GitDesk.exe", "gitdesk://open?task=DP-1", 42])).toBeUndefined();
+    expect(requestedLink(["Genbeya.exe"])).toBeUndefined();
+    expect(requestedLink(["Genbeya.exe", `${scheme}://open?task=DP-1`, 42])).toBeUndefined();
   });
 
-  it("leaves out the links, for a page that already had them", () => {
+  it("leaves out the links of either scheme, for a page that already had them", () => {
     const flag = launchArgument({ kind: "local", path: "/r" });
-    expect(withoutLinks(["GitDesk.exe", "GitDesk://open?remote=x&task=A", flag, "gitdesk://open?task=B"])).toEqual(["GitDesk.exe", flag]);
+    const links = ["Genbeya://open?remote=x&task=A", "genbeya://open?task=B", "GitDesk://open?remote=x&task=C", "gitdesk://open?task=D"];
+    expect(withoutLinks(["Genbeya.exe", links[0]!, flag, ...links.slice(1), "genbeya-notes.txt"])).toEqual([
+      "Genbeya.exe",
+      flag,
+      "genbeya-notes.txt",
+    ]);
   });
 });

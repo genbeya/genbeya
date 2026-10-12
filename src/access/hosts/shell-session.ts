@@ -30,7 +30,7 @@ export const exportVariables = (variables: Readonly<Record<string, string>>): st
  * exit: dash skips the EXIT trap when a signal ends it, hence the second trap.
  */
 const BOOTSTRAP = `
-T=$(mktemp -d 2>/dev/null || mktemp -d -t gitdesk) || exit 1
+T=$(mktemp -d 2>/dev/null || mktemp -d -t genbeya) || exit 1
 trap 'rm -rf "$T"' EXIT
 trap 'exit 1' HUP INT TERM
 ${exportVariables(GIT_ENVIRONMENT)}

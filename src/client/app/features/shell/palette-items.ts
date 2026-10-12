@@ -1,8 +1,8 @@
 /** What the command palette offers, and how a query ranks it. */
-import type { GitdeskLink } from "../../../../contracts/gitdesk-link";
+import type { GenbeyaLink } from "../../../../contracts/genbeya-link";
 import type { Person, RecentEntry, Snapshot, Theme } from "../../../../contracts/model";
 import { sameLocation, syncsContentBranch } from "../../../../contracts/model";
-import { describeLinkItem, parseGitdeskLink } from "../../../../utilities/gitdesk-link";
+import { describeLinkItem, parseGenbeyaLink } from "../../../../utilities/genbeya-link";
 import { parseRemote } from "../../../../utilities/remote-url";
 import { filePaths } from "../../../../utilities/file-tree";
 import { flattenPages } from "../wiki/wiki-pages";
@@ -96,7 +96,7 @@ export interface PaletteCommands {
   toggleMinimap(): void;
   showHelp(): void;
   toggleTerminal(): void;
-  openLink(link: GitdeskLink): void;
+  openLink(link: GenbeyaLink): void;
   startTour(): void;
   showWhatsNew(): void;
   openDocs(): void;
@@ -106,7 +106,7 @@ const GROUP_WEIGHT: Readonly<Record<string, number>> = { Pages: 40, Tasks: 30, "
 const PER_GROUP = 8;
 const WITHOUT_QUERY = 60;
 
-/** Finding the user's mentions, once GitDesk knows who they are. */
+/** Finding the user's mentions, once Genbeya knows who they are. */
 export function mentionItems(me: Person | null, commands: PaletteCommands): PaletteItem[] {
   if (!me) return [];
   return [
@@ -376,14 +376,14 @@ export function allItems(
   return [...go, ...actions, ...repository, ...preferences, ...help, ...pages, ...taskItems, ...fileItems];
 }
 
-/** "Open link" when the query is a GitDesk link, as pasted from a coworker; it replaces every other result. */
+/** "Open link" when the query is a Genbeya link, as pasted from a coworker; it replaces every other result. */
 export function linkItem(query: string, commands: PaletteCommands): PaletteItem | null {
-  const link = parseGitdeskLink(query);
+  const link = parseGenbeyaLink(query);
   const repository = link && parseRemote(link.remote);
   if (!link || !repository) return null;
   return {
     id: "open-link",
-    group: "GitDesk link",
+    group: "Genbeya link",
     label: "Open link",
     detail: `${describeLinkItem(link.item)} in ${repository.host}/${repository.path}`,
     icon: "link",

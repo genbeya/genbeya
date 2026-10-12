@@ -66,7 +66,7 @@ export const nodeProcesses: ProcessRunner = {
           const stderrText = stderr.toString("utf8");
           if (failure?.code === "ENOENT") return resolve({ code: 127, stdout: new Uint8Array(), stderr: startFailure(command, cwd) });
           if (failure?.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
-            return resolve({ code: TOO_MUCH_OUTPUT, stdout: new Uint8Array(), stderr: `${command} wrote more output than GitDesk reads.` });
+            return resolve({ code: TOO_MUCH_OUTPUT, stdout: new Uint8Array(), stderr: `${command} wrote more output than Genbeya reads.` });
           resolve({
             code: !failure ? 0 : typeof failure.code === "number" ? failure.code : failure.killed ? TIMED_OUT : 1,
             stdout: new Uint8Array(stdout),

@@ -164,12 +164,12 @@ export class SettingsView {
       mode === "branch"
         ? {
             title: `Keep ${name} on the content branch`,
-            message: `GitDesk copies ${name} as last committed on the current branch onto the ${branch} branch, which is checked out separately inside .git, and commits every later edit there. The files on your code branches stay as they are; delete them in a normal commit once the team has switched. Everyone else follows when they sync.`,
+            message: `Genbeya copies ${name} as last committed on the current branch onto the ${branch} branch, which is checked out separately inside .git, and commits every later edit there. The files on your code branches stay as they are; delete them in a normal commit once the team has switched. Everyone else follows when they sync.`,
             confirm: "Move to the content branch",
           }
         : {
             title: `Keep ${name} in the checkout`,
-            message: `GitDesk copies ${name} from the ${branch} branch into your checkout as uncommitted changes; commit them like code. The ${branch} branch keeps its copy. Everyone else follows when they sync.`,
+            message: `Genbeya copies ${name} from the ${branch} branch into your checkout as uncommitted changes; commit them like code. The ${branch} branch keeps its copy. Everyone else follows when they sync.`,
             confirm: "Move to the checkout",
           },
     );

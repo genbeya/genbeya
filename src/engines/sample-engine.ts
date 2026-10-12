@@ -1,5 +1,5 @@
 /**
- * The sample repository new users can try GitDesk with: a small project
+ * The sample repository new users can try Genbeya with: a small project
  * whose wiki shows references, embeds, subpages and diagrams, whose tasks
  * span the workflow and an epic, with a few commits of history and one
  * change left to commit.
@@ -19,8 +19,8 @@ export interface SampleStep {
 const text = (...lines: string[]) => `${lines.join("\n")}\n`;
 
 const SETTINGS = text(
-  "# Shared GitDesk settings of this repository. Edit them in Settings or here;",
-  "# comments and keys GitDesk does not know are kept.",
+  "# Shared Genbeya settings of this repository. Edit them in Settings or here;",
+  "# comments and keys Genbeya does not know are kept.",
   "name: Pocket Weather",
   "wikiRoot: docs",
   "wikiHome: Home.md",
@@ -46,8 +46,8 @@ const SETTINGS = text(
 const README = text(
   "# Pocket Weather",
   "",
-  "A sample repository made by GitDesk to try it with. The wiki is in `docs/`, the tasks are in `tasks/`,",
-  "the shared settings in `.gitdesk.yml`. Delete the folder when you are done.",
+  "A sample repository made by Genbeya to try it with. The wiki is in `docs/`, the tasks are in `tasks/`,",
+  "the shared settings in `.genbeya.yml`. Delete the folder when you are done.",
 );
 
 const forecast = (days: readonly string[]) =>
@@ -90,7 +90,7 @@ export const REPORT_LINES = "src/forecast.ts#L11-L15";
 const HOME = text(
   "# Pocket Weather",
   "",
-  "A tiny command-line weather report, and a sample project to try GitDesk with.",
+  "A tiny command-line weather report, and a sample project to try Genbeya with.",
   "Everything here is a plain file in the repository: this page is `docs/Home.md`.",
   "",
   "> [!TIP]",
@@ -159,14 +159,14 @@ const FORECAST_SOURCE = text(
 const WHERE_FILES_LIVE = text(
   "# Where files live",
   "",
-  "GitDesk keeps nothing in a database: everything it shows is a file in this repository,",
+  "Genbeya keeps nothing in a database: everything it shows is a file in this repository,",
   "so any editor, script or Git host works with it too.",
   "",
   "| What | Where |",
   "| --- | --- |",
   "| Wiki pages | Markdown files in `docs/`. `Architecture.md` and the folder `Architecture/` make a page with subpages |",
   "| Tasks | One Markdown file per task in `tasks/`, its fields as YAML frontmatter. A folder below `tasks/` is an epic |",
-  "| Settings | `.gitdesk.yml`: the project name, the folders, the task prefix, the workflow states, task types and custom fields |",
+  "| Settings | `.genbeya.yml`: the project name, the folders, the task prefix, the workflow states, task types and custom fields |",
   "| Code | Everything else, such as [[src/forecast.ts]] |",
   "",
   "Edits are ordinary changes: review and commit them in **Changes**. A team can keep the wiki, the tasks",
@@ -219,7 +219,7 @@ const TASKS: readonly SampleFile[] = [
     content: task(
       "PW-4",
       ["title: Warn about storms", "type: feature", "status: backlog", "priority: low"],
-      "Waits in the backlog, which the board hides (`hiddenColumns` in `.gitdesk.yml`). The list shows it.",
+      "Waits in the backlog, which the board hides (`hiddenColumns` in `.genbeya.yml`). The list shows it.",
     ),
   },
   {
@@ -264,7 +264,7 @@ const STEPS: readonly SampleStep[] = [
     message: "Start Pocket Weather",
     files: [
       { path: "README.md", content: README },
-      { path: ".gitdesk.yml", content: SETTINGS },
+      { path: ".genbeya.yml", content: SETTINGS },
       { path: "src/forecast.ts", content: forecast(DAYS) },
     ],
   },
@@ -283,7 +283,7 @@ const STEPS: readonly SampleStep[] = [
 
 export class SampleEngine {
   /** The folder the sample repository is created in, below the folder the user chose. */
-  readonly folderName = "gitdesk-sample";
+  readonly folderName = "genbeya-sample";
 
   /** The files of the sample, in the commits that create it. */
   steps(): readonly SampleStep[] {

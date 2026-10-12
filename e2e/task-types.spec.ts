@@ -4,7 +4,7 @@ test.describe("task types, fields and state icons", () => {
   test.use({
     files: {
       ...FILES,
-      ".gitdesk.yml": `${FILES[".gitdesk.yml"]}fields:\n  - name: estimate\n    type: number\n`,
+      ".genbeya.yml": `${FILES[".genbeya.yml"]}fields:\n  - name: estimate\n    type: number\n`,
       "tasks/.templates/bug.md": "---\npriority: high\n---\n\n## Steps to reproduce\n",
     },
   });
@@ -48,7 +48,7 @@ test.describe("task types, fields and state icons", () => {
     await window.getByRole("button", { name: "Icon of Done" }).click();
     await window.getByRole("menuitemradio", { name: "Flag" }).click();
     await window.getByRole("button", { name: /Save changes/ }).click();
-    await expect.poll(() => repository.read(".gitdesk.yml")).toContain("  - name: done\n    icon: flag\n");
+    await expect.poll(() => repository.read(".genbeya.yml")).toContain("  - name: done\n    icon: flag\n");
     // The save is done once the form is clean again.
     await expect(window.getByRole("button", { name: /Save changes/ })).toBeHidden();
     await window.keyboard.press(`${MOD}+2`);

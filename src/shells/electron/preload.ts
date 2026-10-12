@@ -6,13 +6,13 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import type { ElectronBridge } from "../../contracts/bridges";
 
 const bridge: ElectronBridge = {
-  call: (request) => ipcRenderer.invoke("gitdesk:call", request),
-  shell: (operation, args) => ipcRenderer.invoke("gitdesk:shell", operation, args),
+  call: (request) => ipcRenderer.invoke("genbeya:call", request),
+  shell: (operation, args) => ipcRenderer.invoke("genbeya:shell", operation, args),
   onSecondLaunch(listener) {
     const handler = (_event: IpcRendererEvent, args: readonly string[]) => listener(args);
-    ipcRenderer.on("gitdesk:second-launch", handler);
-    return () => void ipcRenderer.removeListener("gitdesk:second-launch", handler);
+    ipcRenderer.on("genbeya:second-launch", handler);
+    return () => void ipcRenderer.removeListener("genbeya:second-launch", handler);
   },
 };
 
-contextBridge.exposeInMainWorld("gitdeskElectron", bridge);
+contextBridge.exposeInMainWorld("genbeyaElectron", bridge);

@@ -96,7 +96,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     if (typeof url !== "string" || !url.trim() || url.length > 2048 || url.trim().startsWith("-") || /[\r\n\0]/.test(url))
       throw new Error("Enter a Git URL or repository path.");
     // A link's remote may end up here; git would run the program a <transport>::<address> names.
-    if (namesRemoteHelper(url)) throw new Error("GitDesk does not clone through Git remote helpers (transport::address).");
+    if (namesRemoteHelper(url)) throw new Error("Genbeya does not clone through Git remote helpers (transport::address).");
     const where = validateLocation(parent);
     const name =
       url
@@ -130,12 +130,12 @@ export class WorkspaceManager implements WorkspaceManagerContract {
         for (const file of step.files) await host.write(path, file.path, encodeText(file.content), false);
         if (!step.message) continue;
         await git.text(["add", "--all"]);
-        // GitDesk wrote these commits, not the user, whose identity may not even be set up yet.
+        // Genbeya wrote these commits, not the user, whose identity may not even be set up yet.
         await git.text([
           "-c",
-          "user.name=GitDesk",
+          "user.name=Genbeya",
           "-c",
-          "user.email=sample@gitdesk.invalid",
+          "user.email=sample@genbeya.invalid",
           "commit",
           "--quiet",
           "--no-gpg-sign",

@@ -5,7 +5,7 @@ Four managers implement everything the client can do with a repository. Their co
 | Manager | Use cases |
 | --- | --- |
 | `workspace` | Open, clone, restore and close repositories; create the sample repository; snapshots; recent repositories; app preferences; browsing folders on WSL and SSH |
-| `content` | Files, wiki pages, tasks and their templates, `.gitdesk.yml`, where each of those areas lives (the [Content branch](Content-branch.md)), full-text [Search](../Guide/Search.md), the repository's people, and the files that teach [AI agents](../Guide/AI-agents.md) to use them |
+| `content` | Files, wiki pages, tasks and their templates, `.genbeya.yml`, where each of those areas lives (the [Content branch](Content-branch.md)), full-text [Search](../Guide/Search.md), the repository's people, and the files that teach [AI agents](../Guide/AI-agents.md) to use them |
 | `versionControl` | Diffs, staging whole files or hunks and lines, .gitignore rules, commits, stashes, branches, tags, remotes, fetch/pull/push, pushing anywhere and force pushing, history, merges, rebases, resets and conflicts |
 | `terminal` | Shells in the repository for the [Terminal](../Guide/Terminal.md): open, input, size, output, close |
 
@@ -43,7 +43,7 @@ Then it asks Git for its own diff of the file (`git diff` of the working tree, o
 - Hunk headers are counted anew, and the start of each hunk follows what the hunks before it now add. Lines keep their carriage returns, and a line that ends the file without a newline gets one when lines now follow it.
 - A partly chosen creation or deletion becomes a change of the file; a renamed file is patched under the name the patch applies to, so the rename stays.
 
-The patch goes into `gitdesk.patch` in the git directory, since hosts give processes no standard input, and runs with `--no-ignore-whitespace --recount --whitespace=nowarn`; Git applies it only where the context matches exactly. Lines of an untracked file are staged after `git add --intent-to-add`, which is undone when applying fails; discarding lines of one leaves the rest untracked. `unstage(paths, "parent")` resets the paths (and the old side of renames) to their version in HEAD's parent with `git reset -q <parent> -- <paths>`, which leaves them out of the amended commit.
+The patch goes into `genbeya.patch` in the git directory, since hosts give processes no standard input, and runs with `--no-ignore-whitespace --recount --whitespace=nowarn`; Git applies it only where the context matches exactly. Lines of an untracked file are staged after `git add --intent-to-add`, which is undone when applying fails; discarding lines of one leaves the rest untracked. `unstage(paths, "parent")` resets the paths (and the old side of renames) to their version in HEAD's parent with `git reset -q <parent> -- <paths>`, which leaves them out of the amended commit.
 
 ## .gitignore
 
@@ -55,7 +55,7 @@ Merging, rebasing, cherry-picking, reverting and applying a stash can stop for c
 
 `conflict(path)` returns a conflicted file's text with its markers (null for binary, missing or oversized files); `resolveConflict` takes one side (`git checkout --ours/--theirs`, or `git rm` when that side deleted the file), keeps the working-tree file, deletes the file, or writes new text — and stages the result. Conflict markers, including the diff3 style, are parsed in `src/utilities/conflict-markers.ts`, which the client uses for its hunk buttons.
 
-Git never opens an editor for GitDesk: every call runs with `GIT_EDITOR=:`, which makes Git keep the message it prepared, as for `merge --continue`.
+Git never opens an editor for Genbeya: every call runs with `GIT_EDITOR=:`, which makes Git keep the message it prepared, as for `merge --continue`.
 
 Rewriting history needs a clean working tree: `rebase`, `pullRebase` and `rebaseInteractive` refuse uncommitted changes to tracked files unless `autostash` is set, which passes `--autostash`. `rebasePlan(base)` lists the commits a rebase would rewrite and the remote branches that already have them, so the client can warn before anyone has to force-push. Merge commits are not cherry-picked, reverted or rebased interactively.
 
@@ -64,7 +64,7 @@ Rewriting history needs a clean working tree: `rebase`, `pullRebase` and `rebase
 `resetPlan(hash)` says what resetting the current branch to a commit would do: the commits that leave it, how many of them its upstream has (they come back as behind), the tracked files with uncommitted changes, which a hard reset discards, and the untracked and ignored files the commit has and HEAD has not (`git diff --diff-filter=A HEAD <commit>`, then `git ls-files --others`), which hard and keep resets overwrite. Its `state` fingerprints all of that: the staged changes (`git diff --cached --raw`), the unstaged ones (`git diff --binary`) and the content of those files. `reset(hash, mode, expectedHead, expectedState)` runs `git reset --soft|--mixed|--hard|--keep` only while HEAD is still at `expectedHead`, the commit the plan was made at, and a hard or keep reset only while the state is still `expectedState`, so changes made while the user looked at the plan are never lost unseen; it resolves to `{ from, to }`; undoing is a reset back to `from` expecting `to`. `undoLastCommit(expectedHead)` is a soft reset to the parent of HEAD, refused once HEAD moved from the commit shown (a short id will do), for the first commit and for merges. All three refuse while an operation is in progress or files are conflicted, like the operations above: aborting one afterwards would go back to before the reset.
 
 
-The client sends every commit after `base` once, in the new order, each with an action and, for reword and squash, a message. `src/engines/rebase-engine.ts` checks the steps against the commits and turns them into a todo list that needs no editor: squashes become `fixup`, and a commit whose message changes is followed by `exec git commit --amend --file=<message>`. Git access writes the todo list and the messages into `gitdesk-rebase/` in the git directory and runs `git rebase -i` with `GIT_SEQUENCE_EDITOR="cat '<todo>' >"`: Git runs editors and `exec` lines through its own `sh`, so the same commands work on Windows (Git for Windows' sh), WSL and SSH hosts. Shell hosts pass environment variables by exporting them in the request's subshell.
+The client sends every commit after `base` once, in the new order, each with an action and, for reword and squash, a message. `src/engines/rebase-engine.ts` checks the steps against the commits and turns them into a todo list that needs no editor: squashes become `fixup`, and a commit whose message changes is followed by `exec git commit --amend --file=<message>`. Git access writes the todo list and the messages into `genbeya-rebase/` in the git directory and runs `git rebase -i` with `GIT_SEQUENCE_EDITOR="cat '<todo>' >"`: Git runs editors and `exec` lines through its own `sh`, so the same commands work on Windows (Git for Windows' sh), WSL and SSH hosts. Shell hosts pass environment variables by exporting them in the request's subshell.
 
 ## Pushing
 
@@ -102,11 +102,11 @@ The manager keeps them per open repository until HEAD moves, so the call costs a
 
 ## Preferences
 
-`workspace.preferences()` and `setPreferences(change)` keep the user's preferences in `state.json` in the app's data folder, next to the recent repositories, so they survive reinstalling the same variant. Besides theme and startup they remember the onboarding: the version whose news the user has seen (`null` before the first start; state saved by versions that did not remember it counts as `0.0.0`, so its user sees all news), whether the tour was taken, and the repositories that offered it.
+`workspace.preferences()` and `setPreferences(change)` keep the user's preferences in `state.json` in the app's data folder, next to the recent repositories, so they survive reinstalling the same variant. Besides theme and startup they remember the onboarding: the version whose news the user has seen (`null` before the first start; state saved by versions that did not remember it counts as `0.0.0`, so its user sees all news), whether the tour was taken, and the repositories that offered it. A data folder without `state.json` first takes over a copy of the one the shell names as its predecessor's (`PreviousData` in `createBackend`), so each variant keeps what its GitDesk predecessor remembered; see [Runtimes](Runtimes.md#updating-from-gitdesk).
 
 ## Sample repository
 
-`workspace.createSample(parent)` creates `gitdesk-sample` (or `gitdesk-sample-2`, …) below `parent` on its host, so it works locally, on WSL and over SSH, and opens it. The sample engine (`src/engines/sample-engine.ts`) holds the files and the commits that create them; the last step stays uncommitted, so **Changes** has something to show. The commits are made as *GitDesk*, without signing: the user's identity may not be set up yet.
+`workspace.createSample(parent)` creates `genbeya-sample` (or `genbeya-sample-2`, …) below `parent` on its host, so it works locally, on WSL and over SSH, and opens it. The sample engine (`src/engines/sample-engine.ts`) holds the files and the commits that create them; the last step stays uncommitted, so **Changes** has something to show. The commits are made as *Genbeya*, without signing: the user's identity may not be set up yet.
 
 ## Remote folders
 
@@ -154,11 +154,11 @@ sequenceDiagram
 
 Saves carry the hash of the content they were based on. If the file changed on disk since, the save is rejected and the editor keeps the draft. Line endings and a byte order mark are kept as they were. All operations on one workspace run one at a time.
 
-Structured files change only where they must. A task update rewrites the fields GitDesk manages and the custom fields it names, and leaves the type alone unless it names one; saving settings rewrites only the keys of `.gitdesk.yml` whose values changed. Comments, unknown keys and the spelling of everything else survive. New tasks of a type start from `<taskRoot>/.templates/<type>.md` (`content.taskTemplate`), which the settings create on first use (`content.ensureTaskTemplate`).
+Structured files change only where they must. A task update rewrites the fields Genbeya manages and the custom fields it names, and leaves the type alone unless it names one; saving settings rewrites only the keys of `.genbeya.yml` whose values changed. Comments, unknown keys and the spelling of everything else survive. New tasks of a type start from `<taskRoot>/.templates/<type>.md` (`content.taskTemplate`), which the settings create on first use (`content.ensureTaskTemplate`).
 
 ## Content areas
 
-The wiki, tasks and settings each live in the checkout or on the [Content branch](Content-branch.md). File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.gitdesk.yml` belongs to the settings, the task folder to the tasks, and everything else, such as pages and their images, to the wiki. Page, task, comment and settings calls use their own area, and edits are committed right away only when that area is on the content branch. A task's activity is the history of its file where the tasks live. `content.setStorage(workspace, area, mode)` moves one area.
+The wiki, tasks and settings each live in the checkout or on the [Content branch](Content-branch.md). File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.genbeya.yml` belongs to the settings, the task folder to the tasks, and everything else, such as pages and their images, to the wiki. Page, task, comment and settings calls use their own area, and edits are committed right away only when that area is on the content branch. A task's activity is the history of its file where the tasks live. `content.setStorage(workspace, area, mode)` moves one area.
 
 Inside the backend, `workspace.locateContent(path)` names the location of a content path (its root, files, Git and branch), for reading a file's history wherever it lives.
 

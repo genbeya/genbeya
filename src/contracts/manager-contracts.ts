@@ -60,7 +60,7 @@ export interface WorkspaceManagerContract {
   /** Reopens the repository requested at launch or, if the preference allows, the last one. */
   restore(launchArgs: readonly string[]): Promise<OpenedWorkspace | null>;
   clone(url: string, parent: Location): Promise<OpenedWorkspace>;
-  /** Creates a sample repository to try GitDesk with in a new folder below `parent`, and opens it. */
+  /** Creates a sample repository to try Genbeya with in a new folder below `parent`, and opens it. */
   createSample(parent: Location): Promise<OpenedWorkspace>;
   close(workspace: string): Promise<void>;
   /**

@@ -3,7 +3,7 @@ import { TestBed } from "@angular/core/testing";
 import type { Person } from "../../../contracts/model";
 import { openRepository, settle } from "../testing/component-harness";
 import type { LinkTarget } from "./link-target";
-import type { GitdeskOptions } from "./markdown-pipeline";
+import type { GenbeyaOptions } from "./markdown-pipeline";
 import { MarkdownView } from "./markdown-view";
 
 const ada: Person = { handle: "ada", name: "Ada Lovelace", email: "ada@example.com", aliases: [], commits: 1 };
@@ -14,7 +14,7 @@ const ada: Person = { handle: "ada", name: "Ada Lovelace", email: "ada@example.c
 })
 class Host {
   readonly source = signal("Ask @ada.");
-  readonly links: GitdeskOptions = { people: [ada] };
+  readonly links: GenbeyaOptions = { people: [ada] };
   readonly followed: LinkTarget[] = [];
 }
 

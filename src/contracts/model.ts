@@ -68,7 +68,7 @@ export interface FieldDefinition {
   readonly options?: readonly string[];
 }
 
-/** The frontmatter keys GitDesk writes itself; the epic is the task's folder. Custom fields use other names. */
+/** The frontmatter keys Genbeya writes itself; the epic is the task's folder. Custom fields use other names. */
 export const TASK_KEYS = ["id", "title", "type", "status", "priority", "assignee", "labels", "epic"] as const;
 
 /** The value of a custom field; an empty string removes the field. */
@@ -205,7 +205,7 @@ export type TaskChange =
   | { readonly kind: "comments"; readonly added: number; readonly edited: number; readonly removed: number }
   /** A custom field with a plain value, written as text; "" where the task did not have it. */
   | { readonly kind: "custom"; readonly field: string; readonly from: string; readonly to: string }
-  /** Frontmatter fields GitDesk has no words for, such as lists. */
+  /** Frontmatter fields Genbeya has no words for, such as lists. */
   | { readonly kind: "other"; readonly fields: readonly string[] };
 
 /** A commit that changed a task, or its edits not committed yet. */
@@ -344,7 +344,7 @@ export interface Head {
   readonly behind: number;
 }
 
-/** The parts of a repository's GitDesk content that can each live in the checkout or on the content branch. */
+/** The parts of a repository's Genbeya content that can each live in the checkout or on the content branch. */
 export const CONTENT_AREAS = ["wiki", "tasks", "settings"] as const;
 export type ContentArea = (typeof CONTENT_AREAS)[number];
 
@@ -450,7 +450,7 @@ export interface Diff {
   /**
    * Git's changed lines, the ones hunks and lines are staged by, so the
    * diff shows them where git has them; absent for commits, and for files
-   * GitDesk can only stage as a whole.
+   * Genbeya can only stage as a whole.
    */
   readonly changes?: readonly DiffChange[];
 }
@@ -639,7 +639,7 @@ export interface RecentEntry {
   readonly location: Location;
   readonly name: string;
   readonly openedAt: number;
-  /** The repository's remote URLs when it was last seen, so GitDesk links find it. */
+  /** The repository's remote URLs when it was last seen, so Genbeya links find it. */
   readonly remotes: readonly string[];
 }
 

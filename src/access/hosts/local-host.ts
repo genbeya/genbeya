@@ -1,4 +1,4 @@
-/** The machine GitDesk runs on, through the runtime's file system and processes. */
+/** The machine Genbeya runs on, through the runtime's file system and processes. */
 import { hasCode, type Machine, type RunOptions } from "../ports";
 import { GIT_ENVIRONMENT, HostError, TERMINALS_UNAVAILABLE, type EntryKind, type Host } from "./host";
 import { localTerminal } from "./terminal-commands";
@@ -92,7 +92,7 @@ export class LocalHost implements Host {
     if (await this.kind(root, to)) {
       if (!(await this.isSameEntry(source, target))) throw new HostError("EXISTS", to);
       // A rename by case only; through a temporary name, which every file system carries out.
-      const temporary = `${source}.gitdesk-${crypto.randomUUID()}`;
+      const temporary = `${source}.genbeya-${crypto.randomUUID()}`;
       await this.moveEntry(source, temporary);
       return this.moveEntry(temporary, target);
     }

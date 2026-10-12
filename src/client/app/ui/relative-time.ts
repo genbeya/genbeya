@@ -1,4 +1,4 @@
-/** How long ago something happened, as everywhere in GitDesk shows it. */
+/** How long ago something happened, as everywhere in Genbeya shows it. */
 
 const UNITS: readonly (readonly [size: number, unit: Intl.RelativeTimeFormatUnit])[] = [
   [60, "second"],

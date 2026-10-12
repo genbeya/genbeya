@@ -13,7 +13,7 @@ import { createBackend } from "./backend";
 const machine = nodeMachine();
 
 const FILES: Record<string, string> = {
-  ".gitdesk.yml": "name: Search Project\ntaskPrefix: TP\n",
+  ".genbeya.yml": "name: Search Project\ntaskPrefix: TP\n",
   ".gitignore": "dist/\n",
   "docs/Home.md": "# Home\n\nWelcome.\n\n## Setup\n\nInstall the Gadget first.\nThen run it.\n",
   "tasks/TP-1.md": "---\nid: TP-1\ntitle: Ship the gadget\nstatus: todo\n---\n\nBuild the gadget.\n",
@@ -117,7 +117,7 @@ describe("ContentManager.search", () => {
   it("searches templates, images and settings where their area lives, not their stale copies in the checkout", async () => {
     const { managers, id, search } = await opened({
       ...FILES,
-      ".gitdesk.yml": "name: Search Project\ntaskPrefix: TP\n# gadget settings\n",
+      ".genbeya.yml": "name: Search Project\ntaskPrefix: TP\n# gadget settings\n",
       "tasks/.templates/bug.md": "Gadget template\n",
       "docs/diagram.svg": "<svg><!-- gadget --></svg>\n",
     });
@@ -126,7 +126,7 @@ describe("ContentManager.search", () => {
     await managers.content.write(id, "content", "tasks/.templates/bug.md", "Gadget template, revised\n", template.hash);
     const { code } = await search("gadget");
     expect(code.map((hit) => [hit.path, hit.scope]).sort()).toEqual([
-      [".gitdesk.yml", "content"],
+      [".genbeya.yml", "content"],
       ["docs/diagram.svg", "content"],
       ["src/gadget.ts", "repo"],
       ["tasks/.templates/bug.md", "content"],
@@ -185,7 +185,7 @@ describe("ContentManager.search", () => {
 describe("ContentManager.search on WSL", async () => {
   const ubuntu = (await new HostFactory(machine).distributions()).includes("Ubuntu");
   it.skipIf(!ubuntu)("searches a WSL repository, including untracked files", async () => {
-    const dir = `/tmp/gitdesk-search-${Date.now()}`;
+    const dir = `/tmp/genbeya-search-${Date.now()}`;
     const run = (script: string) =>
       new Promise((resolve, reject) =>
         execFile("wsl.exe", ["-d", "Ubuntu", "-e", "sh", "-c", script], (e) => (e ? reject(e) : resolve(null))),

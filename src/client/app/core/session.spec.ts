@@ -24,7 +24,7 @@ describe("Session", () => {
     expect(managers.workspace.restore).toHaveBeenCalledWith(["app", "--open=x"]);
     expect(session.id()).toBe("w1");
     expect(session.phase()).toBe("idle");
-    expect(shell.setTitle).toHaveBeenCalledWith("Test Project — GitDesk");
+    expect(shell.setTitle).toHaveBeenCalledWith("Test Project — Genbeya");
   });
 
   it("stays on the welcome screen when nothing can be restored", async () => {
@@ -192,9 +192,9 @@ describe("Session", () => {
     await vi.waitFor(() => expect(managers.workspace.open).toHaveBeenCalledWith({ kind: "local", path: "/other" }));
   });
 
-  it("holds GitDesk links that launches carry until they are taken", async () => {
+  it("holds Genbeya links that launches carry until they are taken", async () => {
     const { session, managers, shell } = setup();
-    const link = "gitdesk://open?remote=https://github.com/acme/demo.git&task=TP-1";
+    const link = "genbeya://open?remote=https://github.com/acme/demo.git&task=TP-1";
     const expected = { remote: "https://github.com/acme/demo.git", item: { kind: "task", id: "TP-1" } };
     shell.launchArgs.mockResolvedValue(["app", link]);
     await session.start();

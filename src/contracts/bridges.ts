@@ -25,7 +25,7 @@ export const SHELL_OPERATIONS = [
 
 export type ShellOperation = (typeof SHELL_OPERATIONS)[number];
 
-/** `window.gitdeskElectron`, exposed by the Electron preload. */
+/** `window.genbeyaElectron`, exposed by the Electron preload. */
 export interface ElectronBridge {
   call(request: unknown): Promise<Reply>;
   shell(operation: ShellOperation, args: readonly unknown[]): Promise<unknown>;
@@ -36,10 +36,10 @@ export interface ElectronBridge {
  * Deno Desktop cannot veto closing from the page, so the shell asks this
  * page global (set by the client) whether edits are unsaved.
  */
-export const DENO_UNSAVED_CHECK = "gitdeskHasUnsavedChanges";
+export const DENO_UNSAVED_CHECK = "genbeyaHasUnsavedChanges";
 
 /** The `bindings` global Deno Desktop provides; each binding takes one JSON value. */
 export interface DenoBindings {
-  gitdesk(request: unknown): Promise<Reply>;
-  gitdeskShell(request: { operation: ShellOperation; args: readonly unknown[] }): Promise<unknown>;
+  genbeya(request: unknown): Promise<Reply>;
+  genbeyaShell(request: { operation: ShellOperation; args: readonly unknown[] }): Promise<unknown>;
 }

@@ -53,7 +53,7 @@ export function sshProblem(stderr: string): string {
     .pop()
     ?.replace(/^ssh: /, "");
   if (!line) return "ssh ended without saying why.";
-  if (line.includes("Permission denied")) return `${line} GitDesk signs in with an SSH key or an agent, never with a password.`;
+  if (line.includes("Permission denied")) return `${line} Genbeya signs in with an SSH key or an agent, never with a password.`;
   if (line.includes("Host key verification failed")) return `${line} Connect once in a terminal to trust the host key.`;
   return line;
 }

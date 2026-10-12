@@ -13,7 +13,7 @@
   },
   "plugins": {
     "deep-link": {
-      "desktop": { "schemes": ["gitdesk"] }
+      "desktop": { "schemes": ["genbeya", "gitdesk"] }
     }
   },
   "bundle": {

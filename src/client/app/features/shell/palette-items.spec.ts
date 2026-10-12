@@ -99,7 +99,7 @@ describe("palette items", () => {
     expect(commands.searchText).toHaveBeenCalled();
   });
 
-  it("offers to find the user's mentions once GitDesk knows who they are", () => {
+  it("offers to find the user's mentions once Genbeya knows who they are", () => {
     expect(mentionItems(null, commands)).toEqual([]);
     const [find] = mentionItems({ handle: "ada", name: "Ada", email: null, aliases: [], commits: 1 }, commands);
     expect(find).toMatchObject({ label: "Find mentions of me", detail: "@ada" });
@@ -107,13 +107,23 @@ describe("palette items", () => {
     expect(commands.findMentions).toHaveBeenCalledWith("ada");
   });
 
-  it("offers to open a pasted GitDesk link, and nothing for other text", () => {
-    const item = linkItem("  gitdesk://open?remote=git@github.com:acme/demo.git&task=DP-1 ", commands)!;
+  it("offers to open a pasted Genbeya link, and nothing for other text", () => {
+    const item = linkItem("  genbeya://open?remote=git@github.com:acme/demo.git&task=DP-1 ", commands)!;
     expect(item).toMatchObject({ label: "Open link", detail: "task DP-1 in github.com/acme/demo", icon: "link" });
     item.run();
     expect(commands.openLink).toHaveBeenCalledWith({ remote: "git@github.com:acme/demo.git", item: { kind: "task", id: "DP-1" } });
     expect(linkItem("login", commands)).toBeNull();
-    expect(linkItem("gitdesk://open?remote=/srv/demo.git&task=DP-1", commands)).toBeNull();
+    expect(linkItem("genbeya://open?remote=/srv/demo.git&task=DP-1", commands)).toBeNull();
+  });
+
+  it("opens a pasted link GitDesk made, too", () => {
+    const item = linkItem("gitdesk://open?remote=git@github.com:acme/demo.git&page=docs/Home.md", commands)!;
+    expect(item).toMatchObject({ label: "Open link", detail: "page docs/Home.md in github.com/acme/demo" });
+    item.run();
+    expect(commands.openLink).toHaveBeenCalledWith({
+      remote: "git@github.com:acme/demo.git",
+      item: { kind: "page", path: "docs/Home.md" },
+    });
   });
 
   it("lists the branches to merge, with the upstream, but not the current branch", () => {

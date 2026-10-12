@@ -1,5 +1,5 @@
 /**
- * The runtime primitives the access layer needs from the machine GitDesk
+ * The runtime primitives the access layer needs from the machine Genbeya
  * runs on. src/platforms implements them for Node (Electron, Deno) and for
  * Tauri; nothing above this file knows which runtime it runs in.
  */
@@ -92,11 +92,11 @@ export interface Terminal {
 }
 
 export interface TerminalOptions {
-  /** Omitted, the program starts where GitDesk runs. */
+  /** Omitted, the program starts where Genbeya runs. */
   readonly cwd?: string;
   readonly cols: number;
   readonly rows: number;
-  /** Added to GitDesk's own environment. */
+  /** Added to Genbeya's own environment. */
   readonly env?: Readonly<Record<string, string>>;
 }
 
@@ -107,7 +107,7 @@ export interface TerminalRunner {
   open(command: string, args: readonly string[], options: TerminalOptions): Promise<Terminal>;
 }
 
-/** The machine GitDesk runs on. */
+/** The machine Genbeya runs on. */
 export interface Machine {
   readonly os: "windows" | "macos" | "linux";
   readonly fileSystem: FileSystem;

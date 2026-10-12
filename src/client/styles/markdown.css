@@ -754,7 +754,7 @@
 
 /* Math: $…$, $$…$$, ```math. MathML laid out with STIX Two Math, bundled and loaded on first use. */
 @font-face {
-  font-family: "GitDesk Math";
+  font-family: "Genbeya Math";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -764,7 +764,7 @@
 }
 
 .markdown math {
-  font-family: "GitDesk Math", math;
+  font-family: "Genbeya Math", math;
   font-size: 1.12em;
 }
 

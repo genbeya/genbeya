@@ -1,5 +1,5 @@
 // node scripts/version.mjs stamp <build>: sets the patch number of every version
-// GitDesk ships with to <build> (CI passes its run number), so each release has a
+// Genbeya ships with to <build> (CI passes its run number), so each release has a
 // higher version than the one before and installers upgrade the installed app.
 // package.json holds the major and minor version; raise the minor version for a
 // release with new features. `node scripts/version.mjs` prints the current version.

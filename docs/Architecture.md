@@ -1,6 +1,6 @@
 # Architecture
 
-GitDesk is decomposed by volatility, following the iDesign Method: each layer hides one thing that is likely to change, and calls only go down.
+Genbeya is decomposed by volatility, following the iDesign Method: each layer hides one thing that is likely to change, and calls only go down.
 
 ```mermaid
 flowchart TB

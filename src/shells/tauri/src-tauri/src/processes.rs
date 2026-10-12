@@ -70,10 +70,10 @@ impl Processes {
 
 fn check(program: &str, env: &HashMap<String, String>) -> Result<(), Failure> {
     if !PROGRAMS.contains(&program) {
-        return Err(Failure::invalid(&format!("GitDesk does not run {program}.")));
+        return Err(Failure::invalid(&format!("Genbeya does not run {program}.")));
     }
     match env.keys().find(|key| !ENVIRONMENT.contains(&key.as_str())) {
-        Some(key) => Err(Failure::invalid(&format!("GitDesk does not set {key}."))),
+        Some(key) => Err(Failure::invalid(&format!("Genbeya does not set {key}."))),
         None => Ok(()),
     }
 }

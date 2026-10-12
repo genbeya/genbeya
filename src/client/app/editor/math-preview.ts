@@ -140,7 +140,7 @@ const theme = EditorView.baseTheme({
     color: "var(--text)",
     fontSize: "15px",
   },
-  ".cm-math-preview math": { fontFamily: '"GitDesk Math", math' },
+  ".cm-math-preview math": { fontFamily: '"Genbeya Math", math' },
   ".cm-math-preview.is-error": { color: "var(--red)", fontFamily: "var(--font-ui)", fontSize: "12px" },
 });
 

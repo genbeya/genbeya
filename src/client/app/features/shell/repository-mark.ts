@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from "@angular/co
 import type { Location } from "../../../../contracts/model";
 import { Icon } from "../../ui/icon";
 
-/** "GitDesk" → "GD", "my project" → "MP", "atlas" → "AT". */
+/** "TaskBoard" → "TB", "my project" → "MP", "atlas" → "AT". */
 export function initials(name: string): string {
   const words = name.split(/[\s_-]+/).filter(Boolean);
   const capitals = name.match(/[A-Z]/g);

@@ -1,4 +1,4 @@
-// Renders build/icon.png (1024², the GitDesk branch mark) without image tools:
+// Renders build/icon.png (1024², the Genbeya branch mark) without image tools:
 //   node scripts/make-icon.mjs && npx tauri icon build/icon.png -o desktop/tauri/src-tauri/icons
 import { mkdirSync, writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";

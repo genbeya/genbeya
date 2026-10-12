@@ -108,7 +108,7 @@ function hostOf({ host }: RemoteRepository): Host | null {
 const encodePath = (path: string) => path.split("/").map(encodeURIComponent).join("/");
 const encodeQuery = (value: string) => encodeURIComponent(value).replace(/%2F/g, "/");
 
-/** The page of a file on a branch, or of a commit, on the host's website; null for hosts GitDesk does not know. */
+/** The page of a file on a branch, or of a commit, on the host's website; null for hosts Genbeya does not know. */
 export function webUrl(remote: string, target: WebTarget): string | null {
   const repository = parseRemote(remote);
   const host = repository && hostOf(repository);
