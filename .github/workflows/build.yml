@@ -2,7 +2,8 @@ name: Build
 
 # Tests Genbeya and packages it with Electron, Tauri and Deno Desktop on Windows,
 # macOS and Linux, and builds the web demo on Linux. Every run uploads the installers
-# and the demo as artifacts; a push to main also publishes them all as one GitHub release.
+# and the demo as artifacts. A push to main whose version (package.json) has no release
+# yet publishes them all as one: bump the version (scripts/version.mjs) to release.
 on:
   push:
     branches: [main, "experiment/**"]
@@ -51,9 +52,9 @@ jobs:
 
       - run: npm ci
 
-      # Every build gets its own patch number, so installers upgrade older installs.
-      - name: Stamp the version
-        run: node scripts/version.mjs stamp ${{ github.run_number }}
+      # package.json, its lockfile and the Tauri shell must name the same version.
+      - name: Check the version
+        run: node scripts/version.mjs check
 
       - uses: ./.github/actions/verify
 
@@ -152,12 +153,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(node scripts/version.mjs stamp "$GITHUB_RUN_NUMBER")
+          version=$(node scripts/version.mjs)
           tag="v$version"
-          # A re-run of an old run has the version of its first run, which is published already.
+          # Pushes that don't change the version are built and tested, not released.
           if gh release view "$tag" > /dev/null 2>&1 || git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
-            echo "::error::$tag exists already; this run's version has been published."
-            exit 1
+            echo "::notice::$tag is released already; bump the version to publish a new release."
+            exit 0
           fi
           # Only a version newer than every published one is the latest release.
           # The step runs with pipefail; grep fails when no release matches.

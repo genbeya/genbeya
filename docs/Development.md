@@ -54,18 +54,18 @@ Code is written test first. Specs sit next to the code they test.
 
 `.github/workflows/build.yml` runs on every push and pull request to `main` and on pushes to `experiment/**` branches. On Windows, macOS and Linux it runs lint, unit and end-to-end tests (`.github/actions/verify`) and the Tauri shell's Rust tests, then packages Electron, Tauri and Deno Desktop. On Linux it also builds the web demo, tests it in Chromium and uploads it as `genbeya-web-demo.zip`.
 
-- `scripts/version.mjs stamp <run>` sets the patch number of the version to the run number before anything is built, so every build has a higher version than the one before (`0.0.1` in `package.json` becomes `0.0.57` in run 57) and installers upgrade an installed older version instead of refusing or installing next to it. `package.json` holds the major and minor version: raise the minor version for a release with new features.
-- Deno Desktop's MSIs take their version from a generated `dist/deno/deno.json`; `scripts/msi-major-upgrade.ps1` adds the upgrade rules they lack, and refuses to install over a newer version. Local builds are not stamped, so their MSIs carry the version from `package.json` (`X.Y.1`), no newer than any CI build of the same release line.
-- `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `Genbeya-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `Genbeya-0.0.57-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
+- The version is `package.json`'s, and the same in its lockfile, `tauri.conf.json`, `Cargo.toml` and `Cargo.lock`: `node scripts/version.mjs bump patch` (or `minor`, `major`) or `set 1.0.0` changes all of them, and CI fails when they disagree (`node scripts/version.mjs check`). Bump the patch for fixes, the minor version for new features. Installers replace an installed older version, so every release needs a higher version.
+- Deno Desktop's MSIs take their version from a generated `dist/deno/deno.json`; `scripts/msi-major-upgrade.ps1` adds the upgrade rules they lack, and refuses to install over a newer version. Installing an MSI of the same version again repairs it instead of upgrading.
+- `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `Genbeya-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `Genbeya-0.1.0-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
 - `scripts/report-sizes.mjs` lists their sizes in the job summary.
 - Each run uploads one artifact per variant and platform, such as `Genbeya-tauri-macOS`.
-- Pushes to `main` also publish all installers and `genbeya-web-demo.zip` as one GitHub release tagged `v<version>`, with the text of `.github/release-notes.md` above the generated notes. A release is marked latest only when no published `v*` release is newer, and re-running a run whose tag exists fails instead of publishing again.
+- A push to `main` whose version has no release yet publishes all installers and `genbeya-web-demo.zip` as one GitHub release tagged `v<version>`, with the text of `.github/release-notes.md` above the generated notes; pushes whose version is released already are built and tested only. To release: bump the version, commit, push. A release is marked latest only when no published `v*` release is newer.
 
 macOS builds Electron for Apple silicon and Intel; Tauri and Deno Desktop only for the runner's Apple silicon.
 
 ## What's new and the tour
 
-The app's version comes from `package.json` at build time (`src/client/app/core/app-version.ts`); CI stamps each build's patch number there. When the version is newer than the one the user saw last, Genbeya shows the news of every release line in between, once. First-time users get the tour instead.
+The app's version comes from `package.json` at build time (`src/client/app/core/app-version.ts`). When the version is newer than the one the user saw last, Genbeya shows the news of every release line in between, once. First-time users get the tour instead.
 
 To announce a change, add an item to the entry of its release line in `src/client/app/features/onboarding/changelog.ts`, newest release first:
 
