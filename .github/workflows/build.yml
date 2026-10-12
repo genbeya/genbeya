@@ -1,8 +1,8 @@
 name: Build
 
 # Tests Genbeya and packages it with Electron, Tauri and Deno Desktop on Windows,
-# macOS and Linux. Every run uploads the installers as artifacts; a push to main
-# also publishes them all as one GitHub release.
+# macOS and Linux, and builds the web demo on Linux. Every run uploads the installers
+# and the demo as artifacts; a push to main also publishes them all as one GitHub release.
 on:
   push:
     branches: [main, "experiment/**"]
@@ -56,6 +56,37 @@ jobs:
         run: node scripts/version.mjs stamp ${{ github.run_number }}
 
       - uses: ./.github/actions/verify
+
+      # The web demo that genbeya.fyi hosts at /try/: a static bundle, the same on every
+      # system, so it is built, tested in Chromium and packed once, on Linux.
+      - name: Test the web demo
+        if: runner.os == 'Linux'
+        run: |
+          npx playwright install --with-deps --only-shell chromium
+          npm run e2e:demo
+
+      - uses: actions/upload-artifact@v4
+        if: failure() && runner.os == 'Linux'
+        with:
+          name: playwright-report-web-demo
+          path: |
+            playwright-report-demo/
+            test-results-demo/
+          if-no-files-found: ignore
+
+      - name: Pack the web demo
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p out/web
+          (cd dist/demo/browser && zip -qr "$GITHUB_WORKSPACE/out/web/genbeya-web-demo.zip" .)
+          echo "Web demo: $(du -k out/web/genbeya-web-demo.zip | cut -f1) KB zipped" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: Genbeya-web-demo
+          path: out/web/genbeya-web-demo.zip
+          if-no-files-found: error
 
       # The Tauri shell embeds the client, which the end-to-end tests have built.
       - name: Test the Tauri shell

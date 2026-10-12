@@ -20,3 +20,5 @@ The builds are unsigned:
 - **Windows**: if SmartScreen warns, choose _More info → Run anyway_.
 - **macOS**: open the app the first time with right-click → _Open_, or run `xattr -dr com.apple.quarantine "/Applications/Genbeya.app"` (or `Genbeya Tauri.app`, `Genbeya Deno.app`).
 - **Linux**: make the AppImage executable with `chmod +x Genbeya-*.AppImage` before running it.
+
+`genbeya-web-demo.zip` is not an installer: it holds the in-browser demo that [genbeya.fyi/try](https://genbeya.fyi/try/) serves, as static files.
