@@ -103,13 +103,12 @@ describe("WorkspaceManager", () => {
     expect(restored?.snapshot.settings.name).toBe("Test Project");
   });
 
-  it("leaves the repository to the client when a launch carries a Genbeya link, or one GitDesk made", async () => {
+  it("leaves the repository to the client when a launch carries a Genbeya link", async () => {
     const data = await temporaryFolder("data-");
     const first = await createBackend(machine, data);
     await first.workspace.open({ kind: "local", path: (await createRepository()).root });
     await first.dispose();
     const managers = await backend(data);
-    expect(await managers.workspace.restore(["app", "genbeya://open?remote=https://github.com/acme/demo.git&task=TP-1"])).toBeNull();
     expect(await managers.workspace.restore(["app", "genbeya://open?remote=https://github.com/acme/demo.git&task=TP-1"])).toBeNull();
   });
 

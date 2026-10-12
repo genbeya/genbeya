@@ -15,13 +15,8 @@ use tauri_plugin_deep_link::DeepLinkExt;
 #[derive(Default)]
 struct LinksHandedOver(AtomicBool);
 
-/// The schemes of links: Genbeya's, and GitDesk's, whose links keep working.
-const LINK_SCHEMES: [&str; 2] = ["genbeya:", "gitdesk:"];
-
 fn is_link(arg: &str) -> bool {
-    LINK_SCHEMES
-        .iter()
-        .any(|scheme| arg.get(..scheme.len()).is_some_and(|start| start.eq_ignore_ascii_case(scheme)))
+    arg.get(..8).is_some_and(|scheme| scheme.eq_ignore_ascii_case("genbeya:"))
 }
 
 /// The launch arguments plus `links`, or without any link once they were handed over.
@@ -55,16 +50,16 @@ fn forward_opened_links(app: &App) {
     });
 }
 
-/// Installers register genbeya:// and gitdesk:// links; an AppImage registers
-/// itself when it runs. That needs desktop tools the system may lack, which is
-/// no reason not to start.
+/// Installers register genbeya:// links; an AppImage registers itself when it
+/// runs. That needs desktop tools the system may lack, which is no reason not
+/// to start.
 #[cfg(target_os = "linux")]
 fn register_links(app: &App) {
     if app.env().appimage.is_none() {
         return;
     }
     if let Err(error) = app.deep_link().register_all() {
-        eprintln!("Genbeya could not register its links: {error}");
+        eprintln!("Genbeya could not register genbeya:// links: {error}");
     }
 }
 
@@ -176,11 +171,5 @@ mod tests {
             ["genbeya.exe", "Genbeya://open?remote=x&task=a", "--flag", "genbeya://open?remote=x&task=a"]
         );
         assert_eq!(launch_arguments(args(), &links, true), ["genbeya.exe", "--flag"]);
-    }
-
-    #[test]
-    fn knows_the_links_gitdesk_made() {
-        let args = || ["genbeya.exe", "GitDesk://open?remote=x&task=a", "gitdesk:", "gitdesks.txt", "gen"].map(String::from).into_iter();
-        assert_eq!(launch_arguments(args(), &[], true), ["genbeya.exe", "gitdesks.txt", "gen"]);
     }
 }

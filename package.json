@@ -117,8 +117,7 @@
       {
         "name": "Genbeya link",
         "schemes": [
-          "genbeya",
-          "gitdesk"
+          "genbeya"
         ]
       }
     ],

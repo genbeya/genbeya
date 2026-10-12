@@ -17,7 +17,6 @@ describe("resolveAsset", () => {
     "genbeya://open?remote=https://github.com/acme/demo.git&task=DP-1",
     "genbeya://open/index.html",
     "https://app/index.html",
-    "gitdesk://app/index.html",
     "genbeya://app/%2e%2e%2fsecret",
     "genbeya://app/..%2f..%2fsecret",
     "genbeya://app/%5csecret",
@@ -31,7 +30,6 @@ describe("isRendererPage", () => {
   it("accepts only the bundled page, or the dev server in development", () => {
     expect(isRendererPage("genbeya://app/index.html", null)).toBe(true);
     expect(isRendererPage("genbeya://app/other.html", null)).toBe(false);
-    expect(isRendererPage("gitdesk://app/index.html", null)).toBe(false);
     expect(isRendererPage("https://evil.example/index.html", null)).toBe(false);
     expect(isRendererPage("http://127.0.0.1:5173/wiki", "http://127.0.0.1:5173")).toBe(true);
     expect(isRendererPage("not a url", null)).toBe(false);

@@ -6,7 +6,6 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SHELL_OPERATIONS, type ShellOperation } from "../../contracts/bridges";
-import { LINK_SCHEMES } from "../../contracts/genbeya-link";
 import type { Theme } from "../../contracts/model";
 import { dispatch } from "../../contracts/rpc";
 import { locationOfFolder } from "../../access/hosts/host-factory";
@@ -32,10 +31,9 @@ const RECENT_CHANGES = new Set(["open", "restore", "clone", "forget"]);
 const primary = app.requestSingleInstanceLock();
 if (!primary) app.exit(0);
 
-// The installed app opens genbeya://open links (the renderer's own genbeya://app is not one), and the
-// gitdesk://open links GitDesk made: Windows and Linux start it with the link as an argument, macOS
-// hands it over with `open-url`.
-if (primary && app.isPackaged) for (const scheme of LINK_SCHEMES) app.setAsDefaultProtocolClient(scheme);
+// The installed app opens genbeya://open links (the renderer's own genbeya://app is not one): Windows and
+// Linux start it with the link as an argument, macOS hands it over with `open-url`.
+if (primary && app.isPackaged) app.setAsDefaultProtocolClient("genbeya");
 
 /** Links from `open-url`, which comes before the window exists on a cold start; the page reads them with the launch arguments. */
 const openedLinks: string[] = [];

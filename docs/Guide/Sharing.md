@@ -11,5 +11,3 @@ Click a Genbeya link anywhere, or paste it into the command palette (`Ctrl+K`) a
 
 > [!NOTE]
 > The installed Electron and Tauri apps register for `genbeya://` links. Deno Desktop can't, so paste links into the palette there.
-
-Links copied in GitDesk, as Genbeya was called before 0.5, start with `gitdesk://`. They keep working: Genbeya opens them like its own, pasted or clicked, and the installed apps register for both schemes. Copied links always start with `genbeya://`.
