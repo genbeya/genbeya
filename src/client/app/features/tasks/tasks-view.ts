@@ -22,7 +22,7 @@ import { Avatar } from "../../ui/avatar";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
-import { recall, remember } from "../../ui/remembered";
+import { Remembered } from "../../ui/remembered";
 import { TaskBoard } from "./task-board";
 import { PriorityIcon, TypeIcon } from "./task-icons";
 import { TaskList } from "./task-list";
@@ -73,15 +73,16 @@ export class TasksView {
   readonly assignee = input<string>();
 
   private readonly session = inject(Session);
+  private readonly memory = inject(Remembered);
   private readonly api = inject(WorkspaceApi);
   private readonly router = inject(Router);
   protected readonly directory = inject(People);
   protected readonly titleCase = titleCase;
   protected readonly priorities = PRIORITIES;
   protected readonly unassigned = UNASSIGNED;
-  protected readonly layout = signal<Layout>(recall(LAYOUT_KEY) === "list" ? "list" : "board");
+  protected readonly layout = signal<Layout>(this.memory.recall(LAYOUT_KEY) === "list" ? "list" : "board");
   /** Swimlanes per epic on the board. */
-  protected readonly swimlanes = signal(recall(LANES_KEY) === "on");
+  protected readonly swimlanes = signal(this.memory.recall(LANES_KEY) === "on");
   protected readonly filters = signal<TaskFilters>(NO_FILTERS);
   private readonly moving = signal<ReadonlyMap<string, Placement>>(new Map());
   /** Hidden columns as the user left them, while their saves run; null when the snapshot has them. */
@@ -138,12 +139,12 @@ export class TasksView {
 
   protected setLayout(layout: Layout) {
     this.layout.set(layout);
-    remember(LAYOUT_KEY, layout);
+    this.memory.remember(LAYOUT_KEY, layout);
   }
 
   protected toggleSwimlanes() {
     this.swimlanes.update((on) => !on);
-    remember(LANES_KEY, this.swimlanes() ? "on" : "off");
+    this.memory.remember(LANES_KEY, this.swimlanes() ? "on" : "off");
   }
 
   /**

@@ -3,6 +3,7 @@ import { provideRouter, withComponentInputBinding, withHashLocation } from "@ang
 import { provideRockuml } from "@rockuml/angular";
 import { routes } from "./app.routes";
 import { MANAGERS, SHELL, type Platform } from "./platform/platform";
+import { LAYOUT_STORAGE } from "./ui/remembered";
 
 export function appConfig(platform: Platform): ApplicationConfig {
   return {
@@ -13,6 +14,7 @@ export function appConfig(platform: Platform): ApplicationConfig {
       provideRockuml({ wasm: "rockuml.wasm" }),
       { provide: MANAGERS, useValue: platform.managers },
       { provide: SHELL, useValue: platform.shell },
+      ...(platform.storage ? [{ provide: LAYOUT_STORAGE, useValue: platform.storage }] : []),
     ],
   };
 }

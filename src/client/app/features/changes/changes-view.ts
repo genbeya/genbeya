@@ -8,7 +8,7 @@ import { WorkspaceApi } from "../../core/workspace-api";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
 import { relativeTime } from "../../ui/relative-time";
-import { recall, remember } from "../../ui/remembered";
+import { Remembered } from "../../ui/remembered";
 import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { DiffPane, type DiffAction, type DiffActionHandler } from "../diff/diff-pane";
 import { ChangeActions, type LineAction } from "./change-actions";
@@ -78,6 +78,7 @@ export class ChangesView {
   readonly conflict = input<string>();
 
   private readonly session = inject(Session);
+  private readonly memory = inject(Remembered);
   private readonly api = inject(WorkspaceApi);
   private readonly router = inject(Router);
   private readonly actions = inject(ChangeActions);
@@ -88,7 +89,7 @@ export class ChangesView {
   private readonly draft = inject(CommitDraft);
   protected readonly message = this.draft.message;
   protected readonly amend = this.draft.amend;
-  protected readonly tree = signal(recall(TREE_KEY) === "1");
+  protected readonly tree = signal(this.memory.recall(TREE_KEY) === "1");
 
   protected readonly snapshot = computed(() => this.session.snapshot()!);
   protected readonly conflicts = computed(() => this.snapshot().changes.filter((change) => change.conflict));
@@ -178,7 +179,7 @@ export class ChangesView {
 
   protected toggleTree() {
     this.tree.update((tree) => !tree);
-    remember(TREE_KEY, this.tree() ? "1" : "0");
+    this.memory.remember(TREE_KEY, this.tree() ? "1" : "0");
   }
 
   protected async commit() {

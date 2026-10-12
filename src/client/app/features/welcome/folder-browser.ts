@@ -6,7 +6,7 @@ import { messageOf } from "../../core/notifications";
 import { Repositories } from "../../core/repositories";
 import { DialogFrame } from "../../ui/dialog-frame";
 import { Icon } from "../../ui/icon";
-import { recall, remember } from "../../ui/remembered";
+import { Remembered } from "../../ui/remembered";
 
 export interface FolderBrowserOptions {
   /** The machine, and the folder to start in: absolute, or empty for the home folder. */
@@ -128,6 +128,7 @@ export class FolderBrowser {
   private readonly options = inject<FolderBrowserOptions>(DIALOG_DATA);
   protected readonly dialog = inject<DialogRef<FolderChoice>>(DialogRef);
   private readonly repositories = inject(Repositories);
+  private readonly memory = inject(Remembered);
   protected readonly title = `Choose a folder on ${
     this.options.location.kind === "wsl" ? `WSL (${this.options.location.distro})` : this.options.location.host
   }`;
@@ -138,7 +139,7 @@ export class FolderBrowser {
   protected readonly listing = signal<FolderListing | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly showHidden = signal(recall(SHOW_HIDDEN) === "true");
+  protected readonly showHidden = signal(this.memory.recall(SHOW_HIDDEN) === "true");
   /** The selected folder's index in {@link folders}, or -1. */
   protected readonly active = signal(-1);
   protected readonly folders = computed(() => {
@@ -235,7 +236,7 @@ export class FolderBrowser {
   protected toggleHidden(show: boolean) {
     const selected = this.folders()[this.active()]?.name;
     this.showHidden.set(show);
-    remember(SHOW_HIDDEN, String(show));
+    this.memory.remember(SHOW_HIDDEN, String(show));
     this.active.set(selected === undefined ? -1 : this.folders().findIndex((folder) => folder.name === selected));
   }
 
