@@ -140,7 +140,6 @@
       }
     },
     "nsis": {
-      "guid": "6f35097a-286a-59ed-8f5d-83dca4632e7d",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     },
