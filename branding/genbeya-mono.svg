@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="currentColor" color="#22313d">
+  <title>Genbeya</title>
+  <!-- One colour (currentColor) for brand-coloured surfaces, print and stamps; details are cut out. -->
+  <defs>
+    <mask id="left-wall">
+      <g transform="matrix(1 -0.42 0 1 0 149.4)">
+        <rect x="34" y="-6" width="142" height="244" rx="10" fill="#fff" />
+        <rect x="54" y="14" width="102" height="204" rx="6" fill="#000" />
+        <path d="M76 54 H120 M76 88 H134 M76 112 H134 M76 136 H134 M76 160 H112" stroke="#fff" stroke-width="9" stroke-linecap="round" />
+      </g>
+    </mask>
+    <mask id="right-wall">
+      <g transform="matrix(1 0.42 0 1 0 -65.64)">
+        <rect x="336" y="-6" width="142" height="244" rx="10" fill="#fff" />
+        <rect x="356" y="14" width="102" height="204" rx="6" fill="#000" />
+        <path d="M374 72 l9 9 l15 -17 M410 76 H438 M374 118 l9 9 l15 -17 M410 122 H438 M410 168 H438" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <rect x="376" y="158" width="20" height="20" rx="5" fill="none" stroke="#fff" stroke-width="6" />
+      </g>
+    </mask>
+    <mask id="back-wall">
+      <path d="M196 64 L256 40 L316 64 L316 299 L256 274 L196 299 Z" fill="#fff" stroke="#fff" stroke-width="12" stroke-linejoin="round" />
+      <g stroke="#000" fill="#000">
+        <path d="M234 98 V226 M234 208 C234 180 280 184 280 150" fill="none" stroke-width="12" stroke-linecap="round" />
+        <circle cx="234" cy="96" r="16" />
+        <circle cx="234" cy="230" r="16" />
+        <circle cx="280" cy="144" r="16" />
+      </g>
+    </mask>
+    <mask id="floor">
+      <path d="M256 300 L472 391 L256 482 L40 391 Z" fill="#fff" stroke="#fff" stroke-width="12" stroke-linejoin="round" />
+      <g fill="#000">
+        <circle cx="256" cy="350" r="18" />
+        <path d="M220 401 C220 380 235 371 256 371 C277 371 292 380 292 401 Z" />
+        <circle cx="188" cy="384" r="16" />
+        <path d="M156 429 C156 411 169 402 188 402 C207 402 220 411 220 429 Z" />
+        <circle cx="324" cy="384" r="16" />
+        <path d="M292 429 C292 411 305 402 324 402 C343 402 356 411 356 429 Z" />
+      </g>
+    </mask>
+  </defs>
+  <rect width="512" height="512" mask="url(#left-wall)" />
+  <rect width="512" height="512" mask="url(#right-wall)" />
+  <rect width="512" height="512" mask="url(#back-wall)" />
+  <rect width="512" height="512" mask="url(#floor)" />
+</svg>

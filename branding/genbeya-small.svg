@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Genbeya</title>
+  <!-- The mark for 16 to 48 pixels: the same room with fewer, bolder details and wider gaps. -->
+  <defs>
+    <style>
+      .navy { fill: #22313d; stroke: #22313d; stroke-width: 16; stroke-linejoin: round; }
+      .accent { fill: #7c7ff2; stroke: #7c7ff2; stroke-width: 16; stroke-linejoin: round; }
+      .page { fill: #ffffff; stroke: #ffffff; stroke-width: 12; stroke-linejoin: round; }
+      .ink { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <g transform="matrix(1 -0.42 0 1 0 149.4)">
+    <rect class="navy" x="28" y="0" width="134" height="240" rx="4" />
+    <rect class="page" x="56" y="28" width="78" height="184" rx="2" />
+    <path class="ink" stroke="#22313d" stroke-width="22" d="M80 86 H110 M80 138 H110" />
+  </g>
+
+  <g transform="matrix(1 0.42 0 1 0 -65.64)">
+    <rect class="navy" x="350" y="0" width="134" height="240" rx="4" />
+    <rect class="page" x="378" y="28" width="78" height="184" rx="2" />
+    <path class="ink" stroke="#22313d" stroke-width="22" d="M402 86 H432 M402 138 H432" />
+  </g>
+
+  <path class="accent" d="M196 60 L256 36 L316 60 L316 296 L256 270 L196 296 Z" />
+  <path class="ink" stroke="#ffffff" stroke-width="22" d="M234 100 V222 M234 206 C234 176 282 182 282 146" />
+  <circle cx="234" cy="98" r="24" fill="#ffffff" />
+  <circle cx="234" cy="226" r="24" fill="#ffffff" />
+  <circle cx="282" cy="140" r="24" fill="#ffffff" />
+
+  <path class="accent" d="M256 312 L484 404 L256 496 L28 404 Z" />
+</svg>
