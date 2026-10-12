@@ -74,7 +74,7 @@ export const TASK_KEYS = ["id", "title", "type", "status", "priority", "assignee
 /** The value of a custom field; an empty string removes the field. */
 export type FieldValue = string | number | boolean;
 
-/** Project settings, stored in `.gitdesk.yml` next to the wiki and tasks. */
+/** Project settings, stored in `.genbeya.yml` next to the wiki and tasks. */
 export interface Settings {
   readonly name: string;
   readonly wikiRoot: string;
@@ -88,7 +88,7 @@ export interface Settings {
   readonly hiddenColumns: readonly string[];
   readonly types: readonly TaskType[];
   readonly fields: readonly FieldDefinition[];
-  /** The project's people as `.gitdesk.yml` lists them; they win over what GitDesk derives from Git. */
+  /** The project's people as the settings file lists them; they win over what Genbeya derives from Git. */
   readonly people: readonly PersonEntry[];
 }
 
@@ -374,8 +374,18 @@ export interface Snapshot {
   readonly version: string;
   readonly location: Location;
   readonly settings: Settings;
-  /** Version of `.gitdesk.yml`, null while it does not exist. */
+  /** Version of the settings file, null while it does not exist. */
   readonly settingsHash: string | null;
+  /** The settings file: `.genbeya.yml`, or `.gitdesk.yml` in a repository GitDesk set up that has no `.genbeya.yml`. */
+  readonly settingsFile: string;
+  /** `.gitdesk.yml` next to `.genbeya.yml`, which wins: left over from GitDesk. Null without one. */
+  readonly leftoverSettingsFile: string | null;
+  /**
+   * Shared files still named for GitDesk, Genbeya's former name, which
+   * Genbeya reads as they are and can rename: `.gitdesk.yml` while it is the
+   * settings file, `.gitdesk-content` on the content branch.
+   */
+  readonly legacyFiles: readonly string[];
   readonly storage: Storage;
   readonly head: Head;
   readonly branches: readonly string[];

@@ -16,12 +16,12 @@ import type { ShellContract } from "../../../contracts/shell";
 import { APP_VERSION } from "../core/app-version";
 import { MANAGERS, SHELL } from "../platform/platform";
 
-/** Storage with `areas` on the content branch `gitdesk`, pushed to origin, and the other areas in the checkout. */
+/** Storage with `areas` on the content branch `genbeya`, pushed to origin, and the other areas in the checkout. */
 export function contentBranch(areas: readonly ContentArea[], branch: Partial<ContentBranch> = {}): Storage {
   const mode = (area: ContentArea) => (areas.includes(area) ? "branch" : "checkout");
   return {
     areas: { wiki: mode("wiki"), tasks: mode("tasks"), settings: mode("settings") },
-    branch: { name: "gitdesk", remote: "origin", ahead: 0, behind: 0, ...branch },
+    branch: { name: "genbeya", remote: "origin", ahead: 0, behind: 0, ...branch },
   };
 }
 
@@ -75,6 +75,9 @@ export function snapshot(change: Partial<Snapshot> = {}): Snapshot {
     location: { kind: "local", path: "/repo" },
     settings: SETTINGS,
     settingsHash: "settings-hash",
+    settingsFile: ".genbeya.yml",
+    leftoverSettingsFile: null,
+    legacyFiles: [],
     storage: { areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null },
     head: { branch: "main", commit: "abc1234", upstream: null, ahead: 0, behind: 0 },
     branches: ["main"],

@@ -111,7 +111,7 @@ describe("Workspace", () => {
   });
 
   it("finds where a content path lives by its area", async () => {
-    const repository = await createRepository({ ...DEFAULT_FILES, ".gitdesk.yml": "name: Test\ntaskRoot: work\n" });
+    const repository = await createRepository({ ...DEFAULT_FILES, ".genbeya.yml": "name: Test\ntaskRoot: work\n" });
     const host = new LocalHost(nodeMachine());
     const root = host.paths.normalize(repository.root);
     const opened = new Workspace({ kind: "local", path: root }, host, new RepositoryAccess(host, root), {
@@ -120,11 +120,50 @@ describe("Workspace", () => {
     });
     await opened.content.setStorage("tasks", "branch", "work");
 
+    expect(await opened.areaOf(".genbeya.yml")).toBe("settings");
     expect(await opened.areaOf(".gitdesk.yml")).toBe("settings");
     expect(await opened.areaOf("work/Epic/T-1.md")).toBe("tasks");
     expect(await opened.areaOf("docs/Home.md")).toBe("wiki");
     expect(await opened.areaOf("images/logo.png")).toBe("wiki");
-    expect((await opened.locateContent("work/T-1.md")).branch).toBe("gitdesk");
+    expect((await opened.locateContent("work/T-1.md")).branch).toBe("genbeya");
     expect(await opened.locateContent("docs/Home.md")).toMatchObject({ branch: null, root });
+  });
+});
+
+describe("Workspace settings", () => {
+  /** A workspace on a repository with `files` besides the wiki. */
+  async function open(files: Readonly<Record<string, string>>) {
+    const repository = await createRepository({ "docs/Home.md": "# Home\n", ...files });
+    const host = new LocalHost(nodeMachine());
+    const root = host.paths.normalize(repository.root);
+    return new Workspace({ kind: "local", path: root }, host, new RepositoryAccess(host, root), {
+      settings: new SettingsEngine(),
+      tasks: new TaskEngine(),
+    });
+  }
+
+  it("reads .genbeya.yml", async () => {
+    const loaded = await (await open({ ".genbeya.yml": "name: New\n" })).settings();
+    expect(loaded).toMatchObject({ settings: { name: "New" }, file: ".genbeya.yml", leftover: null });
+    expect(loaded.hash).not.toBeNull();
+  });
+
+  it("reads .gitdesk.yml in a repository GitDesk set up", async () => {
+    const opened = await open({ ".gitdesk.yml": "name: Old\ntaskPrefix: OLD\n" });
+    expect(await opened.settings()).toMatchObject({ settings: { name: "Old", taskPrefix: "OLD" }, file: ".gitdesk.yml", leftover: null });
+  });
+
+  it("prefers .genbeya.yml and names .gitdesk.yml next to it as left over", async () => {
+    const opened = await open({ ".genbeya.yml": "name: New\n", ".gitdesk.yml": "name: Old\n" });
+    expect(await opened.settings()).toMatchObject({ settings: { name: "New" }, file: ".genbeya.yml", leftover: ".gitdesk.yml" });
+  });
+
+  it("starts with defaults and .genbeya.yml in a repository without settings", async () => {
+    expect(await (await open({})).settings()).toMatchObject({ file: ".genbeya.yml", leftover: null, hash: null });
+  });
+
+  it("names the broken file it falls back from", async () => {
+    const { problem } = await (await open({ ".gitdesk.yml": "name: [\n" })).settings();
+    expect(problem).toMatch(/^\.gitdesk\.yml: [\s\S]* Using defaults until it is fixed\.$/);
   });
 });

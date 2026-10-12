@@ -11,6 +11,7 @@ import {
   type Storage,
   type Theme,
 } from "../contracts/model";
+import { LEGACY_AREAS_FILE } from "../access/content/content-store";
 import { Git } from "../access/git/git";
 import { RepositoryAccess } from "../access/git/repository-access";
 import type { Host } from "../access/hosts/host";
@@ -18,6 +19,7 @@ import { validateFolderLocation, validateLocation, type HostFactory } from "../a
 import type { RemoteFolders } from "../access/hosts/remote-folders";
 import type { PreferencesStore } from "../access/preferences/preferences-store";
 import type { SampleEngine } from "../engines/sample-engine";
+import { LEGACY_SETTINGS_FILE } from "../engines/settings-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { encodeText, sha256 } from "../utilities/bytes";
 import { buildFileTree } from "../utilities/file-tree";
@@ -209,7 +211,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
 
   /** Everything the client shows, stamped with a version of its content; staged changes are compared with `base`. */
   private async compose(workspace: Workspace, base: ChangeBase = "head"): Promise<Snapshot> {
-    const { areas, branch: content } = await workspace.content.layout();
+    const { areas, branch: content, areasFile } = await workspace.content.layout();
     const readsBranch = content && (areas.wiki === "branch" || areas.tasks === "branch");
     const [repository, branchFiles, contentBranch, loaded] = await Promise.all([
       workspace.repository.state(base),
@@ -218,7 +220,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       workspace.settings(true),
     ]);
     const filesOf = (area: ContentArea) => (areas[area] === "branch" && branchFiles ? branchFiles : repository.files);
-    const { settings, hash, problem } = loaded;
+    const { settings, hash, problem, file, leftover } = loaded;
     const warnings = problem ? [problem] : [];
     if (workspace.content.commitFailure && content)
       warnings.push(`Saved, but not committed to the ${content.branch} branch: ${workspace.content.commitFailure}`);
@@ -240,6 +242,9 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       location: workspace.location,
       settings,
       settingsHash: hash,
+      settingsFile: file,
+      leftoverSettingsFile: leftover,
+      legacyFiles: [file, areasFile].filter((name) => name === LEGACY_SETTINGS_FILE || name === LEGACY_AREAS_FILE) as string[],
       storage,
       head: repository.head,
       branches: repository.branches,

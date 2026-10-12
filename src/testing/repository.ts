@@ -17,7 +17,7 @@ export interface TestRepository {
 }
 
 export const DEFAULT_FILES: Readonly<Record<string, string>> = {
-  ".gitdesk.yml": "name: Test Project\ntaskPrefix: TP\n",
+  ".genbeya.yml": "name: Test Project\ntaskPrefix: TP\n",
   "docs/Home.md": "# Home\n",
   "docs/Architecture.md": "# Architecture\n",
   "docs/Architecture/Backend.md": "# Backend\n",

@@ -116,6 +116,13 @@ export interface ContentManagerContract {
   deleteComment(workspace: string, path: string, index: number, expectedHash: string): Promise<Task>;
   saveSettings(workspace: string, settings: Settings, expectedHash: string | null): Promise<void>;
   /**
+   * Renames the files named for GitDesk, Genbeya's former name, that
+   * teammates share: `.gitdesk.yml` to `.genbeya.yml` where the settings
+   * live, and `.gitdesk-content` on the content branch. Staged in the
+   * checkout, committed on the content branch; resolves to the old names.
+   */
+  renameLegacyFiles(workspace: string): Promise<readonly string[]>;
+  /**
    * Keeps one area (wiki, tasks or settings) in the checkout, or on the
    * content branch shared by all code branches. The area's files move along.
    */
@@ -296,6 +303,7 @@ export const MANAGER_METHODS = {
     "editComment",
     "deleteComment",
     "saveSettings",
+    "renameLegacyFiles",
     "setStorage",
     "syncContent",
     "agentFiles",

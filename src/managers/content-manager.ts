@@ -29,7 +29,7 @@ import type { AgentEngine } from "../engines/agent-engine";
 import type { LinkEngine, LinkRewrite } from "../engines/link-engine";
 import type { PeopleEngine } from "../engines/people-engine";
 import type { SearchEngine } from "../engines/search-engine";
-import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
+import { LEGACY_SETTINGS_FILE, SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine, TaskVersion } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { sha256, toBase64 } from "../utilities/bytes";
@@ -386,14 +386,27 @@ export class ContentManager implements ContentManagerContract {
     return moved ? { path: moved, content: await workspace.content.committed("tasks", moved) } : null;
   }
 
+  /** Saved to `.genbeya.yml`, or to GitDesk's `.gitdesk.yml` while the repository has only that: it is the team's to rename. */
   saveSettings(id: unknown, settings: unknown, expectedHash: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
       const { files } = await workspace.content.locate("settings");
+      const { file } = await workspace.settings(true);
       const version = this.version(expectedHash);
-      const previous = version === null ? null : (await files.read(SETTINGS_FILE)).content;
-      await files.write(SETTINGS_FILE, this.engines.settings.serialize(settings as Settings, previous, workspace.windows), version);
+      const previous = version === null ? null : (await files.read(file)).content;
+      await files.write(file, this.engines.settings.serialize(settings as Settings, previous, workspace.windows), version);
       workspace.forgetSettings();
-      await workspace.content.record("settings", [SETTINGS_FILE], "Update GitDesk settings");
+      await workspace.content.record("settings", [file], "Update Genbeya settings");
+    });
+  }
+
+  renameLegacyFiles(id: unknown): Promise<readonly string[]> {
+    return this.on(id, async (workspace) => {
+      const { file, leftover } = await workspace.settings(true);
+      if (leftover) throw new Error(`${SETTINGS_FILE} exists already. Delete ${leftover}, which Genbeya does not read, instead.`);
+      const settings = file === LEGACY_SETTINGS_FILE ? ([LEGACY_SETTINGS_FILE, SETTINGS_FILE] as const) : null;
+      const renamed = await workspace.content.renameLegacyFiles(settings);
+      workspace.forgetSettings();
+      return renamed;
     });
   }
 
@@ -401,8 +414,8 @@ export class ContentManager implements ContentManagerContract {
     return this.on(id, async (workspace) => {
       if (!CONTENT_AREAS.includes(area as ContentArea)) throw new Error("Invalid content area.");
       if (!STORAGE_MODES.includes(mode as StorageMode)) throw new Error("Invalid storage mode.");
-      const { settings } = await workspace.settings();
-      const paths: Readonly<Record<ContentArea, string>> = { wiki: settings.wikiRoot, tasks: settings.taskRoot, settings: SETTINGS_FILE };
+      const { settings, file } = await workspace.settings();
+      const paths: Readonly<Record<ContentArea, string>> = { wiki: settings.wikiRoot, tasks: settings.taskRoot, settings: file };
       await workspace.content.setStorage(area as ContentArea, mode as StorageMode, paths[area as ContentArea]);
       workspace.forgetSettings();
     });
@@ -504,7 +517,7 @@ export class ContentManager implements ContentManagerContract {
 
   /** Content edits are committed when their area lives on the content branch; settings edits are re-read. */
   private async afterEdit(workspace: Workspace, scope: Scope, path: string, message: string) {
-    if (scope === "content" || path === SETTINGS_FILE) workspace.forgetSettings();
+    if (scope === "content" || path === SETTINGS_FILE || path === LEGACY_SETTINGS_FILE) workspace.forgetSettings();
     if (scope === "content") await workspace.content.record(await workspace.areaOf(path), [path], message);
   }
 
