@@ -119,9 +119,9 @@ export class MemoryRepository {
     else this.head = { detached: hash };
   }
 
-  /** A commit made now by the user, unless `author` says otherwise. */
-  writeCommit(tree: Tree, parents: readonly string[], message: string, author?: Signature): CommitObject {
-    return this.commits.add({ tree: new Map(tree), parents, message, author: author ?? this.signature(), committer: this.signature() });
+  /** A commit made now by the user, unless `author` and `committer` say otherwise. */
+  writeCommit(tree: Tree, parents: readonly string[], message: string, author?: Signature, committer = this.signature()): CommitObject {
+    return this.commits.add({ tree: new Map(tree), parents, message, author: author ?? committer, committer });
   }
 
   /** The commit a branch, remote-tracking branch, tag, HEAD or (abbreviated) commit ID names. */
@@ -327,20 +327,25 @@ export class MemoryRepository {
 
   // Committing and history.
 
-  /** Commits the index; `amend` replaces the last commit, keeping its author. A merge in progress is concluded. */
-  commit(message: string, amend: boolean): CommitObject {
+  /**
+   * Commits the index; `amend` replaces the last commit, keeping its author.
+   * A merge in progress is concluded. `as` commits as someone else than
+   * the user, as the sample's commits are made.
+   */
+  commit(message: string, amend: boolean, as?: Identity): CommitObject {
+    const by = as && this.signature(as);
     const tree = this.indexTree();
     const head = this.headCommit();
     if (amend) {
       if (!head) throw new Error("There is no commit to amend yet.");
       const previous = this.commits.get(head);
-      const commit = this.writeCommit(tree, previous.parents, message, previous.author);
+      const commit = this.writeCommit(tree, previous.parents, message, previous.author, by);
       this.setHead(commit.hash);
       return commit;
     }
     const merging = this.operation?.kind === "merge" ? this.operation.theirs : null;
     if (!merging && sameTree(tree, this.headTree())) throw new Error("Nothing to commit. Stage your changes first.");
-    const commit = this.writeCommit(tree, [...(head ? [head] : []), ...(merging ? [merging] : [])], message);
+    const commit = this.writeCommit(tree, [...(head ? [head] : []), ...(merging ? [merging] : [])], message, by, by);
     this.setHead(commit.hash);
     // Committing concludes a merge, pick or revert whose conflicts are resolved, as in Git.
     if (this.operation && this.operation.kind !== "rebase") this.operation = null;
