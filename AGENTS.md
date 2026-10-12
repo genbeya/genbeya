@@ -11,3 +11,7 @@ This project plans its work as Genbeya tasks and documents itself in a Genbeya w
 - The `genbeya` skill (`.agents/skills/genbeya/SKILL.md`) describes the file formats and the workflow in detail.
 
 <!-- genbeya:end -->
+
+## Keeping the web demo in step
+
+The web demo ([[Demo]], `src/managers/demo/`) implements the same manager contracts on in-memory repositories. When you change what a manager does, change its demo counterpart in the same commit, and run `npm run e2e:demo` besides the other tests. New contract methods don't compile until the demo implements them.
