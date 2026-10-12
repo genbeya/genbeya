@@ -88,9 +88,27 @@ function parseAreas(listed: string): AreaModes {
   ) as Record<ContentArea, StorageMode>;
 }
 
-/** `git config` of `key` in the `genbeya` section, or in GitDesk's `gitdesk` section while that is not set. */
-async function configured(git: Git, key: string): Promise<string | null> {
-  return (await git.config(`genbeya.${key}`)) ?? (await git.config(`gitdesk.${key}`));
+interface CloneSettings {
+  readonly branch: string | null;
+  readonly storage: string | null;
+}
+
+/**
+ * The clone's `genbeya.branch` and `genbeya.storage`, each falling back to
+ * the `gitdesk` key GitDesk read while it is not set; in one call to Git,
+ * which may run on another machine.
+ */
+async function cloneSettings(git: Git): Promise<CloneSettings> {
+  const listed = (await git.attempt(["config", "--get-regexp", "^(genbeya|gitdesk)\\.(branch|storage)$"])) ?? "";
+  // "genbeya.branch notes"; Git prints the names in lower case, and a key without a value alone.
+  const values = new Map(
+    listed
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => (line.includes(" ") ? [line.slice(0, line.indexOf(" ")), line.slice(line.indexOf(" ") + 1).trim()] : [line, ""])),
+  );
+  const value = (key: string) => values.get(`genbeya.${key}`) || values.get(`gitdesk.${key}`) || null;
+  return { branch: value("branch"), storage: value("storage") };
 }
 
 interface Tip {
@@ -120,8 +138,9 @@ export class ContentStore {
 
   /** Where each area lives, checking the content branch out as a worktree when this clone uses it. */
   async layout(): Promise<ContentLayout> {
-    if ((await configured(this.repository, "storage")) === "worktree") return { areas: IN_CHECKOUT, branch: null, areasFile: null };
-    const { name, tips } = await this.contentBranch();
+    const settings = await cloneSettings(this.repository);
+    if (settings.storage === "worktree") return { areas: IN_CHECKOUT, branch: null, areasFile: null };
+    const { name, tips } = await this.contentBranch(settings);
     const local = tips.find((tip) => tip.ref === `refs/heads/${name}`);
     const remote = tips.find((tip) => tip.ref.startsWith("refs/remotes/"));
     const tip = local ?? remote;
@@ -136,9 +155,8 @@ export class ContentStore {
    * configured branch, else `genbeya`, else the `gitdesk` branch GitDesk
    * made, while only that exists here or on a remote.
    */
-  private async contentBranch(): Promise<{ name: string; tips: Tip[] }> {
-    const name = await configured(this.repository, "branch");
-    if (name) return { name, tips: await this.branchTips([name]) };
+  private async contentBranch({ branch }: CloneSettings): Promise<{ name: string; tips: Tip[] }> {
+    if (branch) return { name: branch, tips: await this.branchTips([branch]) };
     const tips = await this.branchTips([DEFAULT_CONTENT_BRANCH, LEGACY_CONTENT_BRANCH]);
     // Remote names may contain slashes; branch names here have none.
     const of = (branch: string) => tips.filter((tip) => tip.ref.endsWith(`/${branch}`));
@@ -377,7 +395,7 @@ export class ContentStore {
 
   /** Creates the content branch from an empty root commit unless it exists here or on a remote; true when it did. */
   private async startBranch(): Promise<boolean> {
-    const { name, tips } = await this.contentBranch();
+    const { name, tips } = await this.contentBranch(await cloneSettings(this.repository));
     if (tips.length) return false;
     const common = await this.commonDirectory();
     // The empty tree must exist as an object, or `git fsck` reports it missing.
