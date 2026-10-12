@@ -131,7 +131,11 @@ export interface ContentManagerContract {
   syncContent(workspace: string): Promise<void>;
   /** Every agent file and whether the checkout has it, generated as if `targets` were added (they refer to each other). */
   agentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFile[]>;
-  /** Writes the agent files of `targets` into the checkout, leaving text outside GitDesk's blocks alone. */
+  /**
+   * Writes the agent files of `targets` into the checkout, leaving text
+   * outside Genbeya's blocks alone, then deletes the files GitDesk wrote in
+   * their place (see {@link AgentFile.replaces}).
+   */
   addAgentFiles(workspace: string, targets: readonly AgentTarget[]): Promise<readonly AgentFileWrite[]>;
   /**
    * Finds `text` inside pages, tasks and code: tracked and untracked files

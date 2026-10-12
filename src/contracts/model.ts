@@ -604,7 +604,7 @@ export const isDefaultBranch = (branch: string, defaultBranch: string | null): b
   defaultBranch === null ? branch === "main" || branch === "master" : branch === defaultBranch;
 
 /**
- * Files that teach coding agents to use GitDesk's tasks and wiki: the skill
+ * Files that teach coding agents to use Genbeya's tasks and wiki: the skill
  * where Claude Code and where other agents look for it, and the instruction
  * files AGENTS.md, CLAUDE.md and Copilot's.
  */
@@ -615,17 +615,24 @@ export interface AgentFile {
   readonly target: AgentTarget;
   /** In the checkout. */
   readonly path: string;
-  /** What GitDesk writes: the whole file, or its marked block in a file it shares with other text. */
+  /** What Genbeya writes: the whole file, or its marked block in a file it shares with other text. */
   readonly text: string;
-  /** `missing` also when the file exists without GitDesk's block. */
+  /** `missing` also when the file exists without Genbeya's block; `outdated` while it has {@link replaces}. */
   readonly state: "missing" | "current" | "outdated";
   /** Excluded by `.gitignore`, so it would not be committed. */
   readonly ignored: boolean;
+  /**
+   * The file GitDesk, as Genbeya was called before, wrote for the same
+   * agent elsewhere (its skill, under the old skill name), which adding
+   * this one deletes, edits and all; null when the checkout has none.
+   */
+  readonly replaces: string | null;
 }
 
 export interface AgentFileWrite {
   readonly path: string;
-  readonly result: "created" | "updated" | "unchanged";
+  /** `replaced`: a file GitDesk wrote, deleted as the file at its new place replaces it. */
+  readonly result: "created" | "updated" | "unchanged" | "replaced";
 }
 
 export interface RecentEntry {

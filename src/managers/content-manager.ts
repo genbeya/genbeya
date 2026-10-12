@@ -34,7 +34,7 @@ import type { TaskEngine, TaskVersion } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { sha256, toBase64 } from "../utilities/bytes";
 import { referenceIndex } from "../utilities/references";
-import { baseName, relocate, within } from "../utilities/repository-path";
+import { baseName, parentOf, relocate, within } from "../utilities/repository-path";
 import { searchContent } from "./content-search";
 import type { Workspace, WorkspaceRegistry } from "./workspace";
 
@@ -432,12 +432,13 @@ export class ContentManager implements ContentManagerContract {
     return this.on(id, async (workspace) => {
       const planned = await this.planAgentFiles(workspace, targets);
       const ignored = await workspace.repository.ignored(planned.map(({ file }) => file.path));
-      return planned.map(({ file, existing }) => ({
+      return planned.map(({ file, existing, replaces }) => ({
         target: file.target,
         path: file.path,
         text: file.text,
-        state: this.engines.agents.stateOf(file, existing?.content ?? null),
+        state: this.engines.agents.stateOf(file, existing?.content ?? null, replaces !== null),
         ignored: ignored.has(file.path),
+        replaces,
       }));
     });
   }
@@ -447,9 +448,10 @@ export class ContentManager implements ContentManagerContract {
       const planned = (await this.planAgentFiles(workspace, targets)).filter(({ file }) => (targets as unknown[]).includes(file.target));
       if (!planned.length) throw new Error("Choose the files to add.");
       // Every file is merged before the first is written, so broken markers leave all of them alone.
-      const merged = planned.map(({ file, existing }) => ({
+      const merged = planned.map(({ file, existing, replaces }) => ({
         file,
         existing,
+        replaces,
         content: this.engines.agents.merge(file, existing?.content ?? null),
       }));
       const written: AgentFileWrite[] = [];
@@ -458,22 +460,36 @@ export class ContentManager implements ContentManagerContract {
         if (result !== "unchanged") await workspace.checkout.write(file.path, content, existing?.hash ?? null);
         written.push({ path: file.path, result });
       }
+      // GitDesk's files go only once every new one is written; the rest of their folders stays.
+      for (const { replaces } of merged)
+        if (replaces) {
+          await workspace.checkout.remove(replaces);
+          await workspace.checkout.removeEmptyFolders(replaces, parentOf(parentOf(replaces)));
+          written.push({ path: replaces, result: "replaced" });
+        }
       return written;
     });
   }
 
-  /** Every agent file with what the checkout has of it; they are code, so they never live on the content branch. */
+  /**
+   * Every agent file with what the checkout has of it, and of the file
+   * GitDesk wrote in its place; they are code, so they never live on the
+   * content branch.
+   */
   private async planAgentFiles(workspace: Workspace, targets: unknown) {
     if (!Array.isArray(targets) || targets.some((target) => !AGENT_TARGETS.includes(target as AgentTarget)))
       throw new Error("Unknown agent file.");
-    const { settings } = await workspace.settings();
+    const { settings, file: settingsFile } = await workspace.settings();
+    const read = (path: string) =>
+      workspace.checkout.read(path).catch((error: unknown) => {
+        if (isMissing(error)) return null;
+        throw error;
+      });
     return Promise.all(
-      this.engines.agents.files(settings, targets as AgentTarget[]).map(async (file) => ({
+      this.engines.agents.files(settings, targets as AgentTarget[], settingsFile).map(async (file) => ({
         file,
-        existing: await workspace.checkout.read(file.path).catch((error: unknown) => {
-          if (isMissing(error)) return null;
-          throw error;
-        }),
+        existing: await read(file.path),
+        replaces: file.replaces && (await workspace.checkout.kind(file.replaces)) === "file" ? file.replaces : null,
       })),
     );
   }
