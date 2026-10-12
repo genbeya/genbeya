@@ -17,7 +17,7 @@ export interface Area {
   readonly height: number;
 }
 
-export const WINDOW_STATE_FILE = "window.json";
+const FILE = "window.json";
 /** The part of the title bar that must be on a screen, so the window can still be dragged. */
 const GRIP = { width: 100, height: 40 };
 
@@ -52,7 +52,7 @@ export class WindowState {
 
   static async load(folder: string): Promise<WindowState> {
     try {
-      const saved = JSON.parse(await fs.readFile(path.join(folder, WINDOW_STATE_FILE), "utf8")) as WindowBounds;
+      const saved = JSON.parse(await fs.readFile(path.join(folder, FILE), "utf8")) as WindowBounds;
       const valid = ["x", "y", "width", "height"].every((key) => Number.isFinite(saved[key as keyof WindowBounds]));
       return new WindowState(folder, valid ? saved : null);
     } catch {
@@ -75,6 +75,6 @@ export class WindowState {
     this.timer = null;
     if (!this.current) return;
     await fs.mkdir(this.folder, { recursive: true });
-    await fs.writeFile(path.join(this.folder, WINDOW_STATE_FILE), JSON.stringify(this.current));
+    await fs.writeFile(path.join(this.folder, FILE), JSON.stringify(this.current));
   }
 }

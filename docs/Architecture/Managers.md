@@ -102,7 +102,7 @@ The manager keeps them per open repository until HEAD moves, so the call costs a
 
 ## Preferences
 
-`workspace.preferences()` and `setPreferences(change)` keep the user's preferences in `state.json` in the app's data folder, next to the recent repositories, so they survive reinstalling the same variant. Besides theme and startup they remember the onboarding: the version whose news the user has seen (`null` before the first start; state saved by versions that did not remember it counts as `0.0.0`, so its user sees all news), whether the tour was taken, and the repositories that offered it. A data folder without `state.json` first takes over a copy of the one the shell names as its predecessor's (`PreviousData` in `createBackend`), so each variant keeps what its GitDesk predecessor remembered; see [Runtimes](Runtimes.md#updating-from-gitdesk).
+`workspace.preferences()` and `setPreferences(change)` keep the user's preferences in `state.json` in the app's data folder, next to the recent repositories, so they survive reinstalling the same variant. Besides theme and startup they remember the onboarding: the version whose news the user has seen (`null` before the first start; state saved by versions that did not remember it counts as `0.0.0`, so its user sees all news), whether the tour was taken, and the repositories that offered it.
 
 ## Sample repository
 

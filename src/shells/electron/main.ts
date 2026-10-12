@@ -15,7 +15,7 @@ import { withoutLinks } from "../../utilities/launch-request";
 import { updateJumpList } from "./jump-list";
 import { CONTENT_SECURITY_POLICY } from "../content-security-policy";
 import { isRendererPage, RENDERER_SCHEME, RENDERER_URL, resolveAsset } from "./renderer-protocol";
-import { placeOnScreen, WINDOW_STATE_FILE, WindowState } from "./window-state";
+import { placeOnScreen, WindowState } from "./window-state";
 
 protocol.registerSchemesAsPrivileged([
   { scheme: RENDERER_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -180,21 +180,9 @@ function connect(window: BrowserWindow, backend: Backend) {
 
 if (primary) void app.whenReady().then(start);
 
-/**
- * The data folder of GitDesk, as Genbeya was called before 0.5. Electron
- * names it after the package (gitdesk), as package.json gives the product
- * name only to the installers; GitDesk is the name it would take otherwise.
- */
-const previousData = () => ({
-  folders: ["gitdesk", "GitDesk"].map((name) => path.join(app.getPath("appData"), name)),
-  files: [WINDOW_STATE_FILE],
-});
-
 async function start() {
   const userData = app.getPath("userData");
-  // The backend takes GitDesk's data over on a first start, the window's included.
-  const backend = await createBackend(nodeMachine(), userData, previousData());
-  const state = await WindowState.load(userData);
+  const [backend, state] = await Promise.all([createBackend(nodeMachine(), userData), WindowState.load(userData)]);
   serveClient();
   setMenu();
   const window = createWindow(state);

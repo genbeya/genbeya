@@ -17,21 +17,10 @@ export const DEFAULT_PREFERENCES: Preferences = {
 export const UNKNOWN_VERSION = "0.0.0";
 const RECENT_LIMIT = 20;
 const SAVE_DELAY = 300;
-const STATE_FILE = "state.json";
 
 interface State {
   readonly recent: readonly RecentEntry[];
   readonly preferences: Preferences;
-}
-
-/**
- * Where the app kept its data before: the data folders of GitDesk, as
- * Genbeya was called before 0.5, most likely first, and the files a shell
- * keeps there besides the preferences, such as Electron's window bounds.
- */
-export interface PreviousData {
-  readonly folders: readonly string[];
-  readonly files?: readonly string[];
 }
 
 /** The remote URLs a saved entry holds; entries saved before remotes were remembered have none. */
@@ -56,19 +45,12 @@ export class PreferencesStore {
   ) {}
 
   private get file() {
-    return this.machine.paths.join(this.folder, STATE_FILE);
+    return this.machine.paths.join(this.folder, "state.json");
   }
 
-  /**
-   * Loads the state; a missing or unreadable file starts fresh. A data
-   * folder without state takes over the state of the `previous` one first,
-   * so an app that was renamed keeps its user's recent repositories and
-   * preferences.
-   */
-  static async load(machine: Machine, folder: string, previous: PreviousData = { folders: [] }): Promise<PreferencesStore> {
+  /** Loads the state; a missing or unreadable file starts fresh. */
+  static async load(machine: Machine, folder: string): Promise<PreferencesStore> {
     const store = new PreferencesStore(machine, folder);
-    // Starting fresh is still better than not starting.
-    await store.adopt(previous).catch(() => undefined);
     try {
       const saved = JSON.parse(decodeLenient(await machine.fileSystem.readFile(store.file))) as Partial<State>;
       const recent = Array.isArray(saved.recent) ? saved.recent.slice(0, RECENT_LIMIT) : [];
@@ -83,34 +65,6 @@ export class PreferencesStore {
       /* First run or unreadable state. */
     }
     return store;
-  }
-
-  /**
-   * Copies the state of the first of the previous folders that has any,
-   * unless this folder has state of its own. Copies, never moves: the app
-   * of the old name may still be installed. Files this folder has are kept,
-   * and the state file comes last, so a copy cut short is made again.
-   */
-  private async adopt({ folders, files = [] }: PreviousData): Promise<void> {
-    const { fileSystem, paths } = this.machine;
-    const has = (path: string) =>
-      fileSystem.stat(path).then(
-        () => true,
-        () => false,
-      );
-    if (await has(this.file)) return;
-    for (const folder of folders) {
-      if (paths.normalize(folder) === paths.normalize(this.folder)) continue;
-      const state = await fileSystem.readFile(paths.join(folder, STATE_FILE)).catch(() => null);
-      if (!state) continue;
-      await fileSystem.makeDirectory(this.folder);
-      for (const name of files) {
-        const data = await fileSystem.readFile(paths.join(folder, name)).catch(() => null);
-        if (data) await fileSystem.writeFile(paths.join(this.folder, name), data, true).catch(() => undefined);
-      }
-      await fileSystem.writeFile(this.file, state, true);
-      return;
-    }
   }
 
   get recent(): readonly RecentEntry[] {
