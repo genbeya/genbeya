@@ -1,27 +1,28 @@
 ---
-name: gitdesk
-description: Plan, track and document work in this repository with GitDesk tasks and wiki pages. Use when planning or breaking down work, when starting, updating or finishing a task, when looking up or recording project knowledge, and when referencing tasks such as GENBEYA-12 in commits, pull requests or documentation. Tasks live in tasks/, the wiki in docs/.
+name: genbeya
+description: Plan, track and document work in this repository with Genbeya tasks and wiki pages. Use when planning or breaking down work, when starting, updating or finishing a task, when looking up or recording project knowledge, and when referencing tasks such as GENBEYA-12 in commits, pull requests or documentation. Tasks live in tasks/, the wiki in docs/.
 ---
 
-# GitDesk tasks and wiki
+# Genbeya tasks and wiki
 
-This repository keeps its task board and its wiki as plain files, managed with GitDesk. People follow your work on the board and read what you document in the wiki, so:
+This repository keeps its task board and its wiki as plain files, managed with Genbeya. People follow your work on the board and read what you document in the wiki, so:
 
 - **Use tasks instead of your internal todo list.** Plan work as tasks, keep their status current while you work, and tick their checklists as steps get done.
 - **Use the wiki instead of private memory files.** Record durable project knowledge (architecture, decisions and their reasons, conventions, how-tos, pitfalls) as wiki pages, not in agent-private notes such as CLAUDE.md memories or `.cursor` notes. Read the relevant pages before you change an unfamiliar area.
 
-Edit the files directly; GitDesk picks up changes on its own.
+Edit the files directly; Genbeya picks up changes on its own.
 
 ## Find the files
 
-1. Run `git worktree list`. A worktree inside `.git/gitdesk/` holds GitDesk's _content branch_ (`gitdesk`, or the branch `git config gitdesk.branch` names). Its `.gitdesk-content` file says where each area lives: `wiki`, `tasks` and `settings` (`.gitdesk.yml`) set to `branch` live in that worktree, those set to `checkout` in the checkout; a content branch without that file holds all three. Without such a worktree, everything lives in the checkout.
-   - Read and edit each area where it lives. Commit edits on the content branch right away, in that worktree (`git -C <worktree> add …` and `git -C <worktree> commit -m …`); GitDesk pushes them when someone syncs. Never copy files between the content branch and the checkout: the copy in the other place is out of date.
-2. Read `.gitdesk.yml` where the settings live. When it disagrees with the values below, the file wins:
+1. Run `git worktree list`. A worktree inside `.git/genbeya/` holds Genbeya's _content branch_ (`genbeya`, or the branch `git config genbeya.branch` names). Its `.genbeya-content` file says where each area lives: `wiki`, `tasks` and `settings` (`.genbeya.yml`) set to `branch` live in that worktree, those set to `checkout` in the checkout; a content branch without that file holds all three. Without such a worktree, everything lives in the checkout.
+   - Genbeya was called GitDesk before. In repositories set up with GitDesk, the worktree may be inside `.git/gitdesk/`, the branch named `gitdesk` and the file `.gitdesk-content`; they mean the same.
+   - Read and edit each area where it lives. Commit edits on the content branch right away, in that worktree (`git -C <worktree> add …` and `git -C <worktree> commit -m …`); Genbeya pushes them when someone syncs. Never copy files between the content branch and the checkout: the copy in the other place is out of date.
+2. Read `.genbeya.yml` where the settings live. When it disagrees with the values below, the file wins:
    - `wikiRoot` is the wiki folder (here `docs`), `wikiHome` its home page relative to that folder (here `Home.md`).
    - `taskRoot` is the task folder (here `tasks`), `taskPrefix` the prefix of task IDs (here `GD`).
    - `statuses` are the workflow states in board order: the first is where new ideas wait, the last means done. An entry is a state's name, or a mapping whose `name` is the state.
    - `hiddenColumns` are states the board leaves out; tasks may still be in them.
-   - `types` lists the task types: names, or mappings whose `name` is the type (with an `icon` and a colour `tone` for GitDesk). Without `types`, the types are `bug`, `feature`, `improvement` and `chore`; `types: []` means none.
+   - `types` lists the task types: names, or mappings whose `name` is the type (with an `icon` and a colour `tone` for Genbeya). Without `types`, the types are `bug`, `feature`, `improvement` and `chore`; `types: []` means none.
    - If present, `fields` lists custom task fields: each has a `name`, which is the frontmatter key, and a `type`: `text` (the default), `number`, `date` (written `2026-05-01`) or `choice`, whose value is one of its `options`.
 
 ## Tasks
@@ -48,7 +49,7 @@ Render only the visible rows of long lists.
 - `id`, `title` and `status` are required; `status` is one of the configured states.
 - `priority` is `urgent`, `high`, `medium` or `low`; leave it out for none. `assignee` and `labels` are optional.
 - `type` is optional and one of the configured types. Custom fields are frontmatter keys named as in `fields`, with values of their kind; leave a field out when it has no value.
-- The description below the frontmatter is Markdown. Its checklist items (`- [ ]`, `- [x]`) are the task's subtasks, which people tick in GitDesk too.
+- The description below the frontmatter is Markdown. Its checklist items (`- [ ]`, `- [x]`) are the task's subtasks, which people tick in Genbeya too.
 - An epic is a folder below the task folder, and epics may nest (`Auth/Tokens`). A task without an epic sits in the task folder itself. Folders whose names start with a dot hold no tasks.
 - If present, a `## Comments` section below the description holds the discussion. Add your comments at its end in the format of the existing ones, and never edit other people's comments.
 
@@ -72,7 +73,7 @@ Keep the board true while you work. Use the configured states by their meaning, 
 
 ## References
 
-In wiki pages and task descriptions, `[[…]]` links anything in the repository, and GitDesk shows what it points to:
+In wiki pages and task descriptions, `[[…]]` links anything in the repository, and Genbeya shows what it points to:
 
 - `[[GENBEYA-12]]` is a task, shown with its title and state.
 - `[[Getting started]]` or `[[Guide/Wiki]]` is a wiki page, by title or by its path below the wiki folder without `.md`.
@@ -96,6 +97,6 @@ Task IDs written plainly (`GENBEYA-12`) link to the task as well. Name the task 
 
 ## Ground rules
 
-- Edit `.gitdesk.yml` only when asked to.
+- Edit `.genbeya.yml` only when asked to.
 - Keep task files and pages in their format: people and other tools read them too.
 - In the checkout, commit task and wiki edits like code, together with the work they describe.
