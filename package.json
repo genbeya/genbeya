@@ -1,5 +1,5 @@
 {
-  "name": "gitdesk",
+  "name": "genbeya",
   "version": "0.4.0",
   "private": true,
   "description": "A desktop workspace for Git repositories: wiki, tasks, code and version control",
@@ -95,8 +95,8 @@
     "yaml": "^2.9.1"
   },
   "build": {
-    "appId": "dev.gitdesk.app",
-    "productName": "GitDesk",
+    "appId": "fyi.genbeya.app",
+    "productName": "Genbeya",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release"
@@ -115,8 +115,9 @@
     "publish": null,
     "protocols": [
       {
-        "name": "GitDesk link",
+        "name": "Genbeya link",
         "schemes": [
+          "genbeya",
           "gitdesk"
         ]
       }
@@ -140,6 +141,7 @@
       }
     },
     "nsis": {
+      "guid": "6f35097a-286a-59ed-8f5d-83dca4632e7d",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     },

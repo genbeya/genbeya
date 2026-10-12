@@ -1,10 +1,15 @@
-# powershell -File scripts/msi-major-upgrade.ps1 <installer.msi>
+# powershell -File scripts/msi-major-upgrade.ps1 <installer.msi> [-PreviousUpgradeCodes <code>,<code>]
 # Makes an MSI replace older installed versions of the same product (a "major
 # upgrade", what WiX's <MajorUpgrade/> does). Deno Desktop's MSIs keep the upgrade
 # code across versions but lack the Upgrade table, so without this each version
 # would install next to the previous one. Installing an older version over a newer
 # one is refused, as <MajorUpgrade DowngradeErrorMessage="…"/> does.
-param([Parameter(Mandatory = $true)][string]$Path)
+# Products with a previous upgrade code, the same app under a former name (the code
+# is derived from the name), are replaced and refused alike.
+param(
+  [Parameter(Mandatory = $true)][string]$Path,
+  [string[]]$PreviousUpgradeCodes = @()
+)
 $ErrorActionPreference = "Stop"
 
 $installer = New-Object -ComObject WindowsInstaller.Installer
@@ -29,25 +34,30 @@ if (-not $upgradeCode -or -not $version) { throw "$Path has no UpgradeCode or Pr
 if ((Get $database "TablePersistent" @("Upgrade")) -eq 1) { Write-Host "$Path already has an Upgrade table."; exit 0 }
 
 Run "CREATE TABLE ``Upgrade`` (``UpgradeCode`` CHAR(38) NOT NULL, ``VersionMin`` CHAR(20), ``VersionMax`` CHAR(20), ``Language`` CHAR(255), ``Attributes`` LONG NOT NULL, ``Remove`` CHAR(255), ``ActionProperty`` CHAR(72) NOT NULL PRIMARY KEY ``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Language``, ``Attributes``)" | Out-Null
-# Every older version: 256 = msidbUpgradeAttributesVersionMinInclusive; the maximum (this version) is exclusive.
-Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Attributes``, ``ActionProperty``) VALUES ('$upgradeCode', '0.0.0', '$version', 256, 'PREVIOUSVERSIONSINSTALLED')" | Out-Null
-# Newer versions are only detected (2 = msidbUpgradeAttributesOnlyDetect; the minimum and maximum are
-# exclusive), so a launch condition refuses the downgrade instead of installing next to them.
-function Detect([string]$above, [string]$below) {
-  if ($below) {
-    Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Attributes``, ``ActionProperty``) VALUES ('$upgradeCode', '$above', '$below', 2, 'NEWERVERSIONDETECTED')" | Out-Null
-  } else {
-    Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``Attributes``, ``ActionProperty``) VALUES ('$upgradeCode', '$above', 2, 'NEWERVERSIONDETECTED')" | Out-Null
+# Commas split the codes too, as a caller that cannot pass an array gives them in one argument.
+$codes = @($upgradeCode) + @($PreviousUpgradeCodes | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim().ToUpperInvariant() } | Where-Object { $_ })
+foreach ($code in $codes) {
+  if ($code -notmatch '^\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}$') { throw "$code is not an upgrade code." }
+  # Every older version: 256 = msidbUpgradeAttributesVersionMinInclusive; the maximum (this version) is exclusive.
+  Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Attributes``, ``ActionProperty``) VALUES ('$code', '0.0.0', '$version', 256, 'PREVIOUSVERSIONSINSTALLED')" | Out-Null
+  # Newer versions are only detected (2 = msidbUpgradeAttributesOnlyDetect; the minimum and maximum are
+  # exclusive), so a launch condition refuses the downgrade instead of installing next to them.
+  function Detect([string]$above, [string]$below) {
+    if ($below) {
+      Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Attributes``, ``ActionProperty``) VALUES ('$code', '$above', '$below', 2, 'NEWERVERSIONDETECTED')" | Out-Null
+    } else {
+      Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``Attributes``, ``ActionProperty``) VALUES ('$code', '$above', 2, 'NEWERVERSIONDETECTED')" | Out-Null
+    }
   }
-}
-# MSIs built before GitDesk set a version all claimed 1.0.0; replace those too while GitDesk is below 1.0,
-# so they do not count as newer. 768 = minimum and maximum inclusive.
-if ($version.StartsWith("0.")) {
-  Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Attributes``, ``ActionProperty``) VALUES ('$upgradeCode', '1.0.0', '1.0.0', 768, 'PREVIOUSVERSIONSINSTALLED')" | Out-Null
-  Detect $version "1.0.0"
-  Detect "1.0.0" $null
-} else {
-  Detect $version $null
+  # MSIs built before the app set a version all claimed 1.0.0; replace those too while the app is below 1.0,
+  # so they do not count as newer. 768 = minimum and maximum inclusive.
+  if ($version.StartsWith("0.")) {
+    Run "INSERT INTO ``Upgrade`` (``UpgradeCode``, ``VersionMin``, ``VersionMax``, ``Attributes``, ``ActionProperty``) VALUES ('$code', '1.0.0', '1.0.0', 768, 'PREVIOUSVERSIONSINSTALLED')" | Out-Null
+    Detect $version "1.0.0"
+    Detect "1.0.0" $null
+  } else {
+    Detect $version $null
+  }
 }
 # Windows Installer passes only secure properties from the UI to the elevated install.
 $secure = Value "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = 'SecureCustomProperties'"
@@ -75,4 +85,4 @@ foreach ($table in "InstallExecuteSequence", "InstallUISequence") {
 }
 Schedule "InstallExecuteSequence" "RemoveExistingProducts" 1401
 Invoke $database "Commit" $null | Out-Null
-Write-Host "$Path now replaces older versions of $upgradeCode and refuses to replace newer ones."
+Write-Host "$Path now replaces older versions of $($codes -join ', ') and refuses to replace newer ones."

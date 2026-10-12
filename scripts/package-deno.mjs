@@ -13,9 +13,12 @@ const OUT = "release-deno";
 const DEFAULT_FORMATS = { win32: ["msi"], darwin: ["dmg"], linux: ["AppImage", "deb"] };
 const ICONS = { win32: "src/shells/tauri/src-tauri/icons/icon.ico", darwin: "src/shells/tauri/src-tauri/icons/icon.icns" };
 // The output's base name becomes the product name, install folder and shortcut, so it
-// differs from the Electron app's "GitDesk" (and matches the shell's settings folder).
+// differs from the Electron app's "Genbeya" (and matches the shell's settings folder).
 // Debian package names allow no spaces or capitals.
-const name = (format) => (format === "deb" || format === "AppImage" ? "gitdesk-deno" : "GitDesk Deno");
+const name = (format) => (format === "deb" || format === "AppImage" ? "genbeya-deno" : "Genbeya Deno");
+// The MSI's upgrade code is derived from the product name. GitDesk Deno's, as the app was
+// called before 0.5, is replaced like an older version of the app itself.
+const PREVIOUS_UPGRADE_CODES = ["{F1362F28-64FF-530A-B5CF-AFA16603621A}"];
 
 const formats = process.argv.length > 2 ? process.argv.slice(2) : DEFAULT_FORMATS[process.platform];
 if (!formats) throw new Error(`No Deno Desktop installer formats for ${process.platform}; pass them as arguments.`);
@@ -66,10 +69,11 @@ function run(args) {
   return status;
 }
 
-/** Lets the MSI replace an installed older version instead of installing next to it. */
+/** Lets the MSI replace an installed older version, or GitDesk Deno, instead of installing next to it. */
 function upgradeOlderVersions(msi) {
   const script = "scripts/msi-major-upgrade.ps1";
-  const { status, error } = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, msi], {
+  const previous = ["-PreviousUpgradeCodes", PREVIOUS_UPGRADE_CODES.join(",")];
+  const { status, error } = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, msi, ...previous], {
     stdio: "inherit",
   });
   if (error) throw error;

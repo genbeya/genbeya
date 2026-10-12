@@ -1,6 +1,6 @@
 name: Build
 
-# Tests GitDesk and packages it with Electron, Tauri and Deno Desktop on Windows,
+# Tests Genbeya and packages it with Electron, Tauri and Deno Desktop on Windows,
 # macOS and Linux. Every run uploads the installers as artifacts; a push to main
 # also publishes them all as one GitHub release.
 on:
@@ -85,19 +85,19 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GitDesk-electron-${{ matrix.name }}
+          name: Genbeya-electron-${{ matrix.name }}
           path: out/installers/*-electron-*
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GitDesk-tauri-${{ matrix.name }}
+          name: Genbeya-tauri-${{ matrix.name }}
           path: out/installers/*-tauri-*
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GitDesk-deno-${{ matrix.name }}
+          name: Genbeya-deno-${{ matrix.name }}
           path: out/installers/*-deno-*
           if-no-files-found: error
 
@@ -113,7 +113,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: GitDesk-*
+          pattern: Genbeya-*
           path: out/installers
           merge-multiple: true
 
@@ -140,7 +140,7 @@ jobs:
           ls -l out/installers
           gh release create "$tag" out/installers/* \
             --target "$GITHUB_SHA" \
-            --title "GitDesk $version" \
+            --title "Genbeya $version" \
             --notes-file out/release-notes.md \
             --generate-notes \
             --latest="$latest"

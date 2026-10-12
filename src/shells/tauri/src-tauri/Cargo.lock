@@ -1273,6 +1273,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "genbeya"
+version = "0.4.0"
+dependencies = [
+ "percent-encoding",
+ "portable-pty",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "wait-timeout",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1346,23 +1363,6 @@ dependencies = [
  "libc",
  "system-deps",
  "winapi",
-]
-
-[[package]]
-name = "gitdesk"
-version = "0.4.0"
-dependencies = [
- "percent-encoding",
- "portable-pty",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "wait-timeout",
 ]
 
 [[package]]

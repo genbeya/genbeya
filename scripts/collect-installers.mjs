@@ -1,6 +1,6 @@
 // node scripts/collect-installers.mjs [outDir] [--dry-run]: copies the installers that
 // the Electron, Tauri and Deno Desktop packaging left behind into one flat folder
-// (default out/installers), renamed to GitDesk-<version>-<variant>-<os>-<arch>[-setup].<ext>,
+// (default out/installers), renamed to Genbeya-<version>-<variant>-<os>-<arch>[-setup].<ext>,
 // so the three variants never clash in a release.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
@@ -32,7 +32,7 @@ export function releaseName(fileName, variant, version, fallbackArch) {
   const ext = path.extname(fileName).slice(1);
   const os = OS_OF_EXTENSION[ext];
   if (!os) throw new Error(`${fileName} is not an installer.`);
-  return `GitDesk-${version}-${variant}-${os}-${archOf(fileName, fallbackArch)}${ext === "exe" ? "-setup" : ""}.${ext}`;
+  return `Genbeya-${version}-${variant}-${os}-${archOf(fileName, fallbackArch)}${ext === "exe" ? "-setup" : ""}.${ext}`;
 }
 
 function filesIn(dir, depth) {
