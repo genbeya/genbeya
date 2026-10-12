@@ -22,5 +22,6 @@ All three are 512 × 512 with a transparent background. `npm run icons` renders 
 
 - Use the small mark up to 48 pixels and the full logo above.
 - Keep clear space around the logo of at least a quarter of its width, free of text and other graphics.
-- Don't recolour, outline, stretch, rotate or add shadows. Only the mono version changes colour: set `color` (or `fill`) to one colour that contrasts with the background, such as white on purple.
+- Don't recolour, outline, stretch or rotate it, and don't add drop shadows. Only the mono version changes colour: set `color` (or `fill`) to one colour that contrasts with the background, such as white on purple.
+- On dark backgrounds, give the colour logo a soft halo so its navy walls stand out: a hairline of white at about 45% opacity plus a 10 px glow in the purple at about 50% (about 22% on light backgrounds). The app's start screen and the website do this.
 - Put the full-colour logos on white, light grey or dark backgrounds; on purple or busy backgrounds use the mono version.
