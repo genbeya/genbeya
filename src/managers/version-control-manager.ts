@@ -5,77 +5,55 @@ import type {
   Commit,
   CommitDetail,
   ConflictFile,
-  ConflictResolution,
   Diff,
   DiffChange,
-  DiffSource,
   ForcePushPlan,
   IgnoreKind,
   LinePatch,
-  LineRange,
   OperationOutcome,
   PushOutcome,
   PushPlan,
   PushRequest,
   RebasePlan,
-  RebaseStep,
-  ResetMode,
   ResetPlan,
   ResetResult,
   Stash,
   StashDetail,
-  SyncAction,
 } from "../contracts/model";
-import { CHANGE_BASES, IGNORE_KINDS, isDefaultBranch, REBASE_ACTIONS, RESET_MODES } from "../contracts/model";
+import { IGNORE_KINDS, isDefaultBranch } from "../contracts/model";
 import { TEXT_LIMIT } from "../access/files/file-store";
 import { isCommitId } from "../access/git/git-parsers";
-import { REBASE_LIMIT } from "../access/git/operation-access";
 import { DIFF_OPTIONS, type PatchTarget } from "../access/git/staging-access";
 import { isMissing } from "../access/hosts/host";
 import type { FileDiff, PatchEngine } from "../engines/patch-engine";
 import type { RebaseEngine } from "../engines/rebase-engine";
 import { decodeLenient, isBinary, sha256, sha256Bytes, toByteString } from "../utilities/bytes";
 import { appendIgnoreRule, extensionOf, ignoreFile, ignoreRule } from "../utilities/gitignore";
+import {
+  changeBase,
+  commitMessage,
+  conflictResolution,
+  diffSource,
+  historyRange,
+  linePatch,
+  mergeOptions,
+  plainRef,
+  pushForce,
+  rebaseSteps,
+  refName,
+  remoteDefinition,
+  resetMode,
+  resetState,
+  stashOptions,
+  syncAction,
+  tagMessage,
+} from "./version-control-arguments";
 import type { Workspace, WorkspaceRegistry } from "./workspace";
-
-const SYNC_ACTIONS: readonly SyncAction[] = ["fetch", "pull", "push"];
-const LINE_RANGE_LIMIT = 10_000;
-const MESSAGE_LIMIT = 20_000;
-const STASH_MESSAGE_LIMIT = 500;
-const HISTORY_PAGE_LIMIT = 1000;
-const REMOTE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
-
-/**
- * `name`, unless it or one of its parts starts with "-": Git could read it
- * as an option, and switching to a remote branch `origin/-x` names the new
- * local branch `-x`. Git allows such refs, and a clone may bring them.
- */
-function plainRef(name: string): string {
-  if (/(^|\/)-/.test(name)) throw new Error(`"${name}" looks like an option to Git. Rename or delete it in a terminal.`);
-  return name;
-}
-
-/** What staged changes are compared with; HEAD unless given. */
-function changeBase(value: unknown): ChangeBase {
-  if (value === undefined || value === null) return "head";
-  if (!CHANGE_BASES.includes(value as ChangeBase)) throw new Error("Invalid comparison base.");
-  return value as ChangeBase;
-}
 
 /** The version of a diff's two sides; empty when they are too large to compare. */
 const versionOf = (sides: readonly [Uint8Array, Uint8Array] | null): string =>
   // With the diff options: lines chosen in a diff that git found differently are refused too.
   sides ? sha256([DIFF_OPTIONS.join(" "), ...sides.map(sha256Bytes)].join(":")) : "";
-
-function lineRanges(value: unknown): LineRange[] {
-  if (!Array.isArray(value) || value.length > LINE_RANGE_LIMIT) throw new Error("Invalid line selection.");
-  return value.map((range) => {
-    const { from, to } = (range ?? {}) as Partial<Record<string, unknown>>;
-    if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || (from as number) < 1 || (to as number) < (from as number))
-      throw new Error("Invalid line selection.");
-    return { from: from as number, to: to as number };
-  });
-}
 
 export class VersionControlManager implements VersionControlManagerContract {
   constructor(
@@ -108,15 +86,14 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.on(id, async (workspace) => {
       const relative = workspace.path(path);
       const old = oldPath === undefined || oldPath === null ? relative : workspace.path(oldPath);
-      if (source !== "worktree" && source !== "index" && !isCommitId((source as { commit?: unknown } | null)?.commit))
-        throw new Error("Invalid diff source.");
+      const from = diffSource(source);
       const compared = changeBase(base);
       for (let attempt = 1; ; attempt++) {
-        const sides = await workspace.repository.diffSides(relative, source as DiffSource, old, TEXT_LIMIT, compared);
+        const sides = await workspace.repository.diffSides(relative, from, old, TEXT_LIMIT, compared);
         // Too large to show is shown like binary: no line-by-line comparison.
         if (!sides || sides.some(isBinary)) return { path: relative, binary: true, original: "", modified: "", version: versionOf(sides) };
         const changes =
-          source === "worktree" || source === "index" ? await this.changesOf(workspace, relative, old, source, compared, sides) : null;
+          from === "worktree" || from === "index" ? await this.changesOf(workspace, relative, old, from, compared, sides) : null;
         // A file written meanwhile: read both again, so the changes are those of the sides shown.
         if (changes === undefined && attempt < 2) continue;
         return {
@@ -256,9 +233,7 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   commit(id: unknown, message: unknown, amend: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
-      if (typeof message !== "string" || !message.trim() || message.length > MESSAGE_LIMIT)
-        throw new Error("Write a commit message first.");
-      await workspace.repository.commit(message.trim(), amend === true);
+      await workspace.repository.commit(commitMessage(message), amend === true);
     });
   }
 
@@ -268,15 +243,8 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   log(id: unknown, skip: unknown, limit: unknown): Promise<readonly Commit[]> {
     return this.on(id, async (workspace) => {
-      if (
-        !Number.isInteger(skip) ||
-        !Number.isInteger(limit) ||
-        (skip as number) < 0 ||
-        (limit as number) < 1 ||
-        (limit as number) > HISTORY_PAGE_LIMIT
-      )
-        throw new Error("Invalid history range.");
-      return workspace.repository.log(skip as number, limit as number);
+      const range = historyRange(skip, limit);
+      return workspace.repository.log(range.skip, range.limit);
     });
   }
 
@@ -330,8 +298,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.on(id, async (workspace) => {
       const tag = await this.tagName(workspace, name);
       const target = await this.revision(workspace, commit);
-      if (typeof message !== "string" || message.length > MESSAGE_LIMIT) throw new Error("Invalid tag message.");
-      await workspace.repository.refs.createTag(tag, target, message.trim());
+      await workspace.repository.refs.createTag(tag, target, tagMessage(message));
     });
   }
 
@@ -353,10 +320,10 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   sync(id: unknown, action: unknown, remote: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
-      if (!SYNC_ACTIONS.includes(action as SyncAction)) throw new Error("Invalid action.");
+      const checked = syncAction(action);
       const name = await this.remoteName(workspace, remote);
       const { branch } = await workspace.repository.head();
-      await workspace.repository.sync(action as SyncAction, name, branch);
+      await workspace.repository.sync(checked, name, branch);
     });
   }
 
@@ -378,7 +345,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.on(id, async (workspace) => {
       const { branch, remote, remoteBranch, setUpstream, force } = (request ?? {}) as Partial<Record<string, unknown>>;
       if (typeof setUpstream !== "boolean") throw new Error("Invalid push.");
-      const lease = this.forceOf(force);
+      const lease = pushForce(force);
       const checked: PushRequest = {
         branch: await this.localBranch(workspace, branch),
         remote: await this.remoteName(workspace, remote),
@@ -393,11 +360,8 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   setRemote(id: unknown, name: unknown, url: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
-      if (typeof name !== "string" || !REMOTE_NAME.test(name))
-        throw new Error("Remote names use letters, digits, dots, dashes and underscores.");
-      if (typeof url !== "string" || !url.trim() || url.length > 2048 || url.trim().startsWith("-") || /[\r\n\0]/.test(url))
-        throw new Error("Enter a valid remote URL or path.");
-      await workspace.repository.setRemote(name, url.trim());
+      const remote = remoteDefinition(name, url);
+      await workspace.repository.setRemote(remote.name, remote.url);
     });
   }
 
@@ -407,13 +371,10 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   stash(id: unknown, options: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
-      const { message, includeUntracked, keepIndex } = (options ?? {}) as Partial<Record<string, unknown>>;
-      if (typeof message !== "string" || message.length > STASH_MESSAGE_LIMIT || /[\r\n\0]/.test(message))
-        throw new Error("Stash messages are one line of up to 500 characters.");
-      const untracked = includeUntracked === true;
+      const checked = stashOptions(options);
       const changes = await workspace.repository.changes();
-      if (!changes.some((change) => change.index !== "?" || untracked)) throw new Error("There are no changes to stash.");
-      await workspace.repository.stashes.push({ message: message.trim(), includeUntracked: untracked, keepIndex: keepIndex === true });
+      if (!changes.some((change) => change.index !== "?" || checked.includeUntracked)) throw new Error("There are no changes to stash.");
+      await workspace.repository.stashes.push(checked);
     });
   }
 
@@ -438,9 +399,7 @@ export class VersionControlManager implements VersionControlManagerContract {
   merge(id: unknown, ref: unknown, options: unknown): Promise<OperationOutcome> {
     return this.starting(id, async (workspace) => {
       const source = await this.revision(workspace, ref);
-      const { noFastForward, message } = (options ?? {}) as Partial<Record<string, unknown>>;
-      if (typeof message !== "string" || message.length > MESSAGE_LIMIT) throw new Error("Invalid merge message.");
-      return workspace.repository.operations.merge(source, { noFastForward: noFastForward === true, message: message.trim() });
+      return workspace.repository.operations.merge(source, mergeOptions(options));
     });
   }
 
@@ -469,7 +428,7 @@ export class VersionControlManager implements VersionControlManagerContract {
     return this.starting(id, async (workspace) => {
       const operations = workspace.repository.operations;
       if (!isCommitId(base) || !(await operations.isAncestorOfHead(base))) throw new Error("Choose a commit of the current branch.");
-      const chosen = this.rebaseSteps(steps);
+      const chosen = rebaseSteps(steps);
       await this.cleanUnless(workspace, autostash);
       const todo = this.rebases.todo((await operations.plan(base)).commits, chosen);
       return operations.rebaseInteractive(base, todo, autostash === true);
@@ -498,7 +457,7 @@ export class VersionControlManager implements VersionControlManagerContract {
 
   reset(id: unknown, hash: unknown, mode: unknown, expectedHead: unknown, expectedState?: unknown): Promise<ResetResult> {
     return this.starting(id, async (workspace) => {
-      if (!RESET_MODES.includes(mode as ResetMode)) throw new Error("Invalid reset mode.");
+      const checked = resetMode(mode);
       const target = await this.existingCommit(workspace, hash);
       if (!isCommitId(expectedHead)) throw new Error("Invalid commit ID.");
       const branch = await this.currentBranch(workspace);
@@ -506,12 +465,12 @@ export class VersionControlManager implements VersionControlManagerContract {
         throw new Error(`${branch} moved since you chose the reset. Look at it again first.`);
       const { resets } = workspace.repository;
       // Hard and keep rewrite files: changes made while the user looked at the plan would be lost unseen.
-      if (mode === "hard" || mode === "keep") {
-        if (typeof expectedState !== "string" || !/^[0-9a-f]{64}$/.test(expectedState)) throw new Error("Invalid reset state.");
-        if ((await resets.state(target)) !== expectedState)
+      if (checked === "hard" || checked === "keep") {
+        const state = resetState(expectedState);
+        if ((await resets.state(target)) !== state)
           throw new Error("Your uncommitted changes changed since you chose the reset. Look at it again first.");
       }
-      return resets.reset(target, mode as ResetMode);
+      return resets.reset(target, checked);
     });
   }
 
@@ -546,38 +505,14 @@ export class VersionControlManager implements VersionControlManagerContract {
   resolveConflict(id: unknown, path: unknown, resolution: unknown): Promise<void> {
     return this.on(id, async (workspace) => {
       const relative = workspace.path(path);
-      const { use, text } = (resolution ?? {}) as Partial<Record<string, unknown>>;
-      let resolved: ConflictResolution;
-      if (use === "text" && typeof text === "string" && text.length <= TEXT_LIMIT) resolved = { use, text };
-      else if (use === "ours" || use === "theirs" || use === "worktree" || use === "delete") resolved = { use };
-      else throw new Error("Invalid resolution.");
+      const resolved = conflictResolution(resolution);
       if (!(await workspace.repository.operations.conflictedPaths()).includes(relative)) throw new Error(`${relative} has no conflicts.`);
       await workspace.repository.operations.resolve(relative, resolved);
     });
   }
 
-  private rebaseSteps(steps: unknown): RebaseStep[] {
-    if (!Array.isArray(steps) || !steps.length || steps.length > REBASE_LIMIT) throw new Error("Invalid rebase steps.");
-    return steps.map((value) => {
-      const { hash, action, message } = (value ?? {}) as Partial<Record<string, unknown>>;
-      if (!isCommitId(hash) || !REBASE_ACTIONS.includes(action as RebaseStep["action"])) throw new Error("Invalid rebase steps.");
-      if (message !== undefined && (typeof message !== "string" || message.length > MESSAGE_LIMIT))
-        throw new Error("Invalid commit message.");
-      return { hash, action: action as RebaseStep["action"], ...(message === undefined ? {} : { message }) };
-    });
-  }
-
   private linePatch(workspace: Workspace, value: unknown): LinePatch {
-    const { path, oldPath, version, lines } = (value ?? {}) as Partial<Record<string, unknown>>;
-    const relative = workspace.path(path);
-    if (typeof version !== "string" || !/^[0-9a-f]{64}$/.test(version)) throw new Error("Invalid diff version.");
-    const { original, modified } = (lines ?? {}) as Partial<Record<string, unknown>>;
-    return {
-      path: relative,
-      ...(oldPath === undefined || oldPath === null ? {} : { oldPath: workspace.path(oldPath) }),
-      version,
-      lines: { original: lineRanges(original), modified: lineRanges(modified) },
-    };
+    return linePatch(value, (path) => workspace.path(path));
   }
 
   private async isUntracked(workspace: Workspace, path: string): Promise<boolean> {
@@ -627,17 +562,9 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   private async branchName(workspace: Workspace, name: unknown): Promise<string> {
-    if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid branch name.");
-    if (!(await workspace.repository.isValidBranchName(name))) throw new Error(`"${name}" is not a valid branch name.`);
-    return plainRef(name);
-  }
-
-  /** A push request's `force`: none, or the commit the lease expects (null: no branch) and whether the default branch may go. */
-  private forceOf(force: unknown): PushRequest["force"] {
-    if (force === undefined || force === null) return undefined;
-    const { expected, defaultBranch } = (typeof force === "object" ? force : {}) as Partial<Record<string, unknown>>;
-    if ((expected !== null && !isCommitId(expected)) || typeof defaultBranch !== "boolean") throw new Error("Invalid push.");
-    return { expected, defaultBranch };
+    const branch = refName(name, "branch");
+    if (!(await workspace.repository.isValidBranchName(branch))) throw new Error(`"${branch}" is not a valid branch name.`);
+    return plainRef(branch);
   }
 
   /** Refuses to force push to the branch everyone starts from, unless the user said they mean it. */
@@ -689,9 +616,9 @@ export class VersionControlManager implements VersionControlManagerContract {
   }
 
   private async tagName(workspace: Workspace, name: unknown): Promise<string> {
-    if (typeof name !== "string" || !name || name.length > 200 || name.startsWith("-")) throw new Error("Invalid tag name.");
-    if (!(await workspace.repository.refs.isValidTagName(name))) throw new Error(`"${name}" is not a valid tag name.`);
-    return plainRef(name);
+    const tag = refName(name, "tag");
+    if (!(await workspace.repository.refs.isValidTagName(tag))) throw new Error(`"${tag}" is not a valid tag name.`);
+    return plainRef(tag);
   }
 
   private async existingTag(workspace: Workspace, name: unknown): Promise<string> {
