@@ -34,7 +34,7 @@ Genbeya needs **Git** on the machine that holds the repository: this computer, t
 
 The start screen opens a repository, and on the first start it introduces Genbeya.
 
-**Try Genbeya with a sample project** asks for a folder, creates the repository `genbeya-sample` in it and opens it: *Pocket Weather*, a small project whose wiki shows references, embeds, subpages and diagrams, with tasks in every state, an epic and a task template, a few commits and one change left to commit. Delete the folder when you are done, or keep what you like: like everything Genbeya writes into your repositories, the sample is under the [MIT License](../LICENSE-MIT.md).
+**Try Genbeya with a sample project** asks for a folder, creates the repository `genbeya-sample` in it and opens it: *Pocket Weather*, a small project whose wiki shows references, embeds, subpages and diagrams, with tasks in every state, an epic and a task template, a few commits and one change left to commit. Delete the folder when you are done, or keep what you like: like everything Genbeya writes into your repositories, the sample is under the [MIT No Attribution License (MIT-0)](../LICENSE-MIT-0.md).
 
 The first time a repository opens, the sidebar offers a tour: **Show me around** walks through the views, the wiki editor, the board, version control, the terminal, the command palette, settings and sharing, pointing at each. Try things while it runs; `Esc` or **Skip tour** ends it. Run **Start the tour** from the command palette (`Ctrl+K`) or **Settings → Help** to see it again.
 

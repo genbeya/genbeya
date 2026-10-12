@@ -1,4 +1,4 @@
-// The text this file writes into users' repositories is licensed under MIT (LICENSE-MIT.md).
+// The text this file writes into users' repositories is licensed under MIT-0 (LICENSE-MIT-0.md).
 /**
  * Agent files: which files teach which coding agents to use Genbeya, and how
  * they are merged into what a repository already has. Genbeya owns the skill

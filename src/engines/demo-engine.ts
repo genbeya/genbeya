@@ -1,4 +1,4 @@
-// The text this file writes into users' repositories is licensed under MIT (LICENSE-MIT.md).
+// The text this file writes into users' repositories is licensed under MIT-0 (LICENSE-MIT-0.md).
 /**
  * The history the web demo gives the sample repository, so that every view
  * has something to try: teammates' commits, a tag, a branch whose merge

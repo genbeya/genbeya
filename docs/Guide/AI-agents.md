@@ -43,7 +43,7 @@ In AGENTS.md, CLAUDE.md and Copilot's file, Genbeya owns only the lines from `<!
 
 The skill files belong to Genbeya entirely, and **Update** replaces them. Keep project-specific guidance in AGENTS.md or in the wiki instead.
 
-Unlike Genbeya itself, the skill files and the block are under the [MIT License](../../LICENSE-MIT.md): commit, change, copy and share them like any other file of your repository, in open-source and closed-source projects alike.
+Unlike Genbeya itself, the skill files and the block are under the [MIT No Attribution License (MIT-0)](../../LICENSE-MIT-0.md): commit, change, copy and share them like any other file of your repository, in open-source and closed-source projects alike.
 
 > [!NOTE]
 > Many repositories ignore `.claude/` in `.gitignore`. The section warns about files that would not be committed; ignore only `.claude/settings.local.json` and similar personal files instead, so everyone's agents get the skill.

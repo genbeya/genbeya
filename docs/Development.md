@@ -109,5 +109,5 @@ The tour's steps are in `src/client/app/features/onboarding/tour-steps.ts`. A st
 
 Genbeya is licensed under the [Functional Source License](../LICENSE.md) (FSL-1.1-ALv2): anyone may use, change and share it, but not offer it, or something substantially similar built from it, as a competing commercial product or service; each version becomes Apache 2.0 two years after its release. The `license` fields of `package.json` and `Cargo.toml` say so too.
 
-What Genbeya writes into users' repositories — the agent files, the sample project, new settings files and task templates — is under the [MIT License](../LICENSE-MIT.md), and so is that text in the source files it comes from. Those files start with a comment saying so, and LICENSE-MIT.md lists them. When you add a file that writes text into users' repositories, or move such text to another file, give it the same comment and update the list.
+What Genbeya writes into users' repositories — the agent files, the sample project, new settings files and task templates — is under the [MIT No Attribution License (MIT-0)](../LICENSE-MIT-0.md), and so is that text in the source files it comes from. Those files start with a comment saying so, and LICENSE-MIT-0.md lists them. When you add a file that writes text into users' repositories, or move such text to another file, give it the same comment and update the list.
 

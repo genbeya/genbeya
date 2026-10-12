@@ -28,4 +28,4 @@ All three are 512 × 512 with a transparent background. `npm run icons` renders 
 
 ## Trademarks
 
-The name Genbeya and its logo are trademarks of Emanuel Knecht. Neither Genbeya's [license](../LICENSE.md) nor the [MIT License](../LICENSE-MIT.md) of the files it writes covers them: don't use them as the name or branding of another product, including a modified version of Genbeya. Use them to refer to Genbeya, for example in an article, a talk or a link to the project.
+The name Genbeya and its logo are trademarks of Emanuel Knecht. Neither Genbeya's [license](../LICENSE.md) nor the [MIT No Attribution License (MIT-0)](../LICENSE-MIT-0.md) of the files it writes covers them: don't use them as the name or branding of another product, including a modified version of Genbeya. Use them to refer to Genbeya, for example in an article, a talk or a link to the project.
