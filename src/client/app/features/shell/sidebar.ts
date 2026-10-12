@@ -8,6 +8,7 @@ import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
 import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
+import { DemoBadge } from "../demo/demo-badge";
 import { TourOffer } from "../onboarding/tour-offer";
 import { AREA_NAMES } from "../settings/content-areas";
 import { RepositoryActions } from "./repository-actions";
@@ -19,7 +20,7 @@ export type View = (typeof VIEWS)[number];
 
 @Component({
   selector: "gd-sidebar",
-  imports: [CdkMenu, CdkMenuTrigger, HostIcon, Icon, MenuItem, RouterLink, RouterLinkActive, TourOffer],
+  imports: [CdkMenu, CdkMenuTrigger, DemoBadge, HostIcon, Icon, MenuItem, RouterLink, RouterLinkActive, TourOffer],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./sidebar.css",
   host: { class: "sidebar" },

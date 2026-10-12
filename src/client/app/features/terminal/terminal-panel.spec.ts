@@ -1,5 +1,7 @@
+import type { Provider } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import type { TerminalOutput } from "../../../../contracts/model";
+import { Demo } from "../../core/demo";
 import { isMac } from "../../core/hotkeys";
 import { Terminals } from "../../core/terminals";
 import { openRepository, settle } from "../../testing/component-harness";
@@ -40,10 +42,10 @@ class FakeXterm {
   }
 }
 
-async function setup(available = true) {
+async function setup(available = true, providers: Provider[] = []) {
   FakeXterm.created = [];
   const xterm = async () => ({ Terminal: FakeXterm, FitAddon: class {} }) as unknown as Xterm;
-  const harness = await openRepository({}, [{ provide: XTERM, useValue: xterm }]);
+  const harness = await openRepository({}, [{ provide: XTERM, useValue: xterm }, ...providers]);
   const { terminal } = harness.managers;
   terminal.available.mockResolvedValue(available);
   terminal.open.mockResolvedValueOnce("t1").mockResolvedValueOnce("t2");
@@ -136,5 +138,10 @@ describe("TerminalPanel", () => {
     expect(element.textContent).toContain("The terminal is not available in this build.");
     expect(element.querySelector('[role="tab"]')).toBeNull();
     expect(terminal.open).not.toHaveBeenCalled();
+  });
+
+  it("explains that the web demo has no terminal", async () => {
+    const { element } = await setup(false, [{ provide: Demo, useValue: { active: true } }]);
+    expect(element.textContent).toContain("The terminal isn't available in the demo.");
   });
 });

@@ -6,13 +6,14 @@ import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Icon } from "../../ui/icon";
 import { relativeTime } from "../../ui/relative-time";
+import { DemoBadge } from "../demo/demo-badge";
 import { Onboarding } from "../onboarding/onboarding";
 import { HostIcon, initials } from "../shell/repository-mark";
 import { ShellUi } from "../shell/shell-ui";
 
 @Component({
   selector: "gd-welcome",
-  imports: [HostIcon, Icon],
+  imports: [DemoBadge, HostIcon, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./welcome.css",
   host: { class: "welcome" },
@@ -102,6 +103,8 @@ import { ShellUi } from "../shell/shell-ui";
       @if (busy()) {
         <div class="welcome-busy"><span class="spinner"></span> Opening…</div>
       }
+
+      <gd-demo-badge />
 
       <footer class="welcome-footer">
         <span>Genbeya {{ version }}</span>

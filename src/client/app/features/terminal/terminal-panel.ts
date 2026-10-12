@@ -1,4 +1,5 @@
 import { afterNextRender, ChangeDetectionStrategy, Component, ElementRef, inject, Injector, ViewEncapsulation } from "@angular/core";
+import { Demo } from "../../core/demo";
 import { CTRL_KEY } from "../../core/hotkeys";
 import { Terminals } from "../../core/terminals";
 import { Icon } from "../../ui/icon";
@@ -68,7 +69,13 @@ import { TerminalView } from "./terminal-view";
         </button>
       </header>
       @if (terminals.available() === false) {
-        <p class="terminal-unavailable">The terminal is not available in this build.</p>
+        <p class="terminal-unavailable">
+          {{
+            demo.active
+              ? "The terminal isn't available in the demo. Download Genbeya to use it."
+              : "The terminal is not available in this build."
+          }}
+        </p>
       } @else {
         <div class="terminal-body">
           @for (tab of terminals.tabs(); track tab.key) {
@@ -88,6 +95,7 @@ import { TerminalView } from "./terminal-view";
 })
 export class TerminalPanel {
   protected readonly terminals = inject(Terminals);
+  protected readonly demo = inject(Demo);
   protected readonly hideTitle = `Hide (${CTRL_KEY}+\`)`;
   private readonly element: HTMLElement = inject(ElementRef).nativeElement;
   private readonly injector = inject(Injector);
