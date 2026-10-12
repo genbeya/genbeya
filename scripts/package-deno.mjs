@@ -4,7 +4,7 @@
 // (Windows: msi; macOS: dmg; Linux: AppImage and deb). Expects the client in
 // dist/client/browser (`ng build`).
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { build } from "esbuild";
 import { denoBundle } from "./bundles.mjs";
@@ -33,8 +33,19 @@ mkdirSync(OUT, { recursive: true });
 
 for (const format of formats) {
   const output = `${OUT}/${name(format)}.${format}`;
+  console.log(`Packaging ${output}`);
+  if (format === "dmg") {
+    dmg(output);
+    continue;
+  }
+  check(spawnSync(process.execPath, [deno, ...desktopArgs(output)], { stdio: "inherit" }));
+  if (format === "msi") upgradeOlderVersions(output);
+}
+
+/** `deno desktop` arguments that build the app into `output`, in the format its extension names. */
+function desktopArgs(output) {
   const icon = ICONS[process.platform] ? ["--icon", ICONS[process.platform]] : [];
-  const args = [
+  return [
     "desktop",
     "-A",
     "--no-check",
@@ -47,31 +58,31 @@ for (const format of formats) {
     output,
     "dist/deno/main.js",
   ];
-  console.log(`Packaging ${output}`);
-  let status = run(args);
-  // hdiutil now and then fails to create a DMG ("No space left on device") with plenty of space left.
-  if (status !== 0 && format === "dmg") {
-    console.log(`Packaging ${output} failed; trying once more.`);
-    rmSync(output, { force: true });
-    status = run(args);
-  }
-  if (status !== 0) process.exit(status ?? 1);
-  if (format === "msi") upgradeOlderVersions(output);
 }
 
-/** Runs `deno` with `args`; resolves to its exit status. */
-function run(args) {
-  const { status, error } = spawnSync(process.execPath, [deno, ...args], { stdio: "inherit" });
+/**
+ * Builds the .app with `deno desktop` and the disk image with hdiutil, which sizes the image
+ * after its contents: deno desktop's own DMGs fail with "No space left on device" once the app
+ * grows past the size it reserves. The image also links /Applications for drag-and-drop installs.
+ */
+function dmg(output) {
+  const stage = `${OUT}/dmg`;
+  mkdirSync(stage, { recursive: true });
+  check(spawnSync(process.execPath, [deno, ...desktopArgs(`${stage}/${name("dmg")}.app`)], { stdio: "inherit" }));
+  symlinkSync("/Applications", `${stage}/Applications`);
+  const volume = ["-volname", name("dmg"), "-srcfolder", stage, "-fs", "HFS+", "-format", "UDZO", "-ov", output];
+  check(spawnSync("hdiutil", ["create", ...volume], { stdio: "inherit" }));
+  rmSync(stage, { recursive: true, force: true });
+}
+
+/** Stops the build when a step failed. */
+function check({ status, error }) {
   if (error) throw error;
-  return status;
+  if (status !== 0) process.exit(status ?? 1);
 }
 
 /** Lets the MSI replace an installed older version instead of installing next to it. */
 function upgradeOlderVersions(msi) {
   const script = "scripts/msi-major-upgrade.ps1";
-  const { status, error } = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, msi], {
-    stdio: "inherit",
-  });
-  if (error) throw error;
-  if (status !== 0) process.exit(status ?? 1);
+  check(spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, msi], { stdio: "inherit" }));
 }
