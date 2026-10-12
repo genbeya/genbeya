@@ -27,6 +27,8 @@
   --accent-hover: #8e91f6;
   --accent-soft: rgb(124 127 242 / 0.14);
   --accent-text: #a9abff;
+  /* Halo around the logo, so its navy walls stand off dark backgrounds. */
+  --logo-glow: rgb(124 127 242 / 0.5);
   --on-accent: #ffffff;
 
   --red: #ec6a6a;
@@ -87,6 +89,7 @@
   --accent-hover: #4b4fd4;
   --accent-soft: rgb(91 95 224 / 0.1);
   --accent-text: #4b4fd4;
+  --logo-glow: rgb(91 95 224 / 0.22);
 
   --red: #d64545;
   --red-soft: rgb(214 69 69 / 0.09);
@@ -130,6 +133,7 @@
     --accent-hover: #4b4fd4;
     --accent-soft: rgb(91 95 224 / 0.1);
     --accent-text: #4b4fd4;
+    --logo-glow: rgb(91 95 224 / 0.22);
 
     --red: #d64545;
     --red-soft: rgb(214 69 69 / 0.09);

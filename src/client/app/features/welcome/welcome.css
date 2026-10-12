@@ -19,6 +19,10 @@
   margin-bottom: 28px;
 }
 
+.welcome-brand svg {
+  filter: drop-shadow(0 0 0.5px rgb(255 255 255 / 0.45)) drop-shadow(0 0 10px var(--logo-glow));
+}
+
 .welcome-brand h1 {
   margin: 0;
   font-size: 22px;
