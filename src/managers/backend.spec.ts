@@ -103,13 +103,12 @@ describe("WorkspaceManager", () => {
     expect(restored?.snapshot.settings.name).toBe("Test Project");
   });
 
-  it("leaves the repository to the client when a launch carries a Genbeya link, or one GitDesk made", async () => {
+  it("leaves the repository to the client when a launch carries a Genbeya link", async () => {
     const data = await temporaryFolder("data-");
     const first = await createBackend(machine, data);
     await first.workspace.open({ kind: "local", path: (await createRepository()).root });
     await first.dispose();
     const managers = await backend(data);
-    expect(await managers.workspace.restore(["app", "genbeya://open?remote=https://github.com/acme/demo.git&task=TP-1"])).toBeNull();
     expect(await managers.workspace.restore(["app", "genbeya://open?remote=https://github.com/acme/demo.git&task=TP-1"])).toBeNull();
   });
 
@@ -736,37 +735,6 @@ describe("ContentManager", () => {
     );
   });
 
-  it("reads and saves .gitdesk.yml in a repository GitDesk set up, until it is renamed", async () => {
-    const { content, id, latest, repository } = await opened({ ".gitdesk.yml": "# team\nname: Old\n", "docs/Home.md": "# Home\n" });
-    let snapshot = await latest();
-    expect(snapshot).toMatchObject({
-      settings: { name: "Old" },
-      settingsFile: ".gitdesk.yml",
-      leftoverSettingsFile: null,
-      legacyFiles: [".gitdesk.yml"],
-    });
-    await content.saveSettings(id, { ...snapshot.settings, name: "Kept" }, snapshot.settingsHash);
-    expect(await repository.read(".gitdesk.yml")).toMatch(/# team[\s\S]*name: Kept/);
-    expect(await repository.exists(".genbeya.yml")).toBe(false);
-
-    expect(await content.renameLegacyFiles(id)).toEqual([".gitdesk.yml"]);
-    snapshot = await latest();
-    expect(snapshot).toMatchObject({ settings: { name: "Kept" }, settingsFile: ".genbeya.yml", legacyFiles: [] });
-    expect(snapshot.changes.map((change) => [change.index, change.path])).toEqual([["R", ".genbeya.yml"]]);
-    expect(await content.renameLegacyFiles(id)).toEqual([]);
-  });
-
-  it("reads .genbeya.yml next to a leftover .gitdesk.yml, and does not rename over it", async () => {
-    const { content, id, latest } = await opened({ ".genbeya.yml": "name: New\n", ".gitdesk.yml": "name: Old\n" });
-    expect(await latest()).toMatchObject({
-      settings: { name: "New" },
-      settingsFile: ".genbeya.yml",
-      leftoverSettingsFile: ".gitdesk.yml",
-      legacyFiles: [],
-    });
-    await expect(content.renameLegacyFiles(id)).rejects.toThrow(".genbeya.yml exists already. Delete .gitdesk.yml");
-  });
-
   it("keeps every area on the content branch when asked", async () => {
     const { content, id, latest, repository } = await opened();
     expect((await latest()).storage).toEqual({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null });
@@ -904,48 +872,9 @@ describe("ContentManager: agent files", () => {
     const ignored = (await content.agentFiles(id, ALL)).filter((file) => file.ignored).map((file) => file.path);
     expect(ignored).toEqual([".claude/skills/genbeya/SKILL.md"]);
     await repository.write("CLAUDE.md", "<!-- genbeya:begin -->\nUnfinished.\n");
-    await expect(content.agentFiles(id, ALL)).rejects.toThrow("CLAUDE.md has unmatched markers");
-    await expect(content.addAgentFiles(id, ["agents", "claude"])).rejects.toThrow("CLAUDE.md has unmatched markers");
+    await expect(content.agentFiles(id, ALL)).rejects.toThrow("CLAUDE.md has unmatched Genbeya markers");
+    await expect(content.addAgentFiles(id, ["agents", "claude"])).rejects.toThrow("CLAUDE.md has unmatched Genbeya markers");
     expect(await repository.exists("AGENTS.md")).toBe(false);
-  });
-
-  it("replaces what GitDesk wrote: its skills under the old name, and its blocks in place", async () => {
-    const { content, id, repository } = await opened({
-      ".gitdesk.yml": "name: T\ntaskPrefix: TP\n",
-      "docs/Home.md": "# Home\n",
-      ".claude/skills/gitdesk/SKILL.md": "---\nname: gitdesk\n---\n\nEdited by hand.\n",
-      ".agents/skills/gitdesk/SKILL.md": "---\nname: gitdesk\n---\n",
-      ".agents/skills/gitdesk/notes.md": "Mine.\n",
-      "AGENTS.md": "# Agents\n\n<!-- gitdesk:begin -->\n\nOld.\n\n<!-- gitdesk:end -->\n\nAfter.\n",
-    });
-    const files = await content.agentFiles(id, ["claudeSkill", "agentsSkill", "agents"]);
-    expect(files.map(({ path, state, replaces }) => [path, state, replaces])).toEqual([
-      [".claude/skills/genbeya/SKILL.md", "outdated", ".claude/skills/gitdesk/SKILL.md"],
-      [".agents/skills/genbeya/SKILL.md", "outdated", ".agents/skills/gitdesk/SKILL.md"],
-      ["AGENTS.md", "outdated", null],
-      ["CLAUDE.md", "missing", null],
-      [".github/copilot-instructions.md", "missing", null],
-    ]);
-    expect(files[0]!.text).toContain("Read `.gitdesk.yml` where the settings live.");
-
-    expect(await content.addAgentFiles(id, ["claudeSkill", "agentsSkill", "agents"])).toEqual([
-      { path: ".claude/skills/genbeya/SKILL.md", result: "created" },
-      { path: ".agents/skills/genbeya/SKILL.md", result: "created" },
-      { path: "AGENTS.md", result: "updated" },
-      { path: ".claude/skills/gitdesk/SKILL.md", result: "replaced" },
-      { path: ".agents/skills/gitdesk/SKILL.md", result: "replaced" },
-    ]);
-    expect(await repository.exists(".claude/skills/gitdesk")).toBe(false);
-    expect(await repository.exists(".agents/skills/gitdesk/SKILL.md")).toBe(false);
-    expect(await repository.read(".agents/skills/gitdesk/notes.md")).toBe("Mine.\n");
-    const agents = await repository.read("AGENTS.md");
-    expect(agents).toMatch(/^# Agents\n\n<!-- genbeya:begin -->\n[\s\S]*\n<!-- genbeya:end -->\n\nAfter\.\n$/);
-    expect(agents).not.toContain("gitdesk:");
-    expect(Object.values(await states(content, id, ["claudeSkill", "agentsSkill", "agents"])).slice(0, 3)).toEqual([
-      "current",
-      "current",
-      "current",
-    ]);
   });
 
   it("validates the targets", async () => {

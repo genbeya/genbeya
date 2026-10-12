@@ -54,18 +54,4 @@ test.describe("sharing", () => {
     );
     expect(again).not.toContain(LINK);
   });
-
-  test("opens a link GitDesk made, launched with it or pasted into the palette", async ({ app, window, launch }) => {
-    const gitdesk = "gitdesk://open?remote=https://github.com/acme/demo.git&page=docs/Guide.md";
-    await expect(window.getByText("Demo Project").first()).toBeVisible();
-    await app.close();
-    const linked = await mainWindow(await launch(gitdesk));
-    await expect(linked.locator(".document-article").getByRole("heading", { level: 1, name: "Guide" })).toBeVisible();
-
-    await linked.keyboard.press(`${MOD}+2`);
-    await linked.keyboard.press(`${MOD}+k`);
-    await linked.getByRole("dialog", { name: "Command palette" }).getByRole("combobox").fill(LINK.replace("genbeya:", "gitdesk:"));
-    await linked.getByRole("option", { name: /Open link/ }).click();
-    await expect(linked.getByRole("dialog", { name: "Task DP-1" })).toBeVisible();
-  });
 });

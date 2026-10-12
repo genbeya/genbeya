@@ -37,12 +37,6 @@ statuses:
 
 Genbeya rewrites only the keys whose values you changed. Comments, keys it does not know and the spelling of everything else stay as they are, so the file can be edited by hand and in **Settings** alike.
 
-### Settings file names
-
-Genbeya was called GitDesk before 0.5, and repositories set up then have `.gitdesk.yml` instead. Genbeya reads that file, and saves to it, while the repository has no `.genbeya.yml`: teammates still on GitDesk keep sharing the settings. **Settings → Project** says which file it uses and offers **Rename to .genbeya.yml** once everyone has updated. The rename is staged in the checkout, to commit like any change, or committed on the content branch when the settings live there; it also renames `.gitdesk-content` on the content branch.
-
-When both files exist, `.genbeya.yml` wins, and **Settings** warns that `.gitdesk.yml` is left over: delete it once nobody uses GitDesk any more.
-
 ### Project
 
 | Key | Type | Default | Meaning |
@@ -51,7 +45,7 @@ When both files exist, `.genbeya.yml` wins, and **Settings** warns that `.gitdes
 | `wikiRoot` | folder | `docs` | The wiki folder, relative to the repository root |
 | `wikiHome` | Markdown file | `Home.md` | The wiki's first page, relative to `wikiRoot` |
 | `taskRoot` | folder | `tasks` | The task folder. It must not contain the wiki folder, nor the other way round |
-| `taskPrefix` | letters and digits, starting with a letter, up to 12 | From the name: its capitals (`TaskBoard` → `TB`), the first letters of its words (`my project` → `MP`), or its first three letters (`atlas` → `ATL`) | New tasks are `GENBEYA-1`, `GENBEYA-2`, … Written in capitals |
+| `taskPrefix` | letters and digits, starting with a letter, up to 12 | From the name: its capitals (`TaskBoard` → `TB`), the first letters of its words (`my project` → `MP`), or its first three letters (`atlas` → `ATL`) | New tasks are `TB-1`, `TB-2`, … Written in capitals |
 
 Changing a folder does not move any files: move them first, then change the setting. Changing the prefix leaves existing IDs as they are.
 
@@ -168,7 +162,7 @@ When a [Content branch](../Architecture/Content-branch.md) exists, the file `.ge
 	settings = checkout
 ```
 
-Areas it does not name live in the checkout. A content branch without the file holds all three, as content branches did before areas could be split. A content branch GitDesk made may have `.gitdesk-content` instead, which Genbeya reads and keeps writing until it is renamed in **Settings**.
+Areas it does not name live in the checkout. A content branch without the file holds all three, as content branches did before areas could be split.
 
 ## Git configuration
 
@@ -176,10 +170,8 @@ Two keys of `git config` change how Genbeya treats one clone:
 
 | Key | Meaning |
 | --- | --- |
-| `genbeya.branch` | The name of the content branch, instead of `genbeya` (or `gitdesk`, where GitDesk made that branch) |
+| `genbeya.branch` | The name of the content branch, instead of `genbeya` |
 | `genbeya.storage` | `worktree` keeps every area of this clone in its checkout, whatever the team's layout: a personal opt-out. Choosing a layout in **Settings** removes it |
-
-GitDesk's keys, `gitdesk.branch` and `gitdesk.storage`, still apply while the `genbeya` key is not set.
 
 ```bash
 git config genbeya.branch team-content

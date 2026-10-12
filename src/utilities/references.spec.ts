@@ -16,7 +16,7 @@ const wiki = { title: "Wiki", path: "docs/Guide/Wiki.md" };
 describe("findReference", () => {
   it.each([
     ["GENBEYA-12", { kind: "task", task: { id: "GENBEYA-12" } }],
-    ["gd-12", { kind: "task", task: { id: "GENBEYA-12" } }],
+    ["genbeya-12", { kind: "task", task: { id: "GENBEYA-12" } }],
     ["home", { kind: "page", page: home, style: "title" }],
     ["Home#Start", { kind: "page", page: home, style: "title", anchor: "Start" }],
     ["Guide/Wiki", { kind: "page", page: wiki, style: { root: "wiki", extension: false } }],

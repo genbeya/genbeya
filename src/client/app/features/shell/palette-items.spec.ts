@@ -116,16 +116,6 @@ describe("palette items", () => {
     expect(linkItem("genbeya://open?remote=/srv/demo.git&task=DP-1", commands)).toBeNull();
   });
 
-  it("opens a pasted link GitDesk made, too", () => {
-    const item = linkItem("gitdesk://open?remote=git@github.com:acme/demo.git&page=docs/Home.md", commands)!;
-    expect(item).toMatchObject({ label: "Open link", detail: "page docs/Home.md in github.com/acme/demo" });
-    item.run();
-    expect(commands.openLink).toHaveBeenCalledWith({
-      remote: "git@github.com:acme/demo.git",
-      item: { kind: "page", path: "docs/Home.md" },
-    });
-  });
-
   it("lists the branches to merge, with the upstream, but not the current branch", () => {
     const merges = mergeItems(repository, commands);
     expect(merges.map((item) => item.label)).toEqual(["feature", "origin/main", "origin/other"]);

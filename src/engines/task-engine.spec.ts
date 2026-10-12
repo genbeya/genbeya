@@ -300,12 +300,12 @@ describe("TaskEngine templates", () => {
 
 describe("TaskEngine.nextId", () => {
   it("continues after the highest number of the prefix", () => {
-    expect(engine.nextId("GD", ["GENBEYA-2", "GENBEYA-10", "X-99", "uuid", "gd-11x"])).toBe("GENBEYA-11");
-    expect(engine.nextId("GD", [])).toBe("GENBEYA-1");
+    expect(engine.nextId("GENBEYA", ["GENBEYA-2", "GENBEYA-10", "X-99", "uuid", "genbeya-11x"])).toBe("GENBEYA-11");
+    expect(engine.nextId("GENBEYA", [])).toBe("GENBEYA-1");
   });
 
   it("skips IDs that already have files", () => {
-    expect(engine.nextId("GD", ["GENBEYA-1"], (id) => id === "GENBEYA-2" || id === "GENBEYA-3")).toBe("GENBEYA-4");
+    expect(engine.nextId("GENBEYA", ["GENBEYA-1"], (id) => id === "GENBEYA-2" || id === "GENBEYA-3")).toBe("GENBEYA-4");
   });
 
   it("treats the prefix literally", () => {

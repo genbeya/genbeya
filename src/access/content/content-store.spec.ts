@@ -1,9 +1,7 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { ContentArea } from "../../contracts/model";
 import { nodeMachine } from "../../platforms/node/node-machine";
-import { cloneRepository, createRemote, createRepository, DEFAULT_FILES, type TestRepository } from "../../testing/repository";
+import { cloneRepository, createRemote, createRepository, DEFAULT_FILES } from "../../testing/repository";
 import { FileStore } from "../files/file-store";
 import { Git } from "../git/git";
 import { LocalHost } from "../hosts/local-host";
@@ -37,11 +35,7 @@ describe("ContentStore in the checkout", () => {
   it("uses the checkout for every area and never commits", async () => {
     const repository = await createRepository();
     const store = storeFor(repository.root);
-    expect(await store.layout()).toEqual({
-      areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" },
-      branch: null,
-      areasFile: null,
-    });
+    expect(await store.layout()).toEqual({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null });
     const location = await store.locate("wiki");
     expect(location.branch).toBeNull();
     expect(location.root).toBe(host.paths.normalize(repository.root));
@@ -214,7 +208,9 @@ describe("ContentStore with every area on the content branch", () => {
     const repository = await createRepository();
     await move(storeFor(repository.root), everyArea, "branch");
     const moved = repository.root + "-moved";
+    const { promises: fs } = await import("node:fs");
     await fs.rename(repository.root, moved);
+    const { onTestFinished } = await import("vitest");
     onTestFinished(() => fs.rm(moved, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }).catch(() => undefined));
     const location = await storeFor(moved).locate("wiki");
     expect(location.root.startsWith(host.paths.normalize(moved))).toBe(true);
@@ -226,6 +222,7 @@ describe("ContentStore with every area on the content branch", () => {
     const store = storeFor(repository.root);
     await move(store, everyArea, "branch");
     const { root } = await store.locate("wiki");
+    const { promises: fs } = await import("node:fs");
     await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     const located = await Promise.all([store.layout(), store.locate("tasks"), store.branchState(), store.locate("wiki")]);
     expect(located.map((entry) => (entry && "root" in entry ? entry.root : null))).toEqual([null, root, null, root]);
@@ -365,171 +362,5 @@ describe("ContentStore with some areas on the content branch", () => {
     await move(store, ["tasks"], "branch");
     expect((await store.layout()).areas).toEqual({ wiki: "branch", tasks: "branch", settings: "checkout" });
     expect(await repository.git("config", "--get", "genbeya.storage").catch(() => "")).toBe("");
-  });
-});
-
-/**
- * A content branch as GitDesk made it before it became Genbeya: `gitdesk`,
- * listing its areas in `.gitdesk-content`, checked out in `.git/gitdesk/`.
- */
-async function gitdeskBranch(repository: TestRepository, files: Readonly<Record<string, string>>) {
-  const start = (await repository.git("commit-tree", EMPTY_TREE, "-m", "Start the GitDesk content branch")).trim();
-  await repository.git("branch", "gitdesk", start);
-  await repository.git("worktree", "add", "-q", ".git/gitdesk/gitdesk", "gitdesk");
-  for (const [file, content] of Object.entries(files)) await repository.write(`.git/gitdesk/gitdesk/${file}`, content);
-  await repository.git("-C", ".git/gitdesk/gitdesk", "add", "-A");
-  await repository.git("-C", ".git/gitdesk/gitdesk", "commit", "-q", "-m", "GitDesk content");
-}
-
-const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
-const TASKS_ON_BRANCH = "[areas]\n\twiki = checkout\n\ttasks = branch\n\tsettings = checkout\n";
-const SHARED_TASK = "---\nid: TP-1\ntitle: Shared\n---\n";
-/** The files of a repository GitDesk set up: its settings in `.gitdesk.yml`. */
-const GITDESK_FILES = {
-  ...Object.fromEntries(Object.entries(FILES).filter(([file]) => file !== ".genbeya.yml")),
-  ".gitdesk.yml": "name: Old\n",
-};
-
-describe("ContentStore in repositories GitDesk set up", () => {
-  it("uses the gitdesk branch while there is no genbeya branch, and moves its worktree with uncommitted edits", async () => {
-    const repository = await createRepository(FILES);
-    await gitdeskBranch(repository, { ".gitdesk-content": TASKS_ON_BRANCH, "tasks/TP-1.md": SHARED_TASK });
-    await repository.write(".git/gitdesk/gitdesk/tasks/TP-2.md", "uncommitted\n");
-    const store = storeFor(repository.root);
-
-    expect((await store.layout()).areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout" });
-    const location = await store.locate("tasks");
-    expect(location.branch).toBe("gitdesk");
-    expect(location.root).toBe(host.paths.normalize(path.join(repository.root, ".git", "genbeya", "gitdesk")));
-    expect(await fs.readFile(path.join(location.root, "tasks", "TP-2.md"), "utf8")).toBe("uncommitted\n");
-    expect(await repository.exists(".git/gitdesk")).toBe(false);
-    expect(await repository.git("worktree", "list", "--porcelain")).not.toMatch(/[\\/]gitdesk[\\/]gitdesk/);
-    expect(await store.branchState()).toMatchObject({ branch: "gitdesk", uncommitted: 1 });
-  });
-
-  it("keeps the worktree in GitDesk's folder when it cannot be moved", async () => {
-    const repository = await createRepository(FILES);
-    await gitdeskBranch(repository, { ".gitdesk-content": TASKS_ON_BRANCH });
-    // Something that is not the worktree has its new place.
-    await repository.write(".git/genbeya/gitdesk/keep.txt", "x");
-    const location = await storeFor(repository.root).locate("tasks");
-    expect(location.root).toBe(host.paths.normalize(path.join(repository.root, ".git", "gitdesk", "gitdesk")));
-    expect(await repository.exists(".git/genbeya/gitdesk/keep.txt")).toBe(true);
-  });
-
-  it("repairs a worktree in GitDesk's folder after the repository moved, and moves it", async () => {
-    const repository = await createRepository(FILES);
-    await gitdeskBranch(repository, { ".gitdesk-content": TASKS_ON_BRANCH, "tasks/TP-1.md": SHARED_TASK });
-    const moved = repository.root + "-moved";
-    await fs.rename(repository.root, moved);
-    onTestFinished(() => fs.rm(moved, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }).catch(() => undefined));
-    const location = await storeFor(moved).locate("tasks");
-    expect(location.root).toBe(host.paths.normalize(path.join(moved, ".git", "genbeya", "gitdesk")));
-    expect((await location.files.read("tasks/TP-1.md")).content).toContain("title: Shared");
-  });
-
-  it("prefers a genbeya branch to a gitdesk branch", async () => {
-    const repository = await createRepository(FILES);
-    await gitdeskBranch(repository, { ".gitdesk-content": TASKS_ON_BRANCH });
-    await repository.git("branch", "genbeya", "gitdesk");
-    expect((await storeFor(repository.root).locate("tasks")).branch).toBe("genbeya");
-  });
-
-  it("uses a gitdesk branch only a remote has, under its name", async () => {
-    const repository = await createRepository(FILES);
-    const remote = await createRemote();
-    await repository.git("remote", "add", "origin", remote);
-    await repository.git("push", "-q", "origin", "main");
-    await gitdeskBranch(repository, { ".gitdesk-content": TASKS_ON_BRANCH, "tasks/TP-1.md": SHARED_TASK });
-    await repository.git("push", "-q", "origin", "gitdesk");
-
-    const theirs = await cloneRepository(remote);
-    const store = storeFor(theirs.root);
-    expect((await store.layout()).areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout" });
-    const location = await store.locate("tasks");
-    expect(location.branch).toBe("gitdesk");
-    expect(location.root).toBe(host.paths.normalize(path.join(theirs.root, ".git", "genbeya", "gitdesk")));
-    expect(await store.branchState()).toMatchObject({ branch: "gitdesk", remote: "origin" });
-    await edit(store, "tasks", "tasks/TP-1.md", "---\nid: TP-1\ntitle: Changed\n---\n");
-    await store.sync();
-    expect(await theirs.git("show", "origin/gitdesk:tasks/TP-1.md")).toContain("title: Changed");
-    expect(await theirs.git("branch", "--all", "--list", "*genbeya*")).toBe("");
-  });
-
-  it("keeps writing .gitdesk-content on a branch that has it; new branches get .genbeya-content", async () => {
-    const repository = await createRepository(FILES);
-    await gitdeskBranch(repository, { ".gitdesk-content": TASKS_ON_BRANCH, "tasks/TP-1.md": SHARED_TASK });
-    const store = storeFor(repository.root);
-    expect((await store.layout()).areasFile).toBe(".gitdesk-content");
-    await move(store, ["wiki"], "branch");
-    expect((await store.layout()).areas).toEqual({ wiki: "branch", tasks: "branch", settings: "checkout" });
-    expect(await repository.git("ls-tree", "--name-only", "gitdesk")).not.toContain(".genbeya-content");
-    expect(await repository.git("show", "gitdesk:.gitdesk-content")).toMatch(/wiki = branch/);
-
-    const fresh = storeFor((await createRepository(FILES)).root);
-    await move(fresh, ["tasks"], "branch");
-    expect(await fresh.layout()).toMatchObject({ areasFile: ".genbeya-content", branch: { branch: "genbeya" } });
-  });
-
-  it("reads .genbeya-content when a branch has both", async () => {
-    const repository = await createRepository(FILES);
-    await gitdeskBranch(repository, {
-      ".gitdesk-content": TASKS_ON_BRANCH,
-      ".genbeya-content": "[areas]\n\twiki = branch\n\ttasks = checkout\n\tsettings = checkout\n",
-    });
-    expect(await storeFor(repository.root).layout()).toMatchObject({
-      areas: { wiki: "branch", tasks: "checkout", settings: "checkout" },
-      areasFile: ".genbeya-content",
-    });
-  });
-
-  it("reads GitDesk's git config keys while Genbeya's are not set", async () => {
-    const repository = await createRepository(FILES);
-    await gitdeskBranch(repository, { ".gitdesk-content": TASKS_ON_BRANCH });
-    await repository.git("branch", "notes", "gitdesk");
-    await repository.git("config", "gitdesk.branch", "notes");
-    const store = storeFor(repository.root);
-    expect((await store.locate("tasks")).branch).toBe("notes");
-    await repository.git("config", "genbeya.branch", "gitdesk");
-    expect((await store.locate("tasks")).branch).toBe("gitdesk");
-
-    await repository.git("config", "gitdesk.storage", "worktree");
-    expect(await store.layout()).toMatchObject({ branch: null });
-    await repository.git("config", "genbeya.storage", "branch");
-    expect((await store.layout()).branch).not.toBeNull();
-    // Choosing where an area lives ends the opt-out under either name.
-    await repository.git("config", "genbeya.storage", "worktree");
-    await move(store, ["wiki"], "branch");
-    expect(await repository.git("config", "--get-regexp", "storage$").catch(() => "")).toBe("");
-  });
-
-  it("renames the settings file and the areas file on the content branch in one commit", async () => {
-    const repository = await createRepository(FILES);
-    await gitdeskBranch(repository, {
-      ".gitdesk-content": "[areas]\n\twiki = checkout\n\ttasks = checkout\n\tsettings = branch\n",
-      ".gitdesk.yml": "name: Shared\n",
-    });
-    const store = storeFor(repository.root);
-    expect(await store.renameLegacyFiles([".gitdesk.yml", ".genbeya.yml"])).toEqual([".gitdesk.yml", ".gitdesk-content"]);
-    expect((await repository.git("ls-tree", "--name-only", "gitdesk")).trim().split("\n").sort()).toEqual([
-      ".genbeya-content",
-      ".genbeya.yml",
-    ]);
-    expect((await repository.git("log", "-1", "--format=%s", "gitdesk")).trim()).toBe(
-      "Rename .gitdesk.yml to .genbeya.yml and .gitdesk-content to .genbeya-content",
-    );
-    expect(await store.layout()).toMatchObject({ areas: { settings: "branch" }, areasFile: ".genbeya-content" });
-    expect((await repository.git("status", "--porcelain")).trim()).toBe("");
-  });
-
-  it("stages the rename of the settings file in the checkout", async () => {
-    const repository = await createRepository(GITDESK_FILES);
-    expect(await storeFor(repository.root).renameLegacyFiles([".gitdesk.yml", ".genbeya.yml"])).toEqual([".gitdesk.yml"]);
-    expect((await repository.git("status", "--porcelain")).trim()).toBe("R  .gitdesk.yml -> .genbeya.yml");
-
-    const untracked = await createRepository(GITDESK_FILES, false);
-    await storeFor(untracked.root).renameLegacyFiles([".gitdesk.yml", ".genbeya.yml"]);
-    expect(await untracked.exists(".gitdesk.yml")).toBe(false);
-    expect(await untracked.read(".genbeya.yml")).toBe("name: Old\n");
   });
 });

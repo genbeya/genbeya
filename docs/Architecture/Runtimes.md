@@ -61,15 +61,3 @@ Every push to `main` publishes one GitHub release with all variants for all plat
 The builds are unsigned: on Windows choose *More info → Run anyway*; on macOS open the app once with right-click → *Open*; on Linux `chmod +x` the AppImage.
 
 The Electron build installs as "Genbeya". Tauri installs as "Genbeya Tauri" with its own settings (`fyi.genbeya.tauri`), and Deno Desktop as "Genbeya Deno" with its own settings folder, so all three can be used side by side. To build locally, see [Development](../Development.md).
-
-## Updating from GitDesk
-
-Genbeya was called GitDesk before 0.5. Windows installers find an installed app by an identity derived from its name, so each variant keeps the identity of its GitDesk predecessor where that decides whether an installer upgrades or installs next to it, and takes the new name everywhere else. Each variant's first start copies its predecessor's recent repositories and preferences (`state.json`, and Electron's window size) into its own data folder, unless that has state already; the old folder stays as it was. Layout choices kept in the webview's storage (panel sizes, board or list) start over.
-
-| Variant | New identity | Kept from GitDesk | On Windows |
-| --- | --- | --- | --- |
-| Electron | `productName` Genbeya, `appId` `fyi.genbeya.app`, `Genbeya.exe` | The NSIS GUID (`nsis.guid` in `package.json`, `6f35097a-…`, which electron-builder derived from GitDesk's appId `dev.gitdesk.app`) | The installer finds GitDesk, removes it as an older version and keeps its registry entries; shortcuts are renamed. `build/installer.nsh` moves an installation from a folder named `GitDesk` to one named `Genbeya` beside it. Data: `%APPDATA%\gitdesk` (Electron names the folder after the package) is copied to `%APPDATA%\genbeya` |
-| Tauri | `productName` Genbeya Tauri, identifier `fyi.genbeya.tauri` | The MSI's upgrade code (`bundle.windows.wix.upgradeCode`, `b50af3c1-…`, which Tauri derived from "GitDesk Tauri") | The MSI upgrades GitDesk Tauri's. Tauri's NSIS installer keys installations by product name, so a hook (`src-tauri/windows/installer-hooks.nsh`) runs GitDesk Tauri's uninstaller silently first, which keeps its data. Data: the folder of `dev.gitdesk.tauri` is copied to that of `fyi.genbeya.tauri` |
-| Deno Desktop | Genbeya Deno, `genbeya-deno` | — (`deno desktop` derives the MSI's upgrade code from the name) | `scripts/msi-major-upgrade.ps1` adds GitDesk Deno's upgrade code, `{F1362F28-64FF-530A-B5CF-AFA16603621A}`, to the Upgrade table: the MSI removes GitDesk Deno like an older version of itself, and refuses to install over a newer one. Data: `%APPDATA%\GitDesk Deno` is copied to `%APPDATA%\Genbeya Deno`; the WebView2 profile is not, as it holds caches and storage for an origin that changes with every start |
-
-On macOS and Linux the apps install under their new names next to the old ones, which users remove themselves. All variants still open the `gitdesk://` links GitDesk made, and Electron and Tauri register both schemes.

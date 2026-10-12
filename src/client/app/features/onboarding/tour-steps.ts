@@ -51,7 +51,7 @@ export function appTour({ mod, ctrl }: Keys): TourStep[] {
       route: "/tasks",
       placement: "bottom",
       title: "New task",
-      body: "New tasks are numbered with the project's prefix, such as `GENBEYA-12`. Write `[[GENBEYA-12]]` anywhere to show the task's title and state.",
+      body: "New tasks are numbered with the project's prefix, such as `PRJ-12`. Write `[[PRJ-12]]` anywhere to show the task's title and state.",
       tryIt: "Press C to create a task",
     },
     {

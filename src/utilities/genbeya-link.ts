@@ -1,19 +1,16 @@
 /**
  * `genbeya://open?remote=<url>&task=<id>` and its siblings `page=`, `file=`
- * and `commit=`; `gitdesk://` links, as GitDesk made them, alike. Links
- * come from outside (the clipboard, the operating system), so parsing
- * accepts only these keys, once each, with values that name an item: never
- * a local path as remote, never a path outside the repository. Opening a
- * link only shows the item.
+ * and `commit=`. Links come from outside (the clipboard, the operating
+ * system), so parsing accepts only these keys, once each, with values that
+ * name an item: never a local path as remote, never a path outside the
+ * repository. Opening a link only shows the item.
  */
-import { LINK_PREFIX, LINK_SCHEMES, type GenbeyaLink, type LinkItem } from "../contracts/genbeya-link";
+import { GENBEYA_LINK_PREFIX, type GenbeyaLink, type LinkItem } from "../contracts/genbeya-link";
 import { parseRemote, withoutCredentials } from "./remote-url";
 import { validateRepositoryPath } from "./repository-path";
 
 const MAX_LENGTH = 8192;
-const LINK = new RegExp(`^(?:${LINK_SCHEMES.join("|")}):\\/\\/open\\/?\\?([^#]*)$`, "i");
-/** Anything in one of the link schemes, valid link or not. */
-export const LINK_SCHEME = new RegExp(`^(?:${LINK_SCHEMES.join("|")}):`, "i");
+const LINK = /^genbeya:\/\/open\/?\?([^#]*)$/i;
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const COMMIT = /^[0-9a-f]{7,64}$/i;
 
@@ -24,7 +21,7 @@ const valueOf = (item: LinkItem): string => (item.kind === "task" ? item.id : it
 
 /** The link to `link.item`; credentials in an http(s) remote URL are left out. */
 export const formatGenbeyaLink = ({ remote, item }: GenbeyaLink): string =>
-  `${LINK_PREFIX}?remote=${encode(withoutCredentials(remote))}&${item.kind}=${encode(valueOf(item))}`;
+  `${GENBEYA_LINK_PREFIX}?remote=${encode(withoutCredentials(remote))}&${item.kind}=${encode(valueOf(item))}`;
 
 function itemOf(kind: string, value: string): LinkItem | null {
   const path = (check: (path: string) => boolean = () => true) => {

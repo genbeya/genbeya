@@ -1,10 +1,10 @@
 {
   "name": "genbeya",
-  "version": "0.5.0",
+  "version": "0.0.1",
   "private": true,
   "description": "A desktop workspace for Git repositories: wiki, tasks, code and version control",
   "author": "Emanuel Knecht",
-  "repository": "github:h3ll5ur7er/gitdesk",
+  "repository": "github:genbeya/genbeya",
   "main": "dist/electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -117,8 +117,7 @@
       {
         "name": "Genbeya link",
         "schemes": [
-          "genbeya",
-          "gitdesk"
+          "genbeya"
         ]
       }
     ],
@@ -141,7 +140,6 @@
       }
     },
     "nsis": {
-      "guid": "6f35097a-286a-59ed-8f5d-83dca4632e7d",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     },

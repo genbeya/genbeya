@@ -5,7 +5,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { appDataDir, dataDir, join } from "@tauri-apps/api/path";
+import { appDataDir } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -15,12 +15,8 @@ import { createBackend } from "../../../managers/backend";
 import { tauriMachine } from "../../../platforms/tauri/tauri-machine";
 import type { Platform } from "./platform";
 
-/** The identifier of GitDesk Tauri, as the app was called before 0.5, which names its data folder. */
-const PREVIOUS_IDENTIFIER = "dev.gitdesk.tauri";
-
 export async function connectTauri(): Promise<Platform> {
-  const previous = { folders: [await join(await dataDir(), PREVIOUS_IDENTIFIER)] };
-  const backend = await createBackend(tauriMachine(), await appDataDir(), previous);
+  const backend = await createBackend(tauriMachine(), await appDataDir());
   const window = getCurrentWindow();
   return {
     managers: connectManagers(async (request) => structuredClone(await dispatch(backend, structuredClone(request)))),

@@ -4,7 +4,7 @@
 
 ## Install
 
-Download an installer from the [latest release](https://github.com/h3ll5ur7er/gitdesk/releases/latest). Genbeya comes in three variants of the same app; pick one:
+Download an installer from the [latest release](https://github.com/genbeya/genbeya/releases/latest). Genbeya comes in three variants of the same app; pick one:
 
 | Variant | Pick it when | Differences |
 | --- | --- | --- |
@@ -19,9 +19,6 @@ Download an installer from the [latest release](https://github.com/h3ll5ur7er/gi
 | Linux | `.AppImage` | `.AppImage`, `.deb` or `.rpm` | `.AppImage` or `.deb` |
 
 The variants install side by side, as "Genbeya", "Genbeya Tauri" and "Genbeya Deno", each with its own settings. A newer installer of a variant replaces the version you have installed. [Runtimes](Architecture/Runtimes.md) compares them in detail.
-
-> [!NOTE]
-> Genbeya was called GitDesk before 0.5. On Windows, each installer replaces the GitDesk variant it succeeds; on macOS and Linux, remove the old app yourself. Your recent repositories and preferences carry over on the first start, and repositories set up with GitDesk keep working as they are (see [Settings](Guide/Settings.md#settings-file-names)).
 
 The installers are not signed yet, so your system asks before running them the first time:
 

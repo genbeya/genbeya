@@ -15,11 +15,10 @@ Edit the files directly; Genbeya picks up changes on its own.
 ## Find the files
 
 1. Run `git worktree list`. A worktree inside `.git/genbeya/` holds Genbeya's _content branch_ (`genbeya`, or the branch `git config genbeya.branch` names). Its `.genbeya-content` file says where each area lives: `wiki`, `tasks` and `settings` (`.genbeya.yml`) set to `branch` live in that worktree, those set to `checkout` in the checkout; a content branch without that file holds all three. Without such a worktree, everything lives in the checkout.
-   - Genbeya was called GitDesk before. In repositories set up with GitDesk, the worktree may be inside `.git/gitdesk/`, the branch named `gitdesk` and the file `.gitdesk-content`; they mean the same.
    - Read and edit each area where it lives. Commit edits on the content branch right away, in that worktree (`git -C <worktree> add …` and `git -C <worktree> commit -m …`); Genbeya pushes them when someone syncs. Never copy files between the content branch and the checkout: the copy in the other place is out of date.
 2. Read `.genbeya.yml` where the settings live. When it disagrees with the values below, the file wins:
    - `wikiRoot` is the wiki folder (here `docs`), `wikiHome` its home page relative to that folder (here `Home.md`).
-   - `taskRoot` is the task folder (here `tasks`), `taskPrefix` the prefix of task IDs (here `GD`).
+   - `taskRoot` is the task folder (here `tasks`), `taskPrefix` the prefix of task IDs (here `GENBEYA`).
    - `statuses` are the workflow states in board order: the first is where new ideas wait, the last means done. An entry is a state's name, or a mapping whose `name` is the state.
    - `hiddenColumns` are states the board leaves out; tasks may still be in them.
    - `types` lists the task types: names, or mappings whose `name` is the type (with an `icon` and a colour `tone` for Genbeya). Without `types`, the types are `bug`, `feature`, `improvement` and `chore`; `types: []` means none.

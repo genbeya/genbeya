@@ -40,23 +40,6 @@ describe("Genbeya links", () => {
     });
   });
 
-  it("opens the links GitDesk made, and makes new ones in Genbeya's scheme", () => {
-    const expected = { remote, item: { kind: "page", path: "docs/Guide.md" } };
-    for (const scheme of ["gitdesk", "GitDesk", "GITDESK"]) {
-      const link = parseGenbeyaLink(`${scheme}://open?remote=${remote}&page=docs/Guide.md`);
-      expect(link, scheme).toEqual(expected);
-      expect(formatGenbeyaLink(link!)).toBe("genbeya://open?remote=https://github.com/acme/demo.git&page=docs/Guide.md");
-    }
-    expect(parseGenbeyaLink(`  GitDesk://Open/?task=DP-1&remote=${encodeURIComponent(remote)}\n`)).toEqual({
-      remote,
-      item: { kind: "task", id: "DP-1" },
-    });
-  });
-
-  it.each(["gitdeskx://open?remote=https://github.com/acme/demo.git&task=DP-1", "genbeya-x://open?task=DP-1"])("refuses %j", (text) => {
-    expect(parseGenbeyaLink(text)).toBeNull();
-  });
-
   it.each([
     42,
     null,
@@ -87,9 +70,8 @@ describe("Genbeya links", () => {
     "genbeya://open?remote=https://github.com/acme/demo.git&commit=HEAD~1",
     "genbeya://open?remote=https://github.com/acme/demo.git&commit=abc",
     `genbeya://open?remote=https://github.com/acme/demo.git&file=${"a/".repeat(2100)}a`,
-  ])("refuses %j, in either scheme", (text) => {
+  ])("refuses %j", (text) => {
     expect(parseGenbeyaLink(text)).toBeNull();
-    if (typeof text === "string") expect(parseGenbeyaLink(text.replace(/^genbeya:/, "gitdesk:"))).toBeNull();
   });
 
   it("describes items for people", () => {

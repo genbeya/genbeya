@@ -60,27 +60,12 @@ export class SettingsView {
     { mode: "branch", label: "Content branch" },
   ];
   protected readonly areas = computed(() => {
-    const { settings, settingsFile } = this.snapshot();
+    const { wikiRoot, taskRoot } = this.snapshot().settings;
     return [
-      { area: "wiki", label: "Wiki", hint: `Pages and their images in ${settings.wikiRoot}/.` },
-      { area: "tasks", label: "Tasks", hint: `Task files in ${settings.taskRoot}/.` },
-      { area: "settings", label: "Project settings", hint: `The ${settingsFile} file with the settings above.` },
+      { area: "wiki", label: "Wiki", hint: `Pages and their images in ${wikiRoot}/.` },
+      { area: "tasks", label: "Tasks", hint: `Task files in ${taskRoot}/.` },
+      { area: "settings", label: "Project settings", hint: "The .genbeya.yml file with the settings above." },
     ] as const;
-  });
-  /** The shared files still named for GitDesk, and what renaming them is called; null when there are none. */
-  protected readonly legacy = computed(() => {
-    const { legacyFiles, settingsFile, storage } = this.snapshot();
-    if (!legacyFiles.length) return null;
-    const inCheckout = (file: string) => file === settingsFile && storage.areas.settings === "checkout";
-    const onBranch = legacyFiles.filter((file) => !inCheckout(file));
-    const places = [
-      legacyFiles.filter(inCheckout).join(" and "),
-      onBranch.length ? `${onBranch.join(" and ")} on the ${this.branchName()} branch` : "",
-    ];
-    return {
-      files: places.filter(Boolean).join(", and "),
-      action: legacyFiles.includes(settingsFile) ? "Rename to .genbeya.yml" : "Rename to .genbeya-content",
-    };
   });
   /** The content branch while it has something to sync. */
   protected readonly sharedBranch = computed(() => {
@@ -90,7 +75,7 @@ export class SettingsView {
   private readonly branchName = computed(() => this.snapshot().storage.branch?.name ?? "genbeya");
 
   constructor() {
-    // Follow saves and outside edits of the settings file while the form is untouched.
+    // Follow saves and outside edits of .genbeya.yml while the form is untouched.
     effect(() => {
       const { settings, settingsHash } = this.snapshot();
       untracked(() => {
@@ -174,16 +159,6 @@ export class SettingsView {
           },
     );
     if (confirmed) await this.session.run(() => this.api.content.setStorage(area, mode), "Storage updated");
-  }
-
-  /** Renames the shared files GitDesk named: staged in the checkout, committed on the content branch. */
-  protected async renameLegacyFiles() {
-    const { settingsFile, storage } = this.snapshot();
-    const staged = this.snapshot().legacyFiles.includes(settingsFile) && storage.areas.settings === "checkout";
-    await this.session.run(
-      () => this.api.content.renameLegacyFiles(),
-      staged ? "Renamed. Commit the rename in Changes." : `Renamed on the ${this.branchName()} branch. Sync to share it.`,
-    );
   }
 
   protected async editRemote(name?: string, url?: string) {

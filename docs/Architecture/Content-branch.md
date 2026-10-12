@@ -80,20 +80,6 @@ The file is read again whenever the branch's commit changes, such as after a syn
 
 Repositories keep working unchanged. A content branch made before areas existed has no areas file, so it holds every area, as it did. A clone with `git config genbeya.storage worktree` keeps everything in its checkout; a leftover `genbeya.storage branch` changes nothing. The first move in Settings writes the file. Earlier versions ignore the file and read every area from the branch, so update everyone before splitting areas.
 
-### Repositories set up with GitDesk
-
-Genbeya was called GitDesk before 0.5, and named its files after that. Repositories set up then keep working, for teammates who updated and for those who did not yet:
-
-| GitDesk's name | Genbeya's | How Genbeya treats it |
-| --- | --- | --- |
-| Branch `gitdesk` | Branch `genbeya` | Without a `genbeya` branch here or on a remote, a `gitdesk` branch (also one only a remote has) is the content branch, under its name. New content branches are named `genbeya`. |
-| `.gitdesk-content` | `.genbeya-content` | Read when the branch has no `.genbeya-content`, and kept as the file moves are written to, so teammates still on GitDesk see them. A new branch, or GitDesk's branch without either file, gets the name that matches the branch. |
-| `.gitdesk.yml` | `.genbeya.yml` | See [Settings](../Guide/Settings.md#settings-file-names). |
-| `git config gitdesk.branch`, `gitdesk.storage` | `genbeya.branch`, `genbeya.storage` | Read while the `genbeya.*` key is not set. Choosing a layout removes either `storage` key. |
-| Worktree in `.git/gitdesk/` | In `.git/genbeya/` | Moved with `git worktree move` when Genbeya first uses it, uncommitted edits included. Where it cannot be moved, for example while a program holds a file in it open, it stays and keeps working, and the next start tries again. |
-
-**Settings → Project** offers to rename `.gitdesk.yml` and `.gitdesk-content` once the whole team has updated: GitDesk does not know the new names. The rename of a file on the content branch is one commit there, which reaches everyone with their next sync.
-
 ## Other clones
 
 Other clones pick the branch up automatically: if a remote has a content branch, Genbeya uses it with the layout its file describes. A move made elsewhere arrives with the next sync. Only the clone that moved an area back to the checkout gets the branch's files as changes; once committed and merged, everyone has them.
@@ -104,4 +90,4 @@ Sync rebases. If two people changed the same lines of the same page, the rebase 
 
 ## In the code
 
-`ContentStore` (`src/access/content/content-store.ts`) hides all of this: `layout()` says where each area lives, `locate(area)` gives the location (root, files, Git, branch) of one area, `record(area, …)` commits only when that area is on the branch, `history(area, …)` reads a file's commits where its area lives (for a task's activity), `setStorage(area, mode, path)` moves one, and `renameLegacyFiles(…)` gives GitDesk's files their new names. `Workspace.locateContent(path)` names the location of any content path, for reading its files or its history.
+`ContentStore` (`src/access/content/content-store.ts`) hides all of this: `layout()` says where each area lives, `locate(area)` gives the location (root, files, Git, branch) of one area, `record(area, …)` commits only when that area is on the branch, `history(area, …)` reads a file's commits where its area lives (for a task's activity), and `setStorage(area, mode, path)` moves one. `Workspace.locateContent(path)` names the location of any content path, for reading its files or its history.

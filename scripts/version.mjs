@@ -9,7 +9,7 @@ import { pathToFileURL } from "node:url";
 /** Files holding the app's version: package.json for Electron and the client, tauri.conf.json for Tauri. */
 const FILES = ["package.json", "src/shells/tauri/src-tauri/tauri.conf.json"];
 
-/** `0.3.0` with build 42 → `0.3.42`. MSI versions allow at most 65535 as the third number. */
+/** `0.0.1` with build 42 → `0.0.42`. MSI versions allow at most 65535 as the third number. */
 export function releaseVersion(version, build) {
   const match = /^(\d+)\.(\d+)\.\d+$/.exec(version);
   if (!match) throw new Error(`Unexpected version ${version}; expected major.minor.patch.`);

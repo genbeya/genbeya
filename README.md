@@ -2,7 +2,7 @@
 
 A desktop workspace for one Git repository: a wiki, a task board, a code editor, Git tools and a terminal in one window. Everything it shows is a plain file in the repository — Markdown pages, one Markdown file per task, `.genbeya.yml` for settings — so it works with any Git host, any editor and any coding agent. No server, no account, no database.
 
-Genbeya was called GitDesk before 0.5. Repositories, settings and links from GitDesk keep working, and each installer replaces the GitDesk variant it succeeds. Its future home is [genbeya.fyi](https://genbeya.fyi); until then, everything lives here.
+Genbeya's future home is [genbeya.fyi](https://genbeya.fyi); until then, everything lives here.
 
 ![Genbeya's wiki, showing references to pages, a task and a file, and an embed of a file's lines](docs/images/wiki-references.png)
 
@@ -29,7 +29,7 @@ It is pronounced "gen-BEH-ya".
 
 ## Download
 
-Every push to `main` publishes a [release](https://github.com/h3ll5ur7er/gitdesk/releases/latest) with an installer per variant and system, named `Genbeya-<version>-<variant>-<os>-<arch>`. The three variants are the same app on different runtimes and install side by side:
+Every push to `main` publishes a [release](https://github.com/genbeya/genbeya/releases/latest) with an installer per variant and system, named `Genbeya-<version>-<variant>-<os>-<arch>`. The three variants are the same app on different runtimes and install side by side:
 
 | Variant                         | Size    | Differences                                                                           | Windows                | macOS                           | Linux                         |
 | ------------------------------- | ------- | ------------------------------------------------------------------------------------- | ---------------------- | ------------------------------- | ----------------------------- |

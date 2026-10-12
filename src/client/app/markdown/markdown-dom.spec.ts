@@ -39,7 +39,9 @@ describe("wiki extensions", () => {
   });
 
   it("links wiki titles loosely and task IDs to tasks, but not inside code", () => {
-    const { container } = render("See [[getting started]], [[Content branch|the branch]], [[Nope]] and GENBEYA-3, not GENBEYA-99.", { references });
+    const { container } = render("See [[getting started]], [[Content branch|the branch]], [[Nope]] and GENBEYA-3, not GENBEYA-99.", {
+      references,
+    });
     const pages = [...container.querySelectorAll<HTMLAnchorElement>("a.md-ref-page")];
     expect(pages.map((link) => [link.getAttribute("href"), link.textContent])).toEqual([
       ["/docs/Getting-started.md", "Getting started"],
@@ -53,7 +55,11 @@ describe("wiki extensions", () => {
       "Nope",
     ]);
     const id = container.querySelector(".md-task-ref")!;
-    expect([id.getAttribute("href"), id.getAttribute("title"), id.textContent]).toEqual(["/tasks/GENBEYA-3.md", "Login (In progress)", "GENBEYA-3"]);
+    expect([id.getAttribute("href"), id.getAttribute("title"), id.textContent]).toEqual([
+      "/tasks/GENBEYA-3.md",
+      "Login (In progress)",
+      "GENBEYA-3",
+    ]);
     expect(container.textContent).toContain("not GENBEYA-99.");
     expect(render("`[[Page]]` and `GENBEYA-3`", { references }).html).not.toContain("<a");
   });

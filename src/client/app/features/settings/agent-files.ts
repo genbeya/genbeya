@@ -55,12 +55,6 @@ const files = (count: number) => (count === 1 ? "1 agent file" : `${count} agent
           @if (file.ignored) {
             <small class="agent-warning">Ignored by .gitignore, so it would not be committed.</small>
           }
-          @if (file.replaces) {
-            <small class="agent-warning agent-replaces"
-              >Replaces <code class="selectable">{{ file.replaces }}</code
-              >, which GitDesk wrote: adding this file deletes it, with any edits made to it.</small
-            >
-          }
         </div>
         <span class="agent-state" [class]="'is-' + file.state">{{ states[file.state] }}</span>
         <details class="agent-preview">
@@ -97,7 +91,7 @@ export class AgentFiles {
   private readonly inputs = computed(() => {
     const snapshot = this.session.snapshot();
     if (!snapshot) return "";
-    const paths = this.files().flatMap((file) => (file.replaces ? [file.path, file.replaces] : [file.path]));
+    const paths = this.files().map((file) => file.path);
     // Untracked folders show as one change, such as ".claude/".
     const touches = (path: string) => paths.some((file) => file === path || (path.endsWith("/") && file.startsWith(path)));
     const changes = snapshot.changes.filter((change) => touches(change.path));
@@ -131,13 +125,9 @@ export class AgentFiles {
     if (!written) return;
     const created = written.filter((file) => file.result === "created").length;
     const updated = written.filter((file) => file.result === "updated").length;
-    const replaced = written.filter((file) => file.result === "replaced").length;
     const verb = !updated ? "Added" : !created ? "Updated" : "Added and updated";
-    const removed = replaced ? ` and deleted ${replaced === 1 ? "the one" : `the ${replaced}`} GitDesk wrote` : "";
     this.notifications.success(
-      created + updated
-        ? `${verb} ${files(created + updated)}${removed}. Review and commit them in Changes.`
-        : "The agent files are up to date.",
+      created + updated ? `${verb} ${files(created + updated)}. Review and commit them in Changes.` : "The agent files are up to date.",
     );
     // Ignored files leave the snapshot as it was.
     await this.load(this.selected());

@@ -28,7 +28,7 @@ Genbeya's own repository has these files as well: [AGENTS.md](../../AGENTS.md) a
 ## What agents learn
 
 - Use tasks instead of an internal todo list, and the wiki instead of private memory files such as CLAUDE.md memories or `.cursor` notes.
-- Find the settings, wiki and tasks: read `.genbeya.yml` (or `.gitdesk.yml`, where the repository still has that), and check `git worktree list` for a [Content branch](../Architecture/Content-branch.md).
+- Find the settings, wiki and tasks: read `.genbeya.yml`, and check `git worktree list` for a [Content branch](../Architecture/Content-branch.md).
 - Create a task: the next free ID across all epics, a file named after it, the frontmatter fields, epics as folders, checklists for subtasks.
 - Move a task through the workflow as the work progresses, and to the last state only when it is done and verified.
 - Reference tasks, pages and files with `[[…]]`, and name the task in commit messages and pull requests.
@@ -42,15 +42,6 @@ The workflow states are not written into the files: agents read them from `.genb
 In AGENTS.md, CLAUDE.md and Copilot's file, Genbeya owns only the lines from `<!-- genbeya:begin -->` to `<!-- genbeya:end -->`. It appends that block to a file that has none and replaces it on update; everything outside the block stays as it was, line endings included. Adding again when nothing changed writes nothing. Put your own instructions outside the block.
 
 The skill files belong to Genbeya entirely, and **Update** replaces them. Keep project-specific guidance in AGENTS.md or in the wiki instead.
-
-## Files GitDesk wrote
-
-Genbeya was called GitDesk before 0.5, and wrote its skill as `gitdesk` (`.claude/skills/gitdesk/SKILL.md`, `.agents/skills/gitdesk/SKILL.md`) and its blocks between `<!-- gitdesk:begin -->` and `<!-- gitdesk:end -->`. In a repository that has them, the files show *Outdated*:
-
-- A block GitDesk wrote is replaced in place by Genbeya's, with the new markers.
-- A skill GitDesk wrote is replaced by the `genbeya` skill. The section names each old `SKILL.md` that **Update** deletes, edits and all, before you press it; Genbeya deletes it only after writing the new one, and keeps any other file in the old folder. The result lists the old files as replaced, and **Changes** shows the move.
-
-The files name the settings file the repository has: `.gitdesk.yml` until it is [renamed](Settings.md#settings-file-names), after which they show *Outdated* again.
 
 > [!NOTE]
 > Many repositories ignore `.claude/` in `.gitignore`. The section warns about files that would not be committed; ignore only `.claude/settings.local.json` and similar personal files instead, so everyone's agents get the skill.

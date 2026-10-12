@@ -1,13 +1,12 @@
 /**
  * What a launch asks for. `--open=<base64url JSON location>` opens a
- * repository (jump list entries carry it); a `genbeya://open?…` link (or a
- * `gitdesk://` one, as GitDesk made them), as the
+ * repository (jump list entries carry it); a `genbeya://open?…` link, as the
  * operating system passes it, opens an item. The receiving side validates
  * the location; links are validated here.
  */
 import type { GenbeyaLink } from "../contracts/genbeya-link";
 import { encodeText, toBase64 } from "./bytes";
-import { LINK_SCHEME, parseGenbeyaLink } from "./genbeya-link";
+import { parseGenbeyaLink } from "./genbeya-link";
 
 const FLAG = "--open=";
 
@@ -40,4 +39,4 @@ export function requestedLink(args: readonly unknown[]): GenbeyaLink | undefined
 }
 
 /** The arguments without Genbeya links, valid or not: a page that reloads must not open a launch's link again. */
-export const withoutLinks = (args: readonly string[]): string[] => args.filter((arg) => !LINK_SCHEME.test(arg));
+export const withoutLinks = (args: readonly string[]): string[] => args.filter((arg) => !/^genbeya:/i.test(arg));

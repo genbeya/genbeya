@@ -20,7 +20,6 @@ const files = (states: Partial<Record<AgentTarget, AgentFile["state"]>> = {}, ig
     text: `Text of ${PATHS[target]} using TP-12`,
     state: states[target] ?? "missing",
     ignored: ignored.includes(target),
-    replaces: null,
   }));
 
 async function render(answer: AgentFile[] | Error) {
@@ -83,27 +82,6 @@ describe("AgentFiles", () => {
     expect(element.querySelector(".agent-warning")!.textContent).toContain(".gitignore");
   });
 
-  it("says which skill files GitDesk wrote get deleted, and that they were", async () => {
-    const legacy = ".claude/skills/gitdesk/SKILL.md";
-    const answer = files({ claudeSkill: "outdated", agents: "current" }).map((file) =>
-      file.target === "claudeSkill" ? { ...file, replaces: legacy } : file,
-    );
-    const { element, button, fixture, managers } = await render(answer);
-    const success = vi.spyOn(TestBed.inject(Notifications), "success");
-    const warning = element.querySelector(".agent-replaces")!;
-    expect(warning.closest(".agent-file")!.querySelector("input")!.dataset["path"]).toBe(PATHS.claudeSkill);
-    expect(warning.textContent).toMatch(/Replaces \.claude\/skills\/gitdesk\/SKILL\.md, which GitDesk wrote: adding this file deletes it/);
-    expect(button().textContent!.trim()).toBe("Update");
-    managers.content.addAgentFiles.mockResolvedValue([
-      { path: PATHS.claudeSkill, result: "created" },
-      { path: "AGENTS.md", result: "unchanged" },
-      { path: legacy, result: "replaced" },
-    ]);
-    button().click();
-    await settle(fixture);
-    expect(success).toHaveBeenCalledWith("Added 1 agent file and deleted the one GitDesk wrote. Review and commit them in Changes.");
-  });
-
   it("checks the files again only when something they depend on changes", async () => {
     const { managers, session, fixture } = await render(files());
     const checks = () => managers.content.agentFiles.mock.calls.length;
@@ -122,8 +100,8 @@ describe("AgentFiles", () => {
   });
 
   it("explains why the files could not be checked", async () => {
-    const { element, button } = await render(new Error("CLAUDE.md has unmatched markers"));
-    expect(element.querySelector(".agent-error")!.textContent).toContain("CLAUDE.md has unmatched markers");
+    const { element, button } = await render(new Error("CLAUDE.md has unmatched Genbeya markers"));
+    expect(element.querySelector(".agent-error")!.textContent).toContain("CLAUDE.md has unmatched Genbeya markers");
     expect(button().disabled).toBe(true);
   });
 });

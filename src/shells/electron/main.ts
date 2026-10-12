@@ -6,7 +6,6 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SHELL_OPERATIONS, type ShellOperation } from "../../contracts/bridges";
-import { LINK_SCHEMES } from "../../contracts/genbeya-link";
 import type { Theme } from "../../contracts/model";
 import { dispatch } from "../../contracts/rpc";
 import { locationOfFolder } from "../../access/hosts/host-factory";
@@ -16,7 +15,7 @@ import { withoutLinks } from "../../utilities/launch-request";
 import { updateJumpList } from "./jump-list";
 import { CONTENT_SECURITY_POLICY } from "../content-security-policy";
 import { isRendererPage, RENDERER_SCHEME, RENDERER_URL, resolveAsset } from "./renderer-protocol";
-import { placeOnScreen, WINDOW_STATE_FILE, WindowState } from "./window-state";
+import { placeOnScreen, WindowState } from "./window-state";
 
 protocol.registerSchemesAsPrivileged([
   { scheme: RENDERER_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -32,10 +31,9 @@ const RECENT_CHANGES = new Set(["open", "restore", "clone", "forget"]);
 const primary = app.requestSingleInstanceLock();
 if (!primary) app.exit(0);
 
-// The installed app opens genbeya://open links (the renderer's own genbeya://app is not one), and the
-// gitdesk://open links GitDesk made: Windows and Linux start it with the link as an argument, macOS
-// hands it over with `open-url`.
-if (primary && app.isPackaged) for (const scheme of LINK_SCHEMES) app.setAsDefaultProtocolClient(scheme);
+// The installed app opens genbeya://open links (the renderer's own genbeya://app is not one): Windows and
+// Linux start it with the link as an argument, macOS hands it over with `open-url`.
+if (primary && app.isPackaged) app.setAsDefaultProtocolClient("genbeya");
 
 /** Links from `open-url`, which comes before the window exists on a cold start; the page reads them with the launch arguments. */
 const openedLinks: string[] = [];
@@ -182,21 +180,9 @@ function connect(window: BrowserWindow, backend: Backend) {
 
 if (primary) void app.whenReady().then(start);
 
-/**
- * The data folder of GitDesk, as Genbeya was called before 0.5. Electron
- * names it after the package (gitdesk), as package.json gives the product
- * name only to the installers; GitDesk is the name it would take otherwise.
- */
-const previousData = () => ({
-  folders: ["gitdesk", "GitDesk"].map((name) => path.join(app.getPath("appData"), name)),
-  files: [WINDOW_STATE_FILE],
-});
-
 async function start() {
   const userData = app.getPath("userData");
-  // The backend takes GitDesk's data over on a first start, the window's included.
-  const backend = await createBackend(nodeMachine(), userData, previousData());
-  const state = await WindowState.load(userData);
+  const [backend, state] = await Promise.all([createBackend(nodeMachine(), userData), WindowState.load(userData)]);
   serveClient();
   setMenu();
   const window = createWindow(state);
