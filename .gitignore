@@ -7,7 +7,9 @@ out/
 .angular/
 .test-work/
 test-results/
+test-results-demo/
 playwright-report/
+playwright-report-demo/
 *.log
 src/shells/tauri/src-tauri/target/
 src/shells/tauri/src-tauri/gen/
