@@ -38,9 +38,9 @@ Code is written test first. Specs sit next to the code they test.
 
 `.github/workflows/build.yml` runs on every push and pull request to `main` and on pushes to `experiment/**` branches. On Windows, macOS and Linux it runs lint, unit and end-to-end tests (`.github/actions/verify`) and the Tauri shell's Rust tests, then packages Electron, Tauri and Deno Desktop.
 
-- `scripts/version.mjs stamp <run>` sets the patch number of the version to the run number before anything is built, so every build has a higher version than the one before (`0.3.0` in `package.json` becomes `0.3.57`) and installers upgrade an installed older version instead of refusing or installing next to it. `package.json` holds the major and minor version: raise the minor version for a release with new features.
-- Deno Desktop's MSIs take their version from a generated `dist/deno/deno.json`; `scripts/msi-major-upgrade.ps1` adds the upgrade rules they lack, and refuses to install over a newer version. Local builds are not stamped, so their MSIs are always `X.Y.0`, older than any CI build of the same release line.
-- `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `Genbeya-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `Genbeya-0.5.57-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
+- `scripts/version.mjs stamp <run>` sets the patch number of the version to the run number before anything is built, so every build has a higher version than the one before (`0.0.1` in `package.json` becomes `0.0.57` in run 57) and installers upgrade an installed older version instead of refusing or installing next to it. `package.json` holds the major and minor version: raise the minor version for a release with new features.
+- Deno Desktop's MSIs take their version from a generated `dist/deno/deno.json`; `scripts/msi-major-upgrade.ps1` adds the upgrade rules they lack, and refuses to install over a newer version. Local builds are not stamped, so their MSIs carry the version from `package.json` (`X.Y.1`), no newer than any CI build of the same release line.
+- `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `Genbeya-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `Genbeya-0.0.57-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
 - `scripts/report-sizes.mjs` lists their sizes in the job summary.
 - Each run uploads one artifact per variant and platform, such as `Genbeya-tauri-macOS`.
 - Pushes to `main` also publish all installers as one GitHub release tagged `v<version>`, with the text of `.github/release-notes.md` above the generated notes. A release is marked latest only when no published `v*` release is newer, and re-running a run whose tag exists fails instead of publishing again.
@@ -55,7 +55,7 @@ To announce a change, add an item to the entry of its release line in `src/clien
 
 ```ts
 {
-  version: "0.4",
+  version: "0.1",
   items: [
     {
       title: "Stash",
@@ -68,7 +68,7 @@ To announce a change, add an item to the entry of its release line in `src/clien
 },
 ```
 
-Entries are keyed by `major.minor`, since every build bumps the patch: a new entry only shows once `package.json` (and `tauri.conf.json` and `Cargo.toml` for Tauri) carries that minor version. Keep items to a sentence or two of Markdown.
+Entries are keyed by `major.minor`, since every build bumps the patch: a new entry only shows once `package.json` (and `tauri.conf.json` and `Cargo.toml` for Tauri) carries that minor version, and only to users updating from an older one. The changelog starts empty, in release line `0.0`; while it has no entry, nobody sees What's new, and **Show what's new** says there is nothing yet. Keep items to a sentence or two of Markdown.
 
 The tour's steps are in `src/client/app/features/onboarding/tour-steps.ts`. A step names its element by selector, usually a `data-tour` attribute on it, and optionally the route it is on; steps whose element is missing are skipped. The tour itself (`src/client/app/ui/tour/`) knows nothing about the app.
 

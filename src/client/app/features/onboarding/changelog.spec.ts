@@ -24,6 +24,14 @@ describe("news", () => {
     expect(versions(news(changelog, "1.1.0"))).toEqual(["1.1", "1.0"]);
   });
 
+  it("works from release line 0.0, whose builds are 0.0.1, 0.0.2 and so on", () => {
+    const early = [release("0.1", undefined), release("0.0", undefined)];
+    expect(versions(news(early, "0.0.1"))).toEqual(["0.0"]);
+    expect(news(early, "0.0.9", "0.0.1")).toEqual([]);
+    expect(versions(news(early, "0.1.60", "0.0.57"))).toEqual(["0.1"]);
+    expect(news([], "0.0.1", "0.0.0")).toEqual([]);
+  });
+
   it("lists nothing for versions it cannot read", () => {
     expect(news(changelog, "dev")).toEqual([]);
     expect(news(changelog, "1.2.0", "unknown")).toEqual([]);

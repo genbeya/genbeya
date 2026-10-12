@@ -58,26 +58,17 @@ test.describe("onboarding", () => {
   });
 
   test.describe("after an update", () => {
-    test.use({ preferences: { ...SEEN, lastSeenVersion: "0.2.0" } });
+    test.use({ preferences: { ...SEEN, lastSeenVersion: "0.0.0" } });
 
-    test("shows what's new once", async ({ window, profile }) => {
+    test("shows no news while the changelog has none, and remembers the version", async ({ window, profile }) => {
       const news = window.getByRole("dialog", { name: /^What's new in Genbeya / });
-      await expect(news).toBeVisible();
-      await news.getByRole("button", { name: "Got it" }).click();
-      await expect(news).toBeHidden();
       await expect.poll(() => savedPreferences(profile).lastSeenVersion).toBe(VERSION);
-    });
-  });
-
-  test.describe("after an update from 0.2, which remembered no version", () => {
-    // What 0.2 saved: preferences without lastSeenVersion and the onboarding.
-    test.use({ preferences: { theme: "system", reopenLast: true, autoSyncContent: false, minimap: true } });
-
-    test("shows what's new rather than treating the user as new", async ({ window, profile }) => {
-      const news = window.getByRole("dialog", { name: /^What's new in Genbeya / });
-      await expect(news).toBeVisible();
-      await news.getByRole("button", { name: "Got it" }).click();
-      await expect.poll(() => savedPreferences(profile).lastSeenVersion).toBe(VERSION);
+      await expect(news).toHaveCount(0);
+      await window.keyboard.press(`${MOD}+k`);
+      await window.getByRole("dialog", { name: "Command palette" }).getByRole("combobox").fill("show what's new");
+      await window.keyboard.press("Enter");
+      await expect(window.getByText(`Nothing new in Genbeya ${VERSION} yet.`)).toBeVisible();
+      await expect(news).toHaveCount(0);
     });
   });
 
