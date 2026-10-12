@@ -1,8 +1,10 @@
-# GitDesk
+# Genbeya
 
-A desktop workspace for one Git repository: a wiki, a task board, a code editor, Git tools and a terminal in one window. Everything it shows is a plain file in the repository — Markdown pages, one Markdown file per task, `.gitdesk.yml` for settings — so it works with any Git host, any editor and any coding agent. No server, no account, no database.
+A desktop workspace for one Git repository: a wiki, a task board, a code editor, Git tools and a terminal in one window. Everything it shows is a plain file in the repository — Markdown pages, one Markdown file per task, `.genbeya.yml` for settings — so it works with any Git host, any editor and any coding agent. No server, no account, no database.
 
-![GitDesk's wiki, showing references to pages, a task and a file, and an embed of a file's lines](docs/images/wiki-references.png)
+Genbeya was called GitDesk before 0.5. Repositories, settings and links from GitDesk keep working, and each installer replaces the GitDesk variant it succeeds. Its future home is [genbeya.fyi](https://genbeya.fyi); until then, everything lives here.
+
+![Genbeya's wiki, showing references to pages, a task and a file, and an embed of a file's lines](docs/images/wiki-references.png)
 
 ## Features
 
@@ -15,25 +17,31 @@ A desktop workspace for one Git repository: a wiki, a task board, a code editor,
 - **Terminal** — a shell in the repository (`` Ctrl+` ``), on the machine it lives on.
 - **Anywhere** — repositories on this computer, in WSL or over SSH, with a remote folder browser. Git runs where the repository is.
 - **Content branch** (optional) — keep the wiki, the tasks or the settings, each on its own, on a shared branch, so they look the same on every code branch.
-- **Sharing** — copy a link that opens a page, task, file or commit in a coworker's GitDesk, or on GitHub, GitLab, Bitbucket or Azure DevOps.
+- **Sharing** — copy a link that opens a page, task, file or commit in a coworker's Genbeya, or on GitHub, GitLab, Bitbucket or Azure DevOps.
 - **AI agents** — a skill and an `AGENTS.md` section teach Claude Code, Codex, Copilot, Cursor and others to track their work as tasks and keep project knowledge in the wiki.
 - **Onboarding** — a sample project, a guided tour, and what's new after each update. Command palette (`Ctrl+K`), back and forward, dark and light themes.
 
+## Why Genbeya?
+
+Genbeya joins two words from lean manufacturing: **genba** (現場, "the real place", where value is actually created; lean's advice is to go to the genba instead of reading reports elsewhere) and **obeya** (大部屋, "big room", the project room where plans, tasks, problems and status hang on the walls for everyone to see). Genbeya is the big room at the real place: everything about a project — docs, tasks, decisions, code and history — kept right where the work happens, in the repository: versioned, reviewable, and available to every tool and person that can read files.
+
+It is pronounced "gen-BEH-ya".
+
 ## Download
 
-Every push to `main` publishes a [release](https://github.com/h3ll5ur7er/gitdesk/releases/latest) with an installer per variant and system, named `GitDesk-<version>-<variant>-<os>-<arch>`. The three variants are the same app on different runtimes and install side by side:
+Every push to `main` publishes a [release](https://github.com/h3ll5ur7er/gitdesk/releases/latest) with an installer per variant and system, named `Genbeya-<version>-<variant>-<os>-<arch>`. The three variants are the same app on different runtimes and install side by side:
 
 | Variant                         | Size    | Differences                                                                           | Windows                | macOS                           | Linux                         |
 | ------------------------------- | ------- | ------------------------------------------------------------------------------------- | ---------------------- | ------------------------------- | ----------------------------- |
 | **Electron** (recommended)      | ~110 MB | Bundled Chromium: the same everywhere, the most tested                                | `-setup.exe`           | `.dmg`, Apple silicon and Intel | `.AppImage`                   |
-| **Tauri**                       | ~8 MB   | System webview; installs as "GitDesk Tauri"                                           | `-setup.exe` or `.msi` | `.dmg`, Apple silicon           | `.AppImage`, `.deb` or `.rpm` |
-| **Deno Desktop** (experimental) | ~38 MB  | System webview; no terminal, no `gitdesk://` link handler; installs as "GitDesk Deno" | `.msi`                 | `.dmg`, Apple silicon           | `.AppImage` or `.deb`         |
+| **Tauri**                       | ~8 MB   | System webview; installs as "Genbeya Tauri"                                           | `-setup.exe` or `.msi` | `.dmg`, Apple silicon           | `.AppImage`, `.deb` or `.rpm` |
+| **Deno Desktop** (experimental) | ~38 MB  | System webview; no terminal, no `genbeya://` link handler; installs as "Genbeya Deno" | `.msi`                 | `.dmg`, Apple silicon           | `.AppImage` or `.deb`         |
 
-A newer installer replaces the installed version of its variant. The builds are unsigned: on Windows choose _More info → Run anyway_; on macOS open the app the first time with right-click → _Open_ (or run `xattr -dr com.apple.quarantine /Applications/GitDesk.app`); on Linux `chmod +x` the AppImage. GitDesk needs Git on the machine that holds the repository.
+A newer installer replaces the installed version of its variant. The builds are unsigned: on Windows choose _More info → Run anyway_; on macOS open the app the first time with right-click → _Open_ (or run `xattr -dr com.apple.quarantine /Applications/Genbeya.app`); on Linux `chmod +x` the AppImage. Genbeya needs Git on the machine that holds the repository.
 
 ## Documentation
 
-The documentation is GitDesk's own wiki, in [`docs/`](docs/Home.md). It reads best in GitDesk, where its references and examples are live.
+The documentation is Genbeya's own wiki, in [`docs/`](docs/Home.md). It reads best in Genbeya, where its references and examples are live.
 
 - [Getting started](docs/Getting-started.md): install, open a repository, the sample project and the tour
 - [Guide](docs/Guide.md): [wiki](docs/Guide/Wiki.md), [references](docs/Guide/References.md), [tasks](docs/Guide/Tasks.md), [code](docs/Guide/Code.md), [search](docs/Guide/Search.md), [version control](docs/Guide/Version-control.md), [terminal](docs/Guide/Terminal.md), [sharing](docs/Guide/Sharing.md), [AI agents](docs/Guide/AI-agents.md), [keyboard shortcuts](docs/Guide/Keyboard-shortcuts.md), [settings](docs/Guide/Settings.md)
@@ -49,7 +57,7 @@ npm install
 npm start
 ```
 
-Open this folder in GitDesk: its wiki documents the app and its task board is the real backlog. See [Development](docs/Development.md) for tests and packaging.
+Open this folder in Genbeya: its wiki documents the app and its task board is the real backlog. See [Development](docs/Development.md) for tests and packaging.
 
 ## Built with
 
