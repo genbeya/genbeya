@@ -19,12 +19,24 @@ import { ShellUi } from "../shell/shell-ui";
   template: `
     <div class="welcome-panel">
       <div class="welcome-brand">
-        <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
-          <rect width="32" height="32" rx="8" fill="var(--accent)" />
-          <path d="M10 9v14M10 16h7a5 5 0 0 0 5-5V9" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" />
-          <circle cx="10" cy="9" r="2.6" fill="#fff" />
-          <circle cx="10" cy="23" r="2.6" fill="#fff" />
-          <circle cx="22" cy="9" r="2.6" fill="#fff" />
+        <!-- branding/genbeya-small.svg, the mark for up to 48 pixels. -->
+        <svg viewBox="0 0 512 512" width="40" height="40" aria-hidden="true" stroke-linejoin="round" stroke-linecap="round">
+          <g transform="matrix(1 -0.42 0 1 0 149.4)">
+            <rect x="28" y="0" width="134" height="240" rx="4" fill="#22313d" stroke="#22313d" stroke-width="16" />
+            <rect x="56" y="28" width="78" height="184" rx="2" fill="#fff" stroke="#fff" stroke-width="12" />
+            <path d="M80 86 H110 M80 138 H110" fill="none" stroke="#22313d" stroke-width="22" />
+          </g>
+          <g transform="matrix(1 0.42 0 1 0 -65.64)">
+            <rect x="350" y="0" width="134" height="240" rx="4" fill="#22313d" stroke="#22313d" stroke-width="16" />
+            <rect x="378" y="28" width="78" height="184" rx="2" fill="#fff" stroke="#fff" stroke-width="12" />
+            <path d="M402 86 H432 M402 138 H432" fill="none" stroke="#22313d" stroke-width="22" />
+          </g>
+          <path d="M196 60 L256 36 L316 60 L316 296 L256 270 L196 296 Z" fill="#7c7ff2" stroke="#7c7ff2" stroke-width="16" />
+          <path d="M234 100 V222 M234 206 C234 176 282 182 282 146" fill="none" stroke="#fff" stroke-width="22" />
+          <circle cx="234" cy="98" r="24" fill="#fff" />
+          <circle cx="234" cy="226" r="24" fill="#fff" />
+          <circle cx="282" cy="140" r="24" fill="#fff" />
+          <path d="M256 312 L484 404 L256 496 L28 404 Z" fill="#7c7ff2" stroke="#7c7ff2" stroke-width="16" />
         </svg>
         <h1>Genbeya</h1>
       </div>
