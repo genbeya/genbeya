@@ -13,7 +13,7 @@ Genbeya {{version}} comes in three variants of the same app. Pick one installer 
 
 Every build has a higher version than the one before, so an installer upgrades the installed version of its variant in place instead of installing next to it.
 
-New to Genbeya? [Getting started](https://github.com/h3ll5ur7er/gitdesk/blob/main/docs/Getting-started.md) explains which variant to pick and how to open your first repository; in the app, **Settings → Help** has the tour and what's new.
+New to Genbeya? [Getting started](https://github.com/genbeya/genbeya/blob/main/docs/Getting-started.md) explains which variant to pick and how to open your first repository; in the app, **Settings → Help** has the tour and what's new.
 
 The builds are unsigned:
 

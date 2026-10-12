@@ -16,7 +16,7 @@ import { Session } from "../../core/session";
 import { Tour } from "../../ui/tour/tour";
 import type { Release } from "./changelog";
 
-export const DOCS_URL = "https://github.com/h3ll5ur7er/gitdesk/tree/main/docs";
+export const DOCS_URL = "https://github.com/genbeya/genbeya/tree/main/docs";
 
 /** What the What's new dialog shows; `tour` offers a tour of the items that point at something. */
 export interface WhatsNew {

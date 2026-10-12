@@ -4,7 +4,7 @@
 
 ## Install
 
-Download an installer from the [latest release](https://github.com/h3ll5ur7er/gitdesk/releases/latest). Genbeya comes in three variants of the same app; pick one:
+Download an installer from the [latest release](https://github.com/genbeya/genbeya/releases/latest). Genbeya comes in three variants of the same app; pick one:
 
 | Variant | Pick it when | Differences |
 | --- | --- | --- |

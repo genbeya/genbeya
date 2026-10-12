@@ -4,7 +4,7 @@
   "private": true,
   "description": "A desktop workspace for Git repositories: wiki, tasks, code and version control",
   "author": "Emanuel Knecht",
-  "repository": "github:h3ll5ur7er/gitdesk",
+  "repository": "github:genbeya/genbeya",
   "main": "dist/electron/main.cjs",
   "type": "module",
   "scripts": {
