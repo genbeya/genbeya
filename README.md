@@ -64,3 +64,14 @@ Open this folder in Genbeya: its wiki documents the app and its task board is th
 ## Built with
 
 Angular, CodeMirror 6, unified/remark, rockuml and Mermaid in the client; plain TypeScript managers on Node (Electron, Deno Desktop) or in the webview with Rust file and process commands (Tauri). See [Architecture](docs/Architecture.md).
+
+## License
+
+Genbeya is [fair source](https://fsl.software): its code is public under the [Functional Source License, Version 1.1, ALv2 Future License](LICENSE.md) (FSL-1.1-ALv2).
+
+- **You may** use Genbeya for anything, at home or at work, in companies and on closed-source projects; read, change and build it; and share it, changed or not, with the license attached.
+- **You may not** offer Genbeya, or something substantially similar built from it, as a competing commercial product or service.
+- **Two years** after each version's release, that version is also licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0), without that restriction.
+- **What Genbeya writes into your repositories is yours**: the agent skill, the Genbeya block in `AGENTS.md`, `CLAUDE.md` and Copilot's instructions, the sample project, new `.genbeya.yml` files and task templates are under the [MIT License](LICENSE-MIT.md), which lists them and the source files they come from.
+
+The name Genbeya and its logo are not licensed for use as your own product's name or branding; use them to refer to Genbeya.

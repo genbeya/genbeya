@@ -1,3 +1,4 @@
+// The text this file writes into users' repositories is licensed under MIT (LICENSE-MIT.md).
 /**
  * The sample repository new users can try Genbeya with: a small project
  * whose wiki shows references, embeds, subpages and diagrams, whose tasks

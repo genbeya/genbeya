@@ -1,3 +1,4 @@
+// The text this file writes into users' repositories is licensed under MIT (LICENSE-MIT.md).
 /**
  * Where wiki pages, tasks and settings live. Each area lives either in the
  * checkout, where it changes with the checked-out branch, or on the shared

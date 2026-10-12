@@ -1,3 +1,4 @@
+// The text this file writes into users' repositories is licensed under MIT (LICENSE-MIT.md).
 /**
  * Project settings: defaults, validation and the `.genbeya.yml` format.
  * `windows` says whether the repository lives on a Windows file system,

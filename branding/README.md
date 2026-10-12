@@ -25,3 +25,7 @@ All three are 512 × 512 with a transparent background. `npm run icons` renders 
 - Don't recolour, outline, stretch or rotate it, and don't add drop shadows. Only the mono version changes colour: set `color` (or `fill`) to one colour that contrasts with the background, such as white on purple.
 - On dark backgrounds, give the colour logo a soft halo so its navy walls stand out: a hairline of white at about 45% opacity plus a 10 px glow in the purple at about 50% (about 22% on light backgrounds). The app's start screen and the website do this.
 - Put the full-colour logos on white, light grey or dark backgrounds; on purple or busy backgrounds use the mono version.
+
+## Trademarks
+
+The name Genbeya and its logo are trademarks of Emanuel Knecht. Neither Genbeya's [license](../LICENSE.md) nor the [MIT License](../LICENSE-MIT.md) of the files it writes covers them: don't use them as the name or branding of another product, including a modified version of Genbeya. Use them to refer to Genbeya, for example in an article, a talk or a link to the project.

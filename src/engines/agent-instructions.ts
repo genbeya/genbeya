@@ -1,3 +1,4 @@
+// The text this file writes into users' repositories is licensed under MIT (LICENSE-MIT.md).
 /**
  * The text that teaches coding agents to work with Genbeya: an Agent Skill
  * (SKILL.md) with the file formats and the workflow, and a short section for

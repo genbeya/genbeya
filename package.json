@@ -4,6 +4,7 @@
   "private": true,
   "description": "A desktop workspace for Git repositories: wiki, tasks, code and version control",
   "author": "Emanuel Knecht",
+  "license": "FSL-1.1-ALv2",
   "repository": "github:genbeya/genbeya",
   "main": "dist/electron/main.cjs",
   "type": "module",

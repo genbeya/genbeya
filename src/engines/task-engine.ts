@@ -1,3 +1,4 @@
+// The text this file writes into users' repositories is licensed under MIT (LICENSE-MIT.md).
 /**
  * The task file format: one Markdown file per task with YAML frontmatter
  * (`id`, `title`, `status`, optional `type`, `priority`, `assignee`, `labels`,

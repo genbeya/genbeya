@@ -2,6 +2,7 @@
 name = "genbeya"
 version = "0.0.1"
 edition = "2021"
+license = "FSL-1.1-ALv2"
 publish = false
 
 [build-dependencies]
