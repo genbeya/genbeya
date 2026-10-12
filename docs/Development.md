@@ -22,6 +22,7 @@ npm start
 | `npm test` | Backend and client unit tests |
 | `npm run e2e` | Build, then end-to-end tests against the Electron app |
 | `npm run build` | Production client and Electron shell |
+| `npm run icons` | App icons of all three shells and the favicon, rendered from the logo in `branding/` |
 | `npm run package` | Electron installer for the current OS, in `release/` |
 | `npm run package:tauri` | Tauri installers, in `src/shells/tauri/src-tauri/target/release/bundle/` |
 | `npm run package:deno` | Deno Desktop installers (`.msi`, `.dmg`, or `.AppImage` and `.deb`), in `release-deno/` |

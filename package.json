@@ -18,6 +18,7 @@
     "test:backend": "vitest run --config vitest.backend.config.ts",
     "test:client": "ng test --watch=false",
     "e2e": "npm run build && playwright test",
+    "icons": "electron scripts/make-icons.mjs",
     "package": "npm run build && electron-builder",
     "package:deno": "ng build && node scripts/package-deno.mjs",
     "package:tauri": "ng build && cd src/shells/tauri && tauri build"
@@ -129,7 +130,8 @@
           "arm64"
         ]
       },
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns"
     },
     "win": {
       "target": {
@@ -137,7 +139,8 @@
         "arch": [
           "x64"
         ]
-      }
+      },
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -150,7 +153,8 @@
           "x64"
         ]
       },
-      "category": "Development"
+      "category": "Development",
+      "icon": "build/icon.png"
     }
   },
   "allowScripts": {
