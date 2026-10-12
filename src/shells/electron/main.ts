@@ -183,11 +183,12 @@ function connect(window: BrowserWindow, backend: Backend) {
 if (primary) void app.whenReady().then(start);
 
 /**
- * The data folder of GitDesk, as Genbeya was called before 0.5: named after
- * its product name, or its package name while unpackaged.
+ * The data folder of GitDesk, as Genbeya was called before 0.5. Electron
+ * names it after the package (gitdesk), as package.json gives the product
+ * name only to the installers; GitDesk is the name it would take otherwise.
  */
 const previousData = () => ({
-  folders: ["GitDesk", "gitdesk"].map((name) => path.join(app.getPath("appData"), name)),
+  folders: ["gitdesk", "GitDesk"].map((name) => path.join(app.getPath("appData"), name)),
   files: [WINDOW_STATE_FILE],
 });
 
