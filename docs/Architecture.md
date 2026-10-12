@@ -36,10 +36,13 @@ ESLint enforces the table: a layer that imports from a layer it may not use fail
 
 Within the client, features use the core services and the generic building blocks in `ui/` (dialogs, trees, menus, the guided tour); only `core/` talks to the platform connector.
 
+The [Demo](Architecture/Demo.md) that runs in a browser has no shell and no machine: its connector runs managers of its own (`src/managers/demo/`) in the page, on Git repositories simulated in memory (`src/access/memory/`), with the same engines.
+
 | Page | Covers |
 | --- | --- |
 | [Managers](Architecture/Managers.md) | What the backend can do, call by call: snapshots, operations that stop, comments, search, moving pages, writes |
 | [Hosts](Architecture/Hosts.md) | Repositories on this computer, on WSL and over SSH, and their terminals |
 | [Content branch](Architecture/Content-branch.md) | Keeping the wiki, the tasks or the settings on a shared branch |
 | [Runtimes](Architecture/Runtimes.md) | Electron, Tauri and Deno Desktop compared, with measurements |
+| [Demo](Architecture/Demo.md) | Genbeya in a browser tab, on repositories in memory: how it works, what it simulates, and why |
 | [Security](Architecture/Security.md) | How the app protects itself from the repositories it shows |
