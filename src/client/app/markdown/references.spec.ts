@@ -26,7 +26,7 @@ describe("resolveReference", () => {
       status: "in-progress",
       tone: "blue",
     });
-    expect(resolveReference("gd-12", targets)).toMatchObject({ kind: "task", id: "GENBEYA-12" });
+    expect(resolveReference("genbeya-12", targets)).toMatchObject({ kind: "task", id: "GENBEYA-12" });
     expect(resolveReference("GENBEYA-3", targets)).toMatchObject({ kind: "task", tone: "other" });
   });
 

@@ -45,7 +45,7 @@ Genbeya rewrites only the keys whose values you changed. Comments, keys it does 
 | `wikiRoot` | folder | `docs` | The wiki folder, relative to the repository root |
 | `wikiHome` | Markdown file | `Home.md` | The wiki's first page, relative to `wikiRoot` |
 | `taskRoot` | folder | `tasks` | The task folder. It must not contain the wiki folder, nor the other way round |
-| `taskPrefix` | letters and digits, starting with a letter, up to 12 | From the name: its capitals (`TaskBoard` → `TB`), the first letters of its words (`my project` → `MP`), or its first three letters (`atlas` → `ATL`) | New tasks are `GENBEYA-1`, `GENBEYA-2`, … Written in capitals |
+| `taskPrefix` | letters and digits, starting with a letter, up to 12 | From the name: its capitals (`TaskBoard` → `TB`), the first letters of its words (`my project` → `MP`), or its first three letters (`atlas` → `ATL`) | New tasks are `TB-1`, `TB-2`, … Written in capitals |
 
 Changing a folder does not move any files: move them first, then change the setting. Changing the prefix leaves existing IDs as they are.
 

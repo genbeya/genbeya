@@ -8,7 +8,7 @@ import { SettingsEngine } from "./settings-engine";
 const engine = new AgentEngine();
 const BOM = String.fromCharCode(0xfeff);
 const CRLF = String.fromCharCode(13, 10);
-const genbeya: Settings = { ...new SettingsEngine().defaults("Genbeya"), wikiRoot: "docs", taskRoot: "tasks" };
+const genbeya: Settings = { ...new SettingsEngine().defaults("Genbeya"), wikiRoot: "docs", taskRoot: "tasks", taskPrefix: "GENBEYA" };
 const custom: Settings = {
   ...genbeya,
   wikiRoot: "handbook",
@@ -49,7 +49,7 @@ describe("AgentEngine", () => {
     expect(text).toContain("id: ACME-12");
     expect(text).toContain("`handbook/Start.md`");
     expect(text).toContain("[[ACME-12]]");
-    expect(text).not.toMatch(/GD-|`docs\/|`tasks\//);
+    expect(text).not.toMatch(/GENBEYA-|`docs\/|`tasks\//);
     for (const target of ["agents", "copilot"] as const) {
       expect(fileOf(target, custom).text).toContain("`work/items/` named after their ID (`ACME-12.md`)");
       expect(fileOf(target, custom).text).toContain("`handbook/Start.md`");
