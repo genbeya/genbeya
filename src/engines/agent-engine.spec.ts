@@ -141,7 +141,7 @@ describe("AgentEngine", () => {
     });
 
     it("refuses a block without its end", () => {
-      expect(() => engine.merge(agents, "<!-- genbeya:begin -->\nhalf\n")).toThrow("AGENTS.md has unmatched markers");
+      expect(() => engine.merge(agents, "<!-- genbeya:begin -->\nhalf\n")).toThrow("AGENTS.md has unmatched Genbeya markers");
       expect(() => engine.merge(agents, "<!-- genbeya:end -->\n<!-- genbeya:begin -->\n")).toThrow("AGENTS.md");
     });
 
@@ -163,61 +163,6 @@ describe("AgentEngine", () => {
       expect(engine.stateOf(skill, skill.text)).toBe("current");
       expect(engine.stateOf(skill, skill.text.replaceAll("\n", CRLF))).toBe("current");
       expect(engine.stateOf(skill, "edited")).toBe("outdated");
-    });
-  });
-
-  describe("in repositories GitDesk set up", () => {
-    const legacyBlock = "<!-- gitdesk:begin -->\n\n## Tasks and wiki (GitDesk)\n\nOld text.\n\n<!-- gitdesk:end -->";
-
-    it("names the settings file the repository has", () => {
-      expect(fileOf("agentsSkill").text).toContain("2. Read `.genbeya.yml` where the settings live.");
-      const legacy = engine.files(genbeya, ALL, ".gitdesk.yml");
-      for (const file of legacy) expect(file.text, file.path).not.toContain(".genbeya.yml");
-      expect(legacy.find((file) => file.target === "agentsSkill")!.text).toContain("2. Read `.gitdesk.yml` where the settings live.");
-      expect(legacy.find((file) => file.target === "agents")!.text).toContain("- `.gitdesk.yml` holds the workflow states");
-    });
-
-    it("tells agents where GitDesk kept the content branch", () => {
-      expect(fileOf("agentsSkill").text).toMatch(/inside `\.git\/gitdesk\/`, the branch named `gitdesk` and the file `\.gitdesk-content`/);
-      expect(fileOf("agents").text).toContain("(`.git/gitdesk/` in repositories set up with GitDesk");
-    });
-
-    it("replaces the skill files GitDesk wrote, under the old skill name", () => {
-      expect(engine.files(genbeya, ALL).map(({ target, replaces }) => [target, replaces])).toEqual([
-        ["claudeSkill", ".claude/skills/gitdesk/SKILL.md"],
-        ["agentsSkill", ".agents/skills/gitdesk/SKILL.md"],
-        ["agents", null],
-        ["claude", null],
-        ["copilot", null],
-      ]);
-      const skill = fileOf("claudeSkill");
-      expect(engine.stateOf(skill, null, true)).toBe("outdated");
-      expect(engine.stateOf(skill, skill.text, true)).toBe("outdated");
-    });
-
-    it("replaces GitDesk's block in place, with Genbeya's markers", () => {
-      const agents = fileOf("agents");
-      const existing = `# Agents\n\n${legacyBlock}\n\nAfter.\n`;
-      expect(engine.stateOf(agents, existing)).toBe("outdated");
-      const merged = engine.merge(agents, existing);
-      expect(merged).toBe(`# Agents\n\n${agents.text}\n\nAfter.\n`);
-      expect(merged).not.toContain("gitdesk:");
-      expect(engine.stateOf(agents, merged)).toBe("current");
-    });
-
-    it("keeps Windows line endings around GitDesk's block", () => {
-      const agents = fileOf("agents");
-      const existing = `# Agents${CRLF}${CRLF}${legacyBlock.replaceAll("\n", CRLF)}${CRLF}`;
-      expect(engine.merge(agents, existing)).toBe(`# Agents${CRLF}${CRLF}${agents.text.replaceAll("\n", CRLF)}${CRLF}`);
-    });
-
-    it("prefers Genbeya's block when a file has both, and refuses GitDesk's markers without their end", () => {
-      const agents = fileOf("agents");
-      const both = `${legacyBlock}\n\n${engine.merge(fileOf("agents", custom), null)}`;
-      expect(engine.merge(agents, both)).toBe(`${legacyBlock}\n\n${agents.text}\n`);
-      expect(() => engine.merge(agents, "<!-- gitdesk:begin -->\nhalf\n")).toThrow(
-        "AGENTS.md has unmatched markers: <!-- gitdesk:begin --> must come before <!-- gitdesk:end -->",
-      );
     });
   });
 });

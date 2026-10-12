@@ -88,7 +88,7 @@ export interface Settings {
   readonly hiddenColumns: readonly string[];
   readonly types: readonly TaskType[];
   readonly fields: readonly FieldDefinition[];
-  /** The project's people as the settings file lists them; they win over what Genbeya derives from Git. */
+  /** The project's people as `.genbeya.yml` lists them; they win over what Genbeya derives from Git. */
   readonly people: readonly PersonEntry[];
 }
 
@@ -374,18 +374,8 @@ export interface Snapshot {
   readonly version: string;
   readonly location: Location;
   readonly settings: Settings;
-  /** Version of the settings file, null while it does not exist. */
+  /** Version of `.genbeya.yml`, null while it does not exist. */
   readonly settingsHash: string | null;
-  /** The settings file: `.genbeya.yml`, or `.gitdesk.yml` in a repository GitDesk set up that has no `.genbeya.yml`. */
-  readonly settingsFile: string;
-  /** `.gitdesk.yml` next to `.genbeya.yml`, which wins: left over from GitDesk. Null without one. */
-  readonly leftoverSettingsFile: string | null;
-  /**
-   * Shared files still named for GitDesk, Genbeya's former name, which
-   * Genbeya reads as they are and can rename: `.gitdesk.yml` while it is the
-   * settings file, `.gitdesk-content` on the content branch.
-   */
-  readonly legacyFiles: readonly string[];
   readonly storage: Storage;
   readonly head: Head;
   readonly branches: readonly string[];
@@ -617,22 +607,15 @@ export interface AgentFile {
   readonly path: string;
   /** What Genbeya writes: the whole file, or its marked block in a file it shares with other text. */
   readonly text: string;
-  /** `missing` also when the file exists without Genbeya's block; `outdated` while it has {@link replaces}. */
+  /** `missing` also when the file exists without Genbeya's block. */
   readonly state: "missing" | "current" | "outdated";
   /** Excluded by `.gitignore`, so it would not be committed. */
   readonly ignored: boolean;
-  /**
-   * The file GitDesk, as Genbeya was called before, wrote for the same
-   * agent elsewhere (its skill, under the old skill name), which adding
-   * this one deletes, edits and all; null when the checkout has none.
-   */
-  readonly replaces: string | null;
 }
 
 export interface AgentFileWrite {
   readonly path: string;
-  /** `replaced`: a file GitDesk wrote, deleted as the file at its new place replaces it. */
-  readonly result: "created" | "updated" | "unchanged" | "replaced";
+  readonly result: "created" | "updated" | "unchanged";
 }
 
 export interface RecentEntry {

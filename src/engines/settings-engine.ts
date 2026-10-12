@@ -25,12 +25,6 @@ import { validateRepositoryPath, within } from "../utilities/repository-path";
 import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
 
 export const SETTINGS_FILE = ".genbeya.yml";
-/**
- * The settings file of repositories set up while Genbeya was GitDesk. It is
- * read, and saved to, while the repository has no {@link SETTINGS_FILE}, so
- * teammates still on GitDesk keep sharing it until someone renames it.
- */
-export const LEGACY_SETTINGS_FILE = ".gitdesk.yml";
 const DEFAULT_STATUSES = ["backlog", "todo", "in-progress", "review", "done"];
 const DEFAULT_TYPES = ["bug", "feature", "improvement", "chore"].map(taskType);
 const LIMITS = { types: 20, fields: 30, options: 30, option: 60, people: 500, aliases: 20, personText: 120 } as const;
@@ -47,7 +41,7 @@ const FIELD_NAME = /^[A-Za-z][\w-]{0,39}$/;
  * there, such as images; null for code.
  */
 export function contentAreaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot">): ContentArea | null {
-  if (path === SETTINGS_FILE || path === LEGACY_SETTINGS_FILE) return "settings";
+  if (path === SETTINGS_FILE) return "settings";
   if (within(path, settings.taskRoot)) return "tasks";
   return within(path, settings.wikiRoot) ? "wiki" : null;
 }

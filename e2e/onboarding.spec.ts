@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { existsSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, MOD, savedPreferences, SEEN, sizedWindow, test, VERSION } from "./app";
 
@@ -40,8 +40,6 @@ test.describe("onboarding", () => {
       }, parent);
       await welcome.getByRole("button", { name: "Try Genbeya with a sample project" }).click();
       await expect(window.locator(".workspace-name")).toHaveText("Pocket Weather");
-      expect(existsSync(path.join(parent, "genbeya-sample", ".genbeya.yml"))).toBe(true);
-      expect(existsSync(path.join(parent, "genbeya-sample", ".gitdesk.yml"))).toBe(false);
       await expect(window.locator(".document-article").getByRole("heading", { level: 1, name: "Pocket Weather" })).toBeVisible();
 
       const offer = window.getByRole("region", { name: "New to Genbeya?" });

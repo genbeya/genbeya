@@ -1,26 +1,20 @@
 /**
  * The text that teaches coding agents to work with Genbeya: an Agent Skill
  * (SKILL.md) with the file formats and the workflow, and a short section for
- * instruction files such as AGENTS.md. Only folders, the task prefix and the
- * settings file's name come from the repository; agents read everything else
- * from the settings file when they work, so the text stays right when
- * workflow states change.
+ * instruction files such as AGENTS.md. Only folders and the task prefix come
+ * from the settings; agents read everything else from `.genbeya.yml` when
+ * they work, so the text stays right when workflow states change.
  */
 import type { Settings } from "../contracts/model";
 
 export const SKILL_NAME = "genbeya";
 
-/** The name of the repository's settings file: `.genbeya.yml`, or `.gitdesk.yml` where GitDesk set it up. */
-export interface SettingsFile {
-  readonly settingsFile: string;
-}
-
-type Values = Pick<Settings, "wikiRoot" | "wikiHome" | "taskRoot" | "taskPrefix"> & SettingsFile;
+type Values = Pick<Settings, "wikiRoot" | "wikiHome" | "taskRoot" | "taskPrefix">;
 
 /** A YAML scalar for the frontmatter; quoted only when the text would not parse as a plain one. */
 const yamlScalar = (text: string): string => (/: | #|^[^A-Za-z]/.test(text) ? JSON.stringify(text) : text);
 
-export function skill({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix, settingsFile }: Values): string {
+export function skill({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix }: Values): string {
   const description =
     `Plan, track and document work in this repository with Genbeya tasks and wiki pages. ` +
     `Use when planning or breaking down work, when starting, updating or finishing a task, when looking up or recording project knowledge, ` +
@@ -42,10 +36,9 @@ Edit the files directly; Genbeya picks up changes on its own.
 
 ## Find the files
 
-1. Run \`git worktree list\`. A worktree inside \`.git/genbeya/\` holds Genbeya's _content branch_ (\`genbeya\`, or the branch \`git config genbeya.branch\` names). Its \`.genbeya-content\` file says where each area lives: \`wiki\`, \`tasks\` and \`settings\` (\`${settingsFile}\`) set to \`branch\` live in that worktree, those set to \`checkout\` in the checkout; a content branch without that file holds all three. Without such a worktree, everything lives in the checkout.
-   - Genbeya was called GitDesk before. In repositories set up with GitDesk, the worktree may be inside \`.git/gitdesk/\`, the branch named \`gitdesk\` and the file \`.gitdesk-content\`; they mean the same.
+1. Run \`git worktree list\`. A worktree inside \`.git/genbeya/\` holds Genbeya's _content branch_ (\`genbeya\`, or the branch \`git config genbeya.branch\` names). Its \`.genbeya-content\` file says where each area lives: \`wiki\`, \`tasks\` and \`settings\` (\`.genbeya.yml\`) set to \`branch\` live in that worktree, those set to \`checkout\` in the checkout; a content branch without that file holds all three. Without such a worktree, everything lives in the checkout.
    - Read and edit each area where it lives. Commit edits on the content branch right away, in that worktree (\`git -C <worktree> add …\` and \`git -C <worktree> commit -m …\`); Genbeya pushes them when someone syncs. Never copy files between the content branch and the checkout: the copy in the other place is out of date.
-2. Read \`${settingsFile}\` where the settings live. When it disagrees with the values below, the file wins:
+2. Read \`.genbeya.yml\` where the settings live. When it disagrees with the values below, the file wins:
    - \`wikiRoot\` is the wiki folder (here \`${wikiRoot}\`), \`wikiHome\` its home page relative to that folder (here \`${wikiHome}\`).
    - \`taskRoot\` is the task folder (here \`${taskRoot}\`), \`taskPrefix\` the prefix of task IDs (here \`${prefix}\`).
    - \`statuses\` are the workflow states in board order: the first is where new ideas wait, the last means done. An entry is a state's name, or a mapping whose \`name\` is the state.
@@ -125,14 +118,14 @@ Task IDs written plainly (\`${prefix}-12\`) link to the task as well. Name the t
 
 ## Ground rules
 
-- Edit \`${settingsFile}\` only when asked to.
+- Edit \`.genbeya.yml\` only when asked to.
 - Keep task files and pages in their format: people and other tools read them too.
 - In the checkout, commit task and wiki edits like code, together with the work they describe.
 `;
 }
 
 /** The section for AGENTS.md and other instruction files; `skillPath` is where the details are, if anywhere. */
-export function section({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix, settingsFile }: Values, skillPath: string | null): string {
+export function section({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix }: Values, skillPath: string | null): string {
   const details = skillPath
     ? `\n- The \`${SKILL_NAME}\` skill (\`${skillPath}\`) describes the file formats and the workflow in detail.`
     : "";
@@ -142,7 +135,7 @@ This project plans its work as Genbeya tasks and documents itself in a Genbeya w
 
 - Use tasks instead of an internal todo list. Tasks are files in \`${taskRoot}/\` named after their ID (\`${prefix}-12.md\`). Create one for work you plan, keep its \`status\` current as you go, and tick its checklist.
 - Use the wiki instead of private memory files. Pages are Markdown files in \`${wikiRoot}/\`, starting at \`${wikiRoot}/${wikiHome}\`. Read the relevant pages before you change an area, and record durable project knowledge there.
-- \`${settingsFile}\` holds the workflow states, the task prefix and the folders. If \`git worktree list\` shows a worktree inside \`.git/genbeya/\` (\`.git/gitdesk/\` in repositories set up with GitDesk, as Genbeya was called before), its \`.genbeya-content\` file (or \`.gitdesk-content\`) says which areas (\`wiki\`, \`tasks\`, \`settings\`) live there (\`branch\`) and which in the checkout (\`checkout\`); without that file all three live there. Edit and commit an area on the content branch in that worktree.
+- \`.genbeya.yml\` holds the workflow states, the task prefix and the folders. If \`git worktree list\` shows a worktree inside \`.git/genbeya/\`, its \`.genbeya-content\` file says which areas (\`wiki\`, \`tasks\`, \`settings\`) live there (\`branch\`) and which in the checkout (\`checkout\`); without that file all three live there. Edit and commit an area on the content branch in that worktree.
 - Reference tasks, pages and files as \`[[${prefix}-12]]\`, \`[[Page title]]\` or \`[[src/file.ts#L10-L20]]\`, and name the task in commit messages and pull requests.${details}`;
 }
 
