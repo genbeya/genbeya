@@ -18,7 +18,9 @@ await writeFile(`${output}/package.json`, `${JSON.stringify({ ...manifest, versi
 await writeFile(`${output}/.vscodeignore`, "**/*.map\n");
 for (const [from, to] of [
   ["src/shells/vscode/README.md", "README.md"],
-  ["build/icon.png", "icon.png"],
+  ["src/shells/vscode/CHANGELOG.md", "CHANGELOG.md"],
+  // The Marketplace shows extension icons at 128 pixels; npm run icons renders this one from the logo.
+  ["src/shells/tauri/src-tauri/icons/128x128.png", "icon.png"],
   ["branding/genbeya-mono.svg", "genbeya-mono.svg"],
   ["LICENSE.md", "LICENSE.md"],
   ["LICENSE-MIT-0.md", "LICENSE-MIT-0.md"],

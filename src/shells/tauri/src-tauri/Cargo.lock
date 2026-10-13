@@ -1274,7 +1274,7 @@ dependencies = [
 
 [[package]]
 name = "genbeya"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "percent-encoding",
  "portable-pty",

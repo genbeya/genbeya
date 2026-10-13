@@ -59,4 +59,4 @@ The manifest's `extensionKind` is `workspace`, so VS Code runs the extension whe
 
 ## Not yet
 
-See the tasks: [[GENBEYA-24]] (Genbeya's Git tools as a view) and [[GENBEYA-25]] (publishing). Only the first Git repository among the workspace folders is shown.
+See [[GENBEYA-24]] (Genbeya's Git tools as a view). Only the first Git repository among the workspace folders is shown.

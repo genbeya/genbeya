@@ -2,6 +2,8 @@
   "name": "genbeya",
   "displayName": "Genbeya",
   "description": "The wiki and the task board of your Git repository, kept as plain Markdown files, in VS Code",
+  "preview": true,
+  "pricing": "Free",
   "publisher": "genbeya",
   "author": "Emanuel Knecht",
   "license": "SEE LICENSE IN LICENSE.md",
@@ -14,8 +16,12 @@
     "url": "https://github.com/genbeya/genbeya/issues"
   },
   "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#16171a",
+    "theme": "dark"
+  },
   "categories": ["Other"],
-  "keywords": ["wiki", "tasks", "kanban", "markdown", "git"],
+  "keywords": ["wiki", "tasks", "kanban", "board", "markdown", "git", "documentation", "project management", "todo"],
   "engines": {
     "vscode": "^1.140.0"
   },

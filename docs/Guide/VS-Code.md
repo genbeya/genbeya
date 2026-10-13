@@ -3,14 +3,13 @@
 The Genbeya extension for VS Code shows the wiki and the tasks of the repository you have open, next to your code. Pages and tasks are the same Markdown files the app edits, so you can switch between the app and VS Code at any time.
 
 > [!NOTE]
-> The extension is an early preview, and not on the Marketplace yet. It covers the wiki and the tasks; for Genbeya's Git tools, use the app.
+> The extension is an early preview. It covers the wiki and the tasks; for Genbeya's Git tools, use the app.
 
 ## Install
 
-1. Download `Genbeya-<version>-vscode.vsix` from the [download page](https://genbeya.fyi/download/#vscode) or the [latest release](https://github.com/genbeya/genbeya/releases/latest).
-2. In VS Code, open the **Extensions** view, choose **…** → **Install from VSIX…** and pick the file. Or run `code --install-extension Genbeya-<version>-vscode.vsix`.
+In VS Code, open the **Extensions** view, search for **Genbeya** and choose **Install**. It comes from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=genbeya.genbeya); VSCodium, Cursor and other editors built on VS Code get it from [Open VSX](https://open-vsx.org/extension/genbeya/genbeya). Either way, VS Code keeps it up to date.
 
-It needs VS Code 1.140 or newer, and works in editors built on it, such as VSCodium and Cursor. Install a newer `.vsix` the same way to update.
+It needs VS Code 1.140 or newer. Each [release](https://github.com/genbeya/genbeya/releases/latest) also has the extension as `Genbeya-<version>-vscode.vsix`, for machines without access to the stores: **…** → **Install from VSIX…** in the Extensions view installs it.
 
 The extension starts in folders with a `.genbeya.yml`, and whenever you open its views. It shows the first Git repository among the workspace's folders. In WSL, over SSH and in dev containers it runs where the repository is, through VS Code's remote support. It stays off in folders VS Code doesn't trust, because Genbeya runs Git there.
 
@@ -68,7 +67,6 @@ A reference shows its task's title and state, or its page's title, when you hove
 ## Not yet
 
 - Genbeya's Git tools ([[GENBEYA-24]]): use VS Code's Source Control, or the app.
-- A Marketplace and Open VSX listing, with updates in VS Code ([[GENBEYA-25]]).
 - Several repositories in one window: only the first is shown.
 
 How the extension is built is in [VS Code](../Architecture/VS-Code.md).
