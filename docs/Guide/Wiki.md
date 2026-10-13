@@ -6,7 +6,7 @@ Every page is a Markdown file in the wiki folder (`docs/` unless **Settings** na
 
 ## Writing
 
-- `E` (or **Edit**) opens the editor, with a live preview next to the source; **Toggle preview** hides and shows it. `Ctrl+S` saves, `Esc` stops editing.
+- `E` (or **Edit**) opens the editor, with a live preview next to the source; **Toggle preview** hides and shows it. `Ctrl+S` saves and keeps editing; **Save** saves and closes the editor, and turns into **Done** once everything is saved. `Esc` stops editing.
 - `N` (or the button above the page list) creates a page. Write `/` in its name to nest it: `Architecture/Database` becomes a subpage of *Architecture*.
 - Type `[[` to link a task, a page or a file — see [References](References.md). Type `@` to mention someone and `//` to insert a date — see [Writing pages](Writing.md).
 - Type `/` at the start of a line to insert math, a diagram, a callout, a table and other blocks — see [Writing pages](Writing.md).
