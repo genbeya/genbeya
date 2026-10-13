@@ -5,7 +5,7 @@
  * managers, which check every path. VS Code reopens them after a restart.
  */
 import * as vscode from "vscode";
-import type { ContentArea, Person } from "../../contracts/model";
+import type { ContentArea } from "../../contracts/model";
 import { TaskEngine } from "../../engines/task-engine";
 import { toggleCheckboxAt } from "../../client/app/markdown/task-checkbox";
 import { flattenPages } from "../../client/app/features/wiki/wiki-pages";
@@ -44,7 +44,6 @@ const keyOf = (target: Target) => `${target.area}:${target.path}`;
 export class Webviews implements vscode.Disposable {
   private readonly previews = new Map<string, Preview>();
   private board: vscode.WebviewPanel | null = null;
-  private people: { version: string; people: Promise<readonly Person[]>; author: Promise<string | null> } | null = null;
   private readonly subscriptions: vscode.Disposable[] = [];
   private readonly pendingEdits = new Map<Preview, ReturnType<typeof setTimeout>>();
 
@@ -85,12 +84,18 @@ export class Webviews implements vscode.Disposable {
     return [...this.previews.values()].find((preview) => preview.panel.active)?.target ?? null;
   }
 
-  /** Shows a page or task in its own preview tab, opening it if needed. */
-  async showPreview(target: Target): Promise<void> {
+  /** Shows a page or task in its own preview tab, opening it if needed: in the active editor group unless `column` says otherwise. */
+  async showPreview(target: Target, place: { column?: vscode.ViewColumn; preserveFocus?: boolean } = {}): Promise<void> {
     const open = this.previews.get(keyOf(target));
-    if (open) return open.panel.reveal();
-    const panel = vscode.window.createWebviewPanel(PREVIEW_VIEW, target.path, vscode.ViewColumn.Active, this.options(false));
+    if (open) return open.panel.reveal(place.column, place.preserveFocus);
+    const column = { viewColumn: place.column ?? vscode.ViewColumn.Active, preserveFocus: place.preserveFocus ?? false };
+    const panel = vscode.window.createWebviewPanel(PREVIEW_VIEW, target.path, column, this.options(false));
     await this.adopt(panel, target);
+  }
+
+  /** Scrolls a page or task's open preview to a share of its length, following its editor. */
+  scrollPreview(target: Target, ratio: number): void {
+    void this.previews.get(keyOf(target))?.panel.webview.postMessage({ type: "scroll", ratio } satisfies ToWebview);
   }
 
   private async adopt(panel: vscode.WebviewPanel, target: Target) {
@@ -201,7 +206,7 @@ export class Webviews implements vscode.Disposable {
   }
 
   /** Pages and tasks open in their preview, other files in the editor, web links in the browser. */
-  private async follow(repository: Repository, link: FollowedLink) {
+  async follow(repository: Repository, link: FollowedLink): Promise<void> {
     const { snapshot } = repository;
     if (link.kind === "external") {
       if (/^(https?|mailto):/i.test(link.url)) await vscode.env.openExternal(vscode.Uri.parse(link.url));
@@ -308,17 +313,6 @@ export class Webviews implements vscode.Disposable {
 
   private async context(repository: Repository): Promise<MarkdownContext> {
     const { snapshot } = repository;
-    if (this.people?.version !== snapshot.version) {
-      const { content } = repository.backend;
-      this.people = {
-        version: snapshot.version,
-        people: content
-          .people(repository.id)
-          .then((list) => list.people)
-          .catch(() => []),
-        author: content.commentAuthor(repository.id).catch(() => null),
-      };
-    }
     const { settings } = snapshot;
     return {
       version: snapshot.version,
@@ -330,8 +324,8 @@ export class Webviews implements vscode.Disposable {
       types: settings.types,
       fields: settings.fields,
       files: filePaths(snapshot.files),
-      people: await this.people.people,
-      author: await this.people.author,
+      people: await repository.people(),
+      author: await repository.author(),
     };
   }
 

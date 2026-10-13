@@ -54,6 +54,24 @@ export async function run(): Promise<void> {
   assert.equal(vscode.window.activeTextEditor?.document.uri.fsPath, vscode.Uri.joinPath(folder, "tasks", "SMOKE-1.md").fsPath);
   await vscode.commands.executeCommand("workbench.action.closeAllEditors");
 
+  // VS Code's Markdown editor knows references: links, hovers, warnings and completion.
+  const home = vscode.Uri.joinPath(folder, "docs", "Home.md");
+  const homeText = await vscode.workspace.openTextDocument(home);
+  const links = await vscode.commands.executeCommand<vscode.DocumentLink[]>("vscode.executeLinkProvider", home);
+  assert.equal(links.length, 2, "a link per complete reference");
+  const at = homeText.positionAt(homeText.getText().indexOf("SMOKE-1"));
+  const hovers = await vscode.commands.executeCommand<vscode.Hover[]>("vscode.executeHoverProvider", home, at);
+  const hover = hovers.flatMap((found) => found.contents.map((part) => (typeof part === "string" ? part : part.value))).join("\n");
+  // Markdown hovers keep spaces as &nbsp;.
+  assert.match(hover.replaceAll("&nbsp;", " "), /SMOKE-1\*\* Try the extension/);
+  await waitFor(() => vscode.languages.getDiagnostics(home).some((problem) => problem.message.includes("Nowhere")));
+  const end = homeText.lineAt(homeText.lineCount - 2).range.end;
+  const completions = await vscode.commands.executeCommand<vscode.CompletionList>("vscode.executeCompletionItemProvider", home, end, "[");
+  const labels = completions.items.map((item) => (typeof item.label === "string" ? item.label : item.label.label));
+  assert.ok(labels.includes("SMOKE-1 Try the extension"), `completes tasks: ${labels.slice(0, 5).join(", ")}`);
+  await vscode.commands.executeCommand("genbeya.groupByEpic");
+  await vscode.commands.executeCommand("genbeya.groupByStatus");
+
   // A save through the content file system reaches the file and the next snapshot.
   const task = vscode.Uri.from({ scheme: "genbeya-content", path: "/tasks/SMOKE-1.md" });
   const text = new TextDecoder().decode(await vscode.workspace.fs.readFile(task));

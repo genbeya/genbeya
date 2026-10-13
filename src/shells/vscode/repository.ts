@@ -3,10 +3,25 @@
  * snapshot polled like the client polls it, while the window has focus.
  */
 import * as vscode from "vscode";
-import type { ContentArea, Snapshot } from "../../contracts/model";
+import type { ContentArea, Person, Snapshot } from "../../contracts/model";
 import { locationOfFolder } from "../../access/hosts/host-factory";
+import { flattenPages } from "../../client/app/features/wiki/wiki-pages";
+import type { ReferenceSources } from "../../client/app/markdown/references";
 import type { Backend } from "../../managers/backend";
+import { filePaths } from "../../utilities/file-tree";
+import { referenceIndex, type ReferenceIndex } from "../../utilities/references";
 import { CONTENT_SCHEME } from "./content-files";
+
+type ReferenceTask = ReferenceSources["tasks"][number];
+
+/** What depends only on the snapshot, worked out once per version. */
+interface Derived {
+  readonly version: string;
+  readonly people: Promise<readonly Person[]>;
+  readonly author: Promise<string | null>;
+  readonly sources: ReferenceSources;
+  readonly index: ReferenceIndex<ReferenceTask>;
+}
 
 const POLL_INTERVAL = 4000;
 
@@ -16,6 +31,7 @@ export class Repository implements vscode.Disposable {
   readonly onDidChange = this.changed.event;
   private readonly subscriptions: vscode.Disposable[] = [this.changed];
   private refreshing: Promise<void> | null = null;
+  private derived: Derived | null = null;
 
   private constructor(
     readonly backend: Backend,
@@ -42,6 +58,68 @@ export class Repository implements vscode.Disposable {
 
   get snapshot(): Snapshot {
     return this.current;
+  }
+
+  private derive(): Derived {
+    const snapshot = this.current;
+    if (this.derived?.version === snapshot.version) return this.derived;
+    const { content } = this.backend;
+    const sources: ReferenceSources = {
+      wikiRoot: snapshot.settings.wikiRoot,
+      pages: flattenPages(snapshot.wiki).map(({ title, path }) => ({ title, path })),
+      tasks: snapshot.tasks.map(({ id, path, title, status }) => ({ id, path, title, status })),
+      statuses: snapshot.settings.statuses,
+      files: filePaths(snapshot.files),
+    };
+    this.derived = {
+      version: snapshot.version,
+      people: content
+        .people(this.id)
+        .then((list) => list.people)
+        .catch(() => []),
+      author: content.commentAuthor(this.id).catch(() => null),
+      sources,
+      index: referenceIndex(sources),
+    };
+    return this.derived;
+  }
+
+  /** The people `@mentions` name, and assignees are picked from. */
+  people(): Promise<readonly Person[]> {
+    return this.derive().people;
+  }
+
+  /** The name the user's comments are signed with. */
+  author(): Promise<string | null> {
+    return this.derive().author;
+  }
+
+  /** The tasks, pages and files `[[references]]` point to. */
+  get references(): ReferenceSources {
+    return this.derive().sources;
+  }
+
+  /** {@link references}, indexed for lookups. */
+  get referenceIndex(): ReferenceIndex<ReferenceTask> {
+    return this.derive().index;
+  }
+
+  /** The repository path of a document of this repository: a file in its folder, or a file on the content branch; null for anything else. */
+  pathOf(uri: vscode.Uri): string | null {
+    if (uri.scheme === CONTENT_SCHEME) return uri.path.slice(1);
+    if (uri.scheme !== this.folder.scheme) return null;
+    const root = this.folder.path.replace(/\/+$/, "");
+    const caseless = process.platform === "win32" || process.platform === "darwin";
+    const [path, prefix] = caseless ? [uri.path.toLowerCase(), `${root.toLowerCase()}/`] : [uri.path, `${root}/`];
+    return path.startsWith(prefix) ? uri.path.slice(prefix.length) : null;
+  }
+
+  /** The area a repository path belongs to: a page, a task, or neither. */
+  areaOf(path: string): ContentArea | null {
+    const { wikiRoot, taskRoot } = this.current.settings;
+    if (path.startsWith(`${wikiRoot}/`) && path.endsWith(".md")) return "wiki";
+    if (this.current.tasks.some((task) => task.path === path) || (path.startsWith(`${taskRoot}/`) && path.endsWith(".md"))) return "tasks";
+    return null;
   }
 
   /** Takes a new snapshot if anything changed; concurrent calls share one. */

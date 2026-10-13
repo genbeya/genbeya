@@ -30,6 +30,8 @@ export type PreviewDocument =
 export type ToWebview =
   | { readonly type: "preview"; readonly document: PreviewDocument; readonly context: MarkdownContext }
   | { readonly type: "board"; readonly tasks: readonly Task[]; readonly context: MarkdownContext }
+  /** Follows the editor: scrolls to a share of the page's length. */
+  | { readonly type: "scroll"; readonly ratio: number }
   | { readonly type: "reply"; readonly id: number; readonly value?: string; readonly error?: string };
 
 /** A link a webview's user followed, resolved against the document it is in. */

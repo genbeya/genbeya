@@ -165,6 +165,29 @@
         "command": "genbeya.deletePage",
         "title": "Delete Page",
         "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.previewToSide",
+        "title": "Open Preview to the Side",
+        "category": "Genbeya",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "genbeya.groupByEpic",
+        "title": "Group by Epic",
+        "category": "Genbeya",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "genbeya.groupByStatus",
+        "title": "Group by Status",
+        "category": "Genbeya",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "genbeya.followReference",
+        "title": "Follow Reference",
+        "category": "Genbeya"
       }
     ],
     "menus": {
@@ -198,6 +221,16 @@
           "command": "genbeya.refresh",
           "when": "view == genbeya.tasks && genbeya.state == open",
           "group": "navigation@3"
+        },
+        {
+          "command": "genbeya.groupByEpic",
+          "when": "view == genbeya.tasks && genbeya.state == open && !genbeya.tasksByEpic",
+          "group": "navigation@4"
+        },
+        {
+          "command": "genbeya.groupByStatus",
+          "when": "view == genbeya.tasks && genbeya.state == open && genbeya.tasksByEpic",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -292,6 +325,11 @@
           "command": "genbeya.edit",
           "when": "activeWebviewPanelId == genbeya.preview",
           "group": "navigation"
+        },
+        {
+          "command": "genbeya.previewToSide",
+          "when": "genbeya.documentArea && !activeWebviewPanelId",
+          "group": "navigation"
         }
       ],
       "commandPalette": [
@@ -361,6 +399,22 @@
         },
         {
           "command": "genbeya.deletePage",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.previewToSide",
+          "when": "genbeya.documentArea"
+        },
+        {
+          "command": "genbeya.groupByEpic",
+          "when": "genbeya.state == open && !genbeya.tasksByEpic"
+        },
+        {
+          "command": "genbeya.groupByStatus",
+          "when": "genbeya.state == open && genbeya.tasksByEpic"
+        },
+        {
+          "command": "genbeya.followReference",
           "when": "false"
         }
       ]

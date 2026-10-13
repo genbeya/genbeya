@@ -54,9 +54,10 @@ export class TaskActions {
     });
   }
 
-  /** Moves tasks to a state, and into an epic if given; each is a separate edit, as on the board. */
-  async move(paths: readonly string[], status: string, epic?: string): Promise<void> {
-    for (const path of paths) await this.update(path, () => ({ status, ...(epic === undefined ? {} : { epic }) }));
+  /** Moves tasks to a state and into an epic, either left out to keep it; each is a separate edit, as on the board. */
+  async move(paths: readonly string[], status?: string, epic?: string): Promise<void> {
+    const change = { ...(status === undefined ? {} : { status }), ...(epic === undefined ? {} : { epic }) };
+    for (const path of paths) await this.update(path, () => change);
   }
 
   /** Asks for a new value of a property with a quick pick, or an input box for the title; resolves to the task as saved. */

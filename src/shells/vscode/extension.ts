@@ -11,6 +11,7 @@ import { syncsContentBranch, type Snapshot, type WikiNode } from "../../contract
 import { createBackend, type Backend } from "../../managers/backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { CONTENT_SCHEME, ContentFiles } from "./content-files";
+import { MarkdownLanguage } from "./markdown-language";
 import { Repository } from "./repository";
 import { TaskActions } from "./task-actions";
 import { TasksView, type TaskElement } from "./tasks-view";
@@ -48,7 +49,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
   const files = new ContentFiles(current);
   const actions = new TaskActions(current);
   const wiki = new WikiView(current);
-  const tasks = new TasksView(current, (paths, status) => actions.move(paths, status));
+  const tasks = new TasksView(current, (paths, status, epic) => actions.move(paths, status, epic));
+  const GROUPING = "genbeya.tasksByEpic";
+  const groupByEpic = (on: boolean) => {
+    tasks.byEpic = on;
+    tasks.refresh();
+    void context.workspaceState.update(GROUPING, on);
+    void vscode.commands.executeCommand("setContext", GROUPING, on);
+  };
   const wikiTree = vscode.window.createTreeView("genbeya.wiki", { treeDataProvider: wiki, showCollapseAll: true });
   const tasksTree = vscode.window.createTreeView("genbeya.tasks", {
     treeDataProvider: tasks,
@@ -63,17 +71,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
     if (repository) await vscode.window.showTextDocument(repository.uri(target.area, target.path));
   };
   const webviews = new Webviews(context.extensionUri, { repository: current, edit, tasks: actions });
+  const language = new MarkdownLanguage(current, webviews);
   const redraw = () => {
     wiki.refresh();
     tasks.refresh();
     void files.checkOpenDocuments();
     void webviews.refresh();
-    void vscode.commands.executeCommand(
-      "setContext",
-      "genbeya.contentBranch",
-      !!repository && syncsContentBranch(repository.snapshot.storage),
-    );
+    language.refresh();
+    showContentBranch();
   };
+  /** The content branch, and how far it is ahead of and behind its remote, in the views' titles. */
+  const showContentBranch = () => {
+    const storage = repository?.snapshot.storage;
+    const syncing = !!storage && syncsContentBranch(storage);
+    void vscode.commands.executeCommand("setContext", "genbeya.contentBranch", syncing);
+    let description: string | undefined;
+    if (syncing) {
+      const { name, ahead, behind } = storage.branch;
+      const counts = [ahead && `${ahead}↑`, behind && `${behind}↓`].filter(Boolean).join(" ");
+      description = `${name}${counts ? ` ${counts}` : ""}`;
+    }
+    wikiTree.description = tasksTree.description = description;
+  };
+  groupByEpic(context.workspaceState.get<boolean>(GROUPING, false));
 
   backend = await createBackend(nodeMachine(), context.globalStorageUri.fsPath);
   const managers = backend;
@@ -125,6 +145,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
     vscode.workspace.registerFileSystemProvider(CONTENT_SCHEME, files, { isCaseSensitive: true }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => void open()),
     webviews,
+    language,
+    command(
+      "genbeya.previewToSide",
+      withRepository(async () => language.previewToSide()),
+    ),
+    command("genbeya.groupByEpic", async () => groupByEpic(true)),
+    command("genbeya.groupByStatus", async () => groupByEpic(false)),
     command(
       PREVIEW_COMMAND,
       withRepository(async (_, item?: Item) => {

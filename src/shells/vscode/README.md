@@ -4,6 +4,7 @@
 
 - **Wiki**: the page tree. A page opens in a preview rendered as in the app: references to tasks and pages with their live titles and states, callouts, Mermaid and PlantUML diagrams, math. **Edit** opens it in VS Code's editor.
 - **Tasks**: the tasks as a tree, one group per workflow state. Drag tasks onto another state to move them; the context menu changes their status, type, priority, assignee, epic and labels. A task opens in its preview, where its properties, fields and comments can be changed too.
+- **Editor**: in Markdown files, `[[` completes tasks, pages and files, `@` people and `//` dates; references show their title and status on hover, open with Ctrl+click and are flagged when they point to nothing. **Open Preview to the Side** shows the page or task beside its editor.
 - **Board**: the board icon in the Tasks view opens the board, with filters and a swimlane per epic. Drag cards between columns and lanes; a click shows the task in a popup.
 
 It works on repositories on this computer and, through VS Code's remote support, in WSL, over SSH and in containers. Areas kept on a shared content branch open and save through Genbeya, which commits each save there.

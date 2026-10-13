@@ -10,6 +10,7 @@ import { relativeTime } from "../../../client/app/ui/relative-time";
 import { statusTone } from "../../../client/app/ui/status-tone";
 import type { FieldDefinition, FieldValue, Task, TaskActivity } from "../../../contracts/model";
 import type { Bridge } from "./bridge";
+import { TextCompletion } from "./completion";
 import type { MarkdownRenderer } from "./markdown";
 import type { MarkdownContext, PickedProperty } from "./protocol";
 
@@ -60,6 +61,7 @@ export interface TaskViewOptions {
 interface Shown {
   readonly key: string;
   readonly task: Task;
+  readonly context: MarkdownContext;
   /** Renders the task again, as it is. */
   readonly again: () => void;
 }
@@ -88,7 +90,7 @@ export class TaskView {
     const editing =
       editor && this.shown.get(host)?.task.path === task.path ? { index: Number(editor.dataset["index"]), text: editor.value } : null;
     const activityOpen = host.querySelector<HTMLDetailsElement>(".gb-activity")?.open ?? false;
-    this.shown.set(host, { key, task, again: () => this.render(host, task, context, version, options) });
+    this.shown.set(host, { key, task, context, again: () => this.render(host, task, context, version, options) });
 
     const parts: Node[] = [];
     if (options.toolbar) {
@@ -223,6 +225,7 @@ export class TaskView {
   private listen(host: HTMLElement) {
     if (this.listening.has(host)) return;
     this.listening.add(host);
+    new TextCompletion(host, ".gb-composer, .gb-comment-editor", () => this.shown.get(host)?.context ?? null);
     const task = () => this.shown.get(host)!.task;
     host.addEventListener("click", (event) => {
       const action = (event.target as Element).closest<HTMLElement>("[data-action]")?.dataset["action"];

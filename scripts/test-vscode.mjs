@@ -25,7 +25,7 @@ const work = await mkdtemp(join(tmpdir(), "genbeya-vscode-"));
 const repository = join(work, "sample");
 const files = {
   ".genbeya.yml": "name: Smoke\nwikiRoot: docs\nwikiHome: Home.md\ntaskRoot: tasks\ntaskPrefix: SMOKE\nstatuses: [todo, done]\n",
-  "docs/Home.md": "# Home\n\nThe sample's wiki.\n",
+  "docs/Home.md": "# Home\n\nThe sample's wiki. See [[SMOKE-1]] and [[Nowhere]].\n\nNext: [[Try\n",
   "tasks/SMOKE-1.md": "---\nid: SMOKE-1\ntitle: Try the extension\nstatus: todo\n---\n\nOpen it in VS Code.\n",
 };
 for (const [path, content] of Object.entries(files)) {

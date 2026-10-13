@@ -7,6 +7,10 @@ import { TaskView } from "./task";
 
 const root = document.getElementById("root")!;
 const bridge = new Bridge((message) => {
+  if (message.type === "scroll") {
+    const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+    return window.scrollTo({ top: message.ratio * scrollable });
+  }
   if (message.type !== "preview") return;
   const { document: shown, context } = message;
   // Kept for VS Code to reopen this preview after a restart.
