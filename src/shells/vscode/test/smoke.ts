@@ -40,6 +40,7 @@ export async function run(): Promise<void> {
 
   // The preview and the board open as webviews; Edit opens what the preview shows.
   await vscode.commands.executeCommand("genbeya.preview", { area: "wiki", path: "docs/Home.md" });
+  await vscode.commands.executeCommand("genbeya.preview", { area: "tasks", path: "tasks/SMOKE-1.md" });
   await vscode.commands.executeCommand("genbeya.openBoard");
   const webviewTypes = () =>
     vscode.window.tabGroups.all.flatMap((group) =>
@@ -47,6 +48,8 @@ export async function run(): Promise<void> {
     );
   // Tabs reach the extension host a moment after their panels open.
   await waitFor(() => ["genbeya.preview", "genbeya.board"].every((type) => webviewTypes().some((open) => open.endsWith(type))));
+  // Each page and task has a preview tab of its own.
+  assert.equal(webviewTypes().filter((type) => type.endsWith("genbeya.preview")).length, 2);
   await vscode.commands.executeCommand("genbeya.edit", { area: "tasks", path: "tasks/SMOKE-1.md" });
   assert.equal(vscode.window.activeTextEditor?.document.uri.fsPath, vscode.Uri.joinPath(folder, "tasks", "SMOKE-1.md").fsPath);
   await vscode.commands.executeCommand("workbench.action.closeAllEditors");

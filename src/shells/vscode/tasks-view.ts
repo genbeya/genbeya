@@ -6,7 +6,7 @@
 import * as vscode from "vscode";
 import type { Task } from "../../contracts/model";
 import type { Repository } from "./repository";
-import { groupTasks, withStatus, type TaskGroup } from "./task-groups";
+import { groupTasks, type TaskGroup } from "./task-groups";
 import { PREVIEW_COMMAND } from "./wiki-view";
 
 export type TaskElement = { readonly kind: "group"; readonly group: TaskGroup } | { readonly kind: "task"; readonly task: Task };
@@ -22,7 +22,11 @@ export class TasksView implements vscode.TreeDataProvider<TaskElement>, vscode.T
   readonly dragMimeTypes = [MIME];
   readonly dropMimeTypes = [MIME];
 
-  constructor(private readonly repository: () => Repository | undefined) {}
+  constructor(
+    private readonly repository: () => Repository | undefined,
+    /** Moves tasks to another workflow state, each a separate edit, as on the board. */
+    private readonly move: (paths: readonly string[], status: string) => Promise<void>,
+  ) {}
 
   /** Redraws the tree, after the snapshot changed. */
   refresh() {
@@ -54,7 +58,7 @@ export class TasksView implements vscode.TreeDataProvider<TaskElement>, vscode.T
     const { task } = element;
     const item = new vscode.TreeItem(task.title, vscode.TreeItemCollapsibleState.None);
     item.id = `task:${task.path}`;
-    item.description = [task.id, task.assignee].filter(Boolean).join(" · ");
+    item.description = [task.id, task.assignee, task.epic].filter(Boolean).join(" · ");
     item.iconPath = new vscode.ThemeIcon(TYPE_ICONS[task.type] ?? "circle-outline");
     item.contextValue = "task";
     item.tooltip = tooltip(task);
@@ -81,21 +85,13 @@ export class TasksView implements vscode.TreeDataProvider<TaskElement>, vscode.T
     const tasks = data.get(MIME)?.value as readonly Task[] | undefined;
     if (!target || !tasks) return;
     const status = target.kind === "group" ? target.group.status : target.task.status;
-    await this.move(tasks, status);
-  }
-
-  /** Moves tasks to another workflow state, each a separate edit, as on the board. */
-  async move(tasks: readonly Task[], status: string): Promise<void> {
-    const repository = this.repository();
-    if (!repository) return;
     try {
-      for (const task of tasks.filter((candidate) => candidate.status !== status)) {
-        await repository.backend.content.updateTask(repository.id, task.path, withStatus(task, status), task.hash);
-      }
+      await this.move(
+        tasks.filter((task) => task.status !== status).map((task) => task.path),
+        status,
+      );
     } catch (error) {
       void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      await repository.refresh();
     }
   }
 }

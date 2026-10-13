@@ -16,6 +16,7 @@
   --text-2: var(--vscode-descriptionForeground);
   --accent: var(--vscode-focusBorder);
   --accent-text: var(--vscode-textLink-foreground);
+  --border: var(--vscode-widget-border, var(--line-strong));
 }
 
 body {
@@ -26,11 +27,100 @@ body {
   font-family: var(--font-ui);
 }
 
+/* Controls in VS Code's look. */
+button,
+select,
+input,
+textarea {
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.gb-toolbar button,
+.gb-popup-bar button,
+.gb-composer-actions button {
+  padding: 3px 12px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  font-size: 12px;
+}
+
+.gb-toolbar button:hover,
+.gb-popup-bar button:hover,
+.gb-composer-actions button:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+button.is-primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+button.is-primary:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+select,
+input,
+textarea {
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-input-border, var(--border));
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+}
+
+select {
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  border-color: var(--vscode-dropdown-border, var(--border));
+}
+
+.gb-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--vscode-textLink-foreground);
+  font-size: 12px;
+}
+
+.gb-link:hover {
+  text-decoration: underline;
+}
+
+.gb-spacer {
+  flex: 1;
+}
+
+.gb-faint {
+  color: var(--text-3);
+}
+
 /* The preview: a page or a task, as wide as reading is comfortable. */
 .gb-preview {
   max-width: 860px;
   margin: 0 auto;
   padding: 24px 32px 64px;
+}
+
+.gb-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .gb-id {
@@ -40,8 +130,9 @@ body {
 }
 
 .gb-status,
-.gb-chip,
-.gb-label {
+.gb-type,
+.gb-label,
+.gb-epic {
   display: inline-flex;
   align-items: center;
   padding: 1px 8px;
@@ -57,13 +148,18 @@ body {
   font-weight: 600;
 }
 
-.gb-chip {
-  background: var(--bg-hover);
-  color: var(--text-2);
+.gb-type {
+  background: color-mix(in srgb, var(--type) 16%, transparent);
+  color: var(--type);
 }
 
 .gb-label {
-  border: 1px solid var(--line-strong);
+  border: 1px solid color-mix(in srgb, var(--label) 45%, transparent);
+  color: var(--label);
+}
+
+.gb-epic {
+  background: var(--bg-hover);
   color: var(--text-2);
 }
 
@@ -73,6 +169,18 @@ body {
 
 .gb-priority-high {
   color: var(--orange);
+}
+
+.gb-priority-medium {
+  color: var(--yellow);
+}
+
+.gb-priority-low {
+  color: var(--text-2);
+}
+
+.gb-priority {
+  font-size: 11px;
 }
 
 .gb-avatar {
@@ -94,42 +202,71 @@ body {
   gap: 4px;
 }
 
-.gb-task-line {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
+/* A task: its title and properties are buttons that open VS Code's pickers. */
 .gb-task-title {
-  margin: 8px 0 12px;
+  margin: 4px 0 10px;
   font-size: 22px;
   line-height: 1.3;
 }
 
-.gb-properties {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 6px 16px;
-  margin: 0 0 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--line-strong);
-  font-size: 13px;
+.gb-title {
+  margin: 0 -6px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: none;
+  font-size: inherit;
+  font-weight: inherit;
+  text-align: left;
 }
 
-.gb-properties dt {
-  color: var(--text-2);
-  text-transform: capitalize;
+.gb-title:hover,
+.gb-property:hover {
+  background: var(--bg-hover);
 }
 
-.gb-properties dd {
-  margin: 0;
+.gb-property-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
-.gb-person {
+.gb-property {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: none;
+  font-size: 12px;
+}
+
+.gb-property .gb-avatar {
+  width: 16px;
+  height: 16px;
+  font-size: 8px;
+}
+
+.gb-fields {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 240px);
+  align-items: center;
+  gap: 6px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.gb-fields label,
+.gb-fields > span:not(.gb-field-value) {
+  color: var(--text-2);
+}
+
+.gb-body {
+  padding-top: 12px;
+  border-top: 1px solid var(--line-strong);
 }
 
 .gb-empty {
@@ -164,36 +301,96 @@ body {
   color: var(--text-3);
 }
 
-/* The board: columns side by side, scrolling sideways when they don't fit. */
-.gb-board {
+.gb-composer,
+.gb-comment-editor {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  resize: vertical;
+}
+
+.gb-composer-actions {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  min-height: 100vh;
-  padding: 16px;
-  box-sizing: border-box;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.gb-activity {
+  margin-top: 24px;
+  font-size: 13px;
+}
+
+.gb-activity summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.gb-activity-entry {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.gb-activity-entry ul {
+  margin: 4px 0 0 28px;
+  padding: 0;
+  color: var(--text-2);
+}
+
+/* The board: a toolbar, then a grid of columns, and swimlanes across them when on. */
+.gb-board-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.gb-search {
+  width: 200px;
+}
+
+.gb-filter.is-active {
+  border-color: var(--vscode-focusBorder);
+}
+
+.gb-toggle {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: none;
+  font-size: 12px;
+}
+
+.gb-toggle[aria-pressed="true"] {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-button-secondaryBackground);
+}
+
+.gb-board {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), 280px);
+  gap: 0 12px;
+  align-items: start;
+  padding: 12px 16px 24px;
   overflow-x: auto;
 }
 
-.gb-column {
-  flex: 0 0 280px;
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 32px);
-  border: 1px solid transparent;
-  border-radius: var(--radius-l);
-  background: var(--vscode-sideBar-background, var(--bg-raised));
-}
-
-.gb-column.is-target {
-  border-color: var(--accent);
-}
-
-.gb-column header {
+.gb-column-head {
+  position: sticky;
+  top: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+  background: var(--vscode-sideBar-background, var(--bg-raised));
 }
 
 .gb-count {
@@ -201,13 +398,54 @@ body {
   font-size: 12px;
 }
 
-.gb-cards {
+.gb-icon-button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--text-2);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.gb-icon-button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.gb-cell {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 48px;
-  padding: 4px 8px 10px;
-  overflow-y: auto;
+  min-height: 56px;
+  padding: 4px 8px 12px;
+  border: 1px solid transparent;
+  background: var(--vscode-sideBar-background, var(--bg-raised));
+}
+
+.gb-cell.is-target {
+  border-color: var(--vscode-focusBorder);
+}
+
+.gb-lane-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px 4px;
+  border: none;
+  border-top: 1px solid var(--line-strong);
+  background: none;
+  font-size: 13px;
+  text-align: left;
+}
+
+.gb-chevron {
+  width: 12px;
+  color: var(--text-2);
 }
 
 .gb-card {
@@ -215,7 +453,7 @@ body {
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  border: 1px solid var(--vscode-widget-border, var(--line-strong));
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--vscode-editorWidget-background, var(--bg-raised));
   cursor: pointer;
@@ -224,11 +462,6 @@ body {
 
 .gb-card:hover {
   border-color: var(--vscode-focusBorder);
-}
-
-.gb-card:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
-  outline-offset: 1px;
 }
 
 .gb-card.is-dragging {
@@ -254,7 +487,7 @@ body {
   width: min(760px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
   padding: 0;
-  border: 1px solid var(--vscode-widget-border, var(--line-strong));
+  border: 1px solid var(--border);
   border-radius: var(--radius-l);
   background: var(--bg-app);
   color: var(--text);
@@ -275,33 +508,6 @@ body {
   padding: 8px 12px;
   border-bottom: 1px solid var(--line-strong);
   background: var(--bg-app);
-}
-
-.gb-popup-bar .gb-spacer {
-  flex: 1;
-}
-
-.gb-popup-bar button,
-.gb-popup-bar select {
-  padding: 3px 10px;
-  border: 1px solid var(--vscode-button-border, transparent);
-  border-radius: 2px;
-  background: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.gb-popup-bar button.is-primary {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-}
-
-.gb-popup-bar select {
-  background: var(--vscode-dropdown-background);
-  color: var(--vscode-dropdown-foreground);
-  border-color: var(--vscode-dropdown-border);
 }
 
 .gb-popup-body {

@@ -21,7 +21,7 @@
   },
   "extensionKind": ["workspace"],
   "main": "./extension.cjs",
-  "activationEvents": ["workspaceContains:.genbeya.yml"],
+  "activationEvents": ["workspaceContains:.genbeya.yml", "onWebviewPanel:genbeya.preview", "onWebviewPanel:genbeya.board"],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false,
@@ -81,6 +81,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "genbeya.syncContent",
+        "title": "Sync Content Branch",
+        "category": "Genbeya",
+        "icon": "$(sync)"
+      },
+      {
         "command": "genbeya.newPage",
         "title": "New Page…",
         "category": "Genbeya",
@@ -112,7 +118,52 @@
       },
       {
         "command": "genbeya.setStatus",
-        "title": "Move to…",
+        "title": "Status…",
+        "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.setType",
+        "title": "Type…",
+        "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.setPriority",
+        "title": "Priority…",
+        "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.setAssignee",
+        "title": "Assignee…",
+        "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.setEpic",
+        "title": "Epic…",
+        "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.setLabels",
+        "title": "Labels…",
+        "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.renameTask",
+        "title": "Rename…",
+        "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.deleteTask",
+        "title": "Delete Task",
+        "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.movePage",
+        "title": "Move or Rename…",
+        "category": "Genbeya"
+      },
+      {
+        "command": "genbeya.deletePage",
+        "title": "Delete Page",
         "category": "Genbeya"
       }
     ],
@@ -139,9 +190,14 @@
           "group": "navigation@1"
         },
         {
+          "command": "genbeya.syncContent",
+          "when": "view == genbeya.tasks && genbeya.contentBranch",
+          "group": "navigation@2"
+        },
+        {
           "command": "genbeya.refresh",
           "when": "view == genbeya.tasks && genbeya.state == open",
-          "group": "navigation@2"
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -178,7 +234,57 @@
         {
           "command": "genbeya.setStatus",
           "when": "view == genbeya.tasks && viewItem == task",
-          "group": "2_task@1"
+          "group": "2_properties@1"
+        },
+        {
+          "command": "genbeya.setType",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "2_properties@2"
+        },
+        {
+          "command": "genbeya.setPriority",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "2_properties@3"
+        },
+        {
+          "command": "genbeya.setAssignee",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "2_properties@4"
+        },
+        {
+          "command": "genbeya.setEpic",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "2_properties@5"
+        },
+        {
+          "command": "genbeya.setLabels",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "2_properties@6"
+        },
+        {
+          "command": "genbeya.renameTask",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "3_edit@1"
+        },
+        {
+          "command": "genbeya.deleteTask",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "3_edit@2"
+        },
+        {
+          "command": "genbeya.newPage",
+          "when": "view == genbeya.wiki && viewItem == page",
+          "group": "2_page@1"
+        },
+        {
+          "command": "genbeya.movePage",
+          "when": "view == genbeya.wiki && viewItem == page",
+          "group": "2_page@2"
+        },
+        {
+          "command": "genbeya.deletePage",
+          "when": "view == genbeya.wiki && viewItem == page",
+          "group": "2_page@3"
         }
       ],
       "editor/title": [
@@ -194,6 +300,10 @@
           "when": "genbeya.state == open"
         },
         {
+          "command": "genbeya.syncContent",
+          "when": "genbeya.contentBranch"
+        },
+        {
           "command": "genbeya.newPage",
           "when": "genbeya.state == open"
         },
@@ -206,15 +316,51 @@
           "when": "genbeya.state == open"
         },
         {
-          "command": "genbeya.preview",
-          "when": "false"
-        },
-        {
           "command": "genbeya.edit",
           "when": "activeWebviewPanelId == genbeya.preview"
         },
         {
+          "command": "genbeya.preview",
+          "when": "false"
+        },
+        {
           "command": "genbeya.setStatus",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.setType",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.setPriority",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.setAssignee",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.setEpic",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.setLabels",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.renameTask",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.deleteTask",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.movePage",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.deletePage",
           "when": "false"
         }
       ]

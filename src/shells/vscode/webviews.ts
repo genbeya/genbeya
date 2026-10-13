@@ -1,17 +1,17 @@
 /**
- * The webviews: the preview, which shows one page or task at a time as the
- * app renders it, and the board. Both get what they show from the snapshot
- * and report clicks back; links, edits and moves happen here, through the
- * managers, which check every path.
+ * The webviews: a preview tab per page or task, rendered as the app renders
+ * it, and the board. Both get what they show from the snapshot and report
+ * what the user does; links, edits and moves happen here, through the
+ * managers, which check every path. VS Code reopens them after a restart.
  */
 import * as vscode from "vscode";
-import type { ContentArea, Person, Task } from "../../contracts/model";
+import type { ContentArea, Person } from "../../contracts/model";
 import { TaskEngine } from "../../engines/task-engine";
 import { toggleCheckboxAt } from "../../client/app/markdown/task-checkbox";
 import { flattenPages } from "../../client/app/features/wiki/wiki-pages";
 import { filePaths } from "../../utilities/file-tree";
 import type { Repository } from "./repository";
-import { boardColumns, inputOf } from "./task-groups";
+import type { TaskActions } from "./task-actions";
 import type { FollowedLink, FromWebview, MarkdownContext, PreviewDocument, ToWebview } from "./webview/protocol";
 
 export const PREVIEW_VIEW = "genbeya.preview";
@@ -28,116 +28,179 @@ export interface Host {
   repository(): Repository | undefined;
   /** Opens the file to edit it. */
   edit(target: Target): Promise<void>;
-  /** Moves tasks to another workflow state. */
-  move(tasks: readonly Task[], status: string): Promise<void>;
+  readonly tasks: TaskActions;
 }
 
-const tasks = new TaskEngine();
+interface Preview {
+  readonly panel: vscode.WebviewPanel;
+  target: Target;
+  /** A task's ID, to follow it when it moves to another epic (another folder). */
+  taskId: string | null;
+}
+
+const taskEngine = new TaskEngine();
+const keyOf = (target: Target) => `${target.area}:${target.path}`;
 
 export class Webviews implements vscode.Disposable {
-  private preview: vscode.WebviewPanel | null = null;
-  /** What the preview shows. */
-  private shown: Target | null = null;
+  private readonly previews = new Map<string, Preview>();
   private board: vscode.WebviewPanel | null = null;
-  private people: { version: string; people: Promise<readonly Person[]> } | null = null;
+  private people: { version: string; people: Promise<readonly Person[]>; author: Promise<string | null> } | null = null;
   private readonly subscriptions: vscode.Disposable[] = [];
-  private pendingEdit: ReturnType<typeof setTimeout> | null = null;
+  private readonly pendingEdits = new Map<Preview, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly extension: vscode.Uri,
     private readonly host: Host,
   ) {
-    // The preview follows edits of what it shows, as VS Code's Markdown preview does.
     this.subscriptions.push(
+      // Previews follow edits of what they show, as VS Code's Markdown preview does.
       vscode.workspace.onDidChangeTextDocument(({ document }) => {
-        if (!this.shown || document.uri.toString() !== this.uriOf(this.shown)?.toString()) return;
-        if (this.pendingEdit) clearTimeout(this.pendingEdit);
-        this.pendingEdit = setTimeout(() => void this.updatePreview(), 150);
+        const repository = this.host.repository();
+        for (const preview of this.previews.values()) {
+          if (document.uri.toString() !== repository?.uri(preview.target.area, preview.target.path).toString()) continue;
+          clearTimeout(this.pendingEdits.get(preview));
+          this.pendingEdits.set(
+            preview,
+            setTimeout(() => void this.updatePreview(preview), 150),
+          );
+        }
+      }),
+      vscode.window.registerWebviewPanelSerializer(PREVIEW_VIEW, {
+        deserializeWebviewPanel: async (panel, state: Partial<Target> | undefined) => {
+          if (state?.area && state.path) await this.adopt(panel, { area: state.area, path: state.path });
+          else panel.dispose();
+        },
+      }),
+      vscode.window.registerWebviewPanelSerializer(BOARD_VIEW, {
+        deserializeWebviewPanel: async (panel) => {
+          if (this.board) panel.dispose();
+          else this.adoptBoard(panel);
+        },
       }),
     );
   }
 
-  /** What the preview shows while it is the active editor, for its Edit button. */
+  /** What the active preview shows, for its Edit button. */
   get activePreview(): Target | null {
-    return this.preview?.active ? this.shown : null;
+    return [...this.previews.values()].find((preview) => preview.panel.active)?.target ?? null;
   }
 
-  /** Shows a page or task in the preview, opening it if needed. */
+  /** Shows a page or task in its own preview tab, opening it if needed. */
   async showPreview(target: Target): Promise<void> {
-    this.shown = target;
-    if (!this.preview) {
-      this.preview = this.panel(PREVIEW_VIEW, "Preview", "preview", vscode.ViewColumn.Active);
-      this.preview.onDidDispose(() => {
-        this.preview = null;
-        this.shown = null;
-      });
-    } else this.preview.reveal(undefined, false);
-    await this.updatePreview();
+    const open = this.previews.get(keyOf(target));
+    if (open) return open.panel.reveal();
+    const panel = vscode.window.createWebviewPanel(PREVIEW_VIEW, target.path, vscode.ViewColumn.Active, this.options(false));
+    await this.adopt(panel, target);
+  }
+
+  private async adopt(panel: vscode.WebviewPanel, target: Target) {
+    const preview: Preview = { panel, target, taskId: null };
+    this.previews.set(keyOf(target), preview);
+    panel.onDidDispose(() => {
+      this.previews.delete(keyOf(preview.target));
+      clearTimeout(this.pendingEdits.get(preview));
+      this.pendingEdits.delete(preview);
+    });
+    this.setUp(panel, "preview", (message) => this.receive(panel, message, preview));
+    await this.updatePreview(preview);
   }
 
   showBoard(): void {
     if (this.board) return this.board.reveal();
-    this.board = this.panel(BOARD_VIEW, "Board", "board", vscode.ViewColumn.Active);
-    this.board.onDidDispose(() => (this.board = null));
+    this.adoptBoard(vscode.window.createWebviewPanel(BOARD_VIEW, "Board", vscode.ViewColumn.Active, this.options(true)));
+  }
+
+  private adoptBoard(panel: vscode.WebviewPanel) {
+    this.board = panel;
+    panel.title = "Board";
+    panel.onDidDispose(() => (this.board = null));
+    this.setUp(panel, "board", (message) => this.receive(panel, message, null));
   }
 
   /** Shows the new snapshot in the open webviews. */
   async refresh(): Promise<void> {
-    await Promise.all([this.updatePreview(), this.updateBoard()]);
+    await Promise.all([...[...this.previews.values()].map((preview) => this.updatePreview(preview)), this.updateBoard()]);
   }
 
-  private panel(type: string, title: string, entry: "preview" | "board", column: vscode.ViewColumn): vscode.WebviewPanel {
+  private options(board: boolean): vscode.WebviewPanelOptions & vscode.WebviewOptions {
+    return { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extension, "webview")], retainContextWhenHidden: board };
+  }
+
+  private setUp(panel: vscode.WebviewPanel, entry: "preview" | "board", receive: (message: FromWebview) => Promise<void>) {
     const assets = vscode.Uri.joinPath(this.extension, "webview");
-    const panel = vscode.window.createWebviewPanel(type, title, column, {
-      enableScripts: true,
-      localResourceRoots: [assets],
-      retainContextWhenHidden: entry === "board",
-    });
+    panel.webview.options = this.options(entry === "board");
     panel.iconPath = vscode.Uri.joinPath(this.extension, "genbeya-mono.svg");
     panel.webview.html = page(panel.webview, assets, entry);
-    panel.webview.onDidReceiveMessage((message: FromWebview) => void this.receive(panel, message));
-    return panel;
+    panel.webview.onDidReceiveMessage((message: FromWebview) => void receive(message));
   }
 
-  private async receive(panel: vscode.WebviewPanel, message: FromWebview) {
+  private async receive(panel: vscode.WebviewPanel, message: FromWebview, preview: Preview | null) {
     const repository = this.host.repository();
     if (!repository) return;
+    const { tasks } = this.host;
+    const reply = async (id: number, value: Promise<string>) => {
+      let answer: ToWebview;
+      try {
+        answer = { type: "reply", id, value: await value };
+      } catch (error) {
+        answer = { type: "reply", id, error: errorText(error) };
+      }
+      await panel.webview.postMessage(answer);
+    };
     try {
       switch (message.type) {
         case "ready":
-          return await (panel === this.board ? this.updateBoard() : this.updatePreview());
+          return await (preview ? this.updatePreview(preview) : this.updateBoard());
         case "follow":
           return await this.follow(repository, message.link);
         case "preview":
           return await this.showPreview({ area: message.area, path: message.path });
         case "edit":
           return await this.host.edit({ area: message.area, path: message.path });
-        case "move": {
-          const moved = repository.snapshot.tasks.filter((task) => message.paths.includes(task.path));
-          return await this.host.move(moved, message.status);
-        }
         case "toggle":
           return await this.toggle(repository, message.area, message.path, message.offset);
+        case "move":
+          return await tasks.move(message.paths, message.status, message.epic);
+        case "pick":
+          await tasks.pick(message.path, message.property);
+          return;
+        case "field":
+          await tasks.setField(message.path, message.name, message.value);
+          return;
+        case "comment":
+          await tasks.comment(message.path, message.text);
+          return;
+        case "editComment":
+          await tasks.editComment(message.path, message.hash, message.index, message.text);
+          return;
+        case "deleteComment":
+          return await tasks.deleteComment(message.path, message.hash, message.index);
+        case "delete":
+          if ((await tasks.delete(message.path)) && preview) panel.dispose();
+          return;
+        case "newTask": {
+          const task = await tasks.create(message.status, message.epic);
+          if (task) await this.showPreview({ area: "tasks", path: task.path });
+          return;
+        }
         case "image":
+          return await reply(message.id, repository.backend.content.image(repository.id, "content", message.path));
         case "file":
-          try {
-            const value =
-              message.type === "image"
-                ? await repository.backend.content.image(repository.id, "content", message.path)
-                : (await repository.backend.content.read(repository.id, "repo", message.path)).content;
-            return void panel.webview.postMessage({ type: "reply", id: message.id, value } satisfies ToWebview);
-          } catch (error) {
-            return void panel.webview.postMessage({ type: "reply", id: message.id, error: errorText(error) } satisfies ToWebview);
-          }
+          return await reply(
+            message.id,
+            repository.backend.content.read(repository.id, "repo", message.path).then((file) => file.content),
+          );
+        case "activity":
+          return await reply(message.id, tasks.activity(message.path));
       }
     } catch (error) {
       void vscode.window.showErrorMessage(errorText(error));
       // A board that moved a card early shows where it really is.
-      if (panel === this.board) await this.updateBoard();
+      if (!preview) await this.updateBoard();
     }
   }
 
-  /** Pages and tasks open in the preview, other files in the editor, web links in the browser. */
+  /** Pages and tasks open in their preview, other files in the editor, web links in the browser. */
   private async follow(repository: Repository, link: FollowedLink) {
     const { snapshot } = repository;
     if (link.kind === "external") {
@@ -151,15 +214,19 @@ export class Webviews implements vscode.Disposable {
       await repository.refresh();
       return this.host.edit({ area: "wiki", path: page.path });
     }
-    if (snapshot.tasks.some((task) => task.path === link.path)) return this.showPreview({ area: "tasks", path: link.path });
-    if (flattenPages(snapshot.wiki).some((page) => page.path === link.path)) return this.showPreview({ area: "wiki", path: link.path });
+    let { path } = link;
+    const root = snapshot.settings.wikiRoot;
+    // Links into the wiki may leave out `.md`, or point at a page's folder.
+    if ((path === root || path.startsWith(`${root}/`)) && !/\.[a-z0-9]+$/i.test(path)) path += ".md";
+    if (snapshot.tasks.some((task) => task.path === path)) return this.showPreview({ area: "tasks", path });
+    if (flattenPages(snapshot.wiki).some((page) => page.path === path)) return this.showPreview({ area: "wiki", path });
     const lines = /^L(\d+)(?:-L(\d+))?$/.exec(link.anchor ?? "");
     const document = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(repository.folder, link.path));
     const editor = await vscode.window.showTextDocument(document);
     if (lines) {
       const from = Number(lines[1]) - 1;
-      const to = Number(lines[2] ?? lines[1]) - 1;
-      editor.selection = new vscode.Selection(from, 0, to, document.lineAt(Math.min(to, document.lineCount - 1)).text.length);
+      const to = Math.min(Number(lines[2] ?? lines[1]) - 1, document.lineCount - 1);
+      editor.selection = new vscode.Selection(from, 0, to, document.lineAt(to).text.length);
       editor.revealRange(editor.selection, vscode.TextEditorRevealType.InCenter);
     }
   }
@@ -171,31 +238,40 @@ export class Webviews implements vscode.Disposable {
       void vscode.window.showWarningMessage(`Save ${path} first; it has changes that are not saved.`);
       return;
     }
-    const { content } = repository.backend;
     if (area === "tasks") {
-      const task = repository.snapshot.tasks.find((candidate) => candidate.path === path);
-      if (!task) return;
-      await content.updateTask(repository.id, path, { ...inputOf(task), body: toggleCheckboxAt(task.body, offset) }, task.hash);
-    } else {
-      const file = await content.read(repository.id, "content", path);
-      await content.write(repository.id, "content", path, toggleCheckboxAt(file.content, offset), file.hash);
+      await this.host.tasks.update(path, (task) => ({ body: toggleCheckboxAt(task.body, offset) }));
+      return;
     }
+    const { content } = repository.backend;
+    const file = await content.read(repository.id, "content", path);
+    await content.write(repository.id, "content", path, toggleCheckboxAt(file.content, offset), file.hash);
     await repository.refresh();
   }
 
-  private uriOf(target: Target): vscode.Uri | undefined {
-    return this.host.repository()?.uri(target.area, target.path);
+  private async updatePreview(preview: Preview) {
+    const repository = this.host.repository();
+    if (!repository) return;
+    this.followMove(repository, preview);
+    const document = await this.document(repository, preview.target);
+    if (!document) {
+      preview.panel.title = `${preview.target.path} (deleted)`;
+      return;
+    }
+    if (document.kind === "task") preview.taskId = document.task.id;
+    preview.panel.title = document.kind === "task" ? `${document.task.id}: ${document.task.title}` : document.title;
+    const message: ToWebview = { type: "preview", document, context: await this.context(repository) };
+    void preview.panel.webview.postMessage(message);
   }
 
-  private async updatePreview() {
-    const repository = this.host.repository();
-    if (!this.preview || !this.shown || !repository) return;
-    const shown = this.shown;
-    const document = await this.document(repository, shown);
-    if (!document || shown !== this.shown || !this.preview) return;
-    this.preview.title = document.kind === "task" ? `${document.task.id}: ${document.task.title}` : document.title;
-    const message: ToWebview = { type: "preview", document, context: await this.context(repository) };
-    void this.preview.webview.postMessage(message);
+  /** A task moved to another epic is another file: the preview follows it by its ID. */
+  private followMove(repository: Repository, preview: Preview) {
+    const { target, taskId } = preview;
+    if (target.area !== "tasks" || !taskId || repository.snapshot.tasks.some((task) => task.path === target.path)) return;
+    const moved = repository.snapshot.tasks.find((task) => task.id === taskId);
+    if (!moved) return;
+    this.previews.delete(keyOf(target));
+    preview.target = { area: "tasks", path: moved.path };
+    this.previews.set(keyOf(preview.target), preview);
   }
 
   /** The page or task, as the editor has it while it is open there, so the preview follows typing. */
@@ -207,12 +283,14 @@ export class Webviews implements vscode.Disposable {
       if (!saved) return null;
       if (!open?.isDirty) return { kind: "task", task: saved };
       try {
-        return { kind: "task", task: tasks.parse(target.path, open.getText(), saved.hash, repository.snapshot.settings.taskRoot) };
+        return { kind: "task", task: taskEngine.parse(target.path, open.getText(), saved.hash, repository.snapshot.settings.taskRoot) };
       } catch {
         return { kind: "task", task: saved };
       }
     }
-    const title = flattenPages(repository.snapshot.wiki).find((page) => page.path === target.path)?.title ?? target.path;
+    const page = flattenPages(repository.snapshot.wiki).find((candidate) => candidate.path === target.path);
+    if (!page && !open) return null;
+    const title = page?.title ?? target.path;
     try {
       const source = open ? open.getText() : (await repository.backend.content.read(repository.id, "content", target.path)).content;
       return { kind: "page", path: target.path, title, source };
@@ -224,35 +302,41 @@ export class Webviews implements vscode.Disposable {
   private async updateBoard() {
     const repository = this.host.repository();
     if (!this.board || !repository) return;
-    const message: ToWebview = {
-      type: "board",
-      columns: boardColumns(repository.snapshot.tasks, repository.snapshot.settings),
-      context: await this.context(repository),
-    };
+    const message: ToWebview = { type: "board", tasks: repository.snapshot.tasks, context: await this.context(repository) };
     void this.board.webview.postMessage(message);
   }
 
   private async context(repository: Repository): Promise<MarkdownContext> {
     const { snapshot } = repository;
     if (this.people?.version !== snapshot.version) {
-      const people = repository.backend.content
-        .people(repository.id)
-        .then((list) => list.people)
-        .catch(() => []);
-      this.people = { version: snapshot.version, people };
+      const { content } = repository.backend;
+      this.people = {
+        version: snapshot.version,
+        people: content
+          .people(repository.id)
+          .then((list) => list.people)
+          .catch(() => []),
+        author: content.commentAuthor(repository.id).catch(() => null),
+      };
     }
+    const { settings } = snapshot;
     return {
-      wikiRoot: snapshot.settings.wikiRoot,
+      version: snapshot.version,
+      wikiRoot: settings.wikiRoot,
       wiki: snapshot.wiki,
       tasks: snapshot.tasks.map(({ id, path, title, status }) => ({ id, path, title, status })),
-      statuses: snapshot.settings.statuses,
+      statuses: settings.statuses,
+      hiddenColumns: settings.hiddenColumns,
+      types: settings.types,
+      fields: settings.fields,
       files: filePaths(snapshot.files),
       people: await this.people.people,
+      author: await this.people.author,
     };
   }
 
   dispose() {
-    this.preview?.dispose();
+    for (const preview of [...this.previews.values()]) preview.panel.dispose();
     this.board?.dispose();
     for (const subscription of this.subscriptions) subscription.dispose();
   }
@@ -277,12 +361,13 @@ function page(webview: vscode.Webview, assets: vscode.Uri, entry: "preview" | "b
     entry === "preview"
       ? `<main id="root" class="gb-preview"></main>`
       : `<main id="root"></main>
-<dialog id="popup" class="gb-popup" aria-label="Task">
+<dialog id="popup" class="gb-popup" aria-labelledby="popup-id">
   <div class="gb-popup-bar">
-    <select id="popup-status" aria-label="Status"></select>
+    <span id="popup-id" class="gb-id"></span>
     <span class="gb-spacer"></span>
     <button id="popup-preview" type="button">Open in Preview</button>
-    <button id="popup-edit" type="button" class="is-primary">Edit</button>
+    <button id="popup-edit" type="button" class="is-primary">Edit File</button>
+    <button id="popup-delete" type="button">Delete</button>
     <button id="popup-close" type="button" aria-label="Close">✕</button>
   </div>
   <div id="popup-body" class="gb-popup-body"></div>

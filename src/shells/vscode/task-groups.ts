@@ -1,6 +1,5 @@
 /** The tasks view's board: one group per workflow state, in the order of the settings. */
-import type { Settings, Task, TaskInput } from "../../contracts/model";
-import type { BoardColumn } from "./webview/protocol";
+import type { Settings, Task } from "../../contracts/model";
 
 export interface TaskGroup {
   readonly status: string;
@@ -25,26 +24,3 @@ export function groupTasks(tasks: readonly Task[], settings: Pick<Settings, "sta
     collapsed: status === last || settings.hiddenColumns.includes(status),
   }));
 }
-
-/** The board's columns: the workflow states it doesn't hide, and states only tasks name. */
-export function boardColumns(tasks: readonly Task[], settings: Pick<Settings, "statuses" | "hiddenColumns">): BoardColumn[] {
-  return groupTasks(tasks, settings)
-    .filter((group) => !settings.hiddenColumns.includes(group.status))
-    .map(({ status, tasks }) => ({ status, tasks }));
-}
-
-/** What updating `task` sends to change only `status`. */
-export const withStatus = (task: Task, status: string): TaskInput => ({ ...inputOf(task), status });
-
-/** What updating `task` sends to keep it as it is. */
-export const inputOf = (task: Task): TaskInput => ({
-  title: task.title,
-  status: task.status,
-  priority: task.priority,
-  assignee: task.assignee,
-  labels: task.labels,
-  body: task.body,
-  epic: task.epic,
-  type: task.type,
-  fields: task.fields,
-});

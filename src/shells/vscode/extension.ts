@@ -2,16 +2,19 @@
  * The VS Code shell: the managers run in the extension host, on the machine
  * the workspace lives on (local, WSL, SSH or a container, by VS Code's remote
  * support). Native views list the repository's pages and tasks; pages and
- * tasks open in a preview rendered as the app renders them, or in VS Code's
- * editor to edit them. The board is a webview of its own.
+ * tasks open in a preview tab rendered as the app renders them, or in VS
+ * Code's editor to edit them. The board is a webview of its own.
  */
 import * as vscode from "vscode";
-import type { Snapshot, WikiNode } from "../../contracts/model";
+import { pageName, pagePath, pageNameProblem } from "../../client/app/features/wiki/wiki-pages";
+import { syncsContentBranch, type Snapshot, type WikiNode } from "../../contracts/model";
 import { createBackend, type Backend } from "../../managers/backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { CONTENT_SCHEME, ContentFiles } from "./content-files";
 import { Repository } from "./repository";
+import { TaskActions } from "./task-actions";
 import { TasksView, type TaskElement } from "./tasks-view";
+import type { PickedProperty } from "./webview/protocol";
 import { Webviews, type Target } from "./webviews";
 import { PREVIEW_COMMAND, WikiView } from "./wiki-view";
 
@@ -26,14 +29,26 @@ export interface GenbeyaApi {
   refresh(): Promise<void>;
 }
 
+/** Commands that change one property of the tasks chosen in the Tasks view. */
+const PROPERTY_COMMANDS: Readonly<Record<string, PickedProperty>> = {
+  "genbeya.setStatus": "status",
+  "genbeya.setType": "type",
+  "genbeya.setPriority": "priority",
+  "genbeya.setAssignee": "assignee",
+  "genbeya.setEpic": "epic",
+  "genbeya.setLabels": "labels",
+  "genbeya.renameTask": "title",
+};
+
 let backend: Backend | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<GenbeyaApi> {
   let repository: Repository | undefined;
   const current = () => repository;
   const files = new ContentFiles(current);
+  const actions = new TaskActions(current);
   const wiki = new WikiView(current);
-  const tasks = new TasksView(current);
+  const tasks = new TasksView(current, (paths, status) => actions.move(paths, status));
   const wikiTree = vscode.window.createTreeView("genbeya.wiki", { treeDataProvider: wiki, showCollapseAll: true });
   const tasksTree = vscode.window.createTreeView("genbeya.tasks", {
     treeDataProvider: tasks,
@@ -47,12 +62,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
   const edit = async (target: Target) => {
     if (repository) await vscode.window.showTextDocument(repository.uri(target.area, target.path));
   };
-  const webviews = new Webviews(context.extensionUri, { repository: current, edit, move: (moved, status) => tasks.move(moved, status) });
+  const webviews = new Webviews(context.extensionUri, { repository: current, edit, tasks: actions });
   const redraw = () => {
     wiki.refresh();
     tasks.refresh();
     void files.checkOpenDocuments();
     void webviews.refresh();
+    void vscode.commands.executeCommand(
+      "setContext",
+      "genbeya.contentBranch",
+      !!repository && syncsContentBranch(repository.snapshot.storage),
+    );
   };
 
   backend = await createBackend(nodeMachine(), context.globalStorageUri.fsPath);
@@ -93,78 +113,141 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
       }
     };
 
+  /** The tasks a context menu command is for: the selection it was opened on, or the one item. */
+  const chosenTasks = (element?: TaskElement, selected?: readonly TaskElement[]) =>
+    (selected?.length ? selected : element ? [element] : tasksTree.selection).flatMap((item) => (item.kind === "task" ? [item.task] : []));
+
+  const command = (name: string, run: (...args: never[]) => Promise<unknown>) => vscode.commands.registerCommand(name, run);
+
   context.subscriptions.push(
     wikiTree,
     tasksTree,
     vscode.workspace.registerFileSystemProvider(CONTENT_SCHEME, files, { isCaseSensitive: true }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => void open()),
     webviews,
-    vscode.commands.registerCommand(
+    command(
       PREVIEW_COMMAND,
       withRepository(async (_, item?: Item) => {
         const target = targetOf(item);
         if (target) await webviews.showPreview(target);
       }),
     ),
-    vscode.commands.registerCommand(
+    command(
       "genbeya.edit",
       withRepository(async (_, item?: Item) => {
         const target = targetOf(item) ?? webviews.activePreview;
         if (target) await edit(target);
       }),
     ),
-    vscode.commands.registerCommand(
+    command(
       "genbeya.openBoard",
       withRepository(async () => webviews.showBoard()),
     ),
-    vscode.commands.registerCommand(
+    command(
       "genbeya.refresh",
       withRepository((repository) => repository.refresh()),
     ),
-    vscode.commands.registerCommand(
-      "genbeya.newTask",
+    command(
+      "genbeya.syncContent",
       withRepository(async (repository) => {
-        const title = await vscode.window.showInputBox({ title: "New task", prompt: "Title", validateInput: required });
-        if (!title) return;
-        const { statuses } = repository.snapshot.settings;
-        const task = await managers.content.createTask(repository.id, {
-          title: title.trim(),
-          status: statuses[0]!,
-          priority: "",
-          assignee: "",
-          labels: [],
-          body: "",
-          epic: "",
-        });
+        await vscode.window.withProgress({ location: { viewId: "genbeya.tasks" }, title: "Syncing" }, () =>
+          repository.backend.content.syncContent(repository.id),
+        );
         await repository.refresh();
-        await edit({ area: "tasks", path: task.path });
       }),
     ),
-    vscode.commands.registerCommand(
+    command(
+      "genbeya.newTask",
+      withRepository(async () => {
+        const task = await actions.create();
+        if (task) await webviews.showPreview({ area: "tasks", path: task.path });
+      }),
+    ),
+    ...Object.entries(PROPERTY_COMMANDS).map(([name, property]) =>
+      command(
+        name,
+        withRepository(async (repository, element?: TaskElement, selected?: readonly TaskElement[]) => {
+          const chosen = chosenTasks(element, selected);
+          if (property === "status" && chosen.length > 1) {
+            const statuses = repository.snapshot.settings.statuses;
+            const status = await vscode.window.showQuickPick([...statuses], { title: `Move ${chosen.length} tasks to` });
+            if (status)
+              await actions.move(
+                chosen.map((task) => task.path),
+                status,
+              );
+          } else if (chosen[0]) await actions.pick(chosen[0].path, property);
+        }),
+      ),
+    ),
+    command(
+      "genbeya.deleteTask",
+      withRepository(async (_, element?: TaskElement) => {
+        const [task] = chosenTasks(element);
+        if (task) await actions.delete(task.path);
+      }),
+    ),
+    command(
       "genbeya.newPage",
-      withRepository(async (repository) => {
+      withRepository(async (repository, parent?: WikiNode) => {
+        const root = repository.snapshot.settings.wikiRoot;
         const name = await vscode.window.showInputBox({
           title: "New page",
-          prompt: "Name, with folders for a subpage (Guide/Setup)",
-          validateInput: required,
+          prompt: `Use / to nest pages. The page is saved as Markdown in ${root}/.`,
+          value: parent?.path ? `${pageName(parent.path, root)}/` : "",
+          placeHolder: "Architecture/Database",
+          validateInput: (value) => pageNameProblem(value) ?? undefined,
         });
         if (!name) return;
-        const page = await managers.content.createPage(repository.id, `${repository.snapshot.settings.wikiRoot}/${name.trim()}.md`);
+        const page = await managers.content.createPage(repository.id, pagePath(root, name));
         await repository.refresh();
         await edit({ area: "wiki", path: page.path });
       }),
     ),
-    vscode.commands.registerCommand(
-      "genbeya.setStatus",
-      withRepository(async (repository, element?: TaskElement, selected?: readonly TaskElement[]) => {
-        const chosen = (selected?.length ? selected : element ? [element] : tasksTree.selection).flatMap((item) =>
-          item.kind === "task" ? [item.task] : [],
-        );
-        if (!chosen.length) return;
-        const status = await vscode.window.showQuickPick([...repository.snapshot.settings.statuses], {
-          title: chosen.length === 1 ? `Move ${chosen[0]!.id} to` : `Move ${chosen.length} tasks to`,
+    command(
+      "genbeya.movePage",
+      withRepository(async (repository, node?: WikiNode) => {
+        if (!node?.path) return;
+        const from = node.path;
+        const root = repository.snapshot.settings.wikiRoot;
+        const name = await vscode.window.showInputBox({
+          title: `Move ${node.title}`,
+          prompt: "The new name; / nests the page. Subpages move along.",
+          value: pageName(from, root),
+          validateInput: (value) => pageNameProblem(value) ?? undefined,
         });
-        if (status) await tasks.move(chosen, status);
+        if (!name) return;
+        const to = pagePath(root, name);
+        if (to === from) return;
+        const links = await managers.content.pageLinks(repository.id, from, to);
+        let updateLinks = false;
+        if (links.length) {
+          const changes = links.reduce((count, link) => count + link.changes.length, 0);
+          const answer = await vscode.window.showInformationMessage(
+            `Update ${changes === 1 ? "the link" : `${changes} links`} to ${node.title} in ${links.length === 1 ? "1 file" : `${links.length} files`}?`,
+            { modal: true },
+            "Update Links",
+            "Move Only",
+          );
+          if (!answer) return;
+          updateLinks = answer === "Update Links";
+        }
+        await managers.content.movePage(repository.id, from, to, { updateLinks });
+        await repository.refresh();
+      }),
+    ),
+    command(
+      "genbeya.deletePage",
+      withRepository(async (repository, node?: WikiNode) => {
+        if (!node?.path) return;
+        const answer = await vscode.window.showWarningMessage(
+          `Delete ${node.title}?`,
+          { modal: true, detail: "The file is removed from the working tree; Git history keeps it." },
+          "Delete",
+        );
+        if (answer !== "Delete") return;
+        await managers.content.deletePage(repository.id, node.path);
+        await repository.refresh();
       }),
     ),
     { dispose: () => repository?.dispose() },
@@ -181,8 +264,6 @@ export async function deactivate(): Promise<void> {
   await backend?.dispose();
   backend = undefined;
 }
-
-const required = (value: string) => (value.trim() ? undefined : "Enter a name.");
 
 /** What commands on pages and tasks get: a tree item, or a page or task named directly. */
 type Item = WikiNode | TaskElement | Target;

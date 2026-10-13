@@ -3,6 +3,8 @@ import type { FromWebview, ToWebview } from "./protocol";
 
 interface VsCodeApi {
   postMessage(message: FromWebview): void;
+  getState(): unknown;
+  setState(state: unknown): void;
 }
 
 declare function acquireVsCodeApi(): VsCodeApi;
@@ -25,6 +27,15 @@ export class Bridge {
       else request?.resolve(message.value ?? "");
     });
     this.post({ type: "ready" });
+  }
+
+  /** What the webview keeps across reloads and restarts of VS Code: its document, the board's choices. */
+  get state(): unknown {
+    return this.api.getState();
+  }
+
+  set state(state: unknown) {
+    this.api.setState(state);
   }
 
   post(message: Exclude<FromWebview, Request>): void {
