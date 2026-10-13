@@ -10,7 +10,7 @@ The same editor edits wiki pages and task descriptions. It works like VS Code's 
 
 ## Markdown files
 
-Markdown files switch between **Edit** and **Preview**. The preview renders like the wiki, including [References](References.md), and typing `[[` in the editor lists the tasks, pages and files to link.
+Markdown files, Mermaid (`.mmd`) and PlantUML (`.puml`) diagrams and SVG images switch between **Edit**, **Split** (the text and the preview side by side) and **Preview**; new files open in the mode you chose last. The preview renders like the wiki, including [References](References.md) and diagrams, and typing `[[` in a Markdown file lists the tasks, pages and files to link. Switching keeps your place in Markdown, and in **Split** the two sides scroll together.
 
 ## Find and replace
 

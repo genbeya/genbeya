@@ -2,7 +2,7 @@
 id: GENBEYA-29
 title: Switching between edit and preview scrolls back to the top
 type: bug
-status: backlog
+status: review
 priority: medium
 labels: [feedback, editor, wiki]
 ---
@@ -34,3 +34,14 @@ The same mapping can scroll the wiki's side-by-side preview along with the edito
 ### Emanuel Knecht — 2026-10-14 01:27+02:00
 
 yes and lets discuss a tangent one: scrolling while we have code and preview side-by-side.. how hard would it be to keep both side s more or less in sync?
+
+### Claude — 2026-10-14 03:10+02:00
+
+Done, including the side-by-side scrolling discussed above:
+
+- The Markdown renderer can mark blocks with the source line they start at (`data-line`, opt-in through `lineOffset`, which also counts a frontmatter that isn't rendered). `markdown/source-lines.ts` turns a scrolled page into a source line and back, interpolating between blocks; the editor gets `topLine()`, `scrollToLine()` and a `scrolled` output.
+- Wiki: **Edit** opens the editor and its preview at the line you were reading; leaving the editor returns the page to where the editor was.
+- Code: switching between Edit, Split and Preview keeps the line ([[GENBEYA-31]]).
+- Side by side (the wiki's editor with its preview, Code's Split), whichever side you scroll leads and the other follows (`editor/scroll-link.ts`, which ignores the follower's echo so they don't chase each other).
+
+How hard was syncing? Small, once the line mapping existed: precise between blocks, interpolated inside long ones (a big table or code block moves smoothly rather than line by line). An editor shorter than its preview stops at its end, so the two can't always line up at the bottom.

@@ -162,3 +162,26 @@ describe("safety", () => {
       expect(render(`[x](${href})`).container.querySelector("a")?.getAttribute("href")).toBe(href);
   });
 });
+
+describe("source lines", () => {
+  const lines = (markdown: string, lineOffset?: number) => {
+    const rendered = renderMarkdownTree(parseMarkdown(markdown), document, {
+      path: "docs/Home.md",
+      interactiveCheckboxes: false,
+      ...(lineOffset === undefined ? {} : { lineOffset }),
+    });
+    const container = document.createElement("div");
+    container.append(rendered.fragment);
+    return [...container.querySelectorAll<HTMLElement>("[data-line]")].map(
+      (element) => `${element.tagName.toLowerCase()}:${element.dataset["line"]}`,
+    );
+  };
+
+  it("marks blocks with the line they start at, counting the lines above the source", () => {
+    expect(lines("# Title\n\nIntro.\n\n- one\n- two\n", 3)).toEqual(["h1:4", "p:6", "li:8", "li:9"]);
+  });
+
+  it("marks nothing unless asked", () => {
+    expect(lines("# Title\n\nIntro.\n")).toEqual([]);
+  });
+});
