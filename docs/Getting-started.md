@@ -28,6 +28,8 @@ The installers are not signed yet, so your system asks before running them the f
 
 Genbeya needs **Git** on the machine that holds the repository: this computer, the WSL distribution or the SSH server. To run Genbeya from source instead, see [Development](Development.md).
 
+Working in VS Code? The release also has `Genbeya-<version>-vscode.vsix`, an extension with the wiki, the tasks and the board in VS Code; see [VS Code](Guide/VS-Code.md).
+
 ## First start
 
 ![The start screen on the first start](images/welcome.png)

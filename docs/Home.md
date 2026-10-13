@@ -23,6 +23,7 @@ Genbeya gives one Git repository a wiki, a task board, a code editor, Git tools 
 | Sharing | Send a link that opens a page, task, file or commit in a coworker's Genbeya | — | [Sharing](Guide/Sharing.md) |
 | AI agents | Teach coding agents to work with the tasks and the wiki | Skill and instruction files | [AI agents](Guide/AI-agents.md) |
 | Settings | Folders, task prefix, workflow, types, fields | `.genbeya.yml` | [Settings](Guide/Settings.md) |
+| VS Code | The wiki, the tasks and the board next to your code, with references in VS Code's editor | The same files | [VS Code](Guide/VS-Code.md) |
 
 Repositories can live on this computer, in WSL or on an SSH server; Git always runs where the repository is.
 

@@ -16,6 +16,7 @@ How to work with Genbeya day to day, one area per page.
 | [AI agents](Guide/AI-agents.md) | Teaching coding agents to plan in tasks and document in the wiki |
 | [Keyboard shortcuts](Guide/Keyboard-shortcuts.md) | Every key, in the app and in the editor |
 | [Settings](Guide/Settings.md) | The Settings view and every key of `.genbeya.yml` |
+| [VS Code](Guide/VS-Code.md) | The wiki, the tasks and the board in VS Code, and Genbeya's references in its Markdown editor |
 
 ## The window
 

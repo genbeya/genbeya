@@ -60,14 +60,14 @@ Code is written test first. Specs sit next to the code they test.
 
 ## Continuous integration
 
-`.github/workflows/build.yml` runs on every push and pull request to `main` and on pushes to `experiment/**` branches. On Windows, macOS and Linux it runs lint, unit and end-to-end tests (`.github/actions/verify`) and the Tauri shell's Rust tests, then packages Electron, Tauri and Deno Desktop. On Linux it also builds the web demo, tests it in Chromium and uploads it as `genbeya-web-demo.zip`. It also tests the VS Code extension and uploads its `.vsix` as the artifact `vscode-extension`; releases don't include it yet.
+`.github/workflows/build.yml` runs on every push and pull request to `main` and on pushes to `experiment/**` branches. On Windows, macOS and Linux it runs lint, unit and end-to-end tests (`.github/actions/verify`) and the Tauri shell's Rust tests, then packages Electron, Tauri and Deno Desktop. On Linux it also builds the web demo, tests it in Chromium and uploads it as `genbeya-web-demo.zip`. It also tests the VS Code extension and uploads its `.vsix` as `Genbeya-<version>-vscode.vsix`.
 
 - The version is `package.json`'s, and the same in its lockfile, `tauri.conf.json`, `Cargo.toml` and `Cargo.lock`: `node scripts/version.mjs bump patch` (or `minor`, `major`) or `set 1.0.0` changes all of them, and CI fails when they disagree (`node scripts/version.mjs check`). Bump the patch for fixes, the minor version for new features. Installers replace an installed older version, so every release needs a higher version.
 - Deno Desktop's MSIs take their version from a generated `dist/deno/deno.json`; `scripts/msi-major-upgrade.ps1` adds the upgrade rules they lack, and refuses to install over a newer version. Installing an MSI of the same version again repairs it instead of upgrading.
 - `scripts/collect-installers.mjs` copies every installer into `out/installers/`, renamed to `Genbeya-<version>-<variant>-<os>-<arch>[-setup].<ext>` (for example `Genbeya-0.1.0-tauri-windows-x64-setup.exe`), so the variants never clash. Run it locally after packaging; `--dry-run` only prints the names.
 - `scripts/report-sizes.mjs` lists their sizes in the job summary.
 - Each run uploads one artifact per variant and platform, such as `Genbeya-tauri-macOS`.
-- A push to `main` whose version has no release yet publishes all installers and `genbeya-web-demo.zip` as one GitHub release tagged `v<version>`, with the text of `.github/release-notes.md` above the generated notes; pushes whose version is released already are built and tested only. To release: bump the version, commit, push. A release is marked latest only when no published `v*` release is newer.
+- A push to `main` whose version has no release yet publishes all installers, the VS Code extension and `genbeya-web-demo.zip` as one GitHub release tagged `v<version>`, with the text of `.github/release-notes.md` above the generated notes; pushes whose version is released already are built and tested only. To release: bump the version, commit, push. A release is marked latest only when no published `v*` release is newer.
 
 macOS builds Electron for Apple silicon and Intel; Tauri and Deno Desktop only for the runner's Apple silicon.
 
@@ -92,7 +92,7 @@ To announce a change, add an item to the entry of its release line in `src/clien
 },
 ```
 
-Entries are keyed by `major.minor`, since every build bumps the patch: a new entry only shows once `package.json` (and `tauri.conf.json` and `Cargo.toml` for Tauri) carries that minor version, and only to users updating from an older one. The changelog starts empty, in release line `0.0`; while it has no entry, nobody sees What's new, and **Show what's new** says there is nothing yet. Keep items to a sentence or two of Markdown.
+Entries are keyed by `major.minor`, the release line: a new entry only shows once `package.json` (and `tauri.conf.json` and `Cargo.toml` for Tauri) carries that minor version, and only to users updating from an older one. The changelog starts empty, in release line `0.0`; while it has no entry, nobody sees What's new, and **Show what's new** says there is nothing yet. Keep items to a sentence or two of Markdown.
 
 The tour's steps are in `src/client/app/features/onboarding/tour-steps.ts`. A step names its element by selector, usually a `data-tour` attribute on it, and optionally the route it is on; steps whose element is missing are skipped. The tour itself (`src/client/app/ui/tour/`) knows nothing about the app.
 

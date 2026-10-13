@@ -50,7 +50,7 @@ The Angular client is 613 kB of initial JavaScript (120 kB compressed). Mermaid 
 
 ## Trying the builds
 
-Every push to `main` publishes one GitHub release with all variants for all platforms; pushes to `experiment/**` branches and pull requests build the same files as workflow artifacts, one per runtime and platform, such as `Genbeya-tauri-macOS`. Each installer is named `Genbeya-<version>-<variant>-<os>-<arch>`:
+A push to `main` with a new version publishes one GitHub release with all variants for all platforms; pushes to `experiment/**` branches and pull requests build the same files as workflow artifacts, one per runtime and platform, such as `Genbeya-tauri-macOS`. Each installer is named `Genbeya-<version>-<variant>-<os>-<arch>`:
 
 | Runtime | Windows | macOS | Linux |
 | --- | --- | --- | --- |

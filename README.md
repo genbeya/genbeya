@@ -31,7 +31,7 @@ It is pronounced "gen-BEH-ya".
 
 ## Download
 
-Every push to `main` publishes a [release](https://github.com/genbeya/genbeya/releases/latest) with an installer per variant and system, named `Genbeya-<version>-<variant>-<os>-<arch>`. The three variants are the same app on different runtimes and install side by side:
+Each [release](https://github.com/genbeya/genbeya/releases/latest) has an installer per variant and system, named `Genbeya-<version>-<variant>-<os>-<arch>`. The three variants are the same app on different runtimes and install side by side:
 
 | Variant                         | Size    | Differences                                                                           | Windows                | macOS                           | Linux                         |
 | ------------------------------- | ------- | ------------------------------------------------------------------------------------- | ---------------------- | ------------------------------- | ----------------------------- |
@@ -40,6 +40,8 @@ Every push to `main` publishes a [release](https://github.com/genbeya/genbeya/re
 | **Deno Desktop** (experimental) | ~38 MB  | System webview; no terminal, no `genbeya://` link handler; installs as "Genbeya Deno" | `.msi`                 | `.dmg`, Apple silicon           | `.AppImage` or `.deb`         |
 
 A newer installer replaces the installed version of its variant. The builds are unsigned: on Windows choose _More info → Run anyway_; on macOS open the app the first time with right-click → _Open_ (or run `xattr -dr com.apple.quarantine /Applications/Genbeya.app`); on Linux `chmod +x` the AppImage. Genbeya needs Git on the machine that holds the repository.
+
+For VS Code there is `Genbeya-<version>-vscode.vsix`: the wiki, the tasks and the board next to your code, and Genbeya's references in VS Code's Markdown editor. Install it with **Extensions → … → Install from VSIX…**; see [VS Code](docs/Guide/VS-Code.md).
 
 ## Documentation
 
