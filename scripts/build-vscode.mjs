@@ -5,23 +5,25 @@ import { spawnSync } from "node:child_process";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { build } from "esbuild";
-import { vscodeBundle } from "./bundles.mjs";
+import { vscodeBundle, vscodeWebviewBundle } from "./bundles.mjs";
 
 const output = vscodeBundle.outdir;
 const { version } = JSON.parse(await readFile("package.json", "utf8"));
 const manifest = JSON.parse(await readFile("src/shells/vscode/manifest.json", "utf8"));
 
 await rm(output, { recursive: true, force: true });
-await build(vscodeBundle);
+await Promise.all([build(vscodeBundle), build(vscodeWebviewBundle)]);
 await writeFile(`${output}/package.json`, `${JSON.stringify({ ...manifest, version }, null, 2)}\n`);
 // Source maps help debugging, not users; node-pty is left out, as the extension opens no terminals.
-await writeFile(`${output}/.vscodeignore`, "*.map\n");
+await writeFile(`${output}/.vscodeignore`, "**/*.map\n");
 for (const [from, to] of [
   ["src/shells/vscode/README.md", "README.md"],
   ["build/icon.png", "icon.png"],
   ["branding/genbeya-mono.svg", "genbeya-mono.svg"],
   ["LICENSE.md", "LICENSE.md"],
   ["LICENSE-MIT-0.md", "LICENSE-MIT-0.md"],
+  // PlantUML's engine, which the webviews load on first use.
+  ["node_modules/@rockuml/core/rockuml.wasm", "webview/rockuml.wasm"],
 ]) {
   await copyFile(from, `${output}/${to}`);
 }

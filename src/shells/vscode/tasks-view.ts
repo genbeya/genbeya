@@ -1,13 +1,13 @@
 /**
  * The Tasks view: the board as a tree, one group per workflow state. Dragging
- * tasks onto another state, or onto a task in it, moves them there; a task
- * opens in VS Code's editor.
+ * tasks onto another state, or onto a task in it, moves them there. A task
+ * opens in the preview; its Edit action opens it in the editor.
  */
 import * as vscode from "vscode";
 import type { Task } from "../../contracts/model";
 import type { Repository } from "./repository";
 import { groupTasks, withStatus, type TaskGroup } from "./task-groups";
-import { OPEN_COMMAND } from "./wiki-view";
+import { PREVIEW_COMMAND } from "./wiki-view";
 
 export type TaskElement = { readonly kind: "group"; readonly group: TaskGroup } | { readonly kind: "task"; readonly task: Task };
 
@@ -61,7 +61,7 @@ export class TasksView implements vscode.TreeDataProvider<TaskElement>, vscode.T
     const repository = this.repository();
     if (repository) {
       item.resourceUri = repository.uri("tasks", task.path);
-      item.command = { command: OPEN_COMMAND, title: "Open task", arguments: [item.resourceUri] };
+      item.command = { command: PREVIEW_COMMAND, title: "Preview", arguments: [element] };
     }
     return item;
   }

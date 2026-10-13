@@ -1,9 +1,9 @@
-/** The Wiki view: the page tree of the snapshot; a page opens in VS Code's editor. */
+/** The Wiki view: the page tree of the snapshot. A page opens in the preview; its Edit action opens it in the editor. */
 import * as vscode from "vscode";
 import type { WikiNode } from "../../contracts/model";
 import type { Repository } from "./repository";
 
-export const OPEN_COMMAND = "genbeya.open";
+export const PREVIEW_COMMAND = "genbeya.preview";
 
 export class WikiView implements vscode.TreeDataProvider<WikiNode> {
   private readonly changed = new vscode.EventEmitter<void>();
@@ -33,7 +33,7 @@ export class WikiView implements vscode.TreeDataProvider<WikiNode> {
       item.iconPath = new vscode.ThemeIcon("file-text");
       item.contextValue = "page";
       item.tooltip = node.path;
-      item.command = { command: OPEN_COMMAND, title: "Open page", arguments: [item.resourceUri] };
+      item.command = { command: PREVIEW_COMMAND, title: "Preview", arguments: [node] };
     } else {
       item.iconPath = vscode.ThemeIcon.Folder;
       item.contextValue = "folder";

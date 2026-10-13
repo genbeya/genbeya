@@ -6,12 +6,19 @@
   "author": "Emanuel Knecht",
   "license": "SEE LICENSE IN LICENSE.md",
   "homepage": "https://genbeya.fyi",
-  "repository": { "type": "git", "url": "https://github.com/genbeya/genbeya" },
-  "bugs": { "url": "https://github.com/genbeya/genbeya/issues" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/genbeya/genbeya"
+  },
+  "bugs": {
+    "url": "https://github.com/genbeya/genbeya/issues"
+  },
   "icon": "icon.png",
   "categories": ["Other"],
   "keywords": ["wiki", "tasks", "kanban", "markdown", "git"],
-  "engines": { "vscode": "^1.140.0" },
+  "engines": {
+    "vscode": "^1.140.0"
+  },
   "extensionKind": ["workspace"],
   "main": "./extension.cjs",
   "activationEvents": ["workspaceContains:.genbeya.yml"],
@@ -24,16 +31,32 @@
   },
   "contributes": {
     "viewsContainers": {
-      "activitybar": [{ "id": "genbeya", "title": "Genbeya", "icon": "genbeya-mono.svg" }]
+      "activitybar": [
+        {
+          "id": "genbeya",
+          "title": "Genbeya",
+          "icon": "genbeya-mono.svg"
+        }
+      ]
     },
     "views": {
       "genbeya": [
-        { "id": "genbeya.wiki", "name": "Wiki" },
-        { "id": "genbeya.tasks", "name": "Tasks" }
+        {
+          "id": "genbeya.wiki",
+          "name": "Wiki"
+        },
+        {
+          "id": "genbeya.tasks",
+          "name": "Tasks"
+        }
       ]
     },
     "viewsWelcome": [
-      { "view": "genbeya.wiki", "contents": "Opening the repository…", "when": "genbeya.state == opening" },
+      {
+        "view": "genbeya.wiki",
+        "contents": "Opening the repository…",
+        "when": "genbeya.state == opening"
+      },
       {
         "view": "genbeya.wiki",
         "contents": "Genbeya shows the wiki and the tasks of a Git repository.\n[Open Folder](command:vscode.openFolder)",
@@ -51,26 +74,149 @@
       }
     ],
     "commands": [
-      { "command": "genbeya.refresh", "title": "Refresh", "category": "Genbeya", "icon": "$(refresh)" },
-      { "command": "genbeya.newPage", "title": "New Page…", "category": "Genbeya", "icon": "$(new-file)" },
-      { "command": "genbeya.newTask", "title": "New Task…", "category": "Genbeya", "icon": "$(add)" },
-      { "command": "genbeya.setStatus", "title": "Move to…", "category": "Genbeya" },
-      { "command": "genbeya.open", "title": "Open", "category": "Genbeya" }
+      {
+        "command": "genbeya.refresh",
+        "title": "Refresh",
+        "category": "Genbeya",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "genbeya.newPage",
+        "title": "New Page…",
+        "category": "Genbeya",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "genbeya.newTask",
+        "title": "New Task…",
+        "category": "Genbeya",
+        "icon": "$(add)"
+      },
+      {
+        "command": "genbeya.openBoard",
+        "title": "Open Board",
+        "category": "Genbeya",
+        "icon": "$(project)"
+      },
+      {
+        "command": "genbeya.preview",
+        "title": "Preview",
+        "category": "Genbeya",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "genbeya.edit",
+        "title": "Edit",
+        "category": "Genbeya",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "genbeya.setStatus",
+        "title": "Move to…",
+        "category": "Genbeya"
+      }
     ],
     "menus": {
       "view/title": [
-        { "command": "genbeya.newPage", "when": "view == genbeya.wiki && genbeya.state == open", "group": "navigation@1" },
-        { "command": "genbeya.refresh", "when": "view == genbeya.wiki && genbeya.state == open", "group": "navigation@2" },
-        { "command": "genbeya.newTask", "when": "view == genbeya.tasks && genbeya.state == open", "group": "navigation@1" },
-        { "command": "genbeya.refresh", "when": "view == genbeya.tasks && genbeya.state == open", "group": "navigation@2" }
+        {
+          "command": "genbeya.newPage",
+          "when": "view == genbeya.wiki && genbeya.state == open",
+          "group": "navigation@1"
+        },
+        {
+          "command": "genbeya.refresh",
+          "when": "view == genbeya.wiki && genbeya.state == open",
+          "group": "navigation@2"
+        },
+        {
+          "command": "genbeya.openBoard",
+          "when": "view == genbeya.tasks && genbeya.state == open",
+          "group": "navigation@0"
+        },
+        {
+          "command": "genbeya.newTask",
+          "when": "view == genbeya.tasks && genbeya.state == open",
+          "group": "navigation@1"
+        },
+        {
+          "command": "genbeya.refresh",
+          "when": "view == genbeya.tasks && genbeya.state == open",
+          "group": "navigation@2"
+        }
       ],
-      "view/item/context": [{ "command": "genbeya.setStatus", "when": "view == genbeya.tasks && viewItem == task" }],
+      "view/item/context": [
+        {
+          "command": "genbeya.preview",
+          "when": "view == genbeya.wiki && viewItem == page",
+          "group": "inline@1"
+        },
+        {
+          "command": "genbeya.edit",
+          "when": "view == genbeya.wiki && viewItem == page",
+          "group": "inline@2"
+        },
+        {
+          "command": "genbeya.preview",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "inline@1"
+        },
+        {
+          "command": "genbeya.edit",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "inline@2"
+        },
+        {
+          "command": "genbeya.preview",
+          "when": "view == genbeya.wiki && viewItem == page || view == genbeya.tasks && viewItem == task",
+          "group": "1_open@1"
+        },
+        {
+          "command": "genbeya.edit",
+          "when": "view == genbeya.wiki && viewItem == page || view == genbeya.tasks && viewItem == task",
+          "group": "1_open@2"
+        },
+        {
+          "command": "genbeya.setStatus",
+          "when": "view == genbeya.tasks && viewItem == task",
+          "group": "2_task@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "genbeya.edit",
+          "when": "activeWebviewPanelId == genbeya.preview",
+          "group": "navigation"
+        }
+      ],
       "commandPalette": [
-        { "command": "genbeya.refresh", "when": "genbeya.state == open" },
-        { "command": "genbeya.newPage", "when": "genbeya.state == open" },
-        { "command": "genbeya.newTask", "when": "genbeya.state == open" },
-        { "command": "genbeya.setStatus", "when": "false" },
-        { "command": "genbeya.open", "when": "false" }
+        {
+          "command": "genbeya.refresh",
+          "when": "genbeya.state == open"
+        },
+        {
+          "command": "genbeya.newPage",
+          "when": "genbeya.state == open"
+        },
+        {
+          "command": "genbeya.newTask",
+          "when": "genbeya.state == open"
+        },
+        {
+          "command": "genbeya.openBoard",
+          "when": "genbeya.state == open"
+        },
+        {
+          "command": "genbeya.preview",
+          "when": "false"
+        },
+        {
+          "command": "genbeya.edit",
+          "when": "activeWebviewPanelId == genbeya.preview"
+        },
+        {
+          "command": "genbeya.setStatus",
+          "when": "false"
+        }
       ]
     }
   }

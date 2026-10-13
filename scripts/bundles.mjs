@@ -39,3 +39,24 @@ export const vscodeBundle = {
   target: "node22",
   external: [...common.external, "vscode"],
 };
+
+/**
+ * The VS Code extension's webviews (preview and board) → dist/vscode/webview: ES modules for the
+ * browser, with Mermaid, KaTeX and rockuml split off and loaded on first use.
+ */
+export const vscodeWebviewBundle = {
+  ...common,
+  entryPoints: {
+    preview: "src/shells/vscode/webview/preview.ts",
+    board: "src/shells/vscode/webview/board.ts",
+    styles: "src/shells/vscode/webview/styles.css",
+  },
+  outdir: "dist/vscode/webview",
+  platform: "browser",
+  format: "esm",
+  target: "es2022",
+  splitting: true,
+  minify: true,
+  external: [],
+  loader: { ".woff2": "file", ".woff": "file" },
+};

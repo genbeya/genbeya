@@ -1,17 +1,19 @@
 /**
  * The VS Code shell: the managers run in the extension host, on the machine
  * the workspace lives on (local, WSL, SSH or a container, by VS Code's remote
- * support), and native views show the repository's wiki and tasks. There is
- * no webview: pages and tasks open in VS Code's own editor.
+ * support). Native views list the repository's pages and tasks; pages and
+ * tasks open in a preview rendered as the app renders them, or in VS Code's
+ * editor to edit them. The board is a webview of its own.
  */
 import * as vscode from "vscode";
-import type { Snapshot } from "../../contracts/model";
+import type { Snapshot, WikiNode } from "../../contracts/model";
 import { createBackend, type Backend } from "../../managers/backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { CONTENT_SCHEME, ContentFiles } from "./content-files";
 import { Repository } from "./repository";
 import { TasksView, type TaskElement } from "./tasks-view";
-import { OPEN_COMMAND, WikiView } from "./wiki-view";
+import { Webviews, type Target } from "./webviews";
+import { PREVIEW_COMMAND, WikiView } from "./wiki-view";
 
 /** The `genbeya.state` context key, which picks the views' welcome text. */
 type State = "opening" | "open" | "none" | "failed";
@@ -42,10 +44,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
     void vscode.commands.executeCommand("setContext", "genbeya.state", state);
     wikiTree.message = tasksTree.message = message;
   };
+  const edit = async (target: Target) => {
+    if (repository) await vscode.window.showTextDocument(repository.uri(target.area, target.path));
+  };
+  const webviews = new Webviews(context.extensionUri, { repository: current, edit, move: (moved, status) => tasks.move(moved, status) });
   const redraw = () => {
     wiki.refresh();
     tasks.refresh();
     void files.checkOpenDocuments();
+    void webviews.refresh();
   };
 
   backend = await createBackend(nodeMachine(), context.globalStorageUri.fsPath);
@@ -91,7 +98,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
     tasksTree,
     vscode.workspace.registerFileSystemProvider(CONTENT_SCHEME, files, { isCaseSensitive: true }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => void open()),
-    vscode.commands.registerCommand(OPEN_COMMAND, (uri: vscode.Uri) => vscode.window.showTextDocument(uri, { preview: true })),
+    webviews,
+    vscode.commands.registerCommand(
+      PREVIEW_COMMAND,
+      withRepository(async (_, item?: Item) => {
+        const target = targetOf(item);
+        if (target) await webviews.showPreview(target);
+      }),
+    ),
+    vscode.commands.registerCommand(
+      "genbeya.edit",
+      withRepository(async (_, item?: Item) => {
+        const target = targetOf(item) ?? webviews.activePreview;
+        if (target) await edit(target);
+      }),
+    ),
+    vscode.commands.registerCommand(
+      "genbeya.openBoard",
+      withRepository(async () => webviews.showBoard()),
+    ),
     vscode.commands.registerCommand(
       "genbeya.refresh",
       withRepository((repository) => repository.refresh()),
@@ -112,7 +137,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
           epic: "",
         });
         await repository.refresh();
-        await vscode.window.showTextDocument(repository.uri("tasks", task.path));
+        await edit({ area: "tasks", path: task.path });
       }),
     ),
     vscode.commands.registerCommand(
@@ -126,7 +151,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
         if (!name) return;
         const page = await managers.content.createPage(repository.id, `${repository.snapshot.settings.wikiRoot}/${name.trim()}.md`);
         await repository.refresh();
-        await vscode.window.showTextDocument(repository.uri("wiki", page.path));
+        await edit({ area: "wiki", path: page.path });
       }),
     ),
     vscode.commands.registerCommand(
@@ -158,3 +183,13 @@ export async function deactivate(): Promise<void> {
 }
 
 const required = (value: string) => (value.trim() ? undefined : "Enter a name.");
+
+/** What commands on pages and tasks get: a tree item, or a page or task named directly. */
+type Item = WikiNode | TaskElement | Target;
+
+function targetOf(item: Item | undefined): Target | null {
+  if (!item) return null;
+  if ("area" in item) return item;
+  if ("kind" in item) return item.kind === "task" ? { area: "tasks", path: item.task.path } : null;
+  return item.path ? { area: "wiki", path: item.path } : null;
+}

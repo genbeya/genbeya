@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "../../contracts/model";
-import { groupTasks, withStatus } from "./task-groups";
+import { boardColumns, groupTasks, withStatus } from "./task-groups";
 
 const task = (id: string, status: string): Task => ({
   id,
@@ -44,6 +44,18 @@ describe("groupTasks", () => {
   it("collapses the last state and hidden columns", () => {
     const groups = groupTasks([], { statuses: ["backlog", "todo", "done"], hiddenColumns: ["backlog"] });
     expect(groups.map((group) => group.collapsed)).toEqual([true, false, true]);
+  });
+});
+
+describe("boardColumns", () => {
+  it("leaves out hidden columns but keeps states only tasks name", () => {
+    const tasks = [task("T-1", "backlog"), task("T-2", "todo"), task("T-3", "blocked")];
+    const columns = boardColumns(tasks, { statuses: ["backlog", "todo", "done"], hiddenColumns: ["backlog"] });
+    expect(columns.map((column) => [column.status, column.tasks.map((t) => t.id)])).toEqual([
+      ["todo", ["T-2"]],
+      ["done", []],
+      ["blocked", ["T-3"]],
+    ]);
   });
 });
 

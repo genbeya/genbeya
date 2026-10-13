@@ -6,7 +6,7 @@
 import type { Root } from "mdast";
 import type { Person } from "../../../contracts/model";
 import { MENTION, mentioned, peopleIndex } from "../../../utilities/people";
-import { avatarHue, initials } from "../ui/avatar";
+import { avatarHue, initials } from "../ui/avatar-hue";
 import { PERSON_LINK } from "./link-target";
 import { inline, replaceInProse } from "./prose-text";
 
