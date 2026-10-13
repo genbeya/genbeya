@@ -13,6 +13,7 @@
     "src/platforms",
     "src/shells/electron",
     "src/shells/deno",
+    "src/shells/vscode",
     "src/shells/tauri/*.ts",
     "src/shells/*.ts",
     "src/testing",

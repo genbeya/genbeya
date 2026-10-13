@@ -1,9 +1,10 @@
 name: Build
 
 # Tests Genbeya and packages it with Electron, Tauri and Deno Desktop on Windows,
-# macOS and Linux, and builds the web demo on Linux. Every run uploads the installers
-# and the demo as artifacts. A push to main whose version (package.json) has no release
-# yet publishes them all as one: bump the version (scripts/version.mjs) to release.
+# macOS and Linux, and builds the web demo and the VS Code extension on Linux. Every run
+# uploads the installers, the demo and the extension as artifacts. A push to main whose
+# version (package.json) has no release yet publishes the installers and the demo as one:
+# bump the version (scripts/version.mjs) to release.
 on:
   push:
     branches: [main, "experiment/**"]
@@ -87,6 +88,23 @@ jobs:
         with:
           name: Genbeya-web-demo
           path: out/web/genbeya-web-demo.zip
+          if-no-files-found: error
+
+      # The VS Code extension is JavaScript, the same on every system: tested in a downloaded
+      # VS Code and packed once, on Linux. Not attached to releases or published yet.
+      - name: Test the VS Code extension
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:vscode
+
+      - name: Pack the VS Code extension
+        if: runner.os == 'Linux'
+        run: npm run package:vscode
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: vscode-extension
+          path: release-vscode/*.vsix
           if-no-files-found: error
 
       # The Tauri shell embeds the client, which the end-to-end tests have built.

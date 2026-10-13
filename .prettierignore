@@ -1,6 +1,8 @@
 dist/
 release/
 release-deno/
+release-vscode/
+.vscode-test/
 .angular/
 .test-work/
 test-results/

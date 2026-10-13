@@ -22,7 +22,7 @@ const layer = (forbidden, message) => ({
 });
 
 export default tseslint.config(
-  { ignores: ["dist/", "out-tsc/", ".angular/", ".claude/", "release*/", "src/shells/tauri/src-tauri/", "node_modules/"] },
+  { ignores: ["dist/", "out-tsc/", ".angular/", ".claude/", "release*/", ".vscode-test/", "src/shells/tauri/src-tauri/", "node_modules/"] },
   {
     files: ["**/*.ts"],
     extends: [eslint.configs.recommended, ...tseslint.configs.strict, ...tseslint.configs.stylistic],

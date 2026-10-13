@@ -3,6 +3,8 @@ dist/
 out-tsc/
 release/
 release-deno/
+release-vscode/
+.vscode-test/
 out/
 .angular/
 .test-work/

@@ -1,0 +1,15 @@
+{
+  // F5 in VS Code: builds the extension (npm run build:vscode) and opens this repository
+  // in a second VS Code window with it, to try and debug the VS Code shell.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run the VS Code extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/dist/vscode", "${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/dist/vscode/**/*.cjs"],
+      "preLaunchTask": "Build the VS Code extension"
+    }
+  ]
+}

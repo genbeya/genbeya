@@ -22,6 +22,10 @@ node scripts/serve-demo.mjs 4200
 
 Then open http://127.0.0.1:4200/try/. Reloading the page starts the demo over.
 
+### The VS Code extension
+
+Open this folder in VS Code and press F5 (**Run the VS Code extension**): it builds the [VS Code extension](Architecture/VS-Code.md) into `dist/vscode` and opens this repository in a second VS Code window with it. After a change, run `npm run build:vscode` and reload that window (**Developer: Reload Window**).
+
 ## Scripts
 
 | Command | What it does |
@@ -40,6 +44,9 @@ Then open http://127.0.0.1:4200/try/. Reloading the page starts the demo over.
 | `npm run package` | Electron installer for the current OS, in `release/` |
 | `npm run package:tauri` | Tauri installers, in `src/shells/tauri/src-tauri/target/release/bundle/` |
 | `npm run package:deno` | Deno Desktop installers (`.msi`, `.dmg`, or `.AppImage` and `.deb`), in `release-deno/` |
+| `npm run build:vscode` | The VS Code extension, unpacked in `dist/vscode` |
+| `npm run test:vscode` | Build the VS Code extension, then its smoke test inside VS Code |
+| `npm run package:vscode` | The VS Code extension as `Genbeya-<version>-vscode.vsix`, in `release-vscode/` |
 
 ## Tests
 
@@ -48,11 +55,12 @@ Code is written test first. Specs sit next to the code they test.
 - **Backend** (`npm run test:backend`, Vitest): engines with plain data; resource access and managers against disposable repositories in `.test-work/`, including a content branch synced through a bare remote with some areas on it and the others in the checkout, and a WSL repository when the `Ubuntu` distribution exists. `backend.spec.ts` drives the managers through the RPC envelope, as a shell does. Both platforms pass the same machine contract (`src/testing/machine-contract.ts`); on Node it includes pseudo-terminals with the user's real shell. Managers that start terminals get fake ones (`src/testing/terminals.ts`).
 - **Client** (`npm run test:client`, Vitest through `ng test`): components with a fake platform (`src/client/app/testing/fake-platform.ts`), engines of the client such as fuzzy search and the commit graph, and the Markdown pipeline.
 - **End to end** (`npm run e2e`, Playwright): the packaged Electron app with a fresh profile and a fresh repository per test, opened through the `--open` launch argument. Covers wiki, tasks, version control, sharing, the shell, the terminal and the onboarding, and browsing WSL folders when the `Ubuntu` distribution exists. A test can launch the app again on the same profile (`launch`), e.g. with a `genbeya://` link. Unpackaged builds do not register for `genbeya://` links, so development never takes them over from the installed app. Profiles start as a user who has seen the tour and this version's news, so neither gets in the way; `test.use({ preferences: null })` starts like a first start, and other values set what the profile's `state.json` holds.
+- **VS Code extension** (`npm run test:vscode`): `src/shells/vscode/test/smoke.ts` runs inside VS Code's extension host on a sample repository in a temporary folder: the extension opens it, shows its pages and tasks, and saves through its content file system. VS Code is downloaded to `.vscode-test/`; set `VSCODE_EXECUTABLE` to an installed `Code.exe` (or `code` binary) to use that instead. The views' pure parts have unit tests next to them.
 - **Web demo** (`npm run e2e:demo`, Playwright in Chromium, `playwright.demo.config.ts`): the built demo served under `/try/` by `scripts/serve-demo.mjs`, a fresh page per test; every test also fails when the page requests anything from another origin. Install the browser once with `npx playwright install chromium`. The demo's managers have unit tests of their own in `src/managers/demo/` and `src/access/memory/`.
 
 ## Continuous integration
 
-`.github/workflows/build.yml` runs on every push and pull request to `main` and on pushes to `experiment/**` branches. On Windows, macOS and Linux it runs lint, unit and end-to-end tests (`.github/actions/verify`) and the Tauri shell's Rust tests, then packages Electron, Tauri and Deno Desktop. On Linux it also builds the web demo, tests it in Chromium and uploads it as `genbeya-web-demo.zip`.
+`.github/workflows/build.yml` runs on every push and pull request to `main` and on pushes to `experiment/**` branches. On Windows, macOS and Linux it runs lint, unit and end-to-end tests (`.github/actions/verify`) and the Tauri shell's Rust tests, then packages Electron, Tauri and Deno Desktop. On Linux it also builds the web demo, tests it in Chromium and uploads it as `genbeya-web-demo.zip`. It also tests the VS Code extension and uploads its `.vsix` as the artifact `vscode-extension`; releases don't include it yet.
 
 - The version is `package.json`'s, and the same in its lockfile, `tauri.conf.json`, `Cargo.toml` and `Cargo.lock`: `node scripts/version.mjs bump patch` (or `minor`, `major`) or `set 1.0.0` changes all of them, and CI fails when they disagree (`node scripts/version.mjs check`). Bump the patch for fixes, the minor version for new features. Installers replace an installed older version, so every release needs a higher version.
 - Deno Desktop's MSIs take their version from a generated `dist/deno/deno.json`; `scripts/msi-major-upgrade.ps1` adds the upgrade rules they lack, and refuses to install over a newer version. Installing an MSI of the same version again repairs it instead of upgrading.

@@ -25,7 +25,10 @@
     "icons": "electron scripts/make-icons.mjs",
     "package": "npm run build && electron-builder",
     "package:deno": "ng build && node scripts/package-deno.mjs",
-    "package:tauri": "ng build && cd src/shells/tauri && tauri build"
+    "package:tauri": "ng build && cd src/shells/tauri && tauri build",
+    "build:vscode": "node scripts/build-vscode.mjs",
+    "package:vscode": "node scripts/build-vscode.mjs --package",
+    "test:vscode": "node scripts/build-vscode.mjs && node scripts/test-vscode.mjs"
   },
   "dependencies": {
     "node-pty": "^1.1.0"
@@ -66,6 +69,9 @@
     "@types/hast": "^3.0.5",
     "@types/mdast": "^4.0.4",
     "@types/node": "^24.19.1",
+    "@types/vscode": "^1.140.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "angular-eslint": "^22.5.0",

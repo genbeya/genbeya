@@ -1,0 +1,17 @@
+---
+id: GENBEYA-22
+title: References and preview in VS Code's Markdown editor
+type: feature
+status: backlog
+priority: high
+labels: [vscode]
+---
+
+Pages and tasks open in VS Code's own Markdown editor, which knows nothing of Genbeya's references. Teach it, reusing the link engine.
+
+- [ ] `[[…]]` completion of tasks, pages and files
+- [ ] Hover with a task's title and status, a page's title
+- [ ] Document links: Ctrl+click opens the task, page or file (lines too)
+- [ ] Missing pages and tasks as diagnostics
+- [ ] Markdown preview: references with live titles and states, callouts, embeds of lines, `[TOC]`, through `markdown.markdownItPlugins`
+- [ ] Mermaid and the other diagrams in the preview, if VS Code's own Mermaid support doesn't cover them

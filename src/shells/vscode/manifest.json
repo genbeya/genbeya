@@ -1,0 +1,77 @@
+{
+  "name": "genbeya",
+  "displayName": "Genbeya",
+  "description": "The wiki and the task board of your Git repository, kept as plain Markdown files, in VS Code",
+  "publisher": "genbeya",
+  "author": "Emanuel Knecht",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "homepage": "https://genbeya.fyi",
+  "repository": { "type": "git", "url": "https://github.com/genbeya/genbeya" },
+  "bugs": { "url": "https://github.com/genbeya/genbeya/issues" },
+  "icon": "icon.png",
+  "categories": ["Other"],
+  "keywords": ["wiki", "tasks", "kanban", "markdown", "git"],
+  "engines": { "vscode": "^1.140.0" },
+  "extensionKind": ["workspace"],
+  "main": "./extension.cjs",
+  "activationEvents": ["workspaceContains:.genbeya.yml"],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Genbeya runs Git in the repository, which can run programs the repository configures."
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [{ "id": "genbeya", "title": "Genbeya", "icon": "genbeya-mono.svg" }]
+    },
+    "views": {
+      "genbeya": [
+        { "id": "genbeya.wiki", "name": "Wiki" },
+        { "id": "genbeya.tasks", "name": "Tasks" }
+      ]
+    },
+    "viewsWelcome": [
+      { "view": "genbeya.wiki", "contents": "Opening the repository…", "when": "genbeya.state == opening" },
+      {
+        "view": "genbeya.wiki",
+        "contents": "Genbeya shows the wiki and the tasks of a Git repository.\n[Open Folder](command:vscode.openFolder)",
+        "when": "genbeya.state == none"
+      },
+      {
+        "view": "genbeya.wiki",
+        "contents": "Genbeya couldn't open this folder as a Git repository.\n[Open Folder](command:vscode.openFolder)",
+        "when": "genbeya.state == failed"
+      },
+      {
+        "view": "genbeya.wiki",
+        "contents": "This repository has no wiki pages yet.\n[New Page](command:genbeya.newPage)",
+        "when": "genbeya.state == open"
+      }
+    ],
+    "commands": [
+      { "command": "genbeya.refresh", "title": "Refresh", "category": "Genbeya", "icon": "$(refresh)" },
+      { "command": "genbeya.newPage", "title": "New Page…", "category": "Genbeya", "icon": "$(new-file)" },
+      { "command": "genbeya.newTask", "title": "New Task…", "category": "Genbeya", "icon": "$(add)" },
+      { "command": "genbeya.setStatus", "title": "Move to…", "category": "Genbeya" },
+      { "command": "genbeya.open", "title": "Open", "category": "Genbeya" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "genbeya.newPage", "when": "view == genbeya.wiki && genbeya.state == open", "group": "navigation@1" },
+        { "command": "genbeya.refresh", "when": "view == genbeya.wiki && genbeya.state == open", "group": "navigation@2" },
+        { "command": "genbeya.newTask", "when": "view == genbeya.tasks && genbeya.state == open", "group": "navigation@1" },
+        { "command": "genbeya.refresh", "when": "view == genbeya.tasks && genbeya.state == open", "group": "navigation@2" }
+      ],
+      "view/item/context": [{ "command": "genbeya.setStatus", "when": "view == genbeya.tasks && viewItem == task" }],
+      "commandPalette": [
+        { "command": "genbeya.refresh", "when": "genbeya.state == open" },
+        { "command": "genbeya.newPage", "when": "genbeya.state == open" },
+        { "command": "genbeya.newTask", "when": "genbeya.state == open" },
+        { "command": "genbeya.setStatus", "when": "false" },
+        { "command": "genbeya.open", "when": "false" }
+      ]
+    }
+  }
+}
