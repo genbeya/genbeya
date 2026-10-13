@@ -91,7 +91,7 @@ jobs:
           if-no-files-found: error
 
       # The VS Code extension is JavaScript, the same on every system: tested in a downloaded
-      # VS Code and packed once, on Linux. Releases attach it; it is on no marketplace yet.
+      # VS Code and packed once, on Linux. Releases attach it and publish it to the stores.
       - name: Test the VS Code extension
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run test:vscode
@@ -168,6 +168,7 @@ jobs:
           merge-multiple: true
 
       - name: Publish release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -194,3 +195,27 @@ jobs:
             --notes-file out/release-notes.md \
             --generate-notes \
             --latest="$latest"
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # The release's .vsix goes to both extension stores, only with a new release: they refuse a
+      # version they have. A store is skipped while its token secret is missing.
+      - name: Publish the VS Code extension
+        if: steps.release.outputs.published == 'true'
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          VSIX: out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix
+        run: |
+          if [ -n "$VSCE_PAT" ]; then
+            npx --yes @vscode/vsce@4.0.0 publish --packagePath "$VSIX"
+          else
+            echo "::warning::VSCE_PAT is not set; the extension is not published to the Visual Studio Marketplace."
+          fi
+          if [ -n "$OVSX_PAT" ]; then
+            # The namespace exists after the first release; creating it again fails harmlessly.
+            npx --yes ovsx@1.2.0 create-namespace genbeya || true
+            npx --yes ovsx@1.2.0 publish "$VSIX"
+          else
+            echo "::warning::OVSX_PAT is not set; the extension is not published to Open VSX."
+          fi

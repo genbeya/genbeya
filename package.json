@@ -1,6 +1,6 @@
 {
   "name": "genbeya",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "A desktop workspace for Git repositories: wiki, tasks, code and version control",
   "author": "Emanuel Knecht",

@@ -21,6 +21,6 @@ The builds are unsigned:
 - **macOS**: open the app the first time with right-click → _Open_, or run `xattr -dr com.apple.quarantine "/Applications/Genbeya.app"` (or `Genbeya Tauri.app`, `Genbeya Deno.app`).
 - **Linux**: make the AppImage executable with `chmod +x Genbeya-*.AppImage` before running it.
 
-**VS Code**: `Genbeya-{{version}}-vscode.vsix` is the extension for VS Code 1.140 or newer (and VSCodium, Cursor): the wiki, the tasks and the board next to your code. Install it with _Extensions → … → Install from VSIX…_, or `code --install-extension Genbeya-{{version}}-vscode.vsix`.
+**VS Code**: the extension (the wiki, the tasks and the board next to your code) is on the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=genbeya.genbeya) and [Open VSX](https://open-vsx.org/extension/genbeya/genbeya); search for Genbeya in the Extensions view. `Genbeya-{{version}}-vscode.vsix` is the same extension, for installing it with _Extensions → … → Install from VSIX…_.
 
 `genbeya-web-demo.zip` is not an installer: it holds the in-browser demo that [genbeya.fyi/try](https://genbeya.fyi/try/) serves, as static files.

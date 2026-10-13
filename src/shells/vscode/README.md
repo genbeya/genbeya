@@ -9,7 +9,7 @@
 
 It works on repositories on this computer and, through VS Code's remote support, in WSL, over SSH and in containers. Areas kept on a shared content branch open and save through Genbeya, which commits each save there.
 
-This is an early preview. The desktop app at [genbeya.fyi](https://genbeya.fyi) has everything else, such as Genbeya's Git tools.
+This is an early preview. The desktop app at [genbeya.fyi](https://genbeya.fyi) has everything else, such as Genbeya's Git tools. The [guide](https://genbeya.fyi/docs/guide/vs-code/) explains every part of the extension.
 
 ## License
 
