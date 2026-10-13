@@ -25,3 +25,7 @@ To decide, what the wiki's button shows when nothing is unsaved:
 
 - **Done** in the default style, closing the editor; **Save** in purple only while there are changes. (My suggestion: it keeps the one-click way out and reads like the state.)
 - Grey and disabled, as in Code; leaving the editor is then only **Cancel**.
+
+### Emanuel Knecht — 2026-10-14 01:29+02:00
+
+yes, your recommendation solves it neatly.

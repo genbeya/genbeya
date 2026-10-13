@@ -23,3 +23,7 @@ To decide:
 
 - Remember the choice per file type, per file, or one choice for all Markdown files? I'd remember one choice for all Markdown files, like the wiki's preview toggle.
 - Should the wiki get the same three-way switch instead of its toggle, so the two views match?
+
+### Emanuel Knecht — 2026-10-14 01:32+02:00
+
+having a preview fo certain files will be very useful indeed, not only markdown.. three-way switch sounds good.

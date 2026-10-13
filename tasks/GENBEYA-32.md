@@ -25,3 +25,7 @@ What it could be, building on what exists:
 4. Later, the same for commit messages that name the task (task IDs in rendered text are links already).
 
 To decide: whether we want this, and which part first. I'd start with 1 and 3: small, local, no new settings. It fits the forge plugins on the roadmap too (pull requests naming the task).
+
+### Emanuel Knecht — 2026-10-14 01:35+02:00
+
+sounds useful.. also, the thing with branch names mentioning tasks being linked to those tasks.. that was  indeed a useful bb feature.

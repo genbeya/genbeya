@@ -30,3 +30,7 @@ Plan: keep the place by source line, not by pixels, since text and rendering hav
 2. Leaving the preview: the first block in view gives the line; the editor scrolls that line to the top. Leaving the editor: its first visible line gives the block to scroll to.
 
 The same mapping can scroll the wiki's side-by-side preview along with the editor, and replace the share-of-length scrolling in the VS Code extension's **Open Preview to the Side** ([[GENBEYA-22]]).
+
+### Emanuel Knecht — 2026-10-14 01:27+02:00
+
+yes and lets discuss a tangent one: scrolling while we have code and preview side-by-side.. how hard would it be to keep both side s more or less in sync?

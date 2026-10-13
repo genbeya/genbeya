@@ -29,3 +29,7 @@ To reproduce: edit any page (or a Markdown file in **Code**) and type `<->` slow
 Plan: turn ligatures off in the editors (`font-variant-ligatures: none` and no inherited feature settings for the monospace font), at least in Markdown, where `->` and `##` are text, not operators.
 
 To decide: off everywhere (Markdown and code), or off in Markdown only, or a setting (default off)? I'd turn them off everywhere and add a setting only if someone asks for ligatures in code.
+
+### Emanuel Knecht — 2026-10-14 01:24+02:00
+
+i generall love ligatures.. lets try another font.. maybe fira code or roboto mono.. lets test if it is only an issue with that jetbrains thing or a general ligatures bug.

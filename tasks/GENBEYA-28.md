@@ -30,3 +30,7 @@ Cause: the sidebar links and `Ctrl+1` … `Ctrl+5` go to `/wiki`, `/tasks` and `
 Plan: remember each view's last URL for the open repository in the session (in memory), and let the sidebar links and their shortcuts return there. Forget a remembered page, task or file when it is deleted or moved, and when the repository changes. Back and forward keep working as now.
 
 To decide: should the views also come back after restarting the app (saved in the preferences, like the last repository)? I'd start with the session only.
+
+### Emanuel Knecht — 2026-10-14 01:25+02:00
+
+no persistencem session only
