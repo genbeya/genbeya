@@ -164,6 +164,17 @@
     <span class="sync-count"><svg gd-icon name="arrow-down" [size]="11"></svg>{{ snapshot().head.behind }}</span>
   }
 </button>
+@if (branchTask(); as task) {
+  <a
+    class="branch-task"
+    routerLink="/tasks"
+    [queryParams]="{ task: task.id }"
+    [title]="'The branch belongs to ' + task.id + ': ' + task.title"
+  >
+    <span class="mono">{{ task.id }}</span
+    ><span class="grow ellipsis">{{ task.title }}</span>
+  </a>
+}
 
 @if (terminals.available() !== false) {
   <button

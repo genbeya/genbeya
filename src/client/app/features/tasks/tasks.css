@@ -440,6 +440,18 @@
   padding: 0;
 }
 
+.task-branches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -10px 0 22px;
+}
+
+.property.is-current {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
 .task-fields {
   display: grid;
   grid-template-columns: minmax(80px, 140px) minmax(0, 1fr);

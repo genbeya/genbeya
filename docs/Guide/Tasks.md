@@ -49,7 +49,15 @@ Click a card to open the task beside the board.
 - Status, type, priority, assignee, epic and labels change right away from the chips under the title; custom fields sit below them. **Assignee** offers the repository's people — see [Writing pages](Writing.md#assignees).
 - Checkboxes in the description can be ticked without editing.
 - `E` (or **Edit**) edits the title and description, with `[[` completion for [References](References.md). `Ctrl+S` or `Ctrl+Enter` saves, `Esc` cancels, and `Esc` again closes the panel.
-- The `…` menu copies links to the task (see [Sharing](Sharing.md)) and deletes it.
+- The `…` menu copies links to the task (see [Sharing](Sharing.md)), creates a branch for it (see [Branches of a task](#branches-of-a-task)) and deletes it.
+
+## Branches of a task
+
+A branch whose name contains a task's ID belongs to that task, as in Jira and Bitbucket: `GENBEYA-32-branch-links`, `feature/genbeya-32` (any case, anywhere in the name).
+
+- The task lists its branches below its properties; click one to switch to it (a branch only on a remote is checked out). The checked-out one is highlighted.
+- **…** → **Create branch…** offers a name made of the ID and the title, such as `GENBEYA-32-link-branches-to-tasks`, and switches to the new branch.
+- Below the branch in the sidebar, the task of the checked-out branch is shown; click it to open the task.
 
 ## Comments
 
