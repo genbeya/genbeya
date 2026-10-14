@@ -37,6 +37,7 @@ code,
 kbd,
 pre {
   font-family: var(--font-mono);
+  font-variant-ligatures: var(--mono-ligatures, normal);
 }
 
 ::selection {

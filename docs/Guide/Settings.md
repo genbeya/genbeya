@@ -12,7 +12,7 @@
 | **Where content lives** | Whether the wiki, the tasks and the settings live in the checkout or on the [Content branch](../Architecture/Content-branch.md), and **Sync automatically** | Everyone, through the content branch |
 | **AI agents** | Files that teach coding agents to use the tasks and the wiki — see [AI agents](AI-agents.md) | Everyone, once committed |
 | **Remotes** | Add, edit and remove Git remotes | This clone |
-| **App** | Theme, **Reopen last repository** on start, **Show minimap** in the editor | This computer |
+| **App** | Theme, **Reopen last repository** on start, **Show minimap** in the editor, **Editor font** and **Ligatures** | This computer |
 | **Help** | The version, **Start the tour**, **Show what's new**, **Open the documentation** | — |
 
 Changes to **Project** wait for **Save** (`Ctrl+S`) or **Discard**; everything else applies right away. Saving writes `.genbeya.yml`, an ordinary change to commit in **Changes** — unless the settings live on the content branch, where the save is committed right away.
@@ -179,4 +179,6 @@ git config genbeya.branch team-content
 
 ## Personal preferences
 
-Theme, **Reopen last repository**, **Show minimap**, recent repositories and what the onboarding has shown you are stored per variant in the app's data folder (`state.json`), not in the repository.
+Theme, **Reopen last repository**, **Show minimap**, the editor font, ligatures, recent repositories and what the onboarding has shown you are stored per variant in the app's data folder (`state.json`), not in the repository.
+
+**Editor font** picks the font of the editors and of code in pages: JetBrains Mono (the default), Fira Code, Cascadia Code or Roboto Mono, all shipped with Genbeya. **Ligatures** lets the font join characters into one glyph, such as `->` into an arrow or `<=` into ≤; Roboto Mono has none.

@@ -24,7 +24,12 @@ import { highlight } from "./syntax";
 
 export const editorTheme = EditorView.theme({
   "&": { height: "100%", color: "var(--text)", backgroundColor: "transparent", fontSize: "13px" },
-  ".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "21px", padding: "14px 0" },
+  ".cm-scroller": {
+    fontFamily: "var(--font-mono)",
+    fontVariantLigatures: "var(--mono-ligatures, normal)",
+    lineHeight: "21px",
+    padding: "14px 0",
+  },
   ".cm-content": { caretColor: "var(--accent)" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--accent)", borderLeftWidth: "2px" },
   "&.cm-focused": { outline: "none" },

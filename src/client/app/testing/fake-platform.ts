@@ -45,6 +45,8 @@ export const PREFERENCES: Preferences = {
   reopenLast: true,
   autoSyncContent: false,
   minimap: true,
+  editorFont: "jetbrains-mono",
+  ligatures: true,
   lastSeenVersion: APP_VERSION,
   tourSeen: true,
   tourOffered: [],
