@@ -38,6 +38,8 @@ kbd,
 pre {
   font-family: var(--font-mono);
   font-variant-ligatures: var(--mono-ligatures, normal);
+  /* Inter's alternates (see body) mean other glyphs in the code fonts. */
+  font-feature-settings: normal;
 }
 
 ::selection {

@@ -20,6 +20,7 @@ import { brackets } from "./brackets";
 import { editingKeymap, multipleCursors } from "./editor-keymap";
 import { findWidget } from "./find-widget";
 import { folding } from "./folding";
+import { reshapeLigatures } from "./ligatures";
 import { highlight } from "./syntax";
 
 export const editorTheme = EditorView.theme({
@@ -110,6 +111,7 @@ export function editingSetup(numbered: boolean): Extension[] {
     findWidget(),
     syntaxHighlighting(highlight),
     editingKeymap,
+    reshapeLigatures,
     editorTheme,
   ];
 }
