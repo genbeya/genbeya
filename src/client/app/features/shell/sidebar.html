@@ -52,19 +52,47 @@
 </button>
 
 <nav class="sidebar-nav" aria-label="Views" data-tour="views">
-  <a class="nav-item" routerLink="/wiki" routerLinkActive="is-active" [title]="'Wiki (' + mod + '+1)'">
+  <a
+    class="nav-item"
+    routerLink="/wiki"
+    [queryParams]="views.params('wiki')"
+    routerLinkActive="is-active"
+    [routerLinkActiveOptions]="activeOptions"
+    [title]="'Wiki (' + mod + '+1)'"
+  >
     <svg gd-icon name="book-open" [size]="16"></svg><span class="grow">Wiki</span>
   </a>
-  <a class="nav-item" routerLink="/tasks" routerLinkActive="is-active" [title]="'Tasks (' + mod + '+2)'">
+  <a
+    class="nav-item"
+    routerLink="/tasks"
+    [queryParams]="views.params('tasks')"
+    routerLinkActive="is-active"
+    [routerLinkActiveOptions]="activeOptions"
+    [title]="'Tasks (' + mod + '+2)'"
+  >
     <svg gd-icon name="layout-grid" [size]="16"></svg><span class="grow">Tasks</span>
     @if (openTasks()) {
       <span class="nav-count" [attr.aria-label]="openTasks() + ' open'">{{ openTasks() }}</span>
     }
   </a>
-  <a class="nav-item" routerLink="/code" routerLinkActive="is-active" [title]="'Code (' + mod + '+3)'">
+  <a
+    class="nav-item"
+    routerLink="/code"
+    [queryParams]="views.params('code')"
+    routerLinkActive="is-active"
+    [routerLinkActiveOptions]="activeOptions"
+    [title]="'Code (' + mod + '+3)'"
+  >
     <svg gd-icon name="code-xml" [size]="16"></svg><span class="grow">Code</span>
   </a>
-  <a class="nav-item" routerLink="/changes" routerLinkActive="is-active" [title]="'Changes (' + mod + '+4)'">
+  <a
+    class="nav-item"
+    routerLink="/changes"
+    [queryParams]="views.params('changes')"
+    routerLinkActive="is-active"
+    [routerLinkActiveOptions]="activeOptions"
+    [title]="'Changes (' + mod + '+4)'"
+  >
     <svg gd-icon name="git-commit-horizontal" [size]="16"></svg><span class="grow">Changes</span>
     @if (snapshot().changes.length) {
       <span class="nav-count is-accent" [attr.aria-label]="snapshot().changes.length + ' changed files'">{{
@@ -72,7 +100,14 @@
       }}</span>
     }
   </a>
-  <a class="nav-item" routerLink="/history" routerLinkActive="is-active" [title]="'History (' + mod + '+5)'">
+  <a
+    class="nav-item"
+    routerLink="/history"
+    [queryParams]="views.params('history')"
+    routerLinkActive="is-active"
+    [routerLinkActiveOptions]="activeOptions"
+    [title]="'History (' + mod + '+5)'"
+  >
     <svg gd-icon name="history" [size]="16"></svg><span class="grow">History</span>
   </a>
 </nav>
