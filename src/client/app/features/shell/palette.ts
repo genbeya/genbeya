@@ -30,6 +30,7 @@ import { allItems, branchItems, linkItem, mentionItems, mergeItems, rank, rebase
 import { RepositoryActions } from "./repository-actions";
 import { describeResults, SEARCH_PREFIX, searchItems, searchText, type PaletteRow, type SearchCommands } from "./search-items";
 import { ShellUi, type PaletteMode } from "./shell-ui";
+import { ViewMemory } from "./view-memory";
 import { textSearch } from "./text-search";
 
 /**
@@ -170,6 +171,7 @@ export class Palette {
   private readonly dialog = inject(DialogRef);
   private readonly session = inject(Session);
   private readonly router = inject(Router);
+  private readonly views = inject(ViewMemory);
   private readonly wiki = inject(WikiActions);
   private readonly repository = inject(RepositoryActions);
   private readonly operations = inject(OperationActions);
@@ -196,7 +198,7 @@ export class Palette {
   protected readonly toggles = TOGGLES;
 
   private readonly commands: PaletteCommands = {
-    go: (view) => void this.router.navigate([`/${view}`]),
+    go: (view) => void this.views.open(view),
     openPage: (path) => void this.wiki.openPage(path),
     openTask: (task) => void this.router.navigate(["/tasks"], { queryParams: { task } }),
     openFile: (file) => void this.router.navigate(["/code"], { queryParams: { file } }),

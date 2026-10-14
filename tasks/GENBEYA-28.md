@@ -2,7 +2,7 @@
 id: GENBEYA-28
 title: Views forget the open page, task or file when you switch away and back
 type: improvement
-status: backlog
+status: review
 priority: high
 labels: [feedback, navigation]
 ---
@@ -34,3 +34,7 @@ To decide: should the views also come back after restarting the app (saved in th
 ### Emanuel Knecht — 2026-10-14 01:25+02:00
 
 no persistencem session only
+
+### Claude — 2026-10-14 01:50+02:00
+
+Done, session only: `ViewMemory` (`features/shell/view-memory.ts`) remembers where each view was left, per repository, and the sidebar links, `Ctrl+1` … `Ctrl+5` and the palette's view commands return there. One-off parameters (a line to scroll to, a new task) are not remembered, and a page, task or file that is gone since is left out. Checked in the web demo for the wiki, tasks and code.

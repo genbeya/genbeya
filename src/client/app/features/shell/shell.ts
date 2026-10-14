@@ -19,6 +19,7 @@ import { ShellUi } from "./shell-ui";
 import { CommitDraft } from "../changes/commit-draft";
 import { OperationBanner } from "../operations/operation-banner";
 import { Sidebar, VIEWS } from "./sidebar";
+import { ViewMemory } from "./view-memory";
 
 /** Loads the terminal panel, with xterm.js; a separate chunk, since many never open a terminal. */
 export const TERMINAL_PANEL = new InjectionToken<() => Promise<Type<unknown>>>("terminal panel", {
@@ -62,6 +63,8 @@ export class Shell {
     const notifications = inject(Notifications);
     const loadTerminalPanel = inject(TERMINAL_PANEL);
     const destroyRef = inject(DestroyRef);
+    // Listens from the first navigation on.
+    const views = inject(ViewMemory);
     // Every repository starts on its wiki.
     void router.navigate(["/wiki"]);
 
@@ -73,7 +76,7 @@ export class Shell {
     hotkey("alt+arrowright", () => history.forward());
     hotkey(
       VIEWS.map((_, i) => `mod+${i + 1}`),
-      (event) => void router.navigate(["/" + VIEWS[Number(event.key) - 1]]),
+      (event) => void views.open(VIEWS[Number(event.key) - 1]!),
     );
     hotkey("mod+,", () => void router.navigate(["/settings"]));
     hotkey(TOGGLE_TERMINAL, () => void this.terminals.toggle());

@@ -14,9 +14,9 @@ import { AREA_NAMES } from "../settings/content-areas";
 import { RepositoryActions } from "./repository-actions";
 import { HostIcon, initials } from "./repository-mark";
 import { ShellUi } from "./shell-ui";
+import { ViewMemory } from "./view-memory";
 
-export const VIEWS = ["wiki", "tasks", "code", "changes", "history"] as const;
-export type View = (typeof VIEWS)[number];
+export { VIEWS, type View } from "./view-memory";
 
 @Component({
   selector: "gd-sidebar",
@@ -31,6 +31,10 @@ export class Sidebar {
   protected readonly ui = inject(ShellUi);
   protected readonly actions = inject(RepositoryActions);
   protected readonly terminals = inject(Terminals);
+  /** Links return to where each view was left. */
+  protected readonly views = inject(ViewMemory);
+  /** A view's link is active whatever is open in it. */
+  protected readonly activeOptions = { paths: "exact", queryParams: "ignored", matrixParams: "ignored", fragment: "ignored" } as const;
   protected readonly mod = MOD_KEY;
   protected readonly ctrl = CTRL_KEY;
   protected readonly snapshot = computed(() => this.session.snapshot()!);

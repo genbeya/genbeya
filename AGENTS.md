@@ -12,6 +12,10 @@ This project plans its work as Genbeya tasks and documents itself in a Genbeya w
 
 <!-- genbeya:end -->
 
+## Branches
+
+Work on a branch off `develop` (`feature/…`, `fix/…`) and open the pull request into `develop`, naming the task. Never commit to `main` or `develop` directly, and never bump the version unless asked: releases are `develop` merged into `main`, see [[Development]].
+
 ## Keeping the web demo in step
 
 The web demo ([[Demo]], `src/managers/demo/`) implements the same manager contracts on in-memory repositories. When you change what a manager does, change its demo counterpart in the same commit, and run `npm run e2e:demo` besides the other tests. New contract methods don't compile until the demo implements them.

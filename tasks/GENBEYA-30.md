@@ -2,7 +2,7 @@
 id: GENBEYA-30
 title: The wiki's Save button doesn't show whether there is anything to save
 type: bug
-status: backlog
+status: review
 priority: low
 labels: [feedback, wiki]
 ---
@@ -29,3 +29,7 @@ To decide, what the wiki's button shows when nothing is unsaved:
 ### Emanuel Knecht — 2026-10-14 01:29+02:00
 
 yes, your recommendation solves it neatly.
+
+### Claude — 2026-10-14 02:00+02:00
+
+Done as recommended: while editing a page, the button is **Save** (purple, saves and closes) while there are unsaved changes, and **Done** (default style, closes) once everything is saved, so `Ctrl+S` turns it into **Done**. The wiki guide says so.
