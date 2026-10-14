@@ -9,6 +9,7 @@ import { Terminals } from "../../core/terminals";
 import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { DemoBadge } from "../demo/demo-badge";
+import { taskOfBranch } from "../tasks/task-branches";
 import { TourOffer } from "../onboarding/tour-offer";
 import { AREA_NAMES } from "../settings/content-areas";
 import { RepositoryActions } from "./repository-actions";
@@ -47,6 +48,12 @@ export class Sidebar {
     return location.kind === "wsl" ? location.distro : location.kind === "ssh" ? "SSH" : null;
   });
   protected readonly locationText = computed(() => describeLocation(this.snapshot().location));
+  /** The task the checked-out branch is named after, such as GENBEYA-32 for `GENBEYA-32-branch-links`. */
+  protected readonly branchTask = computed(() => {
+    const { head, settings, tasks } = this.snapshot();
+    const id = head.branch ? taskOfBranch(head.branch, settings.taskPrefix, new Set(tasks.map((task) => task.id))) : null;
+    return tasks.find((task) => task.id === id) ?? null;
+  });
   /** The content branch while it has something to sync, and what it holds. */
   protected readonly contentBranch = computed(() => {
     const storage = this.snapshot().storage;
