@@ -62,9 +62,14 @@ const PREVIEW_DELAY = 150;
             <svg gd-icon name="columns-2" [size]="15"></svg>
           </button>
           <button type="button" class="btn btn-ghost btn-m" (click)="cancel()"><span>Cancel</span></button>
-          <button type="button" class="btn btn-primary btn-m" (click)="save(true)">
-            <span>Save</span><kbd class="kbd">{{ mod }} S</kbd>
-          </button>
+          <!-- Save while there is something to save; Done closes the editor once everything is saved. -->
+          @if (dirty()) {
+            <button type="button" class="btn btn-primary btn-m" (click)="save(true)">
+              <span>Save</span><kbd class="kbd">{{ mod }} S</kbd>
+            </button>
+          } @else {
+            <button type="button" class="btn btn-default btn-m" (click)="save(true)"><span>Done</span></button>
+          }
         } @else {
           <button type="button" class="btn btn-default btn-m" data-tour="wiki-edit" [disabled]="!resource.file()" (click)="edit()">
             <svg gd-icon name="pencil" [size]="13"></svg><span>Edit</span><kbd class="kbd">E</kbd>
