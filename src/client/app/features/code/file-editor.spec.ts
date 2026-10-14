@@ -23,7 +23,8 @@ describe("FileEditor", () => {
     await choose("Split");
     expect(host.querySelector(".file-body")!.classList).toContain("is-split");
     expect(host.querySelector(".cm-editor")).not.toBeNull();
-    expect(host.querySelector(".file-preview h1")?.textContent).toBe("Guide");
+    // The preview renders asynchronously, after the editor.
+    await vi.waitFor(() => expect(host.querySelector(".file-preview h1")?.textContent).toBe("Guide"));
     // The chosen mode is remembered for the next file; the next test starts editing.
     await choose("Edit");
   });
