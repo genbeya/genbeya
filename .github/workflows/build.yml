@@ -2,14 +2,14 @@ name: Build
 
 # Tests Genbeya and packages it with Electron, Tauri and Deno Desktop on Windows,
 # macOS and Linux, and builds the web demo and the VS Code extension on Linux. Every run
-# uploads the installers, the demo and the extension as artifacts. A push to main whose
-# version (package.json) has no release yet publishes them all as one: bump the version
-# (scripts/version.mjs) to release.
+# uploads the installers, the demo and the extension as artifacts. Work is merged into
+# develop; only a push to main (merging develop into it) whose version (package.json) has
+# no release yet publishes them all as one: bump the version (scripts/version.mjs) to release.
 on:
   push:
-    branches: [main, "experiment/**"]
+    branches: [main, develop, "experiment/**"]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 concurrency:
