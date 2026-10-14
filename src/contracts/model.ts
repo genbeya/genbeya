@@ -628,12 +628,20 @@ export interface RecentEntry {
 
 export type Theme = "system" | "light" | "dark";
 
+/** The monospace fonts the editors offer; all ship with the app. */
+export const EDITOR_FONTS = ["jetbrains-mono", "fira-code", "cascadia-code", "roboto-mono"] as const;
+export type EditorFont = (typeof EDITOR_FONTS)[number];
+
 export interface Preferences {
   readonly theme: Theme;
   readonly reopenLast: boolean;
   readonly autoSyncContent: boolean;
   /** A minimap beside code in the editor. */
   readonly minimap: boolean;
+  /** The font of the editors and of code in pages. */
+  readonly editorFont: EditorFont;
+  /** Whether that font may join characters such as `->` into one glyph. */
+  readonly ligatures: boolean;
   /** The app version whose news the user has seen ("0.3.2"); null until the first start. */
   readonly lastSeenVersion: string | null;
   /** The user finished or ended the guided tour. */

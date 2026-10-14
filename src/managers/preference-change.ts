@@ -1,5 +1,5 @@
 /** Validating a change of the user's preferences; shared by the workspace manager and the web demo's. */
-import type { Preferences, Theme } from "../contracts/model";
+import { EDITOR_FONTS, type EditorFont, type Preferences, type Theme } from "../contracts/model";
 import { parseVersion } from "../utilities/version";
 
 const THEMES: readonly Theme[] = ["system", "light", "dark"];
@@ -17,7 +17,11 @@ export function changePreferences(current: Preferences, change: unknown): Prefer
     if (!THEMES.includes(value.theme as Theme)) throw new Error("Choose the system, light or dark theme.");
     next.theme = value.theme as Theme;
   }
-  for (const key of ["reopenLast", "autoSyncContent", "minimap", "tourSeen"] as const)
+  if (value.editorFont !== undefined) {
+    if (!EDITOR_FONTS.includes(value.editorFont as EditorFont)) throw new Error("Choose one of the editor fonts Genbeya ships.");
+    next.editorFont = value.editorFont as EditorFont;
+  }
+  for (const key of ["reopenLast", "autoSyncContent", "minimap", "ligatures", "tourSeen"] as const)
     if (value[key] !== undefined) {
       if (typeof value[key] !== "boolean") throw new Error(`Invalid ${key} preference.`);
       next[key] = value[key];

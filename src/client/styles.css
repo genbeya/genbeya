@@ -1,6 +1,10 @@
 /* The global design system; features add component-scoped styles. */
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/jetbrains-mono";
+/* The other editor fonts; a font's files only load once it is chosen in Settings. */
+@import "@fontsource-variable/fira-code";
+@import "@fontsource-variable/cascadia-code";
+@import "@fontsource-variable/roboto-mono";
 @import "@angular/cdk/overlay-prebuilt.css";
 @import "./styles/tokens.css";
 @import "./styles/base.css";

@@ -9,6 +9,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   reopenLast: true,
   autoSyncContent: false,
   minimap: true,
+  editorFont: "jetbrains-mono",
+  ligatures: true,
   lastSeenVersion: null,
   tourSeen: false,
   tourOffered: [],
