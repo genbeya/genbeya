@@ -1,5 +1,5 @@
 import { CdkContextMenuTrigger, CdkMenu, CdkMenuTrigger } from "@angular/cdk/menu";
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, viewChild, type ElementRef } from "@angular/core";
 import { Router } from "@angular/router";
 import type { LinkItem } from "../../../../contracts/genbeya-link";
 import { Dialogs } from "../../core/dialogs";
@@ -11,14 +11,30 @@ import { ShareLinks } from "../../core/share-links";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { CodeEditor, type LineRange } from "../../editor/code-editor";
+import { ScrollLink } from "../../editor/scroll-link";
 import { MarkdownView } from "../../markdown/markdown-view";
+import { previewTopLine, scrollPreviewToLine } from "../../markdown/source-lines";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
+import type { IconName } from "../../ui/icon-data";
 import { MenuItem } from "../../ui/menu-item";
 import { ShareMenu } from "../share/share-menu";
 import { WikiActions } from "../wiki/wiki-actions";
+import { previewKind, previewMarkdown } from "./preview-kinds";
 
-/** One repository file in the editor; Markdown can also be previewed. */
+type Mode = "edit" | "split" | "preview";
+
+const MODES: readonly { readonly mode: Mode; readonly label: string; readonly icon: IconName }[] = [
+  { mode: "edit", label: "Edit", icon: "pencil" },
+  { mode: "split", label: "Split", icon: "columns-2" },
+  { mode: "preview", label: "Preview", icon: "eye" },
+];
+
+/** The mode files with a preview open in: the one chosen last, for as long as the app runs. */
+const lastMode = signal<Mode>("edit");
+const PREVIEW_DELAY = 150;
+
+/** One repository file in the editor; Markdown, diagram sources and SVG can also be previewed, beside the text or instead of it. */
 @Component({
   selector: "gd-file-editor",
   imports: [CdkContextMenuTrigger, CdkMenu, CdkMenuTrigger, CodeEditor, EmptyState, Icon, MarkdownView, MenuItem, ShareMenu],
@@ -40,14 +56,19 @@ import { WikiActions } from "../wiki/wiki-actions";
         <span class="dirty-dot" title="Unsaved changes" aria-label="Unsaved changes"></span>
       }
       <span class="grow"></span>
-      @if (markdown()) {
+      @if (kind()) {
         <div class="segmented" role="radiogroup" aria-label="Mode">
-          <button type="button" role="radio" [attr.aria-checked]="!preview()" [class.is-active]="!preview()" (click)="preview.set(false)">
-            <svg gd-icon name="pencil" [size]="12"></svg> Edit
-          </button>
-          <button type="button" role="radio" [attr.aria-checked]="preview()" [class.is-active]="preview()" (click)="preview.set(true)">
-            <svg gd-icon name="eye" [size]="12"></svg> Preview
-          </button>
+          @for (choice of modes; track choice.mode) {
+            <button
+              type="button"
+              role="radio"
+              [attr.aria-checked]="mode() === choice.mode"
+              [class.is-active]="mode() === choice.mode"
+              (click)="setMode(choice.mode)"
+            >
+              <svg gd-icon [name]="choice.icon" [size]="12"></svg> {{ choice.label }}
+            </button>
+          }
         </div>
       }
       <button
@@ -107,36 +128,76 @@ import { WikiActions } from "../wiki/wiki-actions";
         <p class="selectable">{{ error }}</p>
       </gd-empty-state>
     } @else if (resource.file()) {
-      @if (preview()) {
-        <div class="content-scroll">
-          <div class="document">
-            <article class="document-article">
-              <gd-markdown
-                scope="repo"
-                [source]="value()"
-                [path]="path()"
-                [links]="wiki.linkTargets()"
-                (linkClicked)="wiki.followLink($event)"
-              />
-            </article>
+      <div class="file-body" [class.is-split]="showsEditor() && showsPreview()">
+        @if (showsEditor()) {
+          <gd-code-editor
+            #editor
+            [label]="'Contents of ' + path()"
+            [path]="path()"
+            [value]="value()"
+            [reveal]="lines()"
+            [references]="markdown() ? wiki.referenceCandidates() : null"
+            [people]="markdown() ? wiki.people() : null"
+            [minimap]="session.preferences().minimap && !showsPreview()"
+            [startLine]="startLine"
+            (valueChange)="draft.set($event)"
+            (save)="save()"
+            (scrolled)="editorScrolled($event)"
+          />
+        }
+        @if (showsPreview()) {
+          <div class="content-scroll file-preview" #previewScroller (scroll)="previewScrolled()">
+            @if (kind() === "svg") {
+              @if (svgUrl(); as url) {
+                <div class="svg-preview"><img [src]="url" [alt]="'Preview of ' + name()" /></div>
+              }
+            } @else {
+              <div class="document">
+                <article class="document-article">
+                  <gd-markdown
+                    scope="repo"
+                    [source]="previewSource()"
+                    [path]="path()"
+                    [links]="wiki.linkTargets()"
+                    [lineOffset]="kind() === 'markdown' ? 0 : undefined"
+                    (linkClicked)="wiki.followLink($event)"
+                    (rendered)="previewShown()"
+                  />
+                </article>
+              </div>
+            }
           </div>
-        </div>
-      } @else {
-        <gd-code-editor
-          [label]="'Contents of ' + path()"
-          [path]="path()"
-          [value]="value()"
-          [reveal]="lines()"
-          [references]="markdown() ? wiki.referenceCandidates() : null"
-          [people]="markdown() ? wiki.people() : null"
-          [minimap]="session.preferences().minimap"
-          (valueChange)="draft.set($event)"
-          (save)="save()"
-        />
-      }
+        }
+      </div>
     }
   `,
   styles: `
+    .file-body {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+    .file-body > * {
+      flex: 1;
+      min-width: 0;
+    }
+    .file-body.is-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .file-body.is-split .file-preview {
+      border-left: 1px solid var(--line);
+    }
+    .svg-preview {
+      display: flex;
+      justify-content: center;
+      padding: 32px;
+    }
+    .svg-preview img {
+      max-width: 100%;
+      height: auto;
+      background: repeating-conic-gradient(var(--bg-hover) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+    }
     .code-path {
       gap: 4px;
       font-family: var(--font-mono);
@@ -169,7 +230,29 @@ export class FileEditor {
   protected readonly mod = MOD_KEY;
   /** The edited text; null while it equals the file. */
   protected readonly draft = signal<string | null>(null);
-  protected readonly preview = signal(false);
+  protected readonly modes = MODES;
+  protected readonly kind = computed(() => previewKind(this.path()));
+  /** Files without a preview are only edited. */
+  protected readonly mode = computed<Mode>(() => (this.kind() ? lastMode() : "edit"));
+  protected readonly showsEditor = computed(() => this.mode() !== "preview");
+  protected readonly showsPreview = computed(() => this.mode() !== "edit");
+  /** Beside the editor the preview catches up once typing pauses; on its own it shows the text at once. */
+  private readonly previewText = computed(() => {
+    const kind = this.kind();
+    return kind && kind !== "svg" ? previewMarkdown(kind, this.value()) : "";
+  });
+  /** The preview text once typing pauses; set by an effect, since the inputs it depends on come after construction. */
+  private readonly settledText = signal("");
+  protected readonly previewSource = computed(() => (this.showsEditor() ? this.settledText() : this.previewText()));
+  /** An SVG file as an image, which can't run its scripts. */
+  protected readonly svgUrl = signal<string | null>(null);
+  private readonly editor = viewChild<CodeEditor>("editor");
+  private readonly previewScroller = viewChild<ElementRef<HTMLElement>>("previewScroller");
+  /** The source line the editor opens at after switching modes. */
+  protected startLine: number | null = null;
+  /** The source line the preview opens at after switching modes. */
+  private previewLine: number | null = null;
+  private readonly scrolling = new ScrollLink();
   protected readonly resource = fileResource(
     "repo",
     this.path,
@@ -187,6 +270,52 @@ export class FileEditor {
   constructor() {
     trackUnsaved(this.dirty);
     hotkey("mod+s", () => void this.save());
+    let settled = false;
+    effect((onCleanup) => {
+      const text = this.previewText();
+      // The first text shows at once; later ones once typing pauses.
+      if (!settled) {
+        settled = true;
+        return this.settledText.set(text);
+      }
+      const timer = setTimeout(() => this.settledText.set(text), PREVIEW_DELAY);
+      onCleanup(() => clearTimeout(timer));
+    });
+    effect((onCleanup) => {
+      if (this.kind() !== "svg" || !this.showsPreview()) return this.svgUrl.set(null);
+      const url = URL.createObjectURL(new Blob([this.value()], { type: "image/svg+xml" }));
+      this.svgUrl.set(url);
+      onCleanup(() => URL.revokeObjectURL(url));
+    });
+  }
+
+  /** Switches between editing, both side by side and the preview, keeping the place in Markdown. */
+  protected setMode(mode: Mode) {
+    const preview = this.previewScroller()?.nativeElement;
+    const line = this.showsEditor() ? (this.editor()?.topLine() ?? null) : preview ? previewTopLine(preview) : null;
+    this.startLine = this.previewLine = this.kind() === "markdown" ? line : null;
+    lastMode.set(mode);
+  }
+
+  protected editorScrolled(line: number) {
+    const preview = this.previewScroller()?.nativeElement;
+    if (preview && this.kind() === "markdown") this.scrolling.moved("editor", () => scrollPreviewToLine(preview, line));
+  }
+
+  protected previewScrolled() {
+    const preview = this.previewScroller()?.nativeElement;
+    const line = preview && this.kind() === "markdown" && this.showsEditor() ? previewTopLine(preview) : null;
+    if (line) this.scrolling.moved("preview", () => this.editor()?.scrollToLine(line));
+  }
+
+  /** The preview opens where the editor was. */
+  protected previewShown() {
+    const preview = this.previewScroller()?.nativeElement;
+    // The first render may come before the text: wait for one with source lines.
+    if (!preview || this.previewLine === null || !preview.querySelector("[data-line]")) return;
+    const line = this.previewLine;
+    this.previewLine = null;
+    this.scrolling.moved("editor", () => scrollPreviewToLine(preview, line));
   }
 
   protected async save() {

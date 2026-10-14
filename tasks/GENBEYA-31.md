@@ -2,7 +2,7 @@
 id: GENBEYA-31
 title: Side-by-side edit and preview for Markdown files in Code
 type: feature
-status: backlog
+status: review
 priority: medium
 labels: [feedback, editor]
 ---
@@ -27,3 +27,9 @@ To decide:
 ### Emanuel Knecht — 2026-10-14 01:32+02:00
 
 having a preview fo certain files will be very useful indeed, not only markdown.. three-way switch sounds good.
+
+### Claude — 2026-10-14 03:10+02:00
+
+Done: Code has **Edit | Split | Preview** for files with a preview, remembered for the session (the last choice applies to the next file). Previews now cover Markdown, Mermaid (`.mmd`, `.mermaid`), PlantUML (`.puml`, `.plantuml`, `.pu`, `.iuml`) and SVG (shown as an image, so its scripts never run). In Split the preview catches up once typing pauses, and the two sides scroll together ([[GENBEYA-29]]). The wiki keeps its toggle for now.
+
+More file types are a one-line addition each in `features/code/preview-kinds.ts`, as long as something can render them.

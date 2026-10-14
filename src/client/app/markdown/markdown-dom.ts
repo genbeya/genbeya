@@ -137,7 +137,34 @@ export interface RenderOptions {
   readonly path: string;
   /** Makes task-list checkboxes clickable; they carry their source offset. */
   readonly interactiveCheckboxes: boolean;
+  /**
+   * When given, blocks carry the line of the file they start at (`data-line`), counting this many lines
+   * of the file above the rendered source (a frontmatter left out); views that scroll beside an editor ask for it.
+   */
+  readonly lineOffset?: number;
 }
+
+/** Blocks that carry the line of the file they start at (`data-line`), so a view can scroll the editor and the page alike. */
+const LINE_BLOCKS = new Set([
+  "p",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "li",
+  "pre",
+  "blockquote",
+  "table",
+  "tr",
+  "hr",
+  "div",
+  "details",
+  "dl",
+  "dt",
+  "dd",
+]);
 
 const SVG = "http://www.w3.org/2000/svg";
 /** Lucide icon shapes used inside rendered Markdown. */
@@ -347,6 +374,14 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
   };
 
   const element = (node: Element, taskOffset: number | null): Node | null => {
+    const built = build(node, taskOffset);
+    const line = node.position?.start.line;
+    if (options.lineOffset !== undefined && line && built instanceof HTMLElement && LINE_BLOCKS.has(node.tagName.toLowerCase()))
+      built.dataset["line"] = String(line + options.lineOffset);
+    return built;
+  };
+
+  const build = (node: Element, taskOffset: number | null): Node | null => {
     const tag = node.tagName.toLowerCase();
     if (BLOCKED.has(tag)) return null;
     if (tag === "input") return node.properties["type"] === "checkbox" ? checkbox(node, taskOffset) : null;

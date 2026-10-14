@@ -65,6 +65,10 @@ export class CodeEditor {
   readonly people = input<readonly Person[] | null>(null);
   /** Shows a minimap for code; prose never has one. */
   readonly minimap = input(false);
+  /** The line to show at the top when the editor opens, with a fraction for the way into it. */
+  readonly startLine = input<number | null>(null);
+  /** The line at the top (see {@link topLine}) whenever the user scrolls. */
+  readonly scrolled = output<number>();
   readonly valueChange = output<string>();
   /** Ctrl+S (Cmd+S) inside the editor. */
   readonly save = output();
@@ -119,11 +123,44 @@ export class CodeEditor {
       // Following a link to lines lands in them, ready for the keyboard.
       view.focus();
     });
-    // Focus needs the editor in the document.
+    // Focus and scrolling need the editor in the document.
     afterNextRender(() => {
       if (this.autofocus()) this.view?.focus();
+      const line = untracked(this.startLine);
+      if (line !== null) this.scrollToLine(line);
     });
     inject(DestroyRef).onDestroy(() => this.view?.destroy());
+  }
+
+  /** How far the document's top is scrolled out of view, in pixels. */
+  private scrolledHeight(view: EditorView): number {
+    return view.scrollDOM.getBoundingClientRect().top - view.documentTop;
+  }
+
+  /** The line at the top of the editor, with a fraction for how far into it the view is scrolled. */
+  topLine(): number {
+    const view = this.view;
+    if (!view) return 1;
+    const height = Math.max(0, this.scrolledHeight(view));
+    const block = view.lineBlockAtHeight(height);
+    const share = block.height ? Math.min(1, Math.max(0, (height - block.top) / block.height)) : 0;
+    return view.state.doc.lineAt(block.from).number + share;
+  }
+
+  /** Scrolls so that `line` (with its fraction) is at the top. */
+  scrollToLine(line: number): void {
+    const view = this.view;
+    if (!view) return;
+    view.requestMeasure({
+      read: () => {
+        const number = Math.min(Math.max(1, Math.floor(line)), view.state.doc.lines);
+        const block = view.lineBlockAt(view.state.doc.line(number).from);
+        return block.top + (line - number) * block.height - this.scrolledHeight(view);
+      },
+      write: (by) => {
+        view.scrollDOM.scrollTop += by;
+      },
+    });
   }
 
   private completionFor(offered: boolean): Extension {
@@ -150,6 +187,7 @@ export class CodeEditor {
     ];
     const view = new EditorView({ state: EditorState.create({ doc: value, extensions }), parent: this.host });
     this.view = view;
+    view.scrollDOM.addEventListener("scroll", () => this.scrolled.emit(this.topLine()), { passive: true });
     void languageFor(path).then((support) => {
       if (support && this.view === view) view.dispatch({ effects: this.language.reconfigure(support) });
     });
