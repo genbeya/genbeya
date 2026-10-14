@@ -2,7 +2,7 @@
 id: GENBEYA-27
 title: Typed characters turn into other glyphs in the editor (###, <->)
 type: bug
-status: backlog
+status: review
 priority: medium
 labels: [feedback, editor]
 ---
@@ -55,3 +55,11 @@ It matches how ligature fonts draw long sequences: the first characters become i
 
 To confirm: the variant (Tauri, Electron, Deno), the OS and display scaling, and a screenshot. Option 1 above (no ligatures in Markdown) would remove it either way.
 
+### Claude — 2026-10-14 15:05+02:00
+
+Found and fixed (PR #8): a Chromium bug, not the fonts. While typing, Chromium reshapes only the edited part of a line, but a ligature depends on the characters around it. Reproduced in a plain `contenteditable` field without CodeMirror, while the same text set at once renders right, which is why it only showed while typing:
+
+- JetBrains Mono turns the first characters into invisible spacers that a final wide glyph should cover; with the stale shaping that glyph is missing, so `<->` shows as a blank and `→`, `<-> ` as `>`, and `####` as two blanks and `##`.
+- Fira Code and Cascadia Code keep the characters unjoined until the line is drawn again ("usable, but not perfect").
+
+Fix: every edit flips a font setting of the editor that renders the same (kerning, on by default), which makes Chromium shape the lines afresh. Typing `<->`, `####` and `a -> b` key by key now shows the ligatures at every step, in all three fonts. Ligatures stay on, and the font and ligature settings remain for whoever prefers otherwise.
