@@ -33,3 +33,17 @@ To decide: off everywhere (Markdown and code), or off in Markdown only, or a set
 ### Emanuel Knecht — 2026-10-14 01:24+02:00
 
 i generall love ligatures.. lets try another font.. maybe fira code or roboto mono.. lets test if it is only an issue with that jetbrains thing or a general ligatures bug.
+
+### Claude — 2026-10-14 03:55+02:00
+
+Tested as asked: the reported sequences typed step by step in JetBrains Mono, Fira Code, Cascadia Code and Roboto Mono (which has no ligatures).
+
+- All three ligature fonts behave the same: `<-` becomes `←` and `<->` a long arrow while typing (also `->`, `=>`), and `##` / `###` are drawn as joined hashes. Roboto Mono shows the characters as typed.
+- So it is not a JetBrains Mono bug but what ligatures do; another ligature font won't change it. None of these fonts can switch off single ligatures (only all contextual alternates at once).
+
+Options:
+
+1. **Ligatures in code, not in Markdown** (my suggestion): in prose, `->` and `##` are text and syntax, and the morphing is what surprised the tester; in code the ligatures stay. One CSS rule for Markdown editors (wiki, task descriptions, comments, `.md` in Code).
+2. A setting **Font ligatures: on / in code only / off**, defaulting to "in code only".
+3. Leave as is.
+
