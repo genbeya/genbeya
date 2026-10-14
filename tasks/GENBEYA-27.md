@@ -47,3 +47,11 @@ Options:
 2. A setting **Font ligatures: on / in code only / off**, defaulting to "in code only".
 3. Leave as is.
 
+### Claude — 2026-10-14 04:15+02:00
+
+Emanuel saw something else than the joined hashes: `##` stays `##`, but `###` shows as a blank and `##`, `####` as two blanks and `##`, and so on. Not reproduced in the web build (Chromium), where every count of hashes shows right, also at heading weight and a large size.
+
+It matches how ligature fonts draw long sequences: the first characters become invisible spacer glyphs, and one wide glyph at the end reaches back over them. If that glyph is cut off or drawn only partly, the spacers show as blanks. That depends on the engine, the display scaling and the weight (heading marks are bold), so it may only show in some builds.
+
+To confirm: the variant (Tauri, Electron, Deno), the OS and display scaling, and a screenshot. Option 1 above (no ligatures in Markdown) would remove it either way.
+
