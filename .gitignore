@@ -10,6 +10,7 @@ out/
 .test-work/
 test-results/
 test-results-demo/
+test-results-real-repositories/
 playwright-report/
 playwright-report-demo/
 *.log

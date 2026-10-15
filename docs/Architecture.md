@@ -47,5 +47,6 @@ The [Demo](Architecture/Demo.md) that runs in a browser has no shell and no mach
 | [Content branch](Architecture/Content-branch.md) | Keeping the wiki, the tasks or the settings on a shared branch |
 | [Runtimes](Architecture/Runtimes.md) | Electron, Tauri and Deno Desktop compared, with measurements |
 | [Demo](Architecture/Demo.md) | Genbeya in a browser tab, on repositories in memory: how it works, what it simulates, and why |
+| [Demo real repositories](Architecture/Demo-real-repositories.md) | The experiment of cloning a visitor's repository into the demo with wasm-git and OPFS: findings, measurements, recommendation |
 | [VS Code](Architecture/VS-Code.md) | The VS Code extension: managers in the extension host, native views, a preview and a board |
 | [Security](Architecture/Security.md) | How the app protects itself from the repositories it shows |

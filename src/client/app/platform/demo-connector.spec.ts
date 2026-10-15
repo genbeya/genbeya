@@ -1,10 +1,10 @@
 import { connectPlatform } from "./connect.demo";
 import { connectDemo, DOWNLOAD_URL, type DemoPage } from "./demo-connector";
 
-function fakePage() {
+function fakePage(search = "") {
   const listeners = new Map<string, EventListener>();
   const page = {
-    location: { pathname: "/try/", search: "", hash: "#/changes", replace: vi.fn() },
+    location: { pathname: "/try/", search, hash: "#/changes", replace: vi.fn() },
     open: vi.fn(),
     document: { title: "" },
     addEventListener: vi.fn((type: string, listener: EventListener) => listeners.set(type, listener)),
@@ -20,6 +20,13 @@ describe("the demo connector", () => {
     expect(opened!.snapshot.settings.name).toBe("Pocket Weather");
     expect(await demo.managers.terminal.available()).toBe(false);
     expect(demo.shell.runtime).toBe("demo");
+  });
+
+  it("offers the experiment with real repositories only when the address asks for it", () => {
+    expect(fakePage().demo.demo!.realRepositories).toBeUndefined();
+    const { realRepositories } = fakePage("?real-repositories").demo.demo!;
+    expect(realRepositories!.isClone({ kind: "local", path: "/demo/clone-github.com-genbeya-genbeya" })).toBe(true);
+    expect(realRepositories!.isClone({ kind: "local", path: "/demo/pocket-weather" })).toBe(false);
   });
 
   it("is what the demo build connects to", async () => {

@@ -106,6 +106,7 @@
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",
     "vitest": "^5.0.3",
+    "wasm-git": "0.0.17",
     "yaml": "^2.9.1"
   },
   "build": {

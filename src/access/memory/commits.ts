@@ -53,6 +53,11 @@ export class CommitStore {
     return stored;
   }
 
+  /** Stores a commit read from a real repository, under the ID Git gave it. */
+  restore(commit: CommitObject): void {
+    this.commits.set(commit.hash, commit);
+  }
+
   get(hash: string): CommitObject {
     const commit = this.commits.get(hash);
     if (!commit) throw new Error(`Commit ${hash.slice(0, 7)} does not exist.`);

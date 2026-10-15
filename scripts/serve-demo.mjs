@@ -1,11 +1,15 @@
 // node scripts/serve-demo.mjs [port]: serves the web demo's build (dist/demo/browser, from
 // `npm run build:demo`) at http://127.0.0.1:<port>/try/, the path genbeya.fyi hosts it under,
-// for the demo's end-to-end tests and a look in the browser. Static files only.
+// for the demo's end-to-end tests and a look in the browser. Static files only. With --isolated,
+// the page is cross-origin isolated (COOP and COEP), as wasm-git's threaded build needs.
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 
-const port = Number(process.argv[2] ?? 4200);
+const port = Number(process.argv.slice(2).find((arg) => !arg.startsWith("--")) ?? 4200);
+const isolation = process.argv.includes("--isolated")
+  ? { "cross-origin-opener-policy": "same-origin", "cross-origin-embedder-policy": "require-corp" }
+  : {};
 const root = path.resolve("dist/demo/browser");
 const base = "/try/";
 const TYPES = {
@@ -40,6 +44,6 @@ createServer((request, response) => {
     response.writeHead(404, { "content-type": "text/plain" }).end("Not found");
     return;
   }
-  response.writeHead(200, { "content-type": TYPES[path.extname(file)] ?? "application/octet-stream" });
+  response.writeHead(200, { "content-type": TYPES[path.extname(file)] ?? "application/octet-stream", ...isolation });
   createReadStream(file).pipe(response);
 }).listen(port, "127.0.0.1", () => console.log(`The web demo is at http://127.0.0.1:${port}${base}`));

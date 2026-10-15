@@ -52,7 +52,10 @@ const terminal: TerminalManagerContract = {
   close: async () => undefined,
 };
 
-export function createDemoBackend({ now = () => new Date(), networkDelay = 400 }: DemoOptions = {}): Managers {
+/** The demo's managers; the workspace manager also takes repositories made elsewhere in the page. */
+export type DemoBackend = Managers & { readonly workspace: DemoWorkspaceManager };
+
+export function createDemoBackend({ now = () => new Date(), networkDelay = 400 }: DemoOptions = {}): DemoBackend {
   const engines = {
     settings: new SettingsEngine(),
     tasks: new TaskEngine(),

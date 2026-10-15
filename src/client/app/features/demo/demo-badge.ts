@@ -31,6 +31,16 @@ import { MenuItem } from "../../ui/menu-item";
           </p>
           <div class="menu-separator"></div>
           <button gd-menu-item (selected)="demo.reset()"><svg icon gd-icon name="undo-2" [size]="14"></svg>Reset demo</button>
+          @if (demo.realRepositories) {
+            <button gd-menu-item (selected)="demo.openFromUrl()">
+              <svg icon gd-icon name="flask-conical" [size]="14"></svg>Open a repository from a URL (experimental)
+            </button>
+            @if (demo.isClone()) {
+              <button gd-menu-item (selected)="demo.pushWithWasmGit()">
+                <svg icon gd-icon name="cloud-upload" [size]="14"></svg>Push new commits with wasm-git (experimental)
+              </button>
+            }
+          }
           <button gd-menu-item (selected)="demo.download()">
             <svg icon gd-icon name="external-link" [size]="14"></svg>Download Genbeya
           </button>

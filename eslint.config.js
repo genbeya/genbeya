@@ -56,8 +56,12 @@ export default tseslint.config(
     ),
   },
   {
-    // The Tauri and web demo connectors are the places the client composes an in-page backend.
-    files: ["src/client/app/platform/tauri-connector.ts", "src/client/app/platform/demo-connector.ts"],
+    // The Tauri and web demo connectors are the places the client composes an in-page backend, as is the demo's experiment with real repositories.
+    files: [
+      "src/client/app/platform/tauri-connector.ts",
+      "src/client/app/platform/demo-connector.ts",
+      "src/client/app/platform/real-repositories/*.ts",
+    ],
     rules: { "no-restricted-imports": "off" },
   },
   {

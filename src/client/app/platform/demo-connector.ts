@@ -7,8 +7,9 @@
  */
 import { connectManagers, dispatch } from "../../../contracts/rpc";
 import { createDemoBackend } from "../../../managers/demo/demo-backend";
-import { DEMO_FOLDER } from "../../../managers/demo/demo-workspace-manager";
+import { DEMO_FOLDER, type DemoWorkspaceManager } from "../../../managers/demo/demo-workspace-manager";
 import type { Platform } from "./platform";
+import type { RealRepositoryControls } from "./real-repositories/real-repositories";
 
 export const DOWNLOAD_URL = "https://genbeya.fyi/download";
 
@@ -24,14 +25,35 @@ function memoryStorage(): Pick<Storage, "getItem" | "setItem"> {
   };
 }
 
+/**
+ * The experiment with real repositories, loaded on first use: the default
+ * demo loads none of it, and wasm-git only when a clone starts.
+ */
+function realRepositories(workspace: DemoWorkspaceManager): RealRepositoryControls {
+  let controls: Promise<RealRepositoryControls> | null = null;
+  const load = () =>
+    (controls ??= import("./real-repositories/real-repositories").then(({ createRealRepositories }) => createRealRepositories(workspace)));
+  return {
+    probe: async () => (await load()).probe(),
+    stored: async () => (await load()).stored(),
+    clone: async (url, relay) => (await load()).clone(url, relay),
+    reopen: async (name) => (await load()).reopen(name),
+    remove: async (name) => (await load()).remove(name),
+    isClone: (location) => location.kind === "local" && location.path.startsWith(`${DEMO_FOLDER}/clone-`),
+    push: async (location) => (await load()).push(location),
+  };
+}
+
 export function connectDemo(page: DemoPage = window): Platform {
   const backend = createDemoBackend();
   let leaving = false;
+  const experiment = new URLSearchParams(page.location.search).has("real-repositories");
   return {
     managers: connectManagers(async (request) => structuredClone(await dispatch(backend, structuredClone(request)))),
     storage: memoryStorage(),
     demo: {
       downloadUrl: DOWNLOAD_URL,
+      ...(experiment ? { realRepositories: realRepositories(backend.workspace) } : {}),
       reset() {
         leaving = true;
         // Loading the page again starts over, at the start rather than the view the address names.

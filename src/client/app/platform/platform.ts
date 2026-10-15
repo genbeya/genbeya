@@ -2,6 +2,7 @@
 import { InjectionToken } from "@angular/core";
 import type { Managers } from "../../../contracts/manager-contracts";
 import type { ShellContract } from "../../../contracts/shell";
+import type { RealRepositoryControls } from "./real-repositories/real-repositories";
 
 /** The web demo's own controls: it runs in a web page, with a simulated backend. */
 export interface DemoControls {
@@ -9,6 +10,8 @@ export interface DemoControls {
   reset(): void;
   /** Where to get Genbeya itself. */
   readonly downloadUrl: string;
+  /** The experiment with real repositories, when the address asks for it (`?real-repositories`). */
+  readonly realRepositories?: RealRepositoryControls;
 }
 
 export interface Platform {

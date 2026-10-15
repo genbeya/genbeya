@@ -87,6 +87,22 @@
                   "with": "src/client/app/platform/connect.demo.ts"
                 }
               ],
+              "assets": [
+                {
+                  "glob": "**/*",
+                  "input": "src/client/public"
+                },
+                {
+                  "glob": "rockuml.wasm",
+                  "input": "node_modules/@rockuml/core",
+                  "output": "/"
+                },
+                {
+                  "glob": "{lg2_opfs*.js,lg2_opfs*.wasm,COPYING}",
+                  "input": "node_modules/wasm-git",
+                  "output": "/wasm-git"
+                }
+              ],
               "budgets": [
                 {
                   "type": "initial",

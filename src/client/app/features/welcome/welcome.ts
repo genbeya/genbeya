@@ -3,6 +3,7 @@ import { describeLocation, type Location } from "../../../../contracts/model";
 import { APP_VERSION } from "../../core/app-version";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
+import { Demo } from "../../core/demo";
 import { Session } from "../../core/session";
 import { Icon } from "../../ui/icon";
 import { relativeTime } from "../../ui/relative-time";
@@ -69,6 +70,12 @@ import { ShellUi } from "../shell/shell-ui";
           <svg gd-icon name="cloud-download" [size]="18"></svg>
           <span class="grow">Clone repository</span>
         </button>
+        @if (demo.realRepositories) {
+          <button type="button" class="welcome-action" [disabled]="busy()" (click)="demo.openFromUrl()">
+            <svg gd-icon name="flask-conical" [size]="18"></svg>
+            <span class="grow">Open a repository from a URL (experimental)</span>
+          </button>
+        }
       </div>
 
       @if (recent().length) {
@@ -120,6 +127,7 @@ export class Welcome {
   protected readonly session = inject(Session);
   protected readonly ui = inject(ShellUi);
   protected readonly onboarding = inject(Onboarding);
+  protected readonly demo = inject(Demo);
   private readonly repositories = inject(Repositories);
   protected readonly mod = MOD_KEY;
   protected readonly version = APP_VERSION;

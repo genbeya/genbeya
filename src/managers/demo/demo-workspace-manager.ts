@@ -65,9 +65,14 @@ export class DemoWorkspaceManager implements WorkspaceManagerContract {
     const title = settings === undefined ? fallback.name : this.engines.settings.parse(settings, fallback, false).name;
     this.recentList = [
       { location, name: title, openedAt: Date.now(), remotes: repository.sync.list().map((remote) => remote.url) },
-      ...this.recentList,
+      ...this.recentList.filter((entry) => entry.location.path !== location.path),
     ];
     return location;
+  }
+
+  /** The repository in the demo's folder at `path`, if there is one. */
+  repositoryAt(path: string): MemoryRepository | null {
+    return this.repositories.get(path) ?? null;
   }
 
   async open(location: unknown): Promise<OpenedWorkspace> {

@@ -58,7 +58,7 @@ Visitors commit and comment as *You* (`you@example.com`).
 ## What a browser can't do
 
 - **Terminal**: the panel says *The terminal isn't available in the demo*.
-- **Folders, WSL, SSH, cloning**: each explains that the demo can't reach them. The demo's machine has one folder, `/demo`, which holds the sample's repository and any sample project created from the start screen.
+- **Folders, WSL, SSH, cloning**: each explains that the demo can't reach them. An experiment clones public repositories into the browser with wasm-git instead, behind `?real-repositories`: [Demo real repositories](Demo-real-repositories.md). The demo's machine has one folder, `/demo`, which holds the sample's repository and any sample project created from the start screen.
 - **Shortcuts**: browsers keep Ctrl+1 to Ctrl+9 for their tabs, so the views' shortcuts don't reach the page; the sidebar and the command palette do.
 - **Git's finer points**: diffs have no indent heuristic, so on repeated lines a change may sit a line away from where Git would put it; merges don't follow renames; a criss-cross merge takes the newest common ancestor instead of Git's recursive one.
 
