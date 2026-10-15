@@ -22,8 +22,29 @@ export interface Release {
   readonly items: readonly NewsItem[];
 }
 
-/** Empty until the first release with news; docs/Development.md shows an entry. */
-export const CHANGELOG: readonly Release[] = [];
+export const CHANGELOG: readonly Release[] = [
+  {
+    version: "0.1",
+    items: [
+      {
+        title: "Edit, Split and Preview",
+        body: "Markdown, Mermaid and SVG files in **Code** open with **Edit**, **Split** and **Preview**. Side by side, the preview scrolls along with the editor, in the wiki too.",
+      },
+      {
+        title: "Keep your place",
+        body: "Switching between a page's editor and its preview keeps the line you were on, and Wiki, Tasks and Code return to what you had open in them.",
+      },
+      {
+        title: "Branches of a task",
+        body: "A task lists the branches whose name contains its ID, and **… → Create branch…** starts one. The sidebar shows the task of the checked-out branch.",
+      },
+      {
+        title: "Editor font",
+        body: "Choose JetBrains Mono, Fira Code, Cascadia Code or Roboto Mono, and whether ligatures join characters such as `->`, in **Settings → App**.",
+      },
+    ],
+  },
+];
 
 /**
  * The releases up to `current`'s release line, newest first; with `since`,
