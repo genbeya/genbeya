@@ -64,8 +64,8 @@ Code is written test first. Specs sit next to the code they test.
 
 1. Branch off `develop` for each feature or fix (`feature/…`, `fix/…`), and open a pull request into `develop`. CI builds and tests it; merging needs an approving review.
 2. Repeat until `develop` holds what the next release should have.
-3. To release, bump the version on `develop` (`node scripts/version.mjs bump patch`, through a pull request like any change), then open a pull request from `develop` into `main`. Merging it builds the release, publishes it, and publishes the VS Code extension to Open VSX.
-4. Then release the website the same way: merge its `develop` into `main` once the app's release is out, since the site takes the download list, the documentation and the demo from the app's latest release.
+3. To release, bump the version on `develop` (`node scripts/version.mjs bump patch`, through a pull request like any change), then open a pull request from `develop` into `main`. Merging it builds the release, publishes it, publishes the VS Code extension to Open VSX and rebuilds the website. An important hotfix reaches `main` the same way.
+4. The website rebuilds by itself: after every push to `main`, the release job sends `genbeya/website` a `genbeya-release` event (with the secret `WEBSITE_DISPATCH_TOKEN`, a fine-grained token for that repository with Contents: read and write), and its deploy workflow builds `main` with the download list, the documentation and the demo from the app's latest release. Changes to the website itself go through its own `develop` and `main`.
 
 Never commit to `main` or `develop` directly, and keep `main` and `develop` in step: after a release, `develop` already holds everything `main` has.
 

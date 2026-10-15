@@ -215,3 +215,17 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: npx --yes @vscode/vsce@4.0.0 publish --packagePath "out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix"
+
+      # Every push to main is a release or a hotfix, so the website rebuilds from it: genbeya/website's
+      # deploy workflow listens for this event. GITHUB_TOKEN can't reach another repository, so this
+      # takes a fine-grained token for genbeya/website with Contents: read and write.
+      - name: Rebuild the website
+        if: always() && steps.release.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::WEBSITE_DISPATCH_TOKEN is not set; merge genbeya/website's develop into main, or run its Deploy workflow, to update genbeya.fyi."
+            exit 0
+          fi
+          gh api repos/genbeya/website/dispatches -f event_type=genbeya-release -F "client_payload[ref]=$GITHUB_SHA"
