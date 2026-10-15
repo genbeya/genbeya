@@ -158,6 +158,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # For Open VSX's trusted publishing.
+      id-token: write
     steps:
       - uses: actions/checkout@v5
 
@@ -198,24 +200,18 @@ jobs:
           echo "published=true" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      # The release's .vsix goes to both extension stores, only with a new release: they refuse a
-      # version they have. A store is skipped while its token secret is missing.
-      - name: Publish the VS Code extension
+      # The release's .vsix goes to the extension stores, only with a new release: they refuse a
+      # version they have. Open VSX trusts this workflow (a trusted publisher of the genbeya
+      # namespace), so ovsx trades the job's OIDC token for a short-lived one; no secret is stored.
+      - name: Publish the VS Code extension to Open VSX
         if: steps.release.outputs.published == 'true'
+        run: npx --yes ovsx@1.2.0 publish "out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix" --trusted-publishing
+
+      # Paused: the Visual Studio Marketplace refused the extension for an unnamed policy reason,
+      # with a week's cooldown before support reviews it again (GENBEYA-25). Remove `false &&` to
+      # publish there again; it needs the VSCE_PAT secret.
+      - name: Publish the VS Code extension to the Visual Studio Marketplace
+        if: false && steps.release.outputs.published == 'true'
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
-          VSIX: out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix
-        run: |
-          if [ -n "$VSCE_PAT" ]; then
-            npx --yes @vscode/vsce@4.0.0 publish --packagePath "$VSIX"
-          else
-            echo "::warning::VSCE_PAT is not set; the extension is not published to the Visual Studio Marketplace."
-          fi
-          if [ -n "$OVSX_PAT" ]; then
-            # The namespace exists after the first release; creating it again fails harmlessly.
-            npx --yes ovsx@1.2.0 create-namespace genbeya || true
-            npx --yes ovsx@1.2.0 publish "$VSIX"
-          else
-            echo "::warning::OVSX_PAT is not set; the extension is not published to Open VSX."
-          fi
+        run: npx --yes @vscode/vsce@4.0.0 publish --packagePath "out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix"

@@ -41,7 +41,7 @@ Each [release](https://github.com/genbeya/genbeya/releases/latest) has an instal
 
 A newer installer replaces the installed version of its variant. The builds are unsigned: on Windows choose _More info → Run anyway_; on macOS open the app the first time with right-click → _Open_ (or run `xattr -dr com.apple.quarantine /Applications/Genbeya.app`); on Linux `chmod +x` the AppImage. Genbeya needs Git on the machine that holds the repository.
 
-For VS Code there is an extension: the wiki, the tasks and the board next to your code, and Genbeya's references in VS Code's Markdown editor. Search for **Genbeya** in the Extensions view, or see the [Marketplace](https://marketplace.visualstudio.com/items?itemName=genbeya.genbeya), [Open VSX](https://open-vsx.org/extension/genbeya/genbeya) and [VS Code](docs/Guide/VS-Code.md).
+For VS Code there is an extension: the wiki, the tasks and the board next to your code, and Genbeya's references in VS Code's Markdown editor. It is on [Open VSX](https://open-vsx.org/extension/genbeya/genbeya), and each release has it as a `.vsix`; see [VS Code](docs/Guide/VS-Code.md).
 
 ## Documentation
 

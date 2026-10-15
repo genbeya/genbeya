@@ -4,7 +4,7 @@ The extension is versioned with the Genbeya app; versions without a change to th
 
 ## 0.0.3
 
-- On the Visual Studio Marketplace and Open VSX.
+- On Open VSX.
 
 ## 0.0.2
 
