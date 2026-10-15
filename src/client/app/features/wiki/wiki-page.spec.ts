@@ -15,7 +15,7 @@ async function setup(inputs: { anchor?: string; line?: string }) {
   fixture.componentRef.setInput("path", "docs/Home.md");
   for (const [name, value] of Object.entries(inputs)) fixture.componentRef.setInput(name, value);
   await settle(fixture);
-  return { fixture, scrolled };
+  return { fixture, scrolled, managers: harness.managers };
 }
 
 describe("WikiPage", () => {
@@ -33,5 +33,30 @@ describe("WikiPage", () => {
 
   it("stays at the top for a line in the frontmatter or above the first heading", async () => {
     expect((await setup({ line: "2" })).scrolled).toEqual([]);
+  });
+});
+
+describe("WikiPage's editor", () => {
+  const buttons = (fixture: { nativeElement: HTMLElement }) =>
+    [...fixture.nativeElement.querySelectorAll<HTMLButtonElement>("header button")].map((button) => button.textContent!.trim());
+
+  it("offers Save while there are changes, and Done once they are saved", async () => {
+    const { fixture, managers } = await setup({});
+    const page = fixture.componentInstance as unknown as { edit(): void; draft: { set(value: string): void } };
+    page.edit();
+    await settle(fixture);
+    expect(buttons(fixture)).toContain("Done");
+    expect(buttons(fixture).some((text) => text.startsWith("Save"))).toBe(false);
+
+    page.draft.set(`${CONTENT}More.\n`);
+    await settle(fixture);
+    expect(buttons(fixture).some((text) => text.startsWith("Save"))).toBe(true);
+    expect(buttons(fixture)).not.toContain("Done");
+
+    managers.content.write.mockResolvedValue({ scope: "content", path: "docs/Home.md", content: `${CONTENT}More.\n`, hash: "h2" });
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true }));
+    await settle(fixture);
+    expect(managers.content.write).toHaveBeenCalledWith("w1", "content", "docs/Home.md", `${CONTENT}More.\n`, "h1");
+    expect(buttons(fixture)).toContain("Done");
   });
 });

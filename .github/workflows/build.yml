@@ -2,14 +2,14 @@ name: Build
 
 # Tests Genbeya and packages it with Electron, Tauri and Deno Desktop on Windows,
 # macOS and Linux, and builds the web demo and the VS Code extension on Linux. Every run
-# uploads the installers, the demo and the extension as artifacts. A push to main whose
-# version (package.json) has no release yet publishes them all as one: bump the version
-# (scripts/version.mjs) to release.
+# uploads the installers, the demo and the extension as artifacts. Work is merged into
+# develop; only a push to main (merging develop into it) whose version (package.json) has
+# no release yet publishes them all as one: bump the version (scripts/version.mjs) to release.
 on:
   push:
-    branches: [main, "experiment/**"]
+    branches: [main, develop, "experiment/**"]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 concurrency:
@@ -158,6 +158,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # For Open VSX's trusted publishing.
+      id-token: write
     steps:
       - uses: actions/checkout@v5
 
@@ -198,24 +200,18 @@ jobs:
           echo "published=true" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      # The release's .vsix goes to both extension stores, only with a new release: they refuse a
-      # version they have. A store is skipped while its token secret is missing.
-      - name: Publish the VS Code extension
+      # The release's .vsix goes to the extension stores, only with a new release: they refuse a
+      # version they have. Open VSX trusts this workflow (a trusted publisher of the genbeya
+      # namespace), so ovsx trades the job's OIDC token for a short-lived one; no secret is stored.
+      - name: Publish the VS Code extension to Open VSX
         if: steps.release.outputs.published == 'true'
+        run: npx --yes ovsx@1.2.0 publish "out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix" --trusted-publishing
+
+      # Paused: the Visual Studio Marketplace refused the extension for an unnamed policy reason,
+      # with a week's cooldown before support reviews it again (GENBEYA-25). Remove `false &&` to
+      # publish there again; it needs the VSCE_PAT secret.
+      - name: Publish the VS Code extension to the Visual Studio Marketplace
+        if: false && steps.release.outputs.published == 'true'
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
-          VSIX: out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix
-        run: |
-          if [ -n "$VSCE_PAT" ]; then
-            npx --yes @vscode/vsce@4.0.0 publish --packagePath "$VSIX"
-          else
-            echo "::warning::VSCE_PAT is not set; the extension is not published to the Visual Studio Marketplace."
-          fi
-          if [ -n "$OVSX_PAT" ]; then
-            # The namespace exists after the first release; creating it again fails harmlessly.
-            npx --yes ovsx@1.2.0 create-namespace genbeya || true
-            npx --yes ovsx@1.2.0 publish "$VSIX"
-          else
-            echo "::warning::OVSX_PAT is not set; the extension is not published to Open VSX."
-          fi
+        run: npx --yes @vscode/vsce@4.0.0 publish --packagePath "out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix"

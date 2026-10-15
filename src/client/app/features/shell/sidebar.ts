@@ -9,14 +9,15 @@ import { Terminals } from "../../core/terminals";
 import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { DemoBadge } from "../demo/demo-badge";
+import { taskOfBranch } from "../tasks/task-branches";
 import { TourOffer } from "../onboarding/tour-offer";
 import { AREA_NAMES } from "../settings/content-areas";
 import { RepositoryActions } from "./repository-actions";
 import { HostIcon, initials } from "./repository-mark";
 import { ShellUi } from "./shell-ui";
+import { ViewMemory } from "./view-memory";
 
-export const VIEWS = ["wiki", "tasks", "code", "changes", "history"] as const;
-export type View = (typeof VIEWS)[number];
+export { VIEWS, type View } from "./view-memory";
 
 @Component({
   selector: "gd-sidebar",
@@ -31,6 +32,10 @@ export class Sidebar {
   protected readonly ui = inject(ShellUi);
   protected readonly actions = inject(RepositoryActions);
   protected readonly terminals = inject(Terminals);
+  /** Links return to where each view was left. */
+  protected readonly views = inject(ViewMemory);
+  /** A view's link is active whatever is open in it. */
+  protected readonly activeOptions = { paths: "exact", queryParams: "ignored", matrixParams: "ignored", fragment: "ignored" } as const;
   protected readonly mod = MOD_KEY;
   protected readonly ctrl = CTRL_KEY;
   protected readonly snapshot = computed(() => this.session.snapshot()!);
@@ -47,6 +52,12 @@ export class Sidebar {
     return location.kind === "wsl" ? location.distro : location.kind === "ssh" ? "SSH" : null;
   });
   protected readonly locationText = computed(() => describeLocation(this.snapshot().location));
+  /** The task the checked-out branch is named after, such as GENBEYA-32 for `GENBEYA-32-branch-links`. */
+  protected readonly branchTask = computed(() => {
+    const { head, settings, tasks } = this.snapshot();
+    const id = head.branch ? taskOfBranch(head.branch, settings.taskPrefix, new Set(tasks.map((task) => task.id))) : null;
+    return tasks.find((task) => task.id === id) ?? null;
+  });
   /** The content branch while it has something to sync, and what it holds. */
   protected readonly contentBranch = computed(() => {
     const storage = this.snapshot().storage;

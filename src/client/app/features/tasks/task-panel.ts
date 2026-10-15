@@ -31,7 +31,9 @@ import { toggleCheckboxAt } from "../../markdown/task-checkbox";
 import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { WikiActions } from "../wiki/wiki-actions";
+import { RepositoryActions } from "../shell/repository-actions";
 import { TaskActivity } from "./task-activity";
+import { branchesOfTask, branchNameFor } from "./task-branches";
 import { TaskComments } from "./task-comments";
 import { type FieldChange, TaskFields } from "./task-fields";
 import { displayId, inputOf } from "./task-model";
@@ -139,6 +141,26 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
       }
       <gd-task-properties [value]="shown()" (changed)="patch($event)" />
       <gd-task-fields [value]="shown()" (changed)="setField($event)" />
+      @if (task() && !editing() && branches().length) {
+        <div class="task-branches" role="group" aria-label="Branches of this task">
+          @for (branch of branches(); track branch.name) {
+            @if (branch.name === head()) {
+              <span class="property is-current" title="The checked-out branch">
+                <svg gd-icon name="git-branch" [size]="13"></svg>{{ branch.name }}
+              </span>
+            } @else {
+              <button
+                type="button"
+                class="property"
+                [title]="branch.remote ? 'Check out ' + branch.name : 'Switch to ' + branch.name"
+                (click)="repository.switchBranch(branch.name)"
+              >
+                <svg gd-icon name="git-branch" [size]="13"></svg>{{ branch.name }}
+              </button>
+            }
+          }
+        </div>
+      }
       <div class="task-description" [class.is-viewing]="!editing()">
         @if (editing()) {
           <div class="task-body-editor">
@@ -228,6 +250,7 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
             <svg icon gd-icon name="globe" [size]="14"></svg>Copy web link
           </button>
         }
+        <button gd-menu-item (selected)="createBranch()"><svg icon gd-icon name="git-branch-plus" [size]="14"></svg>Create branch…</button>
         <button gd-menu-item (selected)="openFile()"><svg icon gd-icon name="code-xml" [size]="14"></svg>Open file</button>
         <div class="menu-separator"></div>
         <button gd-menu-item [danger]="true" (selected)="remove()"><svg icon gd-icon name="trash-2" [size]="14"></svg>Delete task…</button>
@@ -260,6 +283,14 @@ export class TaskPanel {
   protected readonly tab = signal<Tab>("comments");
   private readonly comments = viewChild(TaskComments);
   protected readonly current = computed(() => this.saved() ?? this.task() ?? null);
+  protected readonly repository = inject(RepositoryActions);
+  /** Branches named after the task, such as `GENBEYA-32-branch-links`. */
+  protected readonly branches = computed(() => {
+    const task = this.current();
+    const snapshot = this.session.snapshot();
+    return task && snapshot ? branchesOfTask(task.id, snapshot.branches, snapshot.remoteBranches) : [];
+  });
+  protected readonly head = computed(() => this.session.snapshot()?.head.branch ?? null);
   /** The actions menu only exists for a task. */
   protected readonly link = computed<LinkItem>(() => ({ kind: "task", id: this.current()!.id }));
   /** The file and its version: moving the task to another epic keeps the content, but not the path. */
@@ -475,6 +506,12 @@ ${this.task()!.hash}`,
       this.saved.set(updated);
       this.session.contentChanged();
     }));
+  }
+
+  /** Creates a branch named after the task and switches to it. */
+  protected createBranch() {
+    const task = this.current();
+    if (task) void this.repository.createBranch(branchNameFor(task.id, task.title));
   }
 
   protected copyId() {

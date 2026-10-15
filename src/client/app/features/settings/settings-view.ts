@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, ViewEncapsulation } from "@angular/core";
 import { Router } from "@angular/router";
 import {
+  EDITOR_FONTS,
   syncsContentBranch,
+  type EditorFont,
   type ContentArea,
   type FieldDefinition,
   type Settings,
@@ -29,6 +31,14 @@ import { TypeEditor } from "./type-editor";
 type TextSetting = "name" | "taskPrefix" | "wikiRoot" | "wikiHome" | "taskRoot";
 
 /** Project settings (shared through .genbeya.yml), content storage, agent files, remotes, personal preferences and help. */
+/** The editor fonts, as Settings names them. */
+const EDITOR_FONT_NAMES: Readonly<Record<EditorFont, string>> = {
+  "jetbrains-mono": "JetBrains Mono",
+  "fira-code": "Fira Code",
+  "cascadia-code": "Cascadia Code",
+  "roboto-mono": "Roboto Mono (no ligatures)",
+};
+
 @Component({
   selector: "gd-settings-view",
   imports: [AgentFiles, FieldEditor, Icon, StatusEditor, TypeEditor],
@@ -40,6 +50,7 @@ type TextSetting = "name" | "taskPrefix" | "wikiRoot" | "wikiHome" | "taskRoot";
 })
 export class SettingsView {
   protected readonly session = inject(Session);
+  protected readonly editorFonts = EDITOR_FONTS.map((id) => ({ id, name: EDITOR_FONT_NAMES[id] }));
   protected readonly onboarding = inject(Onboarding);
   protected readonly demo = inject(Demo);
   private readonly api = inject(WorkspaceApi);

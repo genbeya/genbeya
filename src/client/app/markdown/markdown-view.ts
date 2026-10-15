@@ -61,6 +61,8 @@ export class MarkdownView {
   readonly links = input<GenbeyaOptions>({});
   /** Makes task-list checkboxes clickable. */
   readonly checkboxes = input(false);
+  /** Marks blocks with their source lines (see source-lines.ts), counting this many lines of the file above `source`, such as a frontmatter left out. */
+  readonly lineOffset = input<number | undefined>(undefined);
   readonly linkClicked = output<LinkTarget>();
   readonly checkboxToggled = output<number>();
   /** After every render, with the element holding the content (for outlines and anchors). */
@@ -87,7 +89,12 @@ export class MarkdownView {
   constructor() {
     effect(() => {
       const tree = parseMarkdown(this.source(), this.links());
-      const rendered = renderMarkdownTree(tree, document, { path: this.path(), interactiveCheckboxes: this.checkboxes() });
+      const lineOffset = this.lineOffset();
+      const rendered = renderMarkdownTree(tree, document, {
+        path: this.path(),
+        interactiveCheckboxes: this.checkboxes(),
+        ...(lineOffset === undefined ? {} : { lineOffset }),
+      });
       // Diagrams follow the theme.
       this.theme.resolved();
       untracked(() => this.show(rendered));

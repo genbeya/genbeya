@@ -137,6 +137,8 @@ describe("WorkspaceManager", () => {
       reopenLast: true,
       autoSyncContent: true,
       minimap: false,
+      editorFont: "jetbrains-mono",
+      ligatures: true,
       lastSeenVersion: null,
       tourSeen: false,
       tourOffered: [],

@@ -1,6 +1,19 @@
-/** Applies the theme preference: `data-theme` on the page, and the shell's native parts. */
+/**
+ * Applies the appearance preferences: the theme (`data-theme` on the page, and
+ * the shell's native parts), and the editor font with or without ligatures.
+ */
 import { computed, DestroyRef, effect, Injectable, inject, signal } from "@angular/core";
+import type { EditorFont } from "../../../contracts/model";
 import { SHELL } from "../platform/platform";
+
+/** The font stack of each editor font: the bundled font, then the usual fallbacks. */
+const FONT_STACKS: Readonly<Record<EditorFont, string>> = {
+  "jetbrains-mono": '"JetBrains Mono Variable"',
+  "fira-code": '"Fira Code Variable"',
+  "cascadia-code": '"Cascadia Code Variable"',
+  "roboto-mono": '"Roboto Mono Variable"',
+};
+const FALLBACK = '"Cascadia Code", Consolas, monospace';
 import { Session } from "./session";
 
 @Injectable({ providedIn: "root" })
@@ -23,6 +36,12 @@ export class Theme {
       const theme = this.session.preferences().theme;
       document.documentElement.dataset["theme"] = theme;
       shell.setTheme(theme);
+    });
+    effect(() => {
+      const { editorFont, ligatures } = this.session.preferences();
+      const root = document.documentElement.style;
+      root.setProperty("--font-mono", `${FONT_STACKS[editorFont] ?? FONT_STACKS["jetbrains-mono"]}, ${FALLBACK}`);
+      root.setProperty("--mono-ligatures", ligatures ? "normal" : "none");
     });
   }
 }

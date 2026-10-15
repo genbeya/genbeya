@@ -271,6 +271,39 @@
             />
           </div>
         </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <label for="setting-editor-font">Editor font</label><small>In the editors and for code in pages. All ship with Genbeya.</small>
+          </div>
+          <div class="setting-control">
+            <select
+              #editorFont
+              id="setting-editor-font"
+              class="select"
+              (change)="session.setPreferences({ editorFont: $any(editorFont.value) })"
+            >
+              @for (font of editorFonts; track font.id) {
+                <option [value]="font.id" [selected]="font.id === session.preferences().editorFont">{{ font.name }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <label for="setting-ligatures">Ligatures</label
+            ><small>Lets the font join characters, such as <code>-&gt;</code> into an arrow.</small>
+          </div>
+          <div class="setting-control">
+            <input
+              #ligatures
+              id="setting-ligatures"
+              type="checkbox"
+              class="switch"
+              [checked]="session.preferences().ligatures"
+              (change)="session.setPreferences({ ligatures: ligatures.checked })"
+            />
+          </div>
+        </div>
       </div>
     </section>
 
