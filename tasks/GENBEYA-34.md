@@ -2,7 +2,7 @@
 id: GENBEYA-34
 title: code- and changes-view of non text filetypes
 type: improvement
-status: backlog
+status: review
 priority: medium
 labels:
   - integrations
@@ -37,3 +37,14 @@ Decided by Emanuel: every file type that makes sense gets its own preview over t
 - PDF, audio and video can follow as renderers of their own.
 
 The rest of the plan above stays the same.
+
+### Claude — 2026-10-20 15:33+02:00
+
+Done, in review:
+
+- **Registry:** `src/client/app/features/preview/file-previews.ts` decides from a path which renderer shows a file (Markdown, Mermaid, PlantUML, SVG, raster images), whether it is text to edit, and how diffs compare it. `preview-kinds.ts` is gone. PDF, audio or video would each be another renderer there.
+- **Code:** PNG, JPEG, GIF, WebP and AVIF open as a picture through `content.image`, with pixel and file size in the header and no Edit, Split or Save. SVG keeps its modes.
+- **Changes, History and stashes:** images show before and after side by side, each with pixel and file size, or **Swipe** with a divider to drag (or move with the arrow keys). One new call, `versionControl.diffImages`, takes `diff`'s arguments and returns both sides as data URLs, up to 10 MB each, in the real and the demo managers. Other binary diffs name their sizes (`12 KB → 14 KB`); files over 2 MB say they are too large to compare.
+- **Demo:** the in-memory repository now keeps binary files byte for byte, and the demo history has an icon that changes in a second commit.
+
+Left open: SVG diffs stay text only (an image view for them would be a small addition), and there is no What's new item yet, since the release line isn't chosen.
