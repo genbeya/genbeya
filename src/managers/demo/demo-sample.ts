@@ -4,9 +4,10 @@
  * on top, a remote that has it all, and the sample's last change left to
  * commit.
  */
+import { fileContent } from "../../access/memory/file-bytes";
 import { MemoryRepository, type Identity } from "../../access/memory/memory-repository";
-import type { DemoEngine } from "../../engines/demo-engine";
-import type { SampleEngine, SampleFile } from "../../engines/sample-engine";
+import type { DemoEngine, DemoFile } from "../../engines/demo-engine";
+import type { SampleEngine } from "../../engines/sample-engine";
 
 const SAMPLE_AUTHOR: Identity = { name: "Genbeya", email: "sample@genbeya.invalid" };
 const HOUR = 3_600_000;
@@ -74,7 +75,7 @@ export function createDemoRepository(
         const server = repository.remotes.get(DEMO_REMOTE)!;
         const tip = server.branches.get(step.remote.branch)!;
         const tree = new Map(repository.treeOf(tip));
-        for (const file of step.files) tree.set(file.path, file.content);
+        for (const file of step.files) tree.set(file.path, contentOf(file));
         server.branches.set(step.remote.branch, repository.writeCommit(tree, [tip], step.message, signature, signature).hash);
       }
     }
@@ -85,9 +86,12 @@ export function createDemoRepository(
   return repository;
 }
 
+/** What the repository keeps for a file: its text, or its bytes. */
+const contentOf = (file: DemoFile): string => (typeof file.content === "string" ? file.content : fileContent(file.content));
+
 /** Writes files into the working tree and commits them as `author`. */
-function commit(repository: MemoryRepository, files: readonly SampleFile[], message: string, author: Identity): void {
-  for (const file of files) repository.write(file.path, file.content);
+function commit(repository: MemoryRepository, files: readonly DemoFile[], message: string, author: Identity): void {
+  for (const file of files) repository.write(file.path, contentOf(file));
   repository.add(files.map((file) => file.path));
   repository.commit(message, false, author);
 }

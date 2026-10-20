@@ -45,6 +45,14 @@ Then it asks Git for its own diff of the file (`git diff` of the working tree, o
 
 The patch goes into `genbeya.patch` in the git directory, since hosts give processes no standard input, and runs with `--no-ignore-whitespace --recount --whitespace=nowarn`; Git applies it only where the context matches exactly. Lines of an untracked file are staged after `git add --intent-to-add`, which is undone when applying fails; discarding lines of one leaves the rest untracked. `unstage(paths, "parent")` resets the paths (and the old side of renames) to their version in HEAD's parent with `git reset -q <parent> -- <paths>`, which leaves them out of the amended commit.
 
+## Images in diffs
+
+A diff of a binary file has no lines; `diff` says `binary` and gives the `sizes` of both sides in bytes (0 for a missing side). A file over 2 MB counts as binary too, without sizes, since its sides are never read whole.
+
+`diffImages(path, source, oldPath, base)` takes the arguments of `diff` and returns the two versions of an image as data URLs, `null` for a side without the file: the index and the working tree, HEAD (or the amended commit's parent) and the index, or a commit and its first parent. Each side's media type comes from its own name, so a renamed image keeps its old type on the old side. It serves what `content.image` serves — PNG, JPEG, GIF, WebP, SVG and AVIF (`src/utilities/image-types.ts`) — and refuses sides over 10 MB. The client asks for it only when `diff`'s version changed, or has none.
+
+Which files the client compares as images, and which it previews in **Code**, the preview registry decides (`src/client/app/features/preview/file-previews.ts`): one renderer per kind of file — Markdown, Mermaid, PlantUML, SVG and raster images — each saying whether the file is text to edit and how its diff compares it. A new kind, such as PDF, audio or video, is another renderer there.
+
 ## .gitignore
 
 `ignore(path, kind, location)` adds a rule to the `.gitignore` in the folder `location` ("" for the root), which must hold `path`. `src/utilities/gitignore.ts` writes the rule — `/path` for a file, `/path/` for a folder, `*.ext` for an extension — relative to that folder, escapes `\`, `*`, `?`, `[` and trailing spaces, and appends it in the file's line endings, ending with one, unless the file has it already. The client uses the same utility for its preview. `untrack(paths)` runs `git rm --cached -r` and keeps the files.

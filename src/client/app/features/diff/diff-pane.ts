@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked, viewChild } from "@angular/core";
-import type { Diff, LineSelection } from "../../../../contracts/model";
+import type { Diff, DiffImages, LineSelection } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
 import { DiffView, type DiffLines, type HunkAction, type HunkEvent } from "../../editor/diff-view";
@@ -7,8 +7,17 @@ import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
 import type { IconName } from "../../ui/icon-data";
 import { Remembered } from "../../ui/remembered";
+import { comparisonOf, type Comparison } from "../preview/file-previews";
+import { formatBytes } from "../preview/file-size";
+import { ImageComparison, type ImageComparisonMode } from "../preview/image-comparison";
 
 const INLINE_KEY = "diff:inline";
+const IMAGE_MODE_KEY = "diff:images";
+
+const IMAGE_MODES: readonly { readonly mode: ImageComparisonMode; readonly label: string; readonly icon: IconName }[] = [
+  { mode: "sides", label: "Side by side", icon: "columns-2" },
+  { mode: "swipe", label: "Swipe", icon: "move-horizontal" },
+];
 
 /** Something to do with parts of a diff: "Stage" becomes "Stage hunk" and "Stage selected lines". */
 export interface DiffAction {
@@ -34,7 +43,7 @@ const lineCount = (selection: LineSelection) =>
  */
 @Component({
   selector: "gd-diff-pane",
-  imports: [DiffView, EmptyState, Icon],
+  imports: [DiffView, EmptyState, Icon, ImageComparison],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./diff-pane.css",
   // Changes made in another app show once the window is back.
@@ -47,19 +56,37 @@ const lineCount = (selection: LineSelection) =>
       }
       <span class="grow"></span>
       <ng-content />
-      <button
-        type="button"
-        class="icon-btn"
-        [attr.aria-label]="inline() ? 'Side by side' : 'Inline'"
-        [title]="inline() ? 'Side by side' : 'Inline'"
-        (click)="toggleInline()"
-      >
-        @if (inline()) {
-          <svg gd-icon name="columns-2" [size]="15"></svg>
-        } @else {
-          <svg gd-icon name="rows-2" [size]="15"></svg>
-        }
-      </button>
+      @if (comparison() === "image") {
+        <div class="segmented diff-modes" role="radiogroup" aria-label="Compare">
+          @for (choice of imageModes; track choice.mode) {
+            <button
+              type="button"
+              role="radio"
+              [attr.aria-checked]="imageMode() === choice.mode"
+              [class.is-active]="imageMode() === choice.mode"
+              [disabled]="choice.mode === 'swipe' && !swipes()"
+              [title]="choice.mode === 'swipe' && !swipes() ? 'Swiping needs both versions' : ''"
+              (click)="setImageMode(choice.mode)"
+            >
+              <svg gd-icon [name]="choice.icon" [size]="12"></svg> {{ choice.label }}
+            </button>
+          }
+        </div>
+      } @else {
+        <button
+          type="button"
+          class="icon-btn"
+          [attr.aria-label]="inline() ? 'Side by side' : 'Inline'"
+          [title]="inline() ? 'Side by side' : 'Inline'"
+          (click)="toggleInline()"
+        >
+          @if (inline()) {
+            <svg gd-icon name="columns-2" [size]="15"></svg>
+          } @else {
+            <svg gd-icon name="rows-2" [size]="15"></svg>
+          }
+        </button>
+      }
     </header>
     @if (error(); as message) {
       <gd-empty-state title="Can't show this diff"
@@ -67,8 +94,26 @@ const lineCount = (selection: LineSelection) =>
       >
     } @else if (!diff()) {
       <div class="editor-loading"><span class="spinner" aria-label="Loading"></span></div>
-    } @else if (diff()!.binary) {
-      <gd-empty-state title="Binary file"><p>Genbeya does not show differences for binary files.</p></gd-empty-state>
+    } @else if (comparison() === "image") {
+      @if (images(); as pair) {
+        <gd-image-comparison
+          [original]="pair.original"
+          [modified]="pair.modified"
+          [mode]="imageMode()"
+          [name]="path().split('/').at(-1)!"
+        />
+      } @else {
+        <div class="editor-loading"><span class="spinner" aria-label="Loading"></span></div>
+      }
+    } @else if (comparison() === "binary") {
+      @if (diff()!.sizes; as sizes) {
+        <gd-empty-state title="Binary file">
+          <p>Genbeya does not show differences for binary files.</p>
+          <p class="diff-sizes">{{ sizeChange(sizes) }}</p>
+        </gd-empty-state>
+      } @else {
+        <gd-empty-state title="File too large"><p>Genbeya does not compare files this large line by line.</p></gd-empty-state>
+      }
     } @else {
       @if (actions().length && !diff()!.changes) {
         <div class="diff-toolbar">
@@ -112,13 +157,28 @@ export class DiffPane {
   readonly badge = input<string>();
   readonly actions = input<readonly DiffAction[]>([]);
   readonly apply = input<DiffActionHandler>(async () => "done");
+  /** Fetches both versions of an image with the arguments of `load`; without it, images show as binary files. */
+  readonly loadImages = input<(() => Promise<DiffImages>) | null>(null);
 
   private readonly session = inject(Session);
   private readonly memory = inject(Remembered);
   private readonly view = viewChild(DiffView);
   protected readonly diff = signal<Diff | null>(null);
+  protected readonly images = signal<DiffImages | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly inline = signal(this.memory.recall(INLINE_KEY) === "1");
+  protected readonly imageModes = IMAGE_MODES;
+  private readonly chosenImageMode = signal<ImageComparisonMode>(this.memory.recall(IMAGE_MODE_KEY) === "swipe" ? "swipe" : "sides");
+  /** Swiping needs both versions: an added or deleted image is shown side by side. */
+  protected readonly swipes = computed(() => !!this.images()?.original && !!this.images()?.modified);
+  protected readonly imageMode = computed<ImageComparisonMode>(() => (this.swipes() ? this.chosenImageMode() : "sides"));
+  /** How the file is compared, as the preview registry says. */
+  protected readonly comparison = computed<Comparison | null>(() => {
+    const diff = this.diff();
+    if (!diff) return null;
+    const comparison = comparisonOf(this.path(), diff.binary);
+    return comparison === "image" && !this.loadImages() ? "binary" : comparison;
+  });
   protected readonly selection = signal<DiffLines | null>(null);
   protected readonly running = signal(false);
   protected readonly count = computed(() => {
@@ -146,19 +206,35 @@ export class DiffPane {
       if (ticket !== this.request) return;
       // An unchanged diff keeps its view, so scrolling is not reset on every poll.
       const current = this.diff();
-      if (
+      const changed =
         !current ||
         current.version !== diff.version ||
         current.original !== diff.original ||
         current.modified !== diff.modified ||
         current.binary !== diff.binary ||
-        !current.changes !== !diff.changes
-      )
-        this.diff.set(diff);
+        !current.changes !== !diff.changes;
+      const loadImages = untracked(this.loadImages);
+      // Images are read again when the diff changed; without a version (too large to compare) always.
+      if (loadImages && comparisonOf(untracked(this.path), diff.binary) === "image" && (changed || !diff.version || !this.images())) {
+        const images = await loadImages();
+        if (ticket !== this.request) return;
+        this.images.set(images);
+      }
+      if (changed) this.diff.set(diff);
       this.error.set(null);
     } catch (failure) {
       if (ticket === this.request) this.error.set(messageOf(failure));
     }
+  }
+
+  protected setImageMode(mode: ImageComparisonMode) {
+    this.chosenImageMode.set(mode);
+    this.memory.remember(IMAGE_MODE_KEY, mode);
+  }
+
+  /** The sizes of a binary file's two versions: "12 KB → 14 KB". */
+  protected sizeChange([before, after]: readonly [number, number]): string {
+    return `${before ? formatBytes(before) : "None"} → ${after ? formatBytes(after) : "none"}`;
   }
 
   protected toggleInline() {

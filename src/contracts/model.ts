@@ -443,6 +443,14 @@ export interface Diff {
    * Genbeya can only stage as a whole.
    */
   readonly changes?: readonly DiffChange[];
+  /** The sizes of both sides in bytes, a missing side 0, for binary files; absent when a side is too large to compare. */
+  readonly sizes?: readonly [number, number];
+}
+
+/** Both versions of an image a diff compares, as data URLs; null where that side has no file. */
+export interface DiffImages {
+  readonly original: string | null;
+  readonly modified: string | null;
 }
 
 /**

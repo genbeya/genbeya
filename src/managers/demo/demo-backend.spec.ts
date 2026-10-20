@@ -35,6 +35,8 @@ describe("the demo backend", () => {
     const log = await vc.log(id, 0, 50);
     expect(log.map((commit) => commit.subject)).toEqual([
       "Explain how to run the report",
+      "Put a cloud in front of the sun",
+      "Add an icon",
       "Test the conversion",
       "Convert temperatures to Fahrenheit",
       "Plan the first release",
@@ -139,6 +141,18 @@ describe("the demo backend", () => {
   });
 
   describe("version control", () => {
+    it("keeps the icon's bytes, and serves both versions of it a commit compares", async () => {
+      const { vc, content, id } = await demo();
+      const [changed] = (await vc.log(id, 0, 50)).filter((commit) => commit.subject === "Put a cloud in front of the sun");
+      const diff = await vc.diff(id, "assets/icon.png", { commit: changed!.hash });
+      expect(diff).toMatchObject({ binary: true, sizes: [582, 1201] });
+      const images = await vc.diffImages(id, "assets/icon.png", { commit: changed!.hash });
+      expect(images.original).toMatch(/^data:image\/png;base64,iVBORw0KGgo/);
+      expect(images.modified).toBe(await content.image(id, "repo", "assets/icon.png"));
+      await expect(content.read(id, "repo", "assets/icon.png")).rejects.toThrow("assets/icon.png is a binary file.");
+      await expect(vc.diffImages(id, "README.md", "worktree")).rejects.toThrow("README.md is not a supported image.");
+    });
+
     it("stages lines of a change and commits them, then amends", async () => {
       const { vc, id, snapshot } = await demo();
       const diff = await vc.diff(id, "src/forecast.ts", "worktree");

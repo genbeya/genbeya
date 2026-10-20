@@ -18,7 +18,7 @@ flowchart TB
 | Connector | `src/client/app/platform/demo-connector.ts` | Composes the demo backend in the page, as the Tauri connector does; keeps layout choices in memory; the folder picker offers the demo's folder, links open in a new tab, closing with unsaved edits asks as browsers do |
 | Demo managers | `src/managers/demo/` | The four manager contracts on in-memory repositories; `demo-sample.ts` builds the sample's repository |
 | Seed | `src/engines/demo-engine.ts` | The history the demo adds to the sample project |
-| In-memory Git | `src/access/memory/` | Commits, index, working tree, refs, stashes, operations and remotes (`MemoryRepository`), Myers' diff, three-way merges, `.gitignore` rules, rename detection |
+| In-memory Git | `src/access/memory/` | Commits, index, working tree, refs, stashes, operations and remotes (`MemoryRepository`), Myers' diff, three-way merges, `.gitignore` rules, rename detection. Files are strings: text as itself, anything else, such as images, as its bytes behind a marker (`file-bytes.ts`) |
 | Badge | `src/client/app/features/demo/demo-badge.ts` | **Demo** in the sidebar and on the start screen: what the demo is, **Reset demo** and **Download Genbeya** |
 
 ## Why the managers are reimplemented
@@ -49,6 +49,7 @@ The sample's repository starts with the sample project's three commits, and adds
 
 - the tag `v0.1`;
 - the branch `fahrenheit`, two commits by Sam Rivera, whose merge into `main` conflicts in one line of `README.md`;
+- two commits by Alex Chen on `main` that add an icon, `assets/icon.png`, and put a cloud in front of its sun, so **History** has an image to compare;
 - a commit by Alex Chen on `main`;
 - all of it pushed to `origin`, which has one more commit on `main`, by Sam, that **Fetch** brings in;
 - the sample's change to `src/forecast.ts`, left to commit.

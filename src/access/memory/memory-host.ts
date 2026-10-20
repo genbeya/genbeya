@@ -5,12 +5,12 @@
  * while they hold files, as in Git. Nothing runs here: there are no
  * processes and no terminals.
  */
-import { decodeLenient, encodeText } from "../../utilities/bytes";
 import { posixPaths } from "../../utilities/native-path";
 import { within } from "../../utilities/repository-path";
 import { HostError, type EntryKind, type Host } from "../hosts/host";
 import type { TerminalCommand } from "../hosts/terminal-commands";
 import type { RunResult } from "../ports";
+import { fileBytes, fileContent } from "./file-bytes";
 import type { MemoryRepository } from "./memory-repository";
 
 export class MemoryHost implements Host {
@@ -25,7 +25,7 @@ export class MemoryHost implements Host {
   async read(_root: string, relative: string, limit: number): Promise<Uint8Array> {
     const content = this.repository.worktree.get(relative);
     if (content === undefined) throw new HostError(this.repository.kind(relative) ? "NOTFILE" : "ENOENT", relative);
-    const data = encodeText(content);
+    const data = fileBytes(content);
     if (data.length > limit) throw new HostError("TOOLARGE", relative);
     return data;
   }
@@ -37,7 +37,7 @@ export class MemoryHost implements Host {
   async write(_root: string, relative: string, data: Uint8Array, exclusive: boolean): Promise<void> {
     if (exclusive && this.repository.kind(relative)) throw new HostError("EXISTS", relative);
     if (this.repository.kind(relative) === "dir") throw new HostError("NOTFILE", relative);
-    this.repository.write(relative, decodeLenient(data));
+    this.repository.write(relative, fileContent(data));
   }
 
   async kind(_root: string, relative: string): Promise<EntryKind> {

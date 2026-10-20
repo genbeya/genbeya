@@ -124,6 +124,13 @@ export class ChangesView {
     const base = this.session.changeBase();
     return () => this.api.versionControl.diff(file!, staged ? "index" : "worktree", oldPath, staged ? base : undefined);
   });
+  protected readonly loadImages = computed(() => {
+    const file = this.file();
+    const staged = this.showsStaged();
+    const oldPath = staged ? this.current()?.oldPath : undefined;
+    const base = this.session.changeBase();
+    return () => this.api.versionControl.diffImages(file!, staged ? "index" : "worktree", oldPath, staged ? base : undefined);
+  });
   protected readonly diffActions = computed(() => (this.showsStaged() ? STAGED_ACTIONS : UNSTAGED_ACTIONS));
   protected readonly applyLines: DiffActionHandler = (action, lines, version, hunk) => {
     const change = this.current();

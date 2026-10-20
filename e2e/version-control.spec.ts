@@ -1,5 +1,9 @@
 import { expect, MOD, test } from "./app";
 
+/** A 4 × 2 red PNG, and a 6 × 3 blue one. */
+const RED = "iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAIAAADwyuo0AAAAEElEQVR4nGO4Y2MDRwzIHACPOgqhOHdREwAAAABJRU5ErkJggg==";
+const BLUE = "iVBORw0KGgoAAAANSUhEUgAAAAYAAAADCAIAAAA/Y+msAAAAEUlEQVR4nGOwqbiDhhiIEgIAFrYcIUKFL5AAAAAASUVORK5CYII=";
+
 test.describe("code, changes and history", () => {
   test("edits a file, commits it, and shows the commit in the history", async ({ window, repository }) => {
     await window.keyboard.press(`${MOD}+3`);
@@ -46,5 +50,26 @@ test.describe("code, changes and history", () => {
     await expect(window.getByRole("textbox", { name: "Contents of windows.txt" })).toBeVisible();
     await expect(window.getByLabel("Unsaved changes")).toBeHidden();
     await expect(window.getByRole("button", { name: /^Save/ })).toBeDisabled();
+  });
+
+  test("shows an image in Code, and both of its versions in Changes", async ({ window, repository }) => {
+    const png = (base64: string) => Buffer.from(base64, "base64");
+    repository.write("assets/dot.png", png(RED));
+    repository.git("add", ".");
+    repository.git("commit", "-q", "-m", "Add a dot");
+    await window.keyboard.press(`${MOD}+3`);
+    await window.getByRole("tree", { name: "Files" }).getByText("assets").click();
+    await window.getByRole("tree", { name: "Files" }).getByText("dot.png").click();
+    await expect(window.getByRole("img", { name: "dot.png" })).toBeVisible();
+    await expect(window.locator(".file-facts")).toHaveText("4 × 2 px · 73 B");
+    await expect(window.getByRole("button", { name: /^Save/ })).toHaveCount(0);
+
+    repository.write("assets/dot.png", png(BLUE));
+    await window.keyboard.press(`${MOD}+4`);
+    await window.locator("gd-change-row", { hasText: "dot.png" }).click();
+    await expect(window.getByRole("img", { name: "dot.png before" })).toBeVisible();
+    await expect(window.locator(".side-facts")).toHaveText(["4 × 2 px · 73 B", "6 × 3 px · 74 B"]);
+    await window.getByRole("radio", { name: "Swipe" }).click();
+    await expect(window.getByRole("slider", { name: "Divider between before and after" })).toBeVisible();
   });
 });

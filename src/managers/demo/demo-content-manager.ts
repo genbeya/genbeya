@@ -34,20 +34,11 @@ import { SEARCH_LIMITS, type SearchEngine, type SearchQuery } from "../../engine
 import { contentAreaOf, SETTINGS_FILE, type SettingsEngine } from "../../engines/settings-engine";
 import type { TaskEngine, TaskVersion } from "../../engines/task-engine";
 import type { WikiEngine } from "../../engines/wiki-engine";
-import { sha256, toBase64 } from "../../utilities/bytes";
+import { sha256 } from "../../utilities/bytes";
+import { imageType, imageUrl } from "../../utilities/image-types";
 import { referenceIndex } from "../../utilities/references";
 import { baseName, relocate, within } from "../../utilities/repository-path";
 import type { DemoRegistry, DemoWorkspace } from "./demo-workspace";
-
-const IMAGE_TYPES: Readonly<Record<string, string>> = {
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  gif: "image/gif",
-  webp: "image/webp",
-  svg: "image/svg+xml",
-  avif: "image/avif",
-};
 
 const ACTIVITY_LIMIT = 100;
 const AUTHOR_COMMITS = 5000;
@@ -108,9 +99,9 @@ export class DemoContentManager implements ContentManagerContract {
     return this.on(id, async (workspace) => {
       this.scope(scope);
       const relative = workspace.path(path);
-      const type = IMAGE_TYPES[relative.slice(relative.lastIndexOf(".") + 1).toLowerCase()];
+      const type = imageType(relative);
       if (!type) throw new Error(`${relative} is not a supported image.`);
-      return `data:${type};base64,${toBase64(await workspace.files.readBytes(relative, IMAGE_LIMIT))}`;
+      return imageUrl(type, await workspace.files.readBytes(relative, IMAGE_LIMIT));
     });
   }
 

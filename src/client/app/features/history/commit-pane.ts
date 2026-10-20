@@ -72,6 +72,7 @@ import { RefChips } from "./ref-chips";
               [path]="changed.path"
               [badge]="detail.commit.parents.length > 1 ? 'vs. first parent' : undefined"
               [load]="loadDiff()"
+              [loadImages]="loadImages()"
             >
               <button type="button" class="icon-btn" aria-label="Open in code" title="Open in code" (click)="openFile(changed.path)">
                 <svg gd-icon name="code-xml" [size]="15"></svg>
@@ -112,6 +113,11 @@ export class CommitPane {
     const changed = this.selected();
     const hash = this.hash();
     return () => this.api.versionControl.diff(changed!.path, { commit: hash }, changed?.oldPath);
+  });
+  protected readonly loadImages = computed(() => {
+    const changed = this.selected();
+    const hash = this.hash();
+    return () => this.api.versionControl.diffImages(changed!.path, { commit: hash }, changed?.oldPath);
   });
 
   constructor() {

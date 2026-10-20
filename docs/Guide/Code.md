@@ -8,9 +8,11 @@ The same editor edits wiki pages and task descriptions. It works like VS Code's 
 
 [TOC]
 
-## Markdown files
+## Previews
 
 Markdown files, Mermaid (`.mmd`) and PlantUML (`.puml`) diagrams and SVG images switch between **Edit**, **Split** (the text and the preview side by side) and **Preview**; new files open in the mode you chose last. The preview renders like the wiki, including [References](References.md) and diagrams, and typing `[[` in a Markdown file lists the tasks, pages and files to link. Switching keeps your place in Markdown, and in **Split** the two sides scroll together.
+
+Images — PNG, JPEG, GIF, WebP and AVIF — open as a picture, with their size in pixels and their file size next to the name, such as *96 × 96 px · 1.2 KB*. They have no text to edit, so there is no **Edit**, **Split** or **Save**. Images up to 10 MB are shown, as in pages. Other binary files can't be opened. **Changes** and **History** compare two versions of an image side by side or swiped (see [Version control](Version-control.md#images-and-other-binary-files)).
 
 ## Find and replace
 
