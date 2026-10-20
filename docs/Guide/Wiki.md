@@ -61,7 +61,7 @@ A folder without a matching page still shows up and lists its children. **New su
 | ` ```mermaid ` | A Mermaid diagram |
 | ` ```plantuml ` | A PlantUML diagram |
 | ` ```ts ` (any language) | Syntax highlighting |
-| `- [ ]` and `- [x]` | A checklist |
+| `- [ ]` and `- [x]` | A checklist; its boxes can be ticked as the page reads, which saves the page |
 
 [Writing pages](Writing.md) has more: math, code blocks with titles, line numbers and highlighted lines, foldable callouts, footnotes, keys and collapsible sections.
 
