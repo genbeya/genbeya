@@ -30,3 +30,7 @@ To decide:
 
 - **Where the custom command lives.** I strongly recommend the user's preferences, not `.genbeya.yml`. A command in the repository would run whatever a cloned repository puts there when someone clicks the button.
 - **Which editors.** Should Cursor and VSCodium get their own buttons? They take the same kind of links (`cursor://`, `vscodium://`). Or is a single editor choice enough?
+
+### Claude — 2026-10-20 14:41+02:00
+
+Decided by Emanuel: stays in the backlog until he has decided how it should work in detail. The custom command would live in the user's preferences, not in `.genbeya.yml`.

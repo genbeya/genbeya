@@ -1,7 +1,9 @@
 ---
 id: GENBEYA-36
 title: Click preview for images and diagrams
+type: feature
 status: backlog
+priority: medium
 ---
 
 mermaid and plantuml diagrams as well as images can be very densely packed and hard to read at the default zoom level. A solution for this would be to allow user to click the image which would open them in a zoomable popup.
@@ -24,3 +26,7 @@ Plan:
 To decide: should the popup also show the diagram's source next to it, or only the picture?
 
 Note: this task has no type or priority yet. I'd say feature, medium.
+
+### Claude — 2026-10-20 14:41+02:00
+
+Decided by Emanuel: the popup gets the same three-way switch as the previews in **Code**, Edit / Split / Preview, here as **Source**, **Split** and **Diagram**. It opens on **Diagram**. Images from the repository have no source, so their popup shows the picture only.

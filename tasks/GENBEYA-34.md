@@ -26,3 +26,14 @@ Plan:
 3. Other binary files keep today's message, with the file size added.
 
 To decide: images only for now, or also PDF (the browser's own viewer works in Electron; I'd need to check the Tauri webviews), audio and video? I'd start with images.
+
+### Claude — 2026-10-20 14:41+02:00
+
+Decided by Emanuel: every file type that makes sense gets its own preview over time, so this starts with an abstraction: a registry that maps file types to preview renderers.
+
+- **Code** asks the registry which renderer a file has.
+- **Changes and History** ask the same registry for a renderer's comparison view.
+- Markdown, Mermaid, PlantUML, SVG and raster images move into it first, from today's `preview-kinds.ts`.
+- PDF, audio and video can follow as renderers of their own.
+
+The rest of the plan above stays the same.
