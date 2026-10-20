@@ -1,6 +1,7 @@
 import { task } from "../../testing/fake-platform";
 import {
   columnsOf,
+  compareEpics,
   compareTasks,
   displayId,
   epicName,
@@ -104,5 +105,30 @@ describe("task labels", () => {
   it("colours types by their tone", () => {
     expect(toneColor("red")).toBe("var(--red)");
     expect(toneColor(undefined)).toBe("var(--text-2)");
+  });
+});
+
+describe("epic order", () => {
+  it("orders epics by a leading phase number, then the others alphabetically", () => {
+    const epics = ["Backlog", "10 Launch", "2 Build", "1 Discovery", "alpha", "2 Beta", "10-Later", "0 Setup"];
+    expect([...epics].sort(compareEpics)).toEqual([
+      "0 Setup",
+      "1 Discovery",
+      "2 Beta",
+      "2 Build",
+      "10 Launch",
+      "10-Later",
+      "alpha",
+      "Backlog",
+    ]);
+  });
+
+  it("reads a number only when it is the whole first word", () => {
+    expect(["v2 Beta", "3 Ship", "2024 Roadmap", "12"].sort(compareEpics)).toEqual(["3 Ship", "12", "2024 Roadmap", "v2 Beta"]);
+  });
+
+  it("puts tasks without an epic in the last swimlane", () => {
+    const tasks = [task("a", { epic: "10 Launch" }), task("b", { epic: "" }), task("c", { epic: "2 Build" })];
+    expect(lanesOf(tasks)).toEqual(["2 Build", "10 Launch", ""]);
   });
 });
