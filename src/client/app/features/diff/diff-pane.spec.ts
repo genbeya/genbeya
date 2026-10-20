@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import { EditorView } from "@codemirror/view";
-import type { Diff, DiffChange } from "../../../../contracts/model";
+import type { Diff, DiffChange, DiffImages } from "../../../../contracts/model";
 import { openRepository, settle } from "../../testing/component-harness";
 import { DiffPane, type DiffAction, type DiffActionHandler, type DiffActionOutcome } from "./diff-pane";
 
@@ -42,6 +42,27 @@ async function render(loaded: Diff | (() => Diff), actions: DiffAction[] = ACTIO
   await vi.waitFor(() => expect((fixture.nativeElement as HTMLElement).querySelector(".cm-editor")).not.toBeNull());
   await settle(fixture);
   return { fixture, element: fixture.nativeElement as HTMLElement, load, apply };
+}
+
+const BEFORE = "data:image/png;base64,iVBORw==";
+const AFTER = "data:image/png;base64,iVBORw0KGgo=";
+
+/** A diff pane of a binary file at `path`, with both versions of it as images when `images` are given. */
+async function renderBinary(path: string, loaded: Partial<Diff>, images?: () => DiffImages) {
+  await openRepository();
+  localStorage.removeItem("diff:images");
+  const load = vi.fn(async (): Promise<Diff> => ({ path, original: "", modified: "", binary: true, version: "v1", ...loaded }));
+  const loadImages = vi.fn(async () => images!());
+  const fixture = TestBed.createComponent(DiffPane);
+  fixture.componentRef.setInput("path", path);
+  fixture.componentRef.setInput("load", load);
+  if (images) fixture.componentRef.setInput("loadImages", loadImages);
+  fixture.componentRef.setInput("actions", ACTIONS);
+  await settle(fixture);
+  const element = fixture.nativeElement as HTMLElement;
+  const radio = (label: string) =>
+    [...element.querySelectorAll<HTMLButtonElement>("[role=radio]")].find((b) => b.textContent!.trim() === label)!;
+  return { fixture, element, load, loadImages, radio };
 }
 
 const bars = (element: HTMLElement) => [...element.querySelectorAll<HTMLElement>(".cm-hunkBar")];
@@ -148,6 +169,89 @@ describe("DiffPane", () => {
     button(bars(element)[0]!, "Stage hunk").click();
     await settle(fixture);
     expect(apply).toHaveBeenCalledWith("stage", { original: [{ from: 2, to: 2 }], modified: [{ from: 2, to: 2 }] }, "v-20", true);
+  });
+
+  describe("images", () => {
+    afterEach(() => localStorage.removeItem("diff:images"));
+
+    it("shows both versions side by side, each with its sizes, and offers no line actions", async () => {
+      const { element, loadImages, radio } = await renderBinary("assets/icon.png", { sizes: [4, 8] }, () => ({
+        original: BEFORE,
+        modified: AFTER,
+      }));
+      expect(loadImages).toHaveBeenCalledTimes(1);
+      const images = [...element.querySelectorAll<HTMLImageElement>(".side img")];
+      expect(images.map((image) => image.getAttribute("src"))).toEqual([BEFORE, AFTER]);
+      expect(images.map((image) => image.alt)).toEqual(["icon.png before", "icon.png after"]);
+      expect([...element.querySelectorAll(".side-facts")].map((facts) => facts.textContent)).toEqual(["4 B", "8 B"]);
+      expect(element.querySelector(".diff-toolbar")).toBeNull();
+      expect(element.querySelector("[aria-label=Inline]")).toBeNull();
+      expect(radio("Side by side").getAttribute("aria-checked")).toBe("true");
+    });
+
+    it("adds the pixel sizes once the images loaded", async () => {
+      const { element, fixture } = await renderBinary("assets/icon.png", {}, () => ({ original: BEFORE, modified: AFTER }));
+      const [before] = [...element.querySelectorAll<HTMLImageElement>(".side img")];
+      Object.defineProperties(before!, { naturalWidth: { value: 96 }, naturalHeight: { value: 48 } });
+      before!.dispatchEvent(new Event("load"));
+      await settle(fixture);
+      expect(element.querySelector(".side-facts")!.textContent).toBe("96 × 48 px · 4 B");
+    });
+
+    it("swipes between the versions, and remembers the choice", async () => {
+      const { element, fixture, radio } = await renderBinary("assets/icon.png", {}, () => ({ original: BEFORE, modified: AFTER }));
+      radio("Swipe").click();
+      await settle(fixture);
+      expect(localStorage.getItem("diff:images")).toBe("swipe");
+      expect(element.querySelector(".swipe-before")!.getAttribute("src")).toBe(BEFORE);
+      expect(element.querySelector<HTMLElement>(".swipe-after")!.style.clipPath).toMatch(/^inset\(0(px)? 0(px)? 0(px)? 50%\)$/);
+      expect(element.querySelector("[role=slider]")!.getAttribute("aria-valuenow")).toBe("50");
+    });
+
+    it("shows an added image on its own, since there is nothing to swipe", async () => {
+      localStorage.setItem("diff:images", "swipe");
+      const { element, radio } = await renderBinary("assets/icon.png", {}, () => ({ original: null, modified: AFTER }));
+      expect(radio("Swipe").disabled).toBe(true);
+      expect(element.querySelector(".swipe")).toBeNull();
+      expect(element.querySelector(".side-missing")!.textContent).toBe("Not in this version");
+      expect([...element.querySelectorAll(".side img")]).toHaveLength(1);
+    });
+
+    it("reads the images again only when the diff changed", async () => {
+      const { fixture, loadImages, load } = await renderBinary("assets/icon.png", {}, () => ({ original: BEFORE, modified: AFTER }));
+      window.dispatchEvent(new FocusEvent("focus"));
+      await settle(fixture);
+      expect(load).toHaveBeenCalledTimes(2);
+      expect(loadImages).toHaveBeenCalledTimes(1);
+      load.mockResolvedValue({ path: "assets/icon.png", original: "", modified: "", binary: true, version: "v2" });
+      window.dispatchEvent(new FocusEvent("focus"));
+      await settle(fixture);
+      expect(loadImages).toHaveBeenCalledTimes(2);
+    });
+
+    it("says why the images can't be shown", async () => {
+      const { element } = await renderBinary("assets/huge.png", {}, () => {
+        throw new Error("assets/huge.png is too large to show.");
+      });
+      expect(element.textContent).toContain("assets/huge.png is too large to show.");
+    });
+  });
+
+  it("names the sizes of other binary files", async () => {
+    const { element } = await renderBinary("archive.zip", { sizes: [0, 2048] });
+    expect(element.textContent).toContain("Genbeya does not show differences for binary files.");
+    expect(element.querySelector(".diff-sizes")!.textContent).toBe("None → 2.0 KB");
+    expect(element.querySelector("[role=radio]")).toBeNull();
+  });
+
+  it("says when a file is too large to compare", async () => {
+    const { element } = await renderBinary("big.log", { version: "" });
+    expect(element.textContent).toContain("File too large");
+  });
+
+  it("shows images as binary files where nobody passed a way to read them", async () => {
+    const { element } = await renderBinary("assets/icon.png", { sizes: [4, 8] });
+    expect(element.querySelector(".diff-sizes")!.textContent).toBe("4 B → 8 B");
   });
 
   it("keeps the stretches the user unfolded when the diff changes", async () => {

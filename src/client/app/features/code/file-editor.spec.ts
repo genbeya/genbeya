@@ -44,6 +44,44 @@ describe("FileEditor", () => {
     await choose("Edit");
   });
 
+  it("shows a raster image without reading its text, with its pixel size and file size", async () => {
+    const harness = await openRepository();
+    harness.managers.content.image.mockResolvedValue("data:image/png;base64,iVBORw0K");
+    const fixture = TestBed.createComponent(FileEditor);
+    fixture.componentRef.setInput("path", "assets/icon.png");
+    await settle(fixture);
+    const host = fixture.nativeElement as HTMLElement;
+    expect(harness.managers.content.image).toHaveBeenCalledWith("w1", "repo", "assets/icon.png");
+    expect(harness.managers.content.read).not.toHaveBeenCalled();
+    const image = host.querySelector<HTMLImageElement>(".file-preview img")!;
+    expect(image.getAttribute("src")).toBe("data:image/png;base64,iVBORw0K");
+    expect(image.alt).toBe("icon.png");
+    // No editing: no modes, no editor, nothing to save.
+    expect(host.querySelector("[role=radio]")).toBeNull();
+    expect(host.querySelector(".cm-editor")).toBeNull();
+    expect([...host.querySelectorAll("button")].some((button) => button.textContent!.includes("Save"))).toBe(false);
+    expect(host.querySelector(".file-facts")!.textContent).toBe("6 B");
+    Object.defineProperties(image, { naturalWidth: { value: 96 }, naturalHeight: { value: 64 } });
+    image.dispatchEvent(new Event("load"));
+    await settle(fixture);
+    expect(host.querySelector(".file-facts")!.textContent).toBe("96 × 64 px · 6 B");
+  });
+
+  it("says why an image can't be shown", async () => {
+    const harness = await openRepository();
+    harness.managers.content.image.mockRejectedValue(new Error("assets/huge.png is too large to open."));
+    const fixture = TestBed.createComponent(FileEditor);
+    fixture.componentRef.setInput("path", "assets/huge.png");
+    await settle(fixture);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain("assets/huge.png is too large to open.");
+  });
+
+  it("keeps Edit, Split and Preview for SVG, which is text", async () => {
+    const { host } = await open("logo.svg", "<svg></svg>");
+    expect([...host.querySelectorAll("[role=radio]")].map((button) => button.textContent!.trim())).toEqual(["Edit", "Split", "Preview"]);
+    expect(host.querySelector(".file-facts")).toBeNull();
+  });
+
   it("only edits files without a preview", async () => {
     const { host } = await open("src/main.ts", "export {};\n");
     expect(host.querySelector("[role=radio]")).toBeNull();

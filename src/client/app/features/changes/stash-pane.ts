@@ -57,7 +57,12 @@ import { StashActions } from "./stash-actions";
       >
     } @else if (selected(); as stashed) {
       @for (key of [stashed.commit + stashed.path]; track key) {
-        <gd-diff-pane [path]="stashed.path" [badge]="stashed.commit === stash().hash ? 'Stashed' : 'Untracked'" [load]="loadDiff()" />
+        <gd-diff-pane
+          [path]="stashed.path"
+          [badge]="stashed.commit === stash().hash ? 'Stashed' : 'Untracked'"
+          [load]="loadDiff()"
+          [loadImages]="loadImages()"
+        />
       }
     }
   `,
@@ -78,6 +83,10 @@ export class StashPane {
   protected readonly loadDiff = computed(() => {
     const stashed = this.selected()!;
     return () => this.api.versionControl.diff(stashed.path, { commit: stashed.commit }, stashed.oldPath);
+  });
+  protected readonly loadImages = computed(() => {
+    const stashed = this.selected()!;
+    return () => this.api.versionControl.diffImages(stashed.path, { commit: stashed.commit }, stashed.oldPath);
   });
 
   constructor() {

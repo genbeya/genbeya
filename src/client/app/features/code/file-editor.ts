@@ -20,7 +20,10 @@ import type { IconName } from "../../ui/icon-data";
 import { MenuItem } from "../../ui/menu-item";
 import { ShareMenu } from "../share/share-menu";
 import { WikiActions } from "../wiki/wiki-actions";
-import { previewKind, previewMarkdown } from "./preview-kinds";
+import { filePreview, previewMarkdown } from "../preview/file-previews";
+import { dataUrlBytes, imageFacts, type PixelSize } from "../preview/file-size";
+import { ImagePreview } from "../preview/image-preview";
+import { imageResource } from "../preview/image-resource";
 
 type Mode = "edit" | "split" | "preview";
 
@@ -34,10 +37,14 @@ const MODES: readonly { readonly mode: Mode; readonly label: string; readonly ic
 const lastMode = signal<Mode>("edit");
 const PREVIEW_DELAY = 150;
 
-/** One repository file in the editor; Markdown, diagram sources and SVG can also be previewed, beside the text or instead of it. */
+/**
+ * One repository file in the editor. Files with a renderer (see
+ * `file-previews.ts`) can also be previewed, beside the text or instead of
+ * it; images are only shown.
+ */
 @Component({
   selector: "gd-file-editor",
-  imports: [CdkContextMenuTrigger, CdkMenu, CdkMenuTrigger, CodeEditor, EmptyState, Icon, MarkdownView, MenuItem, ShareMenu],
+  imports: [CdkContextMenuTrigger, CdkMenu, CdkMenuTrigger, CodeEditor, EmptyState, Icon, ImagePreview, MarkdownView, MenuItem, ShareMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -55,8 +62,11 @@ const PREVIEW_DELAY = 150;
       @if (dirty()) {
         <span class="dirty-dot" title="Unsaved changes" aria-label="Unsaved changes"></span>
       }
+      @if (facts(); as about) {
+        <span class="file-facts">{{ about }}</span>
+      }
       <span class="grow"></span>
-      @if (kind()) {
+      @if (kind() && text()) {
         <div class="segmented" role="radiogroup" aria-label="Mode">
           @for (choice of modes; track choice.mode) {
             <button
@@ -71,16 +81,18 @@ const PREVIEW_DELAY = 150;
           }
         </div>
       }
-      <button
-        type="button"
-        class="btn btn-m"
-        [class.btn-primary]="dirty()"
-        [class.btn-default]="!dirty()"
-        [disabled]="!dirty()"
-        (click)="save()"
-      >
-        <span>Save</span><kbd class="kbd">{{ mod }} S</kbd>
-      </button>
+      @if (text()) {
+        <button
+          type="button"
+          class="btn btn-m"
+          [class.btn-primary]="dirty()"
+          [class.btn-default]="!dirty()"
+          [disabled]="!dirty()"
+          (click)="save()"
+        >
+          <span>Save</span><kbd class="kbd">{{ mod }} S</kbd>
+        </button>
+      }
       <button
         type="button"
         class="icon-btn"
@@ -122,7 +134,20 @@ const PREVIEW_DELAY = 150;
         <button type="button" class="btn btn-default btn-s" (click)="reload()"><span>Discard mine and reload</span></button>
       </div>
     }
-    @if (resource.error(); as error) {
+    @if (!text()) {
+      @if (image.error(); as error) {
+        <gd-empty-state title="Can't open this file">
+          <svg icon gd-icon name="file" [size]="20"></svg>
+          <p class="selectable">{{ error }}</p>
+        </gd-empty-state>
+      } @else if (image.url(); as url) {
+        <div class="content-scroll file-preview">
+          <gd-image-preview class="raster-preview" [src]="url" [alt]="name()" (measured)="pixels.set($event)" />
+        </div>
+      } @else {
+        <div class="editor-loading"><span class="spinner" aria-label="Loading"></span></div>
+      }
+    } @else if (resource.error(); as error) {
       <gd-empty-state title="Can't open this file">
         <svg icon gd-icon name="file" [size]="20"></svg>
         <p class="selectable">{{ error }}</p>
@@ -198,6 +223,15 @@ const PREVIEW_DELAY = 150;
       height: auto;
       background: repeating-conic-gradient(var(--bg-hover) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
     }
+    .raster-preview {
+      padding: 32px;
+    }
+    .file-facts {
+      flex: none;
+      color: var(--text-3);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
     .code-path {
       gap: 4px;
       font-family: var(--font-mono);
@@ -231,15 +265,18 @@ export class FileEditor {
   /** The edited text; null while it equals the file. */
   protected readonly draft = signal<string | null>(null);
   protected readonly modes = MODES;
-  protected readonly kind = computed(() => previewKind(this.path()));
-  /** Files without a preview are only edited. */
-  protected readonly mode = computed<Mode>(() => (this.kind() ? lastMode() : "edit"));
+  private readonly preview = computed(() => filePreview(this.path()));
+  protected readonly kind = computed(() => this.preview()?.kind ?? null);
+  /** Text to edit; images are only shown. */
+  protected readonly text = computed(() => this.preview()?.text ?? true);
+  /** Files without a preview are only edited, images only shown. */
+  protected readonly mode = computed<Mode>(() => (!this.text() ? "preview" : this.kind() ? lastMode() : "edit"));
   protected readonly showsEditor = computed(() => this.mode() !== "preview");
   protected readonly showsPreview = computed(() => this.mode() !== "edit");
   /** Beside the editor the preview catches up once typing pauses; on its own it shows the text at once. */
   private readonly previewText = computed(() => {
     const kind = this.kind();
-    return kind && kind !== "svg" ? previewMarkdown(kind, this.value()) : "";
+    return kind && kind !== "svg" && kind !== "image" ? previewMarkdown(kind, this.value()) : "";
   });
   /** The preview text once typing pauses; set by an effect, since the inputs it depends on come after construction. */
   private readonly settledText = signal("");
@@ -255,9 +292,17 @@ export class FileEditor {
   private readonly scrolling = new ScrollLink();
   protected readonly resource = fileResource(
     "repo",
-    this.path,
+    computed(() => (this.text() ? this.path() : null)),
     computed(() => this.draft() !== null),
   );
+  /** An image file as a data URL, read instead of its text. */
+  protected readonly image = imageResource(computed(() => (this.text() ? null : this.path())));
+  /** The image's size in pixels, once it is shown. */
+  protected readonly pixels = signal<PixelSize | null>(null);
+  protected readonly facts = computed(() => {
+    const url = this.image.url();
+    return url ? imageFacts(this.pixels(), dataUrlBytes(url)) : null;
+  });
   protected readonly value = computed(() => this.draft() ?? this.resource.file()?.content ?? "");
   protected readonly dirty = computed(
     () => !!this.resource.file() && this.draft() !== null && this.draft() !== this.resource.file()!.content,

@@ -77,6 +77,24 @@ test("stages a hunk and commits it", async ({ page }) => {
   await expect(page.locator(".history-row").first()).toContainText("Add Thursday to the forecast");
 });
 
+test("compares two versions of an image, side by side and swiped", async ({ page }) => {
+  await show(page, "history");
+  await page.locator(".history-row", { hasText: "Put a cloud in front of the sun" }).click();
+  const before = page.getByRole("img", { name: "icon.png before" });
+  await expect(before).toBeVisible();
+  await expect(page.getByRole("img", { name: "icon.png after" })).toBeVisible();
+  await expect(page.locator(".side-facts").first()).toHaveText("96 × 96 px · 582 B");
+  await page.getByRole("radio", { name: "Swipe" }).click();
+  const divider = page.getByRole("slider", { name: "Divider between before and after" });
+  await expect(divider).toHaveAttribute("aria-valuenow", "50");
+  await divider.press("End");
+  await expect(divider).toHaveAttribute("aria-valuenow", "100");
+  // The commit that added the icon has nothing to swipe with.
+  await page.locator(".history-row", { hasText: "Add an icon" }).click();
+  await expect(page.getByRole("radio", { name: "Swipe" })).toBeDisabled();
+  await expect(page.getByText("Not in this version")).toBeVisible();
+});
+
 test("merges a branch, resolving its conflict", async ({ page }) => {
   await show(page, "history");
   await page.locator(".history-row", { hasText: "Test the conversion" }).click({ button: "right" });
