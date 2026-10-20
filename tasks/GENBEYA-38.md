@@ -2,7 +2,7 @@
 id: GENBEYA-38
 title: Order epics by a leading phase number
 type: improvement
-status: backlog
+status: review
 priority: medium
 labels: [tasks]
 ---
@@ -20,3 +20,7 @@ Plan:
 - One comparator, `compareEpics`, next to `epicsOf`, used everywhere epics are listed: swimlanes, the epic filter and picker, the Tasks list grouped by epic, and the VS Code extension's tree and quick picks.
 - `"10 Launch"` gets the number 10; `"10-Launch"`, `"v2 Beta"` and `"2024 Roadmap"` follow the rule as written (the last one is 2024).
 - **Assumption:** numbered epics come first, by number, and the others follow alphabetically. **No epic** stays last.
+
+### Claude — 2026-10-20 15:05+02:00
+
+Done. `compareEpics` in `task-model.ts` orders epics as described; numbered ones come first, and **No epic** is last. It's used by `epicsOf`, so the swimlanes, the epic filter and the VS Code tree follow it, and also by the epic pickers in the task panel and in VS Code. The Tasks guide describes the rule under Epics.

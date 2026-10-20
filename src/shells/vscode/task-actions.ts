@@ -5,7 +5,7 @@
  * newest version of the task.
  */
 import * as vscode from "vscode";
-import { epicsOf, inputOf, labelsOf, peopleOf, titleCase, typesOf } from "../../client/app/features/tasks/task-model";
+import { compareEpics, epicsOf, inputOf, labelsOf, peopleOf, titleCase, typesOf } from "../../client/app/features/tasks/task-model";
 import { PRIORITIES, type FieldValue, type Task, type TaskInput } from "../../contracts/model";
 import type { Repository } from "./repository";
 import type { PickedProperty } from "./webview/protocol";
@@ -112,7 +112,7 @@ export class TaskActions {
         return name?.trim() ? { assignee: name.trim() } : undefined;
       }
       case "epic": {
-        const epics = [...new Set([...epicsOf(tasks), ...(task.epic ? [task.epic] : [])])].sort();
+        const epics = [...new Set([...epicsOf(tasks), ...(task.epic ? [task.epic] : [])])].sort(compareEpics);
         const choices: Choice<string | typeof NEW_EPIC>[] = [
           { label: "$(folder) No epic", value: "" },
           ...epics.map((epic) => ({ label: `$(folder) ${epic}`, value: epic })),

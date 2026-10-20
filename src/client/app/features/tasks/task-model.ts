@@ -125,9 +125,29 @@ export const peopleOf = (tasks: readonly Task[], identify: Identify = asWritten)
 
 export const labelsOf = (tasks: readonly Task[]): string[] => [...new Set(tasks.flatMap((task) => task.labels))].sort();
 
-/** Epics that hold tasks, sorted; tasks without one are not an epic. */
+/** The phase number an epic's name starts with, as in "10 Launch": digits only, up to the first space. */
+const phaseOf = (epic: string): number | null => {
+  const match = /^(\d+)(?: |$)/.exec(epic);
+  return match ? Number(match[1]) : null;
+};
+
+/**
+ * Orders epics: those that start with a phase number by that number, then
+ * the others; alphabetically among equals, so 2 comes before 10.
+ */
+export const compareEpics = (a: string, b: string): number => {
+  const [phaseA, phaseB] = [phaseOf(a), phaseOf(b)];
+  if (phaseA !== phaseB) {
+    if (phaseA === null) return 1;
+    if (phaseB === null) return -1;
+    return phaseA - phaseB;
+  }
+  return a.localeCompare(b, undefined, { sensitivity: "base" });
+};
+
+/** Epics that hold tasks, in {@link compareEpics} order; tasks without one are not an epic. */
 export const epicsOf = (tasks: readonly Task[]): string[] =>
-  [...new Set(tasks.map((task) => task.epic).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  [...new Set(tasks.map((task) => task.epic).filter(Boolean))].sort(compareEpics);
 
 /** The configured types, then other types that tasks have. */
 export const typesOf = (types: readonly TaskType[], tasks: readonly Pick<Task, "type">[]): TaskType[] => [
