@@ -478,6 +478,46 @@
   height: auto;
 }
 
+/* Images and diagrams open zoomed on a click (markdown/image-zoom.ts). An image in a link follows the link; a button beside it, shown on hover, zooms it. */
+.md-zoomable {
+  position: relative;
+}
+
+span.md-zoomable {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.md-zoomable > img {
+  cursor: zoom-in;
+}
+
+.md-zoom {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-overlay);
+  color: var(--text-2);
+  box-shadow: var(--shadow-card);
+  opacity: 0;
+}
+
+.md-zoom:hover {
+  color: var(--text);
+}
+
+.md-zoom:focus-visible,
+.md-zoomable.is-linked:hover > .md-zoom {
+  opacity: 1;
+}
+
 .md-diagram-error {
   display: flex;
   flex-direction: column;

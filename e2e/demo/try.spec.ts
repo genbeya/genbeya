@@ -65,6 +65,25 @@ test("edits a page with a reference", async ({ page }) => {
   await expect(page.locator(".document-article").getByRole("heading", { level: 1, name: "Forecast source" })).toBeVisible();
 });
 
+test("zooms a Mermaid diagram with the wheel and shows its source", async ({ page }) => {
+  await page.locator(".document-article").getByRole("link", { name: "Architecture" }).first().click();
+  await page.locator(".document-article").getByRole("img", { name: "Mermaid diagram" }).click();
+  const popup = page.getByRole("dialog", { name: "Mermaid diagram" });
+  const stage = popup.getByRole("img", { name: "Mermaid diagram" });
+  await expect(stage).toBeFocused();
+  await page.keyboard.press("1");
+  const level = popup.locator(".zoom-level");
+  await expect(level).toHaveText("100 %");
+  const box = (await stage.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -300);
+  await expect(level).not.toHaveText("100 %");
+  await popup.getByRole("radio", { name: "Source" }).click();
+  await expect(popup.getByRole("textbox", { name: "Source of the Mermaid diagram" })).toContainText("flowchart LR");
+  await page.keyboard.press("Escape");
+  await expect(popup).toBeHidden();
+});
+
 test("stages a hunk and commits it", async ({ page }) => {
   await show(page, "changes");
   await page.locator("gd-change-row", { hasText: "forecast.ts" }).click();

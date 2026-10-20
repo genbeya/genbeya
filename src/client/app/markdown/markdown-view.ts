@@ -1,7 +1,7 @@
 /**
  * Rendered Markdown: Genbeya's wiki syntax, highlighted code, diagrams, math
  * and repository images. Links and checkboxes are reported, not followed;
- * mentions show who they mean.
+ * mentions show who they mean; images and diagrams open zoomed.
  */
 import {
   ChangeDetectionStrategy,
@@ -17,6 +17,7 @@ import {
 } from "@angular/core";
 import type { Scope } from "../../../contracts/model";
 import { Clipboard } from "../core/clipboard";
+import { Dialogs } from "../core/dialogs";
 import { Session } from "../core/session";
 import { WorkspaceApi } from "../core/workspace-api";
 import { Theme } from "../core/theme";
@@ -37,6 +38,30 @@ import { parseMarkdown, type GenbeyaOptions } from "./markdown-pipeline";
 import { Typesetter } from "./typesetter";
 
 const COPIED_FEEDBACK = 1200;
+
+/** What a zoomable picture of the page is: a repository image, or a drawn diagram with its source. */
+type Picture = { readonly path: string } | { readonly diagram: Diagram; readonly svg: string };
+
+/** A button that opens a picture zoomed: for the keyboard, and for images in links, whose click follows the link. */
+function zoomButton(label: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "md-zoom";
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  button.append(icon(document, "zoomIn", 14));
+  return button;
+}
+
+/** Gives a repository image its zoom button, beside the link it is in rather than inside it. */
+function makeZoomable(image: HTMLImageElement) {
+  const link = image.closest("a");
+  const target = link ?? image;
+  const wrapper = document.createElement("span");
+  wrapper.className = link ? "md-zoomable is-linked" : "md-zoomable";
+  target.replaceWith(wrapper);
+  wrapper.append(target, zoomButton("Zoom image"));
+}
 
 @Component({
   selector: "gd-markdown",
@@ -71,6 +96,7 @@ export class MarkdownView {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly api = inject(WorkspaceApi);
   private readonly clipboard = inject(Clipboard);
+  private readonly dialogs = inject(Dialogs);
   private readonly diagrams = inject(Diagrams);
   private readonly typesetter = inject(Typesetter);
   private readonly theme = inject(Theme);
@@ -85,6 +111,8 @@ export class MarkdownView {
   /** The footnote reference under the pointer and the preview of its note. */
   private previewed: Element | null = null;
   private preview: HTMLElement | null = null;
+  /** The images and diagrams on the page that open zoomed. */
+  private pictures = new WeakMap<HTMLImageElement, Picture>();
 
   constructor() {
     effect(() => {
@@ -116,6 +144,11 @@ export class MarkdownView {
     const generation = ++this.generation;
     this.revoke();
     this.preview = this.previewed = null;
+    this.pictures = new WeakMap();
+    for (const image of images) {
+      this.pictures.set(image.element, { path: image.path });
+      makeZoomable(image.element);
+    }
     this.host.replaceChildren(fragment);
     this.rendered.emit(this.host);
     for (const image of images) void this.load(image, generation);
@@ -173,7 +206,9 @@ export class MarkdownView {
       const url = await this.image(image.path);
       if (generation === this.generation) image.element.src = url;
     } catch {
-      if (generation === this.generation) image.element.replaceWith(this.missingImage(image));
+      if (generation !== this.generation) return;
+      image.element.closest(".md-zoomable")?.querySelector(":scope > .md-zoom")?.remove();
+      image.element.replaceWith(this.missingImage(image));
     }
   }
 
@@ -188,7 +223,8 @@ export class MarkdownView {
     return url;
   }
 
-  private async draw({ element, language, source }: Diagram, generation: number) {
+  private async draw(diagram: Diagram, generation: number) {
+    const { element, language, source } = diagram;
     try {
       const { svg, isError } = await this.diagrams.draw(language, source);
       if (generation !== this.generation) return;
@@ -197,8 +233,10 @@ export class MarkdownView {
       const image = document.createElement("img");
       image.src = url;
       image.alt = `${language === "mermaid" ? "Mermaid" : "PlantUML"} diagram`;
+      this.pictures.set(image, { diagram, svg });
       element.classList.toggle("is-error", isError);
-      element.replaceChildren(image);
+      element.classList.add("md-zoomable");
+      element.replaceChildren(image, zoomButton("Zoom diagram"));
     } catch (error) {
       if (generation !== this.generation) return;
       const failure = document.createElement("div");
@@ -246,8 +284,14 @@ export class MarkdownView {
     }
     const checkbox = target.closest<HTMLElement>(".md-check.is-interactive");
     if (checkbox) return this.checkboxToggled.emit(Number(checkbox.dataset["offset"]));
+    const zoom = target.closest<HTMLElement>(".md-zoom");
     const anchor = target.closest("a");
-    if (!anchor || !this.host.contains(anchor)) return;
+    // An image in a link follows the link; its zoom button, beside the link, opens it zoomed.
+    if (zoom || !anchor || !this.host.contains(anchor)) {
+      const image = zoom ? zoom.parentElement?.querySelector<HTMLImageElement>(":scope > img, :scope > a img") : target.closest("img");
+      if (image) void this.zoom(image);
+      return;
+    }
     event.preventDefault();
     const href = anchor.getAttribute("href");
     if (!href) return;
@@ -265,6 +309,28 @@ export class MarkdownView {
     }
     // Escape puts a footnote's preview away, as for one under the pointer.
     if (event.key === "Escape" && this.preview) this.hidePreview();
+  }
+
+  /** Opens an image or diagram of the page over the window, zoomable; diagrams with their source. */
+  private async zoom(image: HTMLImageElement) {
+    const picture = this.pictures.get(image);
+    // An image still loading has nothing to show yet.
+    if (!picture || !image.getAttribute("src")) return;
+    const shown = { width: image.clientWidth || image.naturalWidth || 480, height: image.clientHeight || image.naturalHeight || 320 };
+    const { openImageZoom } = await import("./image-zoom");
+    if ("diagram" in picture)
+      return openImageZoom(this.dialogs, {
+        title: image.alt,
+        image: { svg: picture.svg },
+        shown,
+        source: { language: picture.diagram.language, text: picture.diagram.source },
+      });
+    const name = picture.path.slice(picture.path.lastIndexOf("/") + 1);
+    return openImageZoom(this.dialogs, {
+      title: image.alt || name,
+      image: { url: image.src, vector: /\.svg$/i.test(name) },
+      shown,
+    });
   }
 
   /** Scrolls to the element with `id` and moves the focus there, so the keyboard goes on from it (a footnote's back link). */
