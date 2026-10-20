@@ -1,6 +1,7 @@
 import { Component, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { openRepository, settle } from "../testing/component-harness";
+import { ImageZoom } from "./image-zoom";
 import type { LinkTarget } from "./link-target";
 import { MarkdownView } from "./markdown-view";
 
@@ -59,6 +60,64 @@ describe("MarkdownView", () => {
   it("draws diagrams as images", async () => {
     const { element } = await render("```plantuml\nA -> B\n```");
     await vi.waitFor(() => expect(element.querySelector(".md-diagram img")?.getAttribute("alt")).toBe("PlantUML diagram"));
+  });
+
+  it("opens a diagram zoomed with its source on a click, or with its button", async () => {
+    const { element, dialogs } = await render("```plantuml\nA -> B\n```");
+    await vi.waitFor(() => expect(element.querySelector(".md-diagram img")).not.toBeNull());
+    element.querySelector<HTMLElement>(".md-diagram img")!.click();
+    await vi.waitFor(() => expect(dialogs.open).toHaveBeenCalledTimes(1));
+    expect(dialogs.open).toHaveBeenCalledWith(
+      ImageZoom,
+      expect.objectContaining({
+        title: "PlantUML diagram",
+        image: { svg: "<svg></svg>" },
+        source: { language: "plantuml", text: "A -> B" },
+      }),
+      expect.objectContaining({ panel: "zoom-pane" }),
+    );
+    const button = element.querySelector<HTMLButtonElement>(".md-diagram .md-zoom")!;
+    expect(button.getAttribute("aria-label")).toBe("Zoom diagram");
+    button.click();
+    await vi.waitFor(() => expect(dialogs.open).toHaveBeenCalledTimes(2));
+  });
+
+  it("opens repository images zoomed, except in links, which zoom with a button beside the link", async () => {
+    const harness = await openRepository();
+    harness.managers.content.image.mockImplementation(async (_id: string, _scope: string, path: string) => `data:${path}`);
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.source.set("![Logo](logo.png) [![](badge.svg)](Other.md)");
+    await settle(fixture);
+    const element = fixture.nativeElement as HTMLElement;
+    const [logo, badge] = element.querySelectorAll<HTMLImageElement>("img");
+    logo!.click();
+    await vi.waitFor(() => expect(harness.dialogs.open).toHaveBeenCalledTimes(1));
+    expect(harness.dialogs.open.mock.calls[0]![1]).toEqual(
+      expect.objectContaining({ title: "Logo", image: { url: "data:docs/Guide/logo.png", vector: false } }),
+    );
+    expect(harness.dialogs.open.mock.calls[0]![1]).not.toHaveProperty("source");
+    // The link wins; its button, outside it, zooms.
+    badge!.click();
+    expect(fixture.componentInstance.links).toEqual([{ kind: "file", path: "docs/Guide/Other.md" }]);
+    const wrapper = badge!.closest(".md-zoomable")!;
+    expect(wrapper.classList.contains("is-linked")).toBe(true);
+    const button = wrapper.querySelector<HTMLButtonElement>(":scope > .md-zoom")!;
+    expect([button.closest("a"), button.getAttribute("aria-label")]).toEqual([null, "Zoom image"]);
+    button.click();
+    await vi.waitFor(() => expect(harness.dialogs.open).toHaveBeenCalledTimes(2));
+    expect(harness.dialogs.open.mock.calls[1]![1]).toEqual(
+      expect.objectContaining({ title: "badge.svg", image: { url: "data:docs/Guide/badge.svg", vector: true } }),
+    );
+  });
+
+  it("leaves images that do not load without a zoom button", async () => {
+    const harness = await openRepository();
+    harness.managers.content.image.mockRejectedValue(new Error("missing"));
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.source.set("![Logo](logo.png)");
+    await settle(fixture);
+    const element = fixture.nativeElement as HTMLElement;
+    expect([element.querySelector(".md-remote-image")?.textContent?.trim(), element.querySelector(".md-zoom")]).toEqual(["Logo", null]);
   });
 
   it("typesets math, and marks formulas KaTeX cannot read", async () => {

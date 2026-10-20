@@ -57,6 +57,8 @@ export class CodeEditor {
   readonly lineNumbers = input(true);
   readonly autofocus = input(false);
   readonly label = input("Editor");
+  /** Shows the text without letting it be changed; it can still be selected, searched and copied. */
+  readonly readOnly = input(false);
   /** Lines to select and scroll into view once the text has them (a link to `file#L10-L20`). */
   readonly reveal = input<LineRange | null>(null);
   /** Offers these after `[[` (Markdown references); null for none. */
@@ -87,7 +89,8 @@ export class CodeEditor {
     effect(() => {
       const path = this.path();
       const numbered = this.lineNumbers();
-      untracked(() => this.create(path, numbered));
+      const readOnly = this.readOnly();
+      untracked(() => this.create(path, numbered, readOnly));
     });
     effect(() => {
       const value = this.value();
@@ -167,12 +170,13 @@ export class CodeEditor {
     return offered ? markdownCompletion({ references: () => this.references() ?? [], people: () => this.people() ?? [] }) : [];
   }
 
-  private create(path: string, numbered: boolean) {
+  private create(path: string, numbered: boolean, readOnly: boolean) {
     this.view?.destroy();
     const value = untracked(this.value);
     const extensions: Extension[] = [
       this.separator.of(separatorFor(value)),
       ...editingSetup(numbered),
+      readOnly ? EditorState.readOnly.of(true) : [],
       this.language.of([]),
       this.completion.of(this.completionFor(untracked(this.offersCompletion))),
       wordWrap(isProse(path)),

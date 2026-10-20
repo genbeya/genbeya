@@ -11,12 +11,16 @@ export class Dialogs {
   private readonly dialog = inject(Dialog);
   private readonly overlay = inject(Overlay);
 
-  /** Opens `component` as a modal dialog near the top; resolves with its result. */
-  open<R, D = unknown>(component: Type<unknown>, data?: D, placement: { top?: string; backdrop?: string } = {}): Promise<R | undefined> {
+  /** Opens `component` as a modal dialog near the top (or as far down as `top`, with extra `backdrop` and `panel` classes); resolves with its result. */
+  open<R, D = unknown>(
+    component: Type<unknown>,
+    data?: D,
+    placement: { top?: string; backdrop?: string; panel?: string } = {},
+  ): Promise<R | undefined> {
     const reference = this.dialog.open<R, D>(component, {
       data,
       backdropClass: ["dialog-backdrop", ...(placement.backdrop ? [placement.backdrop] : [])],
-      panelClass: "dialog-pane",
+      panelClass: ["dialog-pane", ...(placement.panel ? [placement.panel] : [])],
       positionStrategy: this.overlay
         .position()
         .global()

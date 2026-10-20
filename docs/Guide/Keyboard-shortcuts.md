@@ -38,6 +38,18 @@ While a terminal has focus, every key except `` Ctrl+` `` goes to the shell.
 | Click a line number, `Shift`+click | Select a line of the diff; select the lines up to another one ([Staging hunks and lines](Version-control.md#staging-hunks-and-lines)) |
 | `Shift+↑` / `Shift+↓` | Select lines inside the diff |
 
+## In a zoomed image or diagram
+
+Click an image or diagram, or press `Enter` on its zoom button, to open it over the window — see [Wiki](Wiki.md#zooming-images-and-diagrams).
+
+| Keys | Action |
+| --- | --- |
+| `+` / `-`, wheel, pinch | Zoom in / out, around the pointer |
+| `0` | Fit to the window |
+| `1` | 100 % |
+| `←` `→` `↑` `↓`, drag | Move the picture |
+| `Esc` | Close |
+
 ## In the editor
 
 The editor for code, pages and tasks follows VS Code; see [Code](Code.md). Where macOS differs by more than `⌘` for `Ctrl`, the second column says so.
