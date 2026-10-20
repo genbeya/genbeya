@@ -914,7 +914,44 @@ describe("VersionControlManager", () => {
       original: "",
       modified: "",
       version: expect.stringMatching(/^[0-9a-f]{64}$/),
+      sizes: [0, 3],
     });
+  });
+
+  it("serves both versions of an image a diff compares, as data URLs", async () => {
+    const { versionControl, id, repository } = await opened();
+    const url = (...bytes: number[]) => `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`;
+    await repository.write("logo.png", new Uint8Array([137, 80, 0, 1]));
+    expect(await versionControl.diffImages(id, "logo.png", "worktree")).toEqual({ original: null, modified: url(137, 80, 0, 1) });
+    await repository.git("add", "logo.png");
+    await repository.git("commit", "-q", "-m", "Add a logo");
+    const [added] = await versionControl.log(id, 0, 1);
+    expect(await versionControl.diffImages(id, "logo.png", { commit: added!.hash })).toEqual({
+      original: null,
+      modified: url(137, 80, 0, 1),
+    });
+    await repository.write("logo.png", new Uint8Array([137, 80, 0, 2]));
+    expect(await versionControl.diffImages(id, "logo.png", "worktree")).toEqual({
+      original: url(137, 80, 0, 1),
+      modified: url(137, 80, 0, 2),
+    });
+    await versionControl.stage(id, ["logo.png"]);
+    expect(await versionControl.diffImages(id, "logo.png", "index")).toEqual({
+      original: url(137, 80, 0, 1),
+      modified: url(137, 80, 0, 2),
+    });
+    // A renamed image keeps its old type on the old side.
+    await repository.git("mv", "logo.png", "logo.webp");
+    expect((await versionControl.diffImages(id, "logo.webp", "index", "logo.png")).original).toBe(url(137, 80, 0, 1));
+    expect((await versionControl.diffImages(id, "logo.webp", "index", "logo.png")).modified).toMatch(/^data:image\/webp;base64,/);
+  });
+
+  it("refuses images it can't show", async () => {
+    const { versionControl, id, repository } = await opened();
+    await expect(versionControl.diffImages(id, "src/code.ts", "worktree")).rejects.toThrow("src/code.ts is not a supported image.");
+    await repository.write("big.png", new Uint8Array(11 * 1024 * 1024));
+    await expect(versionControl.diffImages(id, "big.png", "worktree")).rejects.toThrow("big.png is too large to show.");
+    await expect(versionControl.diffImages(id, "big.png", { commit: "HEAD" })).rejects.toThrow("Invalid diff source.");
   });
 
   it("does not compare files too large to show", async () => {

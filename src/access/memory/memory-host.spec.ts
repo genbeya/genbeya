@@ -37,6 +37,22 @@ describe("MemoryHost", () => {
     expect(await files.kind("docs/C")).toBeNull();
   });
 
+  it("keeps binary files byte for byte, and text as text", async () => {
+    const { repository, files } = store();
+    const image = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+    await files.host.write(files.root, "logo.png", image, true);
+    expect(await files.readBytes("logo.png", 100)).toEqual(image);
+    expect(repository.worktree.get("logo.png")).toContain("\0");
+    await expect(files.read("logo.png")).rejects.toThrow("logo.png is a binary file.");
+    await expect(files.readBytes("logo.png", 5)).rejects.toThrow("logo.png is too large to open.");
+    // Text that looks like the marker is kept as bytes too, so it reads back as written.
+    const lookalike = new TextEncoder().encode("\0binary\0text");
+    await files.host.write(files.root, "odd.txt", lookalike, true);
+    expect(await files.readBytes("odd.txt", 100)).toEqual(lookalike);
+    await files.write("notes.txt", "Ünïcode\n", null);
+    expect(repository.worktree.get("notes.txt")).toBe("Ünïcode\n");
+  });
+
   it("runs nothing", async () => {
     const result = await new MemoryHost(store().repository).run("git");
     expect(result.code).toBe(127);

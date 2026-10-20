@@ -14,6 +14,7 @@ import type {
   ConflictResolution,
   ContentArea,
   Diff,
+  DiffImages,
   DiffSource,
   FileContent,
   FolderListing,
@@ -145,6 +146,8 @@ export interface ContentManagerContract {
 export interface VersionControlManagerContract {
   /** The index is compared with `base` (HEAD unless given). */
   diff(workspace: string, path: string, source: DiffSource, oldPath?: string, base?: ChangeBase): Promise<Diff>;
+  /** The two versions of an image that `diff` with the same arguments compares, each at most as large as `content.image` serves. */
+  diffImages(workspace: string, path: string, source: DiffSource, oldPath?: string, base?: ChangeBase): Promise<DiffImages>;
   stage(workspace: string, paths: readonly string[]): Promise<void>;
   /**
    * Compared with `parent` while amending, the paths get their version in
@@ -305,6 +308,7 @@ export const MANAGER_METHODS = {
   ],
   versionControl: [
     "diff",
+    "diffImages",
     "stage",
     "unstage",
     "discard",

@@ -15,6 +15,7 @@ import {
   type ConflictFile,
   type Diff,
   type DiffChange,
+  type DiffImages,
   type DiffSource,
   type ForcePushPlan,
   type IgnoreKind,
@@ -28,11 +29,12 @@ import {
   type ResetResult,
   type StashDetail,
 } from "../../contracts/model";
-import { TEXT_LIMIT } from "../../access/files/file-store";
+import { IMAGE_LIMIT, TEXT_LIMIT } from "../../access/files/file-store";
 import { isCommitId } from "../../access/git/git-parsers";
 import { REBASE_LIMIT } from "../../access/git/operation-access";
 import { NOTHING_TO_AMEND } from "../../access/git/staging-access";
 import { isMissing } from "../../access/hosts/host";
+import { fileBytes } from "../../access/memory/file-bytes";
 import { splitLines } from "../../access/memory/line-diff";
 import type { MemoryRepository } from "../../access/memory/memory-repository";
 import { unifiedDiff } from "../../access/memory/unified-diff";
@@ -40,6 +42,7 @@ import type { FileDiff, PatchEngine } from "../../engines/patch-engine";
 import type { RebaseEngine } from "../../engines/rebase-engine";
 import { encodeText, sha256 } from "../../utilities/bytes";
 import { appendIgnoreRule, extensionOf, ignoreFile, ignoreRule } from "../../utilities/gitignore";
+import { imageType, imageUrl } from "../../utilities/image-types";
 import {
   changeBase,
   commitMessage,
@@ -123,9 +126,11 @@ export class DemoVersionControlManager implements VersionControlManagerContract 
       const compared = changeBase(base);
       const sides = this.sides(repository, relative, from, old, compared);
       const [original, modified] = [sides[0] ?? "", sides[1] ?? ""];
+      const sizes = [fileBytes(original).length, fileBytes(modified).length] as const;
       // Too large to show is shown like binary: no line-by-line comparison.
-      if ([original, modified].some((side) => side.includes("\0") || encodeText(side).length > TEXT_LIMIT))
-        return { path: relative, binary: true, original: "", modified: "", version: "" };
+      if (sizes.some((size) => size > TEXT_LIMIT)) return { path: relative, binary: true, original: "", modified: "", version: "" };
+      if ([original, modified].some((side) => side.includes("\0")))
+        return { path: relative, binary: true, original: "", modified: "", version: versionOf([original, modified]), sizes };
       const changes = from === "worktree" || from === "index" ? this.changesOf(old, relative, sides) : null;
       return {
         path: relative,
@@ -135,6 +140,23 @@ export class DemoVersionControlManager implements VersionControlManagerContract 
         version: versionOf([original, modified]),
         ...(changes ? { changes } : {}),
       };
+    });
+  }
+
+  diffImages(id: unknown, path: unknown, source: unknown, oldPath?: unknown, base?: unknown): Promise<DiffImages> {
+    return this.on(id, (workspace, repository) => {
+      const relative = workspace.path(path);
+      const old = oldPath === undefined || oldPath === null ? relative : workspace.path(oldPath);
+      const type = imageType(relative);
+      if (!type) throw new Error(`${relative} is not a supported image.`);
+      const sides = this.sides(repository, relative, diffSource(source), old, changeBase(base)).map((side) => fileBytes(side ?? ""));
+      if (sides.some((side) => side.length > IMAGE_LIMIT)) throw new Error(`${relative} is too large to show.`);
+      const types = [imageType(old) ?? type, type];
+      const [original, modified] = sides.map((side, i) => (side.length ? imageUrl(types[i]!, side) : null)) as [
+        string | null,
+        string | null,
+      ];
+      return { original, modified };
     });
   }
 
