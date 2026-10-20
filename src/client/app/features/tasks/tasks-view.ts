@@ -32,7 +32,7 @@ import {
   epicsOf,
   inputOf,
   labelsOf,
-  lanesOf,
+  shownLanesOf,
   NO_FILTERS,
   peopleOf,
   titleCase,
@@ -99,7 +99,9 @@ export class TasksView {
   protected readonly hidden = computed(() => this.hiding() ?? this.snapshot().settings.hiddenColumns);
   protected readonly boardColumns = computed(() => this.columns().filter((status) => !this.hidden().includes(status)));
   protected readonly epics = computed(() => epicsOf(this.snapshot().tasks));
-  protected readonly lanes = computed(() => (this.swimlanes() && this.epics().length ? lanesOf(this.snapshot().tasks) : null));
+  protected readonly lanes = computed(() =>
+    this.swimlanes() && this.epics().length ? shownLanesOf(this.tasks(), this.boardColumns()) : null,
+  );
   protected readonly types = computed(() => typesOf(this.snapshot().settings.types, this.snapshot().tasks));
   /** Assignees once per person, by handle where they are one of the repository's people. */
   protected readonly people = computed(() => peopleOf(this.snapshot().tasks, this.directory.identify));

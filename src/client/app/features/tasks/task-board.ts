@@ -179,8 +179,9 @@ export class TaskBoard {
     return this.tasks().filter((task) => task.status === status).length;
   }
 
+  /** The cards a lane shows: not those in hidden columns. */
   protected laneCount(epic: string): number {
-    return this.tasks().filter((task) => task.epic === epic).length;
+    return this.tasks().filter((task) => task.epic === epic && this.columns().includes(task.status)).length;
   }
 
   protected fold(epic: string) {

@@ -2,7 +2,7 @@
 id: GENBEYA-33
 title: Hide empty swimlanes
 type: improvement
-status: backlog
+status: review
 priority: low
 labels:
   - idea
@@ -21,3 +21,7 @@ Plan:
 - The lane count only counts cards in visible columns. Today it also counts cards in hidden columns.
 
 A side effect: a hidden lane is no longer a drop target, so you can't drag a card into an epic that has no visible cards. Changing the task's epic in its panel still does that. Small change, mostly in `task-board.ts` and `tasks-view.ts`, with a spec.
+
+### Claude — 2026-10-20 15:45+02:00
+
+Done, on the desktop board and in the VS Code board. A lane shows only when it has a card in a visible column after filtering, and **No epic** only when a shown task has no epic (`shownLanesOf` in `task-model.ts`). Lane counts leave out cards in hidden columns. Lanes only change on a drop, never during a drag, so no extra handling was needed there. Checked in the web demo with a text filter.

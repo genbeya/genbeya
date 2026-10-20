@@ -9,7 +9,7 @@ import {
   epicName,
   epicsOf,
   labelsOf,
-  lanesOf,
+  shownLanesOf,
   NO_FILTERS,
   peopleOf,
   titleCase,
@@ -186,8 +186,8 @@ function drawBoard() {
         ),
       );
   } else {
-    for (const epic of lanesOf(tasks)) {
-      const inLane = visible.filter((task) => task.epic === epic);
+    for (const epic of shownLanesOf(visible, columns)) {
+      const inLane = visible.filter((task) => task.epic === epic && columns.includes(task.status));
       const collapsed = state.collapsed.includes(epic);
       const head = element("button", "gb-lane-head");
       head.type = "button";

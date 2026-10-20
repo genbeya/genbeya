@@ -140,3 +140,12 @@ export const typesOf = (types: readonly TaskType[], tasks: readonly Pick<Task, "
 
 /** Swimlanes: every epic, then the tasks without one. */
 export const lanesOf = (tasks: readonly Task[]): string[] => [...epicsOf(tasks), ""];
+
+/**
+ * The swimlanes a board shows for the cards it shows (`tasks`, filtered, in
+ * `columns`): no lane stays empty because of a filter or a hidden column.
+ */
+export const shownLanesOf = (tasks: readonly Task[], columns: readonly string[]): string[] => {
+  const shown = tasks.filter((task) => columns.includes(task.status));
+  return [...epicsOf(shown), ...(shown.some((task) => !task.epic) ? [""] : [])];
+};
