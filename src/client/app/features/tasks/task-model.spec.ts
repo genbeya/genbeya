@@ -9,6 +9,7 @@ import {
   lanesOf,
   NO_FILTERS,
   peopleOf,
+  shownLanesOf,
   statusColor,
   titleCase,
   toneColor,
@@ -66,6 +67,15 @@ describe("task ordering and filters", () => {
   it("makes a swimlane per epic, then one for tasks without an epic", () => {
     expect(lanesOf(tasks)).toEqual(["auth/Tokens", "Billing", ""]);
     expect(epicName("")).toBe("No epic");
+  });
+
+  it("shows only the swimlanes that have a card in a shown column", () => {
+    const columns = ["todo", "blocked", "done"];
+    expect(shownLanesOf(tasks, columns)).toEqual(["auth/Tokens", "Billing", ""]);
+    // A filter that leaves no task without an epic, and a hidden column that holds Billing's only task.
+    const bugs = visibleTasks(tasks, { ...NO_FILTERS, type: "bug" });
+    expect(shownLanesOf(bugs, columns)).toEqual(["auth/Tokens"]);
+    expect(shownLanesOf(tasks, ["todo", "done"])).toEqual(["auth/Tokens", ""]);
   });
 
   it("adds unknown states as extra columns", () => {

@@ -101,7 +101,7 @@ Changes saved but not committed yet come first, marked *Not committed yet*. When
 An epic is a folder in the task folder: `tasks/Login rework/GENBEYA-14.md` belongs to the epic *Login rework*. Folders can nest (`Auth/Tokens`). IDs stay unique across epics.
 
 - **Epic** under a task's title moves it into another epic, or into a new one; the file moves along.
-- **Swimlanes by epic**, next to the layout switch, shows one row per epic on the board. Dragging a card into another row moves it to that epic.
+- **Swimlanes by epic**, next to the layout switch, shows one row per epic on the board. Dragging a card into another row moves it to that epic. Rows without a card to show, because of a filter or hidden columns, are left out; so is **No epic** when every task has one.
 - **Filter by** narrows the board and the list to one epic.
 - Epics are listed alphabetically, except that a name starting with a number and a space, such as `1 Discovery` or `10 Launch`, is ordered by that number, before the others: `2 Build` comes before `10 Launch`. Tasks without an epic come last.
 
