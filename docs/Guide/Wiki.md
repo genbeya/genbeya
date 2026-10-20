@@ -89,3 +89,16 @@ flowchart LR
 ## Images
 
 Images stored in the repository render inline: `![Board](images/task-board.png)`, relative to the page. They belong to the wiki, so while the wiki lives on the [Content branch](../Architecture/Content-branch.md), Genbeya loads them from there. Remote images are not loaded; they show as a link.
+
+## Zooming images and diagrams
+
+Large diagrams and screenshots are hard to read at the size of the page. Click one to open it over the window, fitted to it. This works wherever Genbeya shows Markdown: wiki pages, task descriptions and comments, and previews in **Code**.
+
+- The wheel or a pinch zooms around the pointer; drag to move the picture.
+- `+` and `-` zoom in and out, `0` fits the picture to the window, `1` shows it at 100 %. The arrow keys move it.
+- `Esc`, the close button or a click beside the popup closes it.
+- Diagrams stay sharp at any zoom. Images such as screenshots go up to 400 %, beyond which they would only blur.
+
+A diagram's popup switches between **Source**, **Split** and **Diagram**, like the previews in **Code**: the source shows read-only in the editor, to read, search (`Ctrl+F`) and copy. It opens on **Diagram**. Images have no source, so their popup shows just the picture.
+
+An image inside a link follows the link when clicked. Point at it for a zoom button in its corner, which opens the popup instead. Every image and diagram has that button for the keyboard too: `Tab` to it and press `Enter`.
