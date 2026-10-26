@@ -45,7 +45,9 @@ describe("TaskPanel", () => {
     fixture.componentRef.setInput("task", logged);
     await settle(fixture);
     const element = fixture.nativeElement as HTMLElement;
-    expect([...element.querySelectorAll(".task-effort-item")].map((item) => item.textContent!.trim().replace(/\s+/g, " "))).toEqual([
+    const items = [...element.querySelectorAll(".task-effort-item")];
+    const text = (item: Element, part: string) => item.querySelector(`.task-effort-${part}`)!.textContent!.trim();
+    expect(items.map((item) => `${text(item, "label")} ${text(item, "value")}`)).toEqual([
       "Estimate 16h",
       "Logged 2h",
       "Remaining 6h",
