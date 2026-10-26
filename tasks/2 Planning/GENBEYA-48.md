@@ -18,5 +18,5 @@ Prototype on `feature/planning-prototype`: a `## Time log` section at the end of
 - [ ] Activity: added and changed entries
 - [ ] Project switch for the time log ([[GENBEYA-39]]), off by default
 - [x] Sums per task, epic and milestone only, never per person
-- [ ] Demo counterpart, `npm run e2e:demo`
+- [x] Demo counterpart (none needed: no new manager calls), `npm run e2e:demo` passed in CI ([run 44](https://github.com/genbeya/genbeya/actions/runs/40315593535))
 - [x] Document in [[Guide/Tasks]], including who can see the entries
