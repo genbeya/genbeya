@@ -63,6 +63,7 @@ describe("resolveReference", () => {
       kind: "file",
       path: "src/gone.ts",
       lines: { from: 3, to: 3 },
+      revision: null,
       exists: false,
     });
     // Paths never leave the repository.
