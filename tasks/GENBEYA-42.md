@@ -2,7 +2,7 @@
 id: GENBEYA-42
 title: References pinned to a revision
 type: feature
-status: in-progress
+status: review
 priority: medium
 labels: [references]
 ---
@@ -24,5 +24,5 @@ Decided:
 - [x] Embeds of a revision
 - [x] VS Code extension: references and embeds in its preview and editor
 - [x] Demo counterpart (`versionControl.fileAt` on the in-memory repository)
-- [ ] `npm run e2e:demo` and the client unit tests: the Angular CLI needs Node 22.22.3, the cloud container has 22.22.0; run in CI
+- [x] `npm run e2e:demo`, the client unit tests and the end-to-end tests, in CI ([run 42](https://github.com/genbeya/genbeya/actions/runs/40294055497))
 - [x] Document in [[Guide/References]]
