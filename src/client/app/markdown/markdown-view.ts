@@ -16,6 +16,7 @@ import {
   untracked,
 } from "@angular/core";
 import type { Scope } from "../../../contracts/model";
+import { pinnedText } from "../../../utilities/references";
 import { Clipboard } from "../core/clipboard";
 import { Dialogs } from "../core/dialogs";
 import { Session } from "../core/session";
@@ -23,17 +24,9 @@ import { WorkspaceApi } from "../core/workspace-api";
 import { Theme } from "../core/theme";
 import { Diagrams } from "./diagrams";
 import { resolveHref, type LinkTarget } from "./link-target";
-import { embedSource } from "./embeds";
+import { checkPinned, fillEmbed, type EmbeddedFiles } from "./file-embeds";
 import { footnotePreview } from "./footnotes";
-import {
-  icon,
-  renderMarkdownTree,
-  type Diagram,
-  type Embed,
-  type Formula,
-  type RenderedMarkdown,
-  type RepositoryImage,
-} from "./markdown-dom";
+import { icon, renderMarkdownTree, type Diagram, type Formula, type RenderedMarkdown, type RepositoryImage } from "./markdown-dom";
 import { parseMarkdown, type GenbeyaOptions } from "./markdown-pipeline";
 import { Typesetter } from "./typesetter";
 
@@ -106,6 +99,13 @@ export class MarkdownView {
   private images = new Map<string, Promise<string>>();
   /** Embedded files by path, like images. */
   private files = new Map<string, Promise<string>>();
+  /** Files at a revision, for pinned references and embeds, by revision and path. */
+  private pinned = new Map<string, Promise<string>>();
+  /** Embeds and pinned references read files through the managers, once per repository version. */
+  private readonly embedded: EmbeddedFiles = {
+    file: (path) => this.file(path),
+    fileAt: (path, revision) => this.fileAt(path, revision),
+  };
   /** Renders count up, so a slow image or diagram never lands in a newer render. */
   private generation = 0;
   /** The footnote reference under the pointer and the preview of its note. */
@@ -132,6 +132,7 @@ export class MarkdownView {
       void session.snapshot()?.version;
       this.images = new Map();
       this.files = new Map();
+      this.pinned = new Map();
     });
     inject(DestroyRef).onDestroy(() => {
       // Late images and diagrams must not land after this.
@@ -155,38 +156,23 @@ export class MarkdownView {
     for (const diagram of diagrams) void this.draw(diagram, generation);
     this.typesetter.keep(formulas.length);
     for (const formula of formulas) void this.typeset(formula, generation);
-    for (const embed of embeds) void this.embed(embed, generation);
+    const current = () => generation === this.generation;
+    for (const embed of embeds) void fillEmbed(embed, this.embedded, current);
+    for (const link of this.host.querySelectorAll<HTMLAnchorElement>("a.md-ref-pinned"))
+      void checkPinned(link, this.path(), this.embedded, current);
   }
 
-  /** Lines of a repository file, highlighted like a code block, under a link to the file. */
-  private async embed({ element, path, lines }: Embed, generation: number) {
-    const title = document.createElement("a");
-    title.className = "md-embed-title";
-    title.append(icon(document, "fileCode", 13), document.createTextNode(path));
-    let body: Node;
-    try {
-      const source = embedSource(path, await this.file(path), lines);
-      if (generation !== this.generation) return;
-      title.setAttribute("href", `/${path}#L${source.from}-L${source.to}`);
-      const range = document.createElement("span");
-      range.className = "md-ref-lines";
-      range.textContent = source.from === source.to ? `:${source.from}` : `:${source.from}–${source.to}`;
-      title.append(range);
-      body = renderMarkdownTree(parseMarkdown(source.markdown), document, { path, interactiveCheckboxes: false }).fragment;
-      if (source.cut) {
-        const note = document.createElement("p");
-        note.className = "md-embed-note";
-        note.textContent = "Cut short; open the file for the rest.";
-        body.appendChild(note);
-      }
-    } catch (error) {
-      if (generation !== this.generation) return;
-      title.setAttribute("href", `/${path}`);
-      element.classList.add("is-error");
-      body = document.createElement("p");
-      body.textContent = error instanceof Error ? error.message : String(error);
+  /** A file as committed in `revision`, read once like files. */
+  private fileAt(path: string, revision: string): Promise<string> {
+    const pinned = this.pinned;
+    const key = `${revision}:${path}`;
+    let content = pinned.get(key);
+    if (!content) {
+      content = this.api.versionControl.fileAt(revision, path).then((file) => pinnedText(file, path, revision));
+      content.catch(() => pinned.delete(key));
+      pinned.set(key, content);
     }
-    element.replaceChildren(title, body);
+    return content;
   }
 
   /** Code lives in the repository, whichever branch holds the wiki. */

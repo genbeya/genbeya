@@ -21,6 +21,7 @@ import {
   type SyncAction,
 } from "../contracts/model";
 import { TEXT_LIMIT } from "../access/files/file-store";
+import { isRevision } from "../utilities/references";
 import { isCommitId } from "../access/git/git-parsers";
 import { REBASE_LIMIT } from "../access/git/operation-access";
 
@@ -44,6 +45,12 @@ export function plainRef(name: string): string {
 /** A branch or tag name as far as it can be told without Git: Git's own rules come after. */
 export function refName(value: unknown, kind: "branch" | "tag"): string {
   if (typeof value !== "string" || !value || value.length > 200 || value.startsWith("-")) throw new Error(`Invalid ${kind} name.`);
+  return value;
+}
+
+/** A revision a reference is pinned to; see `isRevision` for what it may hold. */
+export function revision(value: unknown): string {
+  if (!isRevision(value)) throw new Error("Invalid revision.");
   return value;
 }
 

@@ -946,6 +946,28 @@ describe("VersionControlManager", () => {
     expect((await versionControl.diffImages(id, "logo.webp", "index", "logo.png")).modified).toMatch(/^data:image\/webp;base64,/);
   });
 
+  it("reads a file as committed in a revision", async () => {
+    const { versionControl, id, repository } = await opened();
+    const [first] = await versionControl.log(id, 0, 1);
+    await repository.write("src/code.ts", "export const value = 2;\n");
+    await repository.write("bin.dat", new Uint8Array([0, 1, 2]));
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Change value");
+    await repository.git("tag", "v1");
+    const old = { commit: first!.hash, content: "export const value = 1;\n" };
+    expect(await versionControl.fileAt(id, first!.hash, "src/code.ts")).toEqual(old);
+    expect(await versionControl.fileAt(id, first!.hash.slice(0, 7), "src/code.ts")).toEqual(old);
+    expect(await versionControl.fileAt(id, "HEAD~1", "src/code.ts")).toEqual(old);
+    const tagged = await versionControl.fileAt(id, "v1", "src/code.ts");
+    expect(tagged).toEqual({ commit: expect.stringMatching(/^[0-9a-f]{40}$/), content: "export const value = 2;\n" });
+    // A folder, a file the commit doesn't have, a revision Git doesn't know.
+    expect(await versionControl.fileAt(id, "v1", "src")).toEqual({ commit: tagged.commit, content: null });
+    expect(await versionControl.fileAt(id, first!.hash, "bin.dat")).toEqual({ commit: first!.hash, content: null });
+    expect(await versionControl.fileAt(id, "v2", "src/code.ts")).toEqual({ commit: null, content: null });
+    await expect(versionControl.fileAt(id, "v1", "bin.dat")).rejects.toThrow("bin.dat is a binary file.");
+    await expect(versionControl.fileAt(id, "v1", "../outside")).rejects.toThrow();
+  });
+
   it("refuses images it can't show", async () => {
     const { versionControl, id, repository } = await opened();
     await expect(versionControl.diffImages(id, "src/code.ts", "worktree")).rejects.toThrow("src/code.ts is not a supported image.");
@@ -978,6 +1000,8 @@ describe("VersionControlManager", () => {
   it.each([
     ["diff source", (m: Managers, id: string) => m.versionControl.diff(id, "a", { commit: "HEAD" }), "Invalid diff source."],
     ["commit ID", (m: Managers, id: string) => m.versionControl.commitDetail(id, "HEAD~1"), "Invalid commit ID."],
+    ["revision", (m: Managers, id: string) => m.versionControl.fileAt(id, "--output=x", "a"), "Invalid revision."],
+    ["revision range", (m: Managers, id: string) => m.versionControl.fileAt(id, "HEAD..main", "a"), "Invalid revision."],
     ["history range", (m: Managers, id: string) => m.versionControl.log(id, -1, 10), "Invalid history range."],
     ["empty message", (m: Managers, id: string) => m.versionControl.commit(id, "  ", false), "Write a commit message first."],
     ["empty selection", (m: Managers, id: string) => m.versionControl.stage(id, []), "Select files first."],

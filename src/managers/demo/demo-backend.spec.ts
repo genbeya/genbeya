@@ -153,6 +153,19 @@ describe("the demo backend", () => {
       await expect(vc.diffImages(id, "README.md", "worktree")).rejects.toThrow("README.md is not a supported image.");
     });
 
+    it("reads a file as committed in a revision", async () => {
+      const { vc, id } = await demo();
+      const [changed] = (await vc.log(id, 0, 50)).filter((commit) => commit.subject === "Put a cloud in front of the sun");
+      const [latest] = await vc.log(id, 0, 1);
+      const readme = await vc.fileAt(id, "HEAD", "README.md");
+      expect(readme).toEqual({ commit: latest!.hash, content: expect.stringContaining("#") });
+      expect(await vc.fileAt(id, latest!.hash.slice(0, 7), "README.md")).toEqual(readme);
+      expect(await vc.fileAt(id, "HEAD", "missing.md")).toEqual({ commit: latest!.hash, content: null });
+      expect(await vc.fileAt(id, "no-such-tag", "README.md")).toEqual({ commit: null, content: null });
+      await expect(vc.fileAt(id, changed!.hash, "assets/icon.png")).rejects.toThrow("assets/icon.png is a binary file.");
+      await expect(vc.fileAt(id, "-x", "README.md")).rejects.toThrow("Invalid revision.");
+    });
+
     it("stages lines of a change and commits them, then amends", async () => {
       const { vc, id, snapshot } = await demo();
       const diff = await vc.diff(id, "src/forecast.ts", "worktree");

@@ -11,7 +11,7 @@ import { MENTION_TRIGGER, mentionSuggestions, mentionText } from "../../client/a
 import { DATE_TRIGGER, dateSuggestions } from "../../client/app/editor/smart-dates";
 import { formatDate, today } from "../../client/app/ui/calendar-date";
 import { titleCase } from "../../client/app/features/tasks/task-model";
-import { findReference, type FoundReference } from "../../utilities/references";
+import { fileFragment, findReference, type FoundReference } from "../../utilities/references";
 import { codeRanges, openReference, referencesIn } from "./markdown-references";
 import type { Repository } from "./repository";
 import type { Target, Webviews } from "./webviews";
@@ -175,8 +175,12 @@ export class MarkdownLanguage implements vscode.Disposable {
         text.appendMarkdown("**").appendText(found.page.title).appendMarkdown("**\n\n").appendText(found.page.path);
         break;
       case "file":
-        text.appendText(found.path + (found.lines ? `, lines ${found.lines.from}–${found.lines.to}` : ""));
-        if (!found.exists) text.appendMarkdown("\n\n").appendText("This file doesn't exist.");
+        text.appendText(
+          found.path +
+            (found.lines ? `, lines ${found.lines.from}–${found.lines.to}` : "") +
+            (found.revision ? `, as of ${found.revision}` : ""),
+        );
+        if (!found.exists && !found.revision) text.appendMarkdown("\n\n").appendText("This file doesn't exist.");
         break;
       case "missing":
         text.appendText(`No task or page is named “${link.target}”. Ctrl+click to create the page.`);
@@ -206,10 +210,8 @@ export class MarkdownLanguage implements vscode.Disposable {
         return this.webviews.follow(repository, { kind: "file", path: found.task.path, anchor: undefined });
       case "page":
         return this.webviews.follow(repository, { kind: "file", path: found.page.path, anchor: undefined });
-      case "file": {
-        const anchor = found.lines ? `L${found.lines.from}-L${found.lines.to}` : undefined;
-        return this.webviews.follow(repository, { kind: "file", path: found.path, anchor });
-      }
+      case "file":
+        return this.webviews.follow(repository, { kind: "file", path: found.path, anchor: fileFragment(found) || undefined });
       case "missing":
         return this.webviews.follow(repository, { kind: "missing", title: target.split("#")[0]!.trim() });
     }
@@ -227,7 +229,7 @@ export class MarkdownLanguage implements vscode.Disposable {
     );
   }
 
-  /** Warns about references to tasks, pages and files that don't exist. */
+  /** Warns about references to tasks, pages and files that don't exist; a pinned file only has to be in its revision. */
   private check(document: vscode.TextDocument) {
     const place = this.place(document);
     if (!place) return this.diagnostics.delete(document.uri);
@@ -237,7 +239,7 @@ export class MarkdownLanguage implements vscode.Disposable {
       const message =
         found.kind === "missing"
           ? `No task or page is named “${link.target}”.`
-          : found.kind === "file" && !found.exists
+          : found.kind === "file" && !found.exists && !found.revision
             ? `The file ${found.path} doesn't exist.`
             : null;
       if (!message) continue;

@@ -18,6 +18,7 @@ import type {
   RebasePlan,
   ResetPlan,
   ResetResult,
+  RevisionFile,
   Stash,
   StashDetail,
 } from "../contracts/model";
@@ -28,7 +29,7 @@ import { DIFF_OPTIONS, type PatchTarget } from "../access/git/staging-access";
 import { isMissing } from "../access/hosts/host";
 import type { FileDiff, PatchEngine } from "../engines/patch-engine";
 import type { RebaseEngine } from "../engines/rebase-engine";
-import { decodeLenient, isBinary, sha256, sha256Bytes, toByteString } from "../utilities/bytes";
+import { decodeLenient, decodeText, isBinary, sha256, sha256Bytes, toByteString } from "../utilities/bytes";
 import { appendIgnoreRule, extensionOf, ignoreFile, ignoreRule } from "../utilities/gitignore";
 import { imageType, imageUrl } from "../utilities/image-types";
 import {
@@ -46,6 +47,7 @@ import {
   remoteDefinition,
   resetMode,
   resetState,
+  revision,
   stashOptions,
   syncAction,
   tagMessage,
@@ -133,6 +135,14 @@ export class VersionControlManager implements VersionControlManagerContract {
         string | null,
       ];
       return { original, modified };
+    });
+  }
+
+  fileAt(id: unknown, at: unknown, path: unknown): Promise<RevisionFile> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { commit, bytes } = await workspace.repository.fileAt(revision(at), relative, TEXT_LIMIT);
+      return { commit, content: bytes && decodeText(bytes, relative) };
     });
   }
 

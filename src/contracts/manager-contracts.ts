@@ -39,6 +39,7 @@ import type {
   ResetMode,
   ResetPlan,
   ResetResult,
+  RevisionFile,
   Scope,
   SearchOptions,
   SearchResults,
@@ -148,6 +149,12 @@ export interface VersionControlManagerContract {
   diff(workspace: string, path: string, source: DiffSource, oldPath?: string, base?: ChangeBase): Promise<Diff>;
   /** The two versions of an image that `diff` with the same arguments compares, each at most as large as `content.image` serves. */
   diffImages(workspace: string, path: string, source: DiffSource, oldPath?: string, base?: ChangeBase): Promise<DiffImages>;
+  /**
+   * A text file as committed in `revision` (a commit ID, tag, branch or
+   * `HEAD~2`), for references pinned to it. Fails for binary files and files
+   * larger than `content.read` reads.
+   */
+  fileAt(workspace: string, revision: string, path: string): Promise<RevisionFile>;
   stage(workspace: string, paths: readonly string[]): Promise<void>;
   /**
    * Compared with `parent` while amending, the paths get their version in
@@ -309,6 +316,7 @@ export const MANAGER_METHODS = {
   versionControl: [
     "diff",
     "diffImages",
+    "fileAt",
     "stage",
     "unstage",
     "discard",

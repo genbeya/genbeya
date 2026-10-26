@@ -18,7 +18,7 @@ export type View = (typeof VIEWS)[number];
 const TRANSIENT: Readonly<Record<View, readonly string[]>> = {
   wiki: ["line", "anchor"],
   tasks: ["create"],
-  code: ["lines"],
+  code: ["lines", "rev"],
   changes: [],
   history: [],
 };

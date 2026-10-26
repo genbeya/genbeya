@@ -6,17 +6,10 @@
 import type mermaid from "mermaid";
 import type katex from "katex";
 import type { Rockuml } from "@rockuml/core";
-import { embedSource } from "../../../client/app/markdown/embeds";
+import { checkPinned, fillEmbed, type EmbeddedFiles } from "../../../client/app/markdown/file-embeds";
 import { footnotePreview } from "../../../client/app/markdown/footnotes";
 import { resolveHref } from "../../../client/app/markdown/link-target";
-import {
-  icon,
-  renderMarkdownTree,
-  type Diagram,
-  type Embed,
-  type Formula,
-  type RepositoryImage,
-} from "../../../client/app/markdown/markdown-dom";
+import { icon, renderMarkdownTree, type Diagram, type Formula, type RepositoryImage } from "../../../client/app/markdown/markdown-dom";
 import { parseMarkdown, type GenbeyaOptions } from "../../../client/app/markdown/markdown-pipeline";
 import { mathElement } from "../../../client/app/markdown/mathml";
 import { flattenPages, subpagesOf, findPage } from "../../../client/app/features/wiki/wiki-pages";
@@ -61,6 +54,12 @@ export class MarkdownRenderer {
   /** The latest render of each host, so a slow image or diagram never lands in a newer one. */
   private readonly renders = new WeakMap<HTMLElement, Render>();
 
+  /** Embeds and pinned references read files through the extension. */
+  private readonly files: EmbeddedFiles = {
+    file: (path) => this.bridge.request({ type: "file", path }),
+    fileAt: (path, revision) => this.bridge.request({ type: "fileAt", path, revision }),
+  };
+
   constructor(private readonly bridge: Bridge) {}
 
   /** Renders `markdown` into `host`, replacing what it held. */
@@ -78,7 +77,9 @@ export class MarkdownRenderer {
     for (const image of rendered.images) void this.load(image, current);
     for (const diagram of rendered.diagrams) void this.draw(diagram, current, render);
     for (const formula of rendered.formulas) void this.typeset(formula, current);
-    for (const embed of rendered.embeds) void this.embed(embed, current);
+    for (const embed of rendered.embeds) void fillEmbed(embed, this.files, current);
+    for (const link of host.querySelectorAll<HTMLAnchorElement>("a.md-ref-pinned"))
+      void checkPinned(link, source.path, this.files, current);
   }
 
   /** Follows links and toggles checkboxes in rendered Markdown below `root`. */
@@ -140,37 +141,6 @@ export class MarkdownRenderer {
       placeholder.append(icon(document, "imageOff", 14), document.createTextNode(` ${image.element.alt || image.path}`));
       image.element.replaceWith(placeholder);
     }
-  }
-
-  /** Lines of a repository file, highlighted like a code block, under a link to the file. */
-  private async embed({ element, path, lines }: Embed, current: () => boolean) {
-    const title = document.createElement("a");
-    title.className = "md-embed-title";
-    title.append(icon(document, "fileCode", 13), document.createTextNode(path));
-    let body: Node;
-    try {
-      const source = embedSource(path, await this.bridge.request({ type: "file", path }), lines);
-      if (!current()) return;
-      title.setAttribute("href", `/${path}#L${source.from}-L${source.to}`);
-      const range = document.createElement("span");
-      range.className = "md-ref-lines";
-      range.textContent = source.from === source.to ? `:${source.from}` : `:${source.from}–${source.to}`;
-      title.append(range);
-      body = renderMarkdownTree(parseMarkdown(source.markdown), document, { path, interactiveCheckboxes: false }).fragment;
-      if (source.cut) {
-        const note = document.createElement("p");
-        note.className = "md-embed-note";
-        note.textContent = "Cut short; open the file for the rest.";
-        body.appendChild(note);
-      }
-    } catch (error) {
-      if (!current()) return;
-      title.setAttribute("href", `/${path}`);
-      element.classList.add("is-error");
-      body = document.createElement("p");
-      body.textContent = error instanceof Error ? error.message : String(error);
-    }
-    element.replaceChildren(title, body);
   }
 
   /** Diagrams are shown as images, so markup inside them can never run. */

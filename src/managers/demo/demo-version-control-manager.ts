@@ -27,6 +27,7 @@ import {
   type RebasePlan,
   type ResetPlan,
   type ResetResult,
+  type RevisionFile,
   type StashDetail,
 } from "../../contracts/model";
 import { IMAGE_LIMIT, TEXT_LIMIT } from "../../access/files/file-store";
@@ -40,7 +41,7 @@ import type { MemoryRepository } from "../../access/memory/memory-repository";
 import { unifiedDiff } from "../../access/memory/unified-diff";
 import type { FileDiff, PatchEngine } from "../../engines/patch-engine";
 import type { RebaseEngine } from "../../engines/rebase-engine";
-import { encodeText, sha256 } from "../../utilities/bytes";
+import { decodeText, encodeText, sha256 } from "../../utilities/bytes";
 import { appendIgnoreRule, extensionOf, ignoreFile, ignoreRule } from "../../utilities/gitignore";
 import { imageType, imageUrl } from "../../utilities/image-types";
 import {
@@ -58,6 +59,7 @@ import {
   remoteDefinition,
   resetMode,
   resetState,
+  revision,
   stashOptions,
   syncAction,
   tagMessage,
@@ -157,6 +159,25 @@ export class DemoVersionControlManager implements VersionControlManagerContract 
         string | null,
       ];
       return { original, modified };
+    });
+  }
+
+  fileAt(id: unknown, at: unknown, path: unknown): Promise<RevisionFile> {
+    return this.on(id, (workspace, repository) => {
+      const relative = workspace.path(path);
+      const name = revision(at);
+      let commit: string;
+      try {
+        commit = repository.resolve(name);
+      } catch {
+        // Git knows no such commit.
+        return { commit: null, content: null };
+      }
+      const stored = repository.treeOf(commit).get(relative);
+      if (stored === undefined) return { commit, content: null };
+      const bytes = fileBytes(stored);
+      if (bytes.length > TEXT_LIMIT) throw new Error(`${relative} is too large to show.`);
+      return { commit, content: decodeText(bytes, relative) };
     });
   }
 

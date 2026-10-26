@@ -77,7 +77,7 @@ handling. Implements [[GENBEYA-17]], follows [[ADR-008]].
 | --- | --- |
 | Frontmatter | `id`, `title`, `status` (`draft`, `open`, `merged`, `closed`: only what a person decides), `author`, `source` and `target` branches, requested `reviewers`, and after the merge `merge_commit` |
 | Description | What the change does and why, with references to its tasks and pages |
-| `## Review` | One `###` topic per issue, with its shared remarks; one `####` per code range under it, as a [pinned reference](Pinned-references.md), with its own suggestion, to-dos and replies |
+| `## Review` | One `###` topic per issue, with its shared remarks; one `####` per code range under it, as a [pinned reference](../Guide/References.md#pinned-to-a-revision), with its own suggestion, to-dos and replies |
 | `## Discussion` | Remarks about the pull request as a whole, and the verdicts |
 
 - **Suggestions** are ordinary `diff` code blocks. They read well anywhere and render today. Applying one is optional and checks first that the lines still match.
@@ -189,6 +189,6 @@ The one large new piece: a **Pull requests** view, an [optional part](Optional-p
 - **Policy defaults:** how many approvals, and whether open to-dos block a merge by default.
 - **Squash and rebase merges:** how the merge check compares a squashed or rebased result with the approved change.
 - **Trust:** what "verified" means offline and with a forge.
-- **Reference grammar:** paths with `@`, full commit IDs, references into other repositories ([Pinned references](Pinned-references.md)).
+- **References into other repositories:** a code range in a submodule or a sibling repository can't be pinned yet ([pinned references](../Guide/References.md#pinned-to-a-revision) name files of this repository).
 
 The test for the format: can someone without Genbeya open the file, understand the discussion, find the cited code with Git, suggest a change, and see the outcome?

@@ -82,6 +82,7 @@ const DATA_ATTRIBUTES = new Set([
   "data-footnotes",
   "data-embed",
   "data-lines",
+  "data-revision",
   "data-line",
 ]);
 
@@ -112,12 +113,14 @@ export interface RepositoryImage {
   readonly path: string;
 }
 
-/** Lines of a repository file shown in place (`![[path#L1-L9]]`). */
+/** Lines of a repository file shown in place (`![[path#L1-L9]]`, `![[path#L1-L9@v1.0]]`). */
 export interface Embed {
   readonly element: HTMLElement;
   readonly path: string;
   /** "10-20", or null for the whole file. */
   readonly lines: string | null;
+  /** The revision whose version is shown; null for the file as it is now. */
+  readonly revision: string | null;
 }
 
 export interface RenderedMarkdown {
@@ -357,8 +360,13 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
   const embed = (node: Element): Node => {
     const placeholder = create("div", ["md-embed"]);
     placeholder.append(create("span", ["spinner"]));
-    const lines = node.properties["dataLines"];
-    embeds.push({ element: placeholder, path: String(node.properties["dataEmbed"] ?? ""), lines: lines ? String(lines) : null });
+    const { dataLines: lines, dataRevision: revision } = node.properties;
+    embeds.push({
+      element: placeholder,
+      path: String(node.properties["dataEmbed"] ?? ""),
+      lines: lines ? String(lines) : null,
+      revision: revision ? String(revision) : null,
+    });
     return placeholder;
   };
 

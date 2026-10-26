@@ -197,6 +197,42 @@ describe("MarkdownView", () => {
     expect(fixture.componentInstance.links).toEqual([{ kind: "file", path: "src/app.ts", anchor: "L2-L3" }]);
   });
 
+  it("embeds lines as committed in a revision, and says when they read differently now", async () => {
+    const harness = await openRepository({ files: [{ name: "src", path: "src", children: [{ name: "app.ts", path: "src/app.ts" }] }] });
+    harness.managers.versionControl.fileAt.mockResolvedValue({ commit: "c".repeat(40), content: "one\ntwo\nthree\n" });
+    harness.managers.content.read.mockResolvedValue({ scope: "repo", path: "src/app.ts", content: "one\nTWO\nthree\n", hash: "h" });
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.source.set("![[src/app.ts#L2-L3@v1.0]]\n\n![[src/app.ts#L3@v1.0]]");
+    await settle(fixture);
+    const element = fixture.nativeElement as HTMLElement;
+    expect(harness.managers.versionControl.fileAt).toHaveBeenCalledWith("w1", "v1.0", "src/app.ts");
+    const [changed, same] = [...element.querySelectorAll(".md-embed")];
+    const title = changed!.querySelector(".md-embed-title")!;
+    expect([title.getAttribute("href"), title.textContent]).toEqual(["/src/app.ts#L2-L3@v1.0", "src/app.ts:2–3v1.0"]);
+    expect(changed!.querySelector("pre")?.textContent).toBe("two\nthree\n");
+    expect(changed!.querySelector(".md-embed-note")?.textContent).toBe("Changed since v1.0. Show the current version");
+    expect(same!.querySelector(".md-embed-note")).toBeNull();
+    changed!.querySelector<HTMLElement>(".md-embed-note a")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(fixture.componentInstance.links).toEqual([{ kind: "file", path: "src/app.ts", anchor: "L2-L3" }]);
+  });
+
+  it("marks pinned references whose lines changed, or whose revision is missing", async () => {
+    const harness = await openRepository({ files: [{ name: "src", path: "src", children: [{ name: "app.ts", path: "src/app.ts" }] }] });
+    harness.managers.versionControl.fileAt.mockImplementation(async (_id: string, revision: string) =>
+      revision === "v1.0" ? { commit: "c".repeat(40), content: "one\ntwo\n" } : { commit: null, content: null },
+    );
+    harness.managers.content.read.mockResolvedValue({ scope: "repo", path: "src/app.ts", content: "one\n2\n", hash: "h" });
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.source.set("[[src/app.ts#L1@v1.0]] [[src/app.ts#L2@v1.0]] [[src/app.ts#L1@v9]]");
+    await settle(fixture);
+    const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>("a.md-ref-pinned")];
+    expect(links.map((link) => [link.classList.contains("is-outdated"), link.classList.contains("md-ref-missing"), link.title])).toEqual([
+      [false, false, "src/app.ts:1 as of v1.0"],
+      [true, false, "src/app.ts:2 as of v1.0; changed since"],
+      [false, true, "v9 is not in this clone. Fetch it, or check the reference."],
+    ]);
+  });
+
   it("says when embedded lines do not exist", async () => {
     const harness = await openRepository();
     harness.managers.content.read.mockResolvedValue({ scope: "repo", path: "src/app.ts", content: "one\n", hash: "h" });

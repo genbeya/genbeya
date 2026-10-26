@@ -11,6 +11,7 @@ import { syncsContentBranch, type Snapshot, type WikiNode } from "../../contract
 import { createBackend, type Backend } from "../../managers/backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { CONTENT_SCHEME, ContentFiles } from "./content-files";
+import { REVISION_SCHEME, RevisionFiles } from "./revision-files";
 import { MarkdownLanguage } from "./markdown-language";
 import { Repository } from "./repository";
 import { TaskActions } from "./task-actions";
@@ -143,6 +144,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
     wikiTree,
     tasksTree,
     vscode.workspace.registerFileSystemProvider(CONTENT_SCHEME, files, { isCaseSensitive: true }),
+    vscode.workspace.registerTextDocumentContentProvider(REVISION_SCHEME, new RevisionFiles(current)),
     vscode.workspace.onDidChangeWorkspaceFolders(() => void open()),
     webviews,
     language,

@@ -1,7 +1,7 @@
 import { toString } from "mdast-util-to-string";
 import { SKIP, visit } from "unist-util-visit";
 import type { Link, List, ListItem, Paragraph, PhrasingContent, Root, Text } from "mdast";
-import { WIKILINK } from "../../../utilities/references";
+import { fileFragment, shortRevision, WIKILINK } from "../../../utilities/references";
 import type { DateOptions } from "./dates";
 import { headingIds } from "./headings";
 import type { MentionOptions } from "./mentions";
@@ -76,11 +76,19 @@ function referenceLink(reference: Reference, label: string | undefined): Phrasin
     case "file": {
       const { from, to } = reference.lines ?? { from: 0, to: 0 };
       const lines = !reference.lines ? "" : from === to ? `:${from}` : `:${from}–${to}`;
+      const fragment = fileFragment(reference);
+      const pinned = reference.revision;
+      // Whether a pinned file is there is only known once its revision is read.
+      const missing = !pinned && !reference.exists;
       return link(
-        "/" + reference.path + (reference.lines ? `#L${from}-L${to}` : ""),
-        ["md-ref", "md-ref-file", ...(reference.exists ? [] : ["md-ref-missing"])],
-        [span("md-ref-path", label ?? reference.path), ...(lines && !label ? [span("md-ref-lines", lines)] : [])],
-        reference.exists ? undefined : `${reference.path} is not in the repository`,
+        "/" + reference.path + (fragment ? "#" + fragment : ""),
+        ["md-ref", "md-ref-file", ...(pinned ? ["md-ref-pinned"] : []), ...(missing ? ["md-ref-missing"] : [])],
+        [
+          span("md-ref-path", label ?? reference.path),
+          ...(lines && !label ? [span("md-ref-lines", lines)] : []),
+          ...(pinned && !label ? [span("md-ref-rev", shortRevision(pinned))] : []),
+        ],
+        pinned ? `${reference.path}${lines} as of ${pinned}` : missing ? `${reference.path} is not in the repository` : undefined,
       );
     }
     case "missing-page":
@@ -138,7 +146,8 @@ const pageEntries = (pages: PageRef[]): Entry[] =>
  * - heading ids, and `[TOC]` / `[[_TOC_]]` for a table of contents
  * - `[SUBPAGES]` / `[[_TOSP_]]` for the pages below this one
  * - `[[GENBEYA-12]]`, `[[Page title]]`, `[[path/to/file.ts#L1-L9]]` references, `[[target|label]]`
- * - `![[path/to/file.ts#L1-L9]]` alone in a paragraph embeds the lines
+ * - `[[path/to/file.ts#L1-L9@v1.0]]` pinned to a revision, `#@v1.0` for a whole file
+ * - `![[path/to/file.ts#L1-L9]]` alone in a paragraph embeds the lines, of a revision when pinned
  */
 export function remarkGenbeya(options: GenbeyaOptions = {}) {
   return (tree: Root) => {
@@ -170,6 +179,7 @@ export function remarkGenbeya(options: GenbeyaOptions = {}) {
                 className: ["md-embed"],
                 dataEmbed: reference.path,
                 dataLines: reference.lines ? `${reference.lines.from}-${reference.lines.to}` : undefined,
+                dataRevision: reference.revision ?? undefined,
               },
             },
             children: [],

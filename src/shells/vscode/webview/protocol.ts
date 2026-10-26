@@ -60,7 +60,12 @@ export type FromWebview =
   | { readonly type: "deleteComment"; readonly path: string; readonly hash: string; readonly index: number }
   | { readonly type: "delete"; readonly path: string }
   | { readonly type: "newTask"; readonly status: string; readonly epic: string }
-  /** Requests answered by a `reply` with the same ID: an image as a data URL, a repository file's text, a task's activity as JSON. */
+  /**
+   * Requests answered by a `reply` with the same ID: an image as a data URL, a
+   * repository file's text (as committed in `revision`, for `fileAt`), a
+   * task's activity as JSON.
+   */
   | { readonly type: "image"; readonly id: number; readonly path: string }
   | { readonly type: "file"; readonly id: number; readonly path: string }
+  | { readonly type: "fileAt"; readonly id: number; readonly path: string; readonly revision: string }
   | { readonly type: "activity"; readonly id: number; readonly path: string };

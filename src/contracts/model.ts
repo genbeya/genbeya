@@ -407,6 +407,14 @@ export interface FileContent {
   readonly hash: string;
 }
 
+/** A file as committed in a revision, for references pinned to it. */
+export interface RevisionFile {
+  /** The commit the revision names, in full; null when the repository has no such commit. */
+  readonly commit: string | null;
+  /** The file's text in that commit; null when the commit has no such file. */
+  readonly content: string | null;
+}
+
 export type DiffSource = "worktree" | "index" | { readonly commit: string };
 
 /**

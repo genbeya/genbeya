@@ -642,7 +642,7 @@ span.md-zoomable {
   font-weight: 650;
 }
 
-/* References: [[GENBEYA-12]], [[Page]], [[src/file.ts#L1-L9]] */
+/* References: [[GENBEYA-12]], [[Page]], [[src/file.ts#L1-L9]], [[src/file.ts#L1-L9@v1.0]] */
 .markdown a.md-ref {
   display: inline-flex;
   align-items: baseline;
@@ -722,6 +722,27 @@ span.md-zoomable {
 .markdown a.md-ref.md-ref-missing {
   border-style: dashed;
   color: var(--text-3);
+}
+
+/* The revision a reference or embed is pinned to; marked when the lines read differently now. */
+.md-ref-rev {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--bg-hover);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+.markdown a.md-ref.is-outdated {
+  border-color: color-mix(in srgb, var(--yellow) 55%, var(--line));
+}
+
+.markdown a.md-ref.is-outdated .md-ref-rev {
+  background: var(--yellow-soft);
+  color: var(--yellow);
 }
 
 .tone-gray {

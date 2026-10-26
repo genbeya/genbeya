@@ -9,7 +9,8 @@ import { sameJson } from "../../core/signals";
 import { WorkspaceApi } from "../../core/workspace-api";
 import type { WikiNode } from "../../../../contracts/model";
 import type { LinkTarget } from "../../markdown/link-target";
-import { parseLines, referenceCandidates } from "../../markdown/references";
+import { referenceCandidates } from "../../markdown/references";
+import { parseFileFragment } from "../../../../utilities/references";
 import type { GenbeyaOptions } from "../../markdown/markdown-pipeline";
 import { filePaths } from "../../../../utilities/file-tree";
 import type { MovePageOptions, PageMoveChoice } from "./move-page-dialog";
@@ -123,6 +124,10 @@ export class WikiActions {
     const { taskRoot } = snapshot.settings;
     const root = this.root();
     let path = target.path;
+    const { lines, revision } = parseFileFragment(target.anchor);
+    const range = lines ? `${lines.from}-${lines.to}` : null;
+    // A pinned link shows the file as it was, even a page's or a task's.
+    if (revision) return void (await this.router.navigate(["/code"], { queryParams: { file: path, lines: range, rev: revision } }));
     const task = path.startsWith(`${taskRoot}/`) ? snapshot.tasks.find((candidate) => candidate.path === path) : undefined;
     if (task) return void (await this.router.navigate(["/tasks"], { queryParams: { task: task.id } }));
     if (path === root || path.startsWith(`${root}/`)) {
@@ -135,7 +140,6 @@ export class WikiActions {
         return void (await this.openPage(path, { anchor: target.anchor }));
       }
     }
-    const lines = parseLines(target.anchor);
-    await this.router.navigate(["/code"], { queryParams: { file: path, lines: lines ? `${lines.from}-${lines.to}` : null } });
+    await this.router.navigate(["/code"], { queryParams: { file: path, lines: range } });
   }
 }

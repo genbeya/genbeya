@@ -44,7 +44,13 @@ describe("resolveReference", () => {
   });
 
   it("finds files by path, with an optional line or line range", () => {
-    expect(resolveReference("src/app.ts", targets)).toEqual({ kind: "file", path: "src/app.ts", lines: null, exists: true });
+    expect(resolveReference("src/app.ts", targets)).toEqual({
+      kind: "file",
+      path: "src/app.ts",
+      lines: null,
+      revision: null,
+      exists: true,
+    });
     expect(resolveReference("src/util/path.ts#L10", targets)).toMatchObject({ lines: { from: 10, to: 10 } });
     expect(resolveReference("src/util/path.ts#L10-L20", targets)).toMatchObject({ lines: { from: 10, to: 20 } });
     expect(resolveReference("src/util/path.ts#L20-10", targets)).toMatchObject({ lines: { from: 10, to: 20 } });

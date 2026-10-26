@@ -10,7 +10,9 @@ import { TaskEngine } from "../../engines/task-engine";
 import { toggleCheckboxAt } from "../../client/app/markdown/task-checkbox";
 import { flattenPages } from "../../client/app/features/wiki/wiki-pages";
 import { filePaths } from "../../utilities/file-tree";
+import { parseFileFragment, pinnedText } from "../../utilities/references";
 import type { Repository } from "./repository";
+import { RevisionFiles } from "./revision-files";
 import type { TaskActions } from "./task-actions";
 import type { FollowedLink, FromWebview, MarkdownContext, PreviewDocument, ToWebview } from "./webview/protocol";
 
@@ -195,6 +197,13 @@ export class Webviews implements vscode.Disposable {
             message.id,
             repository.backend.content.read(repository.id, "repo", message.path).then((file) => file.content),
           );
+        case "fileAt":
+          return await reply(
+            message.id,
+            repository.backend.versionControl
+              .fileAt(repository.id, message.revision, message.path)
+              .then((file) => pinnedText(file, message.path, message.revision)),
+          );
         case "activity":
           return await reply(message.id, tasks.activity(message.path));
       }
@@ -221,16 +230,17 @@ export class Webviews implements vscode.Disposable {
     }
     let { path } = link;
     const root = snapshot.settings.wikiRoot;
-    // Links into the wiki may leave out `.md`, or point at a page's folder.
+    const { lines, revision } = parseFileFragment(link.anchor);
+    // Links into the wiki may leave out `.md`, or point at a page's folder; a pinned link shows the file as it was.
     if ((path === root || path.startsWith(`${root}/`)) && !/\.[a-z0-9]+$/i.test(path)) path += ".md";
-    if (snapshot.tasks.some((task) => task.path === path)) return this.showPreview({ area: "tasks", path });
-    if (flattenPages(snapshot.wiki).some((page) => page.path === path)) return this.showPreview({ area: "wiki", path });
-    const lines = /^L(\d+)(?:-L(\d+))?$/.exec(link.anchor ?? "");
-    const document = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(repository.folder, link.path));
+    if (!revision && snapshot.tasks.some((task) => task.path === path)) return this.showPreview({ area: "tasks", path });
+    if (!revision && flattenPages(snapshot.wiki).some((page) => page.path === path)) return this.showPreview({ area: "wiki", path });
+    const uri = revision ? RevisionFiles.uri(link.path, revision) : vscode.Uri.joinPath(repository.folder, link.path);
+    const document = await vscode.workspace.openTextDocument(uri);
     const editor = await vscode.window.showTextDocument(document);
     if (lines) {
-      const from = Number(lines[1]) - 1;
-      const to = Math.min(Number(lines[2] ?? lines[1]) - 1, document.lineCount - 1);
+      const from = Math.min(lines.from, document.lineCount) - 1;
+      const to = Math.min(lines.to, document.lineCount) - 1;
       editor.selection = new vscode.Selection(from, 0, to, document.lineAt(to).text.length);
       editor.revealRange(editor.selection, vscode.TextEditorRevealType.InCenter);
     }

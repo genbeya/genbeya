@@ -75,6 +75,7 @@ describe("LinkEngine: renaming docs/Guide.md to docs/Manual.md", () => {
     ["a title that stays", "[[Wiki]] and [[Home]]"],
     ["a task", "[[GENBEYA-1]]"],
     ["a code file", "[[src/app.ts#L1-L2]]"],
+    ["files pinned to a revision", "[[docs/Guide/diagram.png#@v1]] [[Guide/Wiki#L1-L2@3f9c0e1]]\n\n![[docs/Guide/Wiki.md#@v1]]"],
     ["an external link", "[x](https://example.com/docs/Guide.md)"],
     ["an anchor", "[x](#guide)"],
     ["a fenced code block", "```md\n[g](Guide.md) [[Guide/Wiki]]\n```"],

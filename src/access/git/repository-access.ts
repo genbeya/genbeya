@@ -145,6 +145,21 @@ export class RepositoryAccess {
     return before && after ? [before, after] : null;
   }
 
+  /**
+   * `path` as committed in `revision`: the commit is null when Git knows no
+   * such commit, the bytes are null when the commit has no such file. Throws
+   * when the file is larger than `limit`.
+   */
+  async fileAt(revision: string, path: string, limit: number): Promise<{ commit: string | null; bytes: Uint8Array | null }> {
+    const commit = await this.git.objectId(`${revision}^{commit}`);
+    if (!commit) return { commit: null, bytes: null };
+    const id = await this.git.objectId(`${commit}:${path}`);
+    if (!id || (await this.git.text(["cat-file", "-t", id])).trim() !== "blob") return { commit, bytes: null };
+    const bytes = await this.blob(id, limit);
+    if (!bytes) throw new Error(`${path} is too large to show.`);
+    return { commit, bytes };
+  }
+
   /** A stored file's bytes: empty when `spec` names none, null when larger than `limit`. */
   private async blob(spec: string, limit: number): Promise<Uint8Array | null> {
     const id = await this.git.objectId(spec);

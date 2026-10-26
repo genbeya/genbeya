@@ -51,6 +51,10 @@ A diff of a binary file has no lines; `diff` says `binary` and gives the `sizes`
 
 `diffImages(path, source, oldPath, base)` takes the arguments of `diff` and returns the two versions of an image as data URLs, `null` for a side without the file: the index and the working tree, HEAD (or the amended commit's parent) and the index, or a commit and its first parent. Each side's media type comes from its own name, so a renamed image keeps its old type on the old side. It serves what `content.image` serves — PNG, JPEG, GIF, WebP, SVG and AVIF (`src/utilities/image-types.ts`) — and refuses sides over 10 MB. The client asks for it only when `diff`'s version changed, or has none.
 
+## Files at a revision
+
+`fileAt(revision, path)` reads a text file as committed in a revision, for [pinned references](../Guide/References.md#pinned-to-a-revision). The revision is anything Git resolves: a commit ID, a tag, a branch, or `HEAD~2`; `isRevision` in `src/utilities/references.ts` refuses whatever Git could read as an option, a path (`:`), a range (`..`) or reflog syntax (`@`). It returns the full commit ID and the text, with `commit: null` when Git knows no such commit and `content: null` when the commit has no such file (a folder counts as none). Binary files and files over 2 MB are refused, as `content.read` refuses them. The client compares the text with the checkout to mark references whose lines read differently now; nothing is cached on the backend.
+
 Which files the client compares as images, and which it previews in **Code**, the preview registry decides (`src/client/app/features/preview/file-previews.ts`): one renderer per kind of file — Markdown, Mermaid, PlantUML, SVG and raster images — each saying whether the file is text to edit and how its diff compares it. A new kind, such as PDF, audio or video, is another renderer there.
 
 ## .gitignore

@@ -85,11 +85,26 @@ describe("wiki extensions", () => {
     ]);
   });
 
+  it("shows references pinned to a revision with the revision, and never as gone before it is read", () => {
+    const id = "3f9c0e1d2b7a4c58e6f1a9b0d3c7e2f4a8b6c1d0";
+    const { container } = render(`[[src/app.ts#L3-L9@${id}]], [[src/gone.ts#@v1.0]] and [[src/app.ts#@v1.0|then]]`, { references });
+    const files = [...container.querySelectorAll("a.md-ref-file")];
+    expect(files.map((link) => [link.getAttribute("href"), link.textContent, link.className, link.getAttribute("title")])).toEqual([
+      [`/src/app.ts#L3-L9@${id}`, "src/app.ts:3–93f9c0e1", "md-ref md-ref-file md-ref-pinned", `src/app.ts:3–9 as of ${id}`],
+      ["/src/gone.ts#@v1.0", "src/gone.tsv1.0", "md-ref md-ref-file md-ref-pinned", "src/gone.ts as of v1.0"],
+      ["/src/app.ts#@v1.0", "then", "md-ref md-ref-file md-ref-pinned", "src/app.ts as of v1.0"],
+    ]);
+    expect(files[0]!.querySelector(".md-ref-rev")?.textContent).toBe("3f9c0e1");
+  });
+
   it("embeds lines of a file given alone in a paragraph, and links anything else", () => {
-    const { embeds, container } = render("![[src/app.ts#L3-L9]]\n\n![[src/app.ts]]\n\n![[GENBEYA-3]]", { references });
-    expect(embeds.map(({ path, lines }) => [path, lines])).toEqual([
-      ["src/app.ts", "3-9"],
-      ["src/app.ts", null],
+    const { embeds, container } = render("![[src/app.ts#L3-L9]]\n\n![[src/app.ts]]\n\n![[GENBEYA-3]]\n\n![[src/app.ts#L2@v1.0]]", {
+      references,
+    });
+    expect(embeds.map(({ path, lines, revision }) => [path, lines, revision])).toEqual([
+      ["src/app.ts", "3-9", null],
+      ["src/app.ts", null, null],
+      ["src/app.ts", "2-2", "v1.0"],
     ]);
     expect(embeds[0]!.element.className).toBe("md-embed");
     expect(container.querySelector("a.md-ref-task")).not.toBeNull();
