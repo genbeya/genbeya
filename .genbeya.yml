@@ -9,3 +9,19 @@ statuses:
   - in-progress
   - review
   - done
+# Planning fields (GENBEYA-43 to GENBEYA-48). The DEMO tasks in tasks/Planning demo/ use them.
+fields:
+  - name: estimate
+    type: effort
+  - name: remaining
+    type: effort
+  - name: duration
+    type: effort
+  - name: start
+    type: date
+  - name: due
+    type: date
+  - name: milestone
+    type: text
+  - name: depends_on
+    type: tasks

@@ -23,13 +23,16 @@ What the first version answers, to try out before deciding for good:
 - **The time log** is a section of its own at the end of the description, as below. **Log time** takes one line, `2h What for`, and signs it with the Git name.
 - **Macros** are `[EFFORT]`, `[DEPENDENCIES]` and `[GANTT]`, filtered with `key=value` (`epic`, `milestone`, `assignee`, `label`, `type`, `status`).
 - **Where it lives:** the rules are pure functions in `src/utilities/planning.ts`, shared by the app, its Markdown and VS Code. Nothing new on the backend: logging time is an edit of the description.
+- **Critical path and float** ([[GENBEYA-65]]): durations from a `duration` field, else the dates, else the effort at 8 hours a day; days count from today, without a calendar. `[ARROWS]` draws it as an arrow diagram (activity on arrow), `[FLOAT]` as a table, and each task shows its float.
 - **The sample project** plans: effort, time logs, a blocked task and a *Release plan* page.
+- **Demo tasks** in this repository, the *Planning demo* epic with the milestone `DEMO`, try everything: see [[Planning demo]]. They go once planning is tested.
 
 Left for later:
 
 - Turning planning and the time log off ([Optional parts](Optional-parts.md)). For now effort shows once the project configures an `effort` field, or a task has a time log.
 - Diagram nodes that open their task (the diagrams are pictures today), and blocked marks in VS Code's tree and board.
 - Updating `remaining` while logging time, a project unit for effort, dated milestones.
+- A calendar of working days for the critical path, and critical tasks marked on the timeline and the board.
 - Plan history and baselines ([[GENBEYA-49]]).
 
 ## The numbers
@@ -70,6 +73,7 @@ milestone: MVP
 | `start`, `due` | date | When the work is planned to start and to be done |
 | `milestone` | choice or text | The milestone the task counts towards |
 | `depends_on` | list of task IDs | Tasks that must be done before this one can start |
+| `duration` | effort | How long the task takes, for the critical path |
 
 Configured under these names, the fields take on their planning meaning; no mapping in the settings. Two kinds are new:
 
@@ -106,7 +110,7 @@ The views of a plan are not new screens. They are blocks on ordinary wiki pages,
 
 Dates are set by people. The timeline shows them and marks conflicts, such as a task that starts before a task it depends on is due, or one that is due after its milestone. Genbeya never moves dates by itself.
 
-Calculated scheduling (dates proposed from durations, calendars and capacity) and the critical path need a task's duration, which is not its effort, and turn Genbeya into a scheduling tool. They stay out until people ask for them.
+The critical path and float come from durations, which are not effort: a `duration` field, else a task's dates, else its effort at 8 hours a day. Calculated scheduling (dates proposed from durations, calendars and capacity) turns Genbeya into a scheduling tool and stays out until people ask for it.
 
 ## The time log
 
@@ -141,7 +145,7 @@ Field changes are only as precise as the commits: on the [Content branch](../Arc
 ## Later, if asked
 
 - Workload against capacity per person or team, to check whether a plan is realistic, not to measure people.
-- Calculated scheduling and the critical path.
+- Calculated scheduling, with calendars and capacity.
 - Scenarios: alternative plans compared without touching the agreed baseline.
 - Costs and earned value.
 

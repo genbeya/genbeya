@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   addTimeEntry,
+  arrowChart,
+  durationOf,
+  scheduleOf,
   dependenciesOf,
   dependencyChart,
   dependsOn,
@@ -198,5 +201,82 @@ describe("plan macros", () => {
     ]);
     expect(result).toMatchObject({ undated: 1, conflicts: ["TP-2"] });
     expect(timeline([tasks[3]!], tasks, dependenciesOf(tasks, statuses), statuses)).toEqual({ chart: null, undated: 1, conflicts: [] });
+  });
+});
+
+describe("the schedule", () => {
+  it("takes a task's duration from its field, else its dates, else its effort at 8 hours a day", () => {
+    expect(durationOf({ fields: { duration: "3d", start: "2026-11-02", due: "2026-11-02", estimate: "1h" } })).toEqual({
+      days: 3,
+      from: "duration",
+    });
+    expect(durationOf({ fields: { start: "2026-11-02", due: "2026-11-04", estimate: "1h" } })).toEqual({ days: 3, from: "dates" });
+    expect(durationOf({ fields: { remaining: "12h", estimate: "40h" } })).toEqual({ days: 1.5, from: "effort" });
+    expect(durationOf({ fields: { estimate: "2d" } })).toEqual({ days: 2, from: "effort" });
+    expect(durationOf({ fields: { start: "2026-11-04", due: "2026-11-02" } })).toBeNull();
+  });
+
+  // A (2d) → B (3d) → D (1d); A → C (1d) → D; E (0.5d) alone; F finished; G without a duration.
+  const tasks = [
+    task("A", { duration: "2d" }),
+    task("B", { duration: "3d", depends_on: ["A"] }),
+    task("C", { duration: "1d", depends_on: ["A"] }),
+    task("D", { duration: "1d", depends_on: ["B", "C", "F"] }),
+    task("E", { duration: "4h" }),
+    task("F", { duration: "9d" }, { status: "done" }),
+    task("G", {}),
+  ];
+  const dependencies = dependenciesOf(tasks, statuses);
+  const schedule = scheduleOf(tasks, dependencies, statuses);
+  const row = (id: string) => schedule.tasks.find((scheduled) => scheduled.id === id)!;
+
+  it("finds the earliest and latest days, the float and the critical path, leaving finished work out", () => {
+    expect(schedule.length).toBe(6);
+    expect(row("A")).toEqual({
+      id: "A",
+      duration: 2,
+      earlyStart: 0,
+      earlyFinish: 2,
+      lateStart: 0,
+      lateFinish: 2,
+      float: 0,
+      freeFloat: 0,
+      critical: true,
+    });
+    expect(row("C")).toMatchObject({ earlyStart: 2, lateStart: 4, float: 2, freeFloat: 2, critical: false });
+    expect(row("D")).toMatchObject({ earlyStart: 5, lateFinish: 6, critical: true });
+    expect(row("E")).toMatchObject({ duration: 0.5, float: 5.5, freeFloat: 5.5 });
+    expect(schedule.tasks.map((scheduled) => scheduled.id)).not.toContain("F");
+    expect(schedule.undetermined).toEqual(["G"]);
+    expect(schedule.tasks.filter((scheduled) => scheduled.critical).map((scheduled) => scheduled.id)).toEqual(["A", "B", "D"]);
+  });
+
+  it("leaves out tasks in a cycle and those waiting for one", () => {
+    const loop = [
+      task("X", { duration: "1d", depends_on: "Y" }),
+      task("Y", { duration: "1d", depends_on: "X" }),
+      task("Z", { duration: "1d", depends_on: "Y" }),
+    ];
+    const result = scheduleOf(loop, dependenciesOf(loop, statuses), statuses);
+    expect(result).toMatchObject({ tasks: [], cyclic: ["X", "Y", "Z"], length: 0 });
+  });
+
+  it("draws the schedule with tasks as arrows between events, dummies where tasks share what they wait for", () => {
+    const lines = arrowChart(schedule, tasks, dependencies)!.split("\n");
+    expect(lines[0]).toBe("flowchart LR");
+    expect(lines).toContain('  e0(("0 / 0")):::critical');
+    expect(lines).toContain('  e0 -->|"A Task A<br/>2d · critical"| e1');
+    expect(lines).toContain('  e1 -->|"C Task C<br/>1d · float 2d"| e5');
+    expect(lines).toContain('  e5(("3 / 5"))');
+    // D waits for B and C: dummies lead into the event D starts from.
+    expect(lines.filter((line) => line.includes("-.->"))).toEqual([
+      "  e4 -.-> e6",
+      "  e5 -.-> e6",
+      "  e2 -.-> e8",
+      "  e3 -.-> e8",
+      "  e7 -.-> e8",
+    ]);
+    expect(lines.at(-1)).toMatch(/^ {2}linkStyle [\d,]+ stroke:#dc2626/);
+    expect(arrowChart(scheduleOf([], dependencies, statuses), tasks, dependencies)).toBeNull();
   });
 });

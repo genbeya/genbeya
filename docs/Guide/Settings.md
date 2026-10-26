@@ -121,7 +121,7 @@ fields:
 | `effort` | Hours or days of work: `16h`, `2d` (8 hours), or a number of hours |
 | `tasks` | Task IDs, as a list: `[PW-2, PW-3]` |
 
-The names `estimate`, `remaining`, `start`, `due`, `milestone` and `depends_on` also plan; see [Planning](Tasks.md#planning).
+The names `estimate`, `remaining`, `duration`, `start`, `due`, `milestone` and `depends_on` also plan; see [Planning](Tasks.md#planning).
 
 Names start with a letter and use letters, digits, `-` and `_`, up to 40 characters, unique ignoring case. Genbeya's own task keys are taken: `id`, `title`, `type`, `status`, `priority`, `assignee`, `labels`, `epic`. The key is left out while there are no fields.
 

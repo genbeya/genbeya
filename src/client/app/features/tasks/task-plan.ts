@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
-import { effortOf, formatEffort, formatVariance, timeLogOf } from "../../../../utilities/planning";
+import { durationOf, effortOf, formatDays, formatEffort, formatVariance, timeLogOf } from "../../../../utilities/planning";
 import { Session } from "../../core/session";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { Icon } from "../../ui/icon";
@@ -38,6 +38,20 @@ import { TaskPlanning } from "./task-planning";
           <code>- 2026-10-21 — Name — 2h — What for</code>.
         </p>
       }
+    }
+    @if (scheduled(); as task) {
+      <p class="task-schedule" [class.is-critical]="task.critical">
+        @if (task.critical) {
+          <strong>On the critical path:</strong> a day late here is a day late for the end.
+        } @else {
+          <strong>Float {{ days(task.float) }}:</strong> can slip that long without delaying the end
+          @if (task.float > task.freeFloat) {
+            ({{ days(task.freeFloat) }} before a task waiting for it is delayed)
+          }
+          .
+        }
+        Starts {{ from(task.earlyStart) }} at the earliest, {{ from(task.lateStart) }} at the latest; takes {{ days(task.duration) }}.
+      </p>
     }
     @if (relations(); as text) {
       <gd-markdown
@@ -84,6 +98,14 @@ import { TaskPlanning } from "./task-planning";
     .task-effort-value.is-under {
       color: var(--green);
     }
+    .task-schedule {
+      margin: 0;
+      color: var(--text-2);
+      font-size: 12.5px;
+    }
+    .task-schedule.is-critical strong {
+      color: var(--red);
+    }
     .task-relations {
       font-size: 13px;
     }
@@ -128,7 +150,16 @@ export class TaskPlan {
       item("Variance", effort.variance === null ? "—" : formatVariance(effort.variance), "Forecast − estimate", effort.variance ?? 0),
     ];
   });
-  private readonly dependencies = inject(TaskPlanning).dependencies;
+  private readonly planning = inject(TaskPlanning);
+  private readonly dependencies = this.planning.dependencies;
+  protected readonly days = formatDays;
+  protected readonly from = (days: number) => (days === 0 ? "today" : `in ${formatDays(days)}`);
+  /** Where the task stands on the critical path: unfinished tasks that wait for or block another, or have a duration. */
+  protected readonly scheduled = computed(() => {
+    const task = this.planning.schedule().tasks.find((candidate) => candidate.id.toUpperCase() === this.id());
+    const related = this.dependencies().waitsFor.has(this.id()) || this.dependencies().blocks.has(this.id());
+    return task && (related || durationOf(this.task()) !== null) ? task : null;
+  });
   private readonly id = computed(() => this.task().id.toUpperCase());
   /** What the task waits for and blocks, as references showing each task's state. */
   protected readonly relations = computed(() => {
@@ -142,5 +173,5 @@ export class TaskPlan {
       .join("\n\n");
   });
   protected readonly problems = computed(() => this.dependencies().problems.get(this.id()) ?? []);
-  protected readonly shown = computed(() => this.planned() || !!this.relations() || this.problems().length > 0);
+  protected readonly shown = computed(() => this.planned() || !!this.scheduled() || !!this.relations() || this.problems().length > 0);
 }

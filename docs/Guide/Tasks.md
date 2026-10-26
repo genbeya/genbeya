@@ -192,6 +192,8 @@ fields:
     type: effort
   - name: depends_on    # tasks that must be done before this one can start
     type: tasks
+  - name: duration      # how long it takes: for the critical path
+    type: effort
   - name: start         # for the timeline
     type: date
   - name: due
@@ -236,6 +238,15 @@ Edit the lines like any text to correct them. A list item in the section that do
 - The task shows what it is **Blocked by** (or **Waits for**, once they are done) and what it **Blocks**, as references with their states.
 - A dependency on a task that doesn't exist, on the task itself, or in a cycle is pointed out on the task.
 
+### Critical path and float
+
+Genbeya works out the critical path over the unfinished tasks, in days from today:
+
+- **How long a task takes** is its `duration`, else its `start` to `due` (both days counted), else its remaining effort or its estimate at 8 hours a day. Finished tasks are left out, so what waits only for them can start today.
+- **Float** (slack) is how long a task can slip without delaying the end; **free float** how long before a task waiting for it is delayed. Tasks without float are on the **critical path**.
+- The task shows its float, or that it is on the critical path, with when it starts at the earliest and the latest.
+- A task with no duration, dates or effort counts as taking no time; tasks in a cycle are left out. Both are pointed out.
+
 ### Plans in the wiki
 
 Three blocks on any wiki page show the plan, worked out from the tasks whenever the page is shown — see [Wiki](Wiki.md#plans):
@@ -243,3 +254,5 @@ Three blocks on any wiki page show the plan, worked out from the tasks whenever 
 - `[EFFORT]`: estimate, logged, remaining, forecast and variance per task, with totals.
 - `[DEPENDENCIES]`: what waits for what, as a diagram.
 - `[GANTT]`: the tasks with a `due` date on a timeline, from their `start`; a task with only a due date is a milestone.
+- `[ARROWS]`: the critical path as an arrow diagram, each task an arrow with its duration and float.
+- `[FLOAT]`: the critical path as a table, with each task's earliest and latest start and finish and its float.

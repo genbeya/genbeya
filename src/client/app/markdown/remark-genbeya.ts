@@ -10,6 +10,9 @@ import {
   matchesFilter,
   parseFilter,
   timeline,
+  arrowChart,
+  formatDays,
+  scheduleOf,
   type PlanTask,
 } from "../../../utilities/planning";
 import { fileFragment, shortRevision, WIKILINK } from "../../../utilities/references";
@@ -44,8 +47,8 @@ interface Entry {
 // `[[_TOC_]]` parses as `[[` + emphasis + `]]`, so match the paragraph's plain text.
 const TOC = /^\[(?:TOC|\[_?TOC_?\])\]$/i;
 const SUBPAGES = /^\[(?:SUBPAGES|\[_?TOSP_?\])\]$/i;
-/** `[EFFORT milestone=MVP]` alone in a paragraph: a plan of the matching tasks. */
-const PLAN = /^\[(EFFORT|DEPENDENCIES|GANTT)(?:\s+([^\]]*))?\]$/;
+/** `[EFFORT milestone=MVP]` alone in a paragraph: a plan of the matching tasks; see {@link plan}. */
+const PLAN = /^\[(EFFORT|DEPENDENCIES|GANTT|ARROWS|FLOAT)(?:\s+([^\]]*))?\]$/;
 /** `![[path#L1-L9]]` alone in a paragraph embeds those lines of a file. */
 const EMBED = /^!\[\[([^\]|\n]+)\]\]$/;
 const TASK_ID = /\b[A-Z][A-Z0-9]*-\d+\b/g;
@@ -123,7 +126,8 @@ const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? on
 /**
  * A plan macro's blocks, from the tasks: `[EFFORT]` a table of estimate,
  * logged, remaining, forecast and variance with totals; `[DEPENDENCIES]` a
- * Mermaid flowchart; `[GANTT]` a Mermaid timeline. What is missing is said,
+ * Mermaid flowchart; `[GANTT]` a Mermaid timeline; `[ARROWS]` the critical
+ * path as an arrow diagram, `[FLOAT]` as a table with each task's float. What is missing is said,
  * rather than shown as if it were complete.
  */
 function plan(kind: string, filterText: string, { tasks, statuses }: NonNullable<GenbeyaOptions["plan"]>): RootContent[] {
@@ -138,6 +142,52 @@ function plan(kind: string, filterText: string, { tasks, statuses }: NonNullable
     const chart = dependencyChart(shown, tasks, dependencies, statuses);
     const problems = shown.flatMap((task) => (dependencies.problems.get(task.id.toUpperCase()) ?? []).map((text) => `${task.id} ${text}.`));
     return [chart ? diagram(chart) : placeholder("None of these tasks depends on another."), ...problems.map(placeholder)];
+  }
+  if (kind === "ARROWS" || kind === "FLOAT") {
+    const schedule = scheduleOf(shown, dependencies, statuses);
+    if (!schedule.tasks.length) return [placeholder("Every one of these tasks is finished.")];
+    if (schedule.undetermined.length)
+      notes.push(
+        schedule.undetermined.length === 1
+          ? `${schedule.undetermined[0]} has no duration, dates or effort, so it counts as taking no time.`
+          : `${schedule.undetermined.join(", ")} have no duration, dates or effort, so they count as taking no time.`,
+      );
+    if (schedule.cyclic.length)
+      notes.push(
+        `${schedule.cyclic.join(", ")} ${schedule.cyclic.length === 1 ? "is" : "are"} left out: part of a cycle, or waiting for one.`,
+      );
+    if (kind === "ARROWS")
+      return [
+        diagram(arrowChart(schedule, tasks, dependencies)!),
+        placeholder(
+          `Days from today: circles show the earliest / latest day of an event, arrows a task with its duration and float. The critical path is red; ${formatDays(schedule.length)} in all.`,
+        ),
+        ...notes.map(placeholder),
+      ];
+    const table: Table = {
+      type: "table",
+      align: [null, "right", "right", "right", "right", "right", "right", "right"],
+      children: [
+        row(["Task", "Duration", "Earliest start", "Earliest finish", "Latest start", "Latest finish", "Float", "Free float"]),
+        ...schedule.tasks.map((task) =>
+          row([
+            `[[${task.id}]]`,
+            formatDays(task.duration),
+            formatDays(task.earlyStart),
+            formatDays(task.earlyFinish),
+            formatDays(task.lateStart),
+            formatDays(task.lateFinish),
+            task.critical ? "0d, critical" : formatDays(task.float),
+            formatDays(task.freeFloat),
+          ]),
+        ),
+      ],
+    };
+    return [
+      table,
+      placeholder(`Days from today; finished tasks are left out. All of it takes ${formatDays(schedule.length)}.`),
+      ...notes.map(placeholder),
+    ];
   }
   if (kind === "GANTT") {
     const result = timeline(shown, tasks, dependencies, statuses);
@@ -237,7 +287,7 @@ const pageEntries = (pages: PageRef[]): Entry[] =>
  * Genbeya's wiki extensions:
  * - heading ids, and `[TOC]` / `[[_TOC_]]` for a table of contents
  * - `[SUBPAGES]` / `[[_TOSP_]]` for the pages below this one
- * - `[EFFORT]`, `[DEPENDENCIES]` and `[GANTT]`, with filters such as `milestone=MVP`, for plans of the tasks
+ * - `[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`, `[ARROWS]` and `[FLOAT]`, with filters such as `milestone=MVP`, for plans of the tasks
  * - `[[GENBEYA-12]]`, `[[Page title]]`, `[[path/to/file.ts#L1-L9]]` references, `[[target|label]]`
  * - `[[path/to/file.ts#L1-L9@v1.0]]` pinned to a revision, `#@v1.0` for a whole file
  * - `![[path/to/file.ts#L1-L9]]` alone in a paragraph embeds the lines, of a revision when pinned

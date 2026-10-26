@@ -182,6 +182,15 @@ const RELEASE_PLAN = text(
   "Give tasks `start` and `due` dates (add them as date fields in **Settings**) to see them on a timeline:",
   "",
   "[GANTT]",
+  "",
+  "## Critical path",
+  "",
+  "What is left, as an arrow diagram: each task an arrow with how long it takes and how long it can slip (its float).",
+  "Durations come from a `duration` field, a task's dates, or its effort at 8 hours a day.",
+  "",
+  "[ARROWS]",
+  "",
+  "[FLOAT]",
 );
 
 const WHERE_FILES_LIVE = text(

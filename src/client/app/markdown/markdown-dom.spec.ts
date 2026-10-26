@@ -170,6 +170,26 @@ describe("plan macros", () => {
     ]);
   });
 
+  it("tables the schedule of the unfinished tasks, with their float, and says what counts as taking no time", () => {
+    const { container } = render("[FLOAT]", { plan });
+    const rows = [...container.querySelectorAll("tr")].map((row) => [...row.children].map((cell) => cell.textContent));
+    expect(rows).toEqual([
+      ["Task", "Duration", "Earliest start", "Earliest finish", "Latest start", "Latest finish", "Float", "Free float"],
+      ["TP-2", "4d", "0d", "4d", "0d", "4d", "0d, critical", "0d"],
+      ["TP-3", "0d", "4d", "4d", "4d", "4d", "0d, critical", "0d"],
+    ]);
+    expect([...container.querySelectorAll(".md-placeholder")].map((note) => note.textContent)).toEqual([
+      "Days from today; finished tasks are left out. All of it takes 4d.",
+      "TP-3 has no duration, dates or effort, so it counts as taking no time.",
+    ]);
+  });
+
+  it("draws the critical path as an arrow diagram", () => {
+    const { diagrams } = render("[ARROWS epic=Auth]\n\n[ARROWS status=done]", { plan });
+    expect(diagrams).toHaveLength(1);
+    expect(diagrams[0]!.source).toContain('e0 -->|"TP-2 Task TP-2<br/>4d · critical"| e1');
+  });
+
   it("says when no task matches, and stays text without tasks to plan", () => {
     expect(render('[EFFORT milestone="Later"]', { plan }).container.textContent).toBe("No tasks match this plan.");
     expect(render("[EFFORT]").container.textContent).toBe("No tasks to plan here.");

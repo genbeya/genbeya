@@ -2,8 +2,9 @@
  * Planning on top of the tasks, derived from their files and never stored:
  * effort (estimate, logged, remaining, forecast, variance), the time log in a
  * task's description, dependencies between tasks, and the charts the wiki's
- * plan macros draw. Fields mean their planning meaning by name: `estimate`,
- * `remaining`, `start`, `due`, `milestone` and `depends_on`.
+ * plan macros draw, with the critical path and each task's float. Fields
+ * mean their planning meaning by name: `estimate`, `remaining`, `duration`,
+ * `start`, `due`, `milestone` and `depends_on`.
  */
 import type { FieldValue, Task } from "../contracts/model";
 
@@ -18,6 +19,7 @@ export const PLANNING_FIELDS = {
   due: "due",
   milestone: "milestone",
   dependsOn: "depends_on",
+  duration: "duration",
 } as const;
 
 /** A task as planning sees it: its properties, and the hours its time log adds up to. */
@@ -248,6 +250,187 @@ function cyclesOf(edges: ReadonlyMap<string, readonly string[]>): string[][] {
   };
   for (const id of edges.keys()) visit(id);
   return cycles;
+}
+
+// The schedule: the critical path method over the work that is left.
+
+/** Days as shown: `2d`, `0.5d`. */
+export const formatDays = (days: number): string => `${Number(days.toFixed(2))}d`;
+
+const DAY_MS = 86_400_000;
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
+
+/**
+ * How many working days a task still takes, and where that comes from: its
+ * `duration` (an effort, `3d` or `12h`), else its `start` to `due` (both
+ * days counted), else its remaining effort or estimate at {@link HOURS_PER_DAY}
+ * hours a day. Null when it has none of them.
+ */
+export function durationOf(task: Pick<PlanTask, "fields">): { days: number; from: "duration" | "dates" | "effort" } | null {
+  const duration = parseEffort(task.fields[PLANNING_FIELDS.duration]);
+  if (duration !== null) return { days: duration / HOURS_PER_DAY, from: "duration" };
+  const [start, due] = [String(task.fields[PLANNING_FIELDS.start] ?? ""), String(task.fields[PLANNING_FIELDS.due] ?? "")];
+  if (DATE.test(start) && DATE.test(due) && due >= start) return { days: daysBetween(start, due) + 1, from: "dates" };
+  const effort = parseEffort(task.fields[PLANNING_FIELDS.remaining]) ?? parseEffort(task.fields[PLANNING_FIELDS.estimate]);
+  return effort === null ? null : { days: effort / HOURS_PER_DAY, from: "effort" };
+}
+
+/** A task in the schedule, in days from now: day 0 is today. */
+export interface ScheduledTask {
+  readonly id: string;
+  readonly duration: number;
+  readonly earlyStart: number;
+  readonly earlyFinish: number;
+  readonly lateStart: number;
+  readonly lateFinish: number;
+  /** Total float (slack): how long the task can slip without delaying the end. */
+  readonly float: number;
+  /** Free float: how long it can slip without delaying any task that waits for it. */
+  readonly freeFloat: number;
+  /** On the critical path: no float. */
+  readonly critical: boolean;
+}
+
+export interface Schedule {
+  /** The scheduled tasks in an order where each comes after the tasks it waits for. */
+  readonly tasks: readonly ScheduledTask[];
+  /** Days until the last task finishes. */
+  readonly length: number;
+  /** Tasks with no duration, dates or effort, counted as taking no time. */
+  readonly undetermined: readonly string[];
+  /** Tasks left out, being part of a cycle or waiting for one. */
+  readonly cyclic: readonly string[];
+}
+
+/** Floats this close to zero are zero: fractions of days add up with rounding errors. */
+const EPSILON = 1e-9;
+
+/**
+ * The critical path method over the unfinished `tasks`: finished tasks are
+ * left out, so tasks waiting only for them can start today. Dependencies on
+ * tasks outside the set are ignored.
+ */
+export function scheduleOf(tasks: readonly PlanTask[], dependencies: Dependencies, statuses: readonly string[]): Schedule {
+  const open = tasks.filter((task) => task.status !== statuses.at(-1));
+  const ids = new Set(open.map((task) => task.id.toUpperCase()));
+  const before = (id: string) => (dependencies.waitsFor.get(id) ?? []).filter((other) => ids.has(other));
+  const after = (id: string) => (dependencies.blocks.get(id) ?? []).filter((other) => ids.has(other));
+  const undetermined: string[] = [];
+  const duration = new Map(
+    open.map((task) => {
+      const days = durationOf(task)?.days ?? null;
+      if (days === null) undetermined.push(task.id);
+      return [task.id.toUpperCase(), days ?? 0];
+    }),
+  );
+  // Kahn's order; what is never reached waits for a cycle.
+  const waiting = new Map([...ids].map((id) => [id, before(id).length]));
+  const order: string[] = [...ids].filter((id) => waiting.get(id) === 0);
+  // Tasks appended while looping are visited too.
+  for (const id of order)
+    for (const next of after(id)) {
+      waiting.set(next, waiting.get(next)! - 1);
+      if (waiting.get(next) === 0) order.push(next);
+    }
+  const early = new Map<string, number>();
+  for (const id of order) early.set(id, Math.max(0, ...before(id).map((other) => early.get(other)! + duration.get(other)!)));
+  const length = Math.max(0, ...order.map((id) => early.get(id)! + duration.get(id)!));
+  const lateFinish = new Map<string, number>();
+  for (const id of [...order].reverse())
+    lateFinish.set(id, Math.min(length, ...after(id).map((other) => lateFinish.get(other)! - duration.get(other)!)));
+  const scheduled = order.map((id): ScheduledTask => {
+    const [earlyStart, days, finish] = [early.get(id)!, duration.get(id)!, lateFinish.get(id)!];
+    const float = Math.max(0, finish - days - earlyStart);
+    const next = Math.min(length, ...after(id).map((other) => early.get(other)!));
+    return {
+      id: open.find((task) => task.id.toUpperCase() === id)!.id,
+      duration: days,
+      earlyStart,
+      earlyFinish: earlyStart + days,
+      lateStart: finish - days,
+      lateFinish: finish,
+      float: float < EPSILON ? 0 : float,
+      freeFloat: Math.max(0, next - earlyStart - days),
+      critical: float < EPSILON,
+    };
+  });
+  const placed = new Set(order);
+  return {
+    tasks: scheduled,
+    length,
+    undetermined,
+    cyclic: open.filter((task) => !placed.has(task.id.toUpperCase())).map((task) => task.id),
+  };
+}
+
+/**
+ * The schedule as an arrow diagram (activity on arrow): events are circles
+ * with their earliest and latest day, tasks are arrows labelled with their
+ * duration and float, dummy arrows (dashed) join tasks that share what they
+ * wait for, and the critical path is red. Null for an empty schedule.
+ */
+export function arrowChart(schedule: Schedule, all: readonly PlanTask[], dependencies: Dependencies): string | null {
+  if (!schedule.tasks.length) return null;
+  const byId = new Map(schedule.tasks.map((task) => [task.id.toUpperCase(), task]));
+  const titleOf = new Map(all.map((task) => [task.id.toUpperCase(), task.title]));
+  interface Arrow {
+    readonly from: number;
+    readonly to: number;
+    readonly task: ScheduledTask | null;
+  }
+  let events = 1; // Event 0 is the start.
+  const arrows: Arrow[] = [];
+  const endOf = new Map<string, number>();
+  const merges = new Map<string, number>();
+  const finishers: string[] = [];
+  for (const task of schedule.tasks) {
+    const id = task.id.toUpperCase();
+    const waits = (dependencies.waitsFor.get(id) ?? []).filter((other) => byId.has(other));
+    let from = 0;
+    if (waits.length === 1) from = endOf.get(waits[0]!)!;
+    else if (waits.length > 1) {
+      // Tasks waiting for the same tasks share one event, reached by dummy arrows.
+      const key = [...waits].sort().join(" ");
+      if (!merges.has(key)) {
+        merges.set(key, events);
+        for (const other of waits) arrows.push({ from: endOf.get(other)!, to: events, task: null });
+        events++;
+      }
+      from = merges.get(key)!;
+    }
+    endOf.set(id, events);
+    arrows.push({ from, to: events++, task });
+    if (!(dependencies.blocks.get(id) ?? []).some((other) => byId.has(other))) finishers.push(id);
+  }
+  // The end: one event every last task leads to.
+  const end = finishers.length === 1 ? endOf.get(finishers[0]!)! : events++;
+  if (finishers.length > 1) for (const id of finishers) arrows.push({ from: endOf.get(id)!, to: end, task: null });
+  const earliest = new Array<number>(events).fill(0);
+  for (const arrow of arrows) earliest[arrow.to] = Math.max(earliest[arrow.to]!, earliest[arrow.from]! + (arrow.task?.duration ?? 0));
+  const latest = new Array<number>(events).fill(schedule.length);
+  for (const arrow of [...arrows].reverse())
+    latest[arrow.from] = Math.min(latest[arrow.from]!, latest[arrow.to]! - (arrow.task?.duration ?? 0));
+  const number = (days: number) => String(Number(days.toFixed(2)));
+  const tight = (event: number) => Math.abs(latest[event]! - earliest[event]!) < EPSILON;
+  const lines = ["flowchart LR"];
+  for (let event = 0; event < events; event++)
+    lines.push(`  e${event}(("${number(earliest[event]!)} / ${number(latest[event]!)}"))${tight(event) ? ":::critical" : ""}`);
+  const critical: number[] = [];
+  arrows.forEach((arrow, index) => {
+    const { task } = arrow;
+    if (task) {
+      const text = label(`${task.id} ${titleOf.get(task.id.toUpperCase()) ?? ""}`);
+      const float = task.critical ? "critical" : `float ${formatDays(task.float)}`;
+      lines.push(`  e${arrow.from} -->|"${text}<br/>${formatDays(task.duration)} · ${float}"| e${arrow.to}`);
+    } else lines.push(`  e${arrow.from} -.-> e${arrow.to}`);
+    const onPath = task
+      ? task.critical
+      : tight(arrow.from) && tight(arrow.to) && Math.abs(earliest[arrow.from]! - earliest[arrow.to]!) < EPSILON;
+    if (onPath) critical.push(index);
+  });
+  lines.push("  classDef critical stroke:#dc2626,stroke-width:2px");
+  if (critical.length) lines.push(`  linkStyle ${critical.join(",")} stroke:#dc2626,stroke-width:2.5px`);
+  return lines.join("\n");
 }
 
 // The wiki's plan macros.
