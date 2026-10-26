@@ -173,6 +173,73 @@ fields:
   - name: reviewer    # text, unless a type is given
 ```
 
-They appear under a task's properties and are saved to its frontmatter as you change them; emptying a field removes it from the file. Names start with a letter and use letters, digits, `-` and `_`; Genbeya's own keys (id, title, type, status, priority, assignee, labels, epic) are taken. Field types are `text`, `number`, `date` and `choice`. Other frontmatter fields of a task show below the configured ones, read-only, and are never lost: removing a field from the settings leaves the values in the task files.
+They appear under a task's properties and are saved to its frontmatter as you change them; emptying a field removes it from the file. Names start with a letter and use letters, digits, `-` and `_`; Genbeya's own keys (id, title, type, status, priority, assignee, labels, epic) are taken. Field types are `text`, `number`, `date`, `choice`, `effort` (hours or days of work, such as `16h` or `2d`) and `tasks` (task IDs, saved as a list). Some names plan: see [Planning](#planning). Other frontmatter fields of a task show below the configured ones, read-only, and are never lost: removing a field from the settings leaves the values in the task files.
 
 Every key of `.genbeya.yml` is described in [Settings](Settings.md).
+
+## Planning
+
+> [!NOTE]
+> A first version, to try out: see [Planning](../Design/Planning.md) for where it is heading.
+
+Fields with these names plan, once they are configured as [custom fields](#custom-fields):
+
+```yaml
+fields:
+  - name: estimate      # the effort budgeted
+    type: effort
+  - name: remaining     # the effort still needed, kept up to date while working
+    type: effort
+  - name: depends_on    # tasks that must be done before this one can start
+    type: tasks
+  - name: start         # for the timeline
+    type: date
+  - name: due
+    type: date
+  - name: milestone     # for filters
+    type: choice
+    options: [MVP, 1.0]
+```
+
+Effort is written in hours or days, `16h` or `2d`; a day counts as 8 hours. Nothing is computed into the files: every sum is worked out from them when shown.
+
+### Effort and the time log
+
+A task with effort shows five numbers under its fields:
+
+| Number | Means |
+| --- | --- |
+| **Estimate** | The `estimate` field: what was budgeted |
+| **Logged** | What the task's time log adds up to: what was spent |
+| **Remaining** | The `remaining` field: what is left. A task in the last state needs none |
+| **Forecast** | Logged + remaining: where the task will land |
+| **Variance** | Forecast − estimate: over the budget in orange, under it in green |
+
+Remaining is never worked out from the estimate: update it when you learn more.
+
+**Log time** asks for the time spent and what for, such as `2h Reviewed the token validation`, and adds a line to the task's time log, a `## Time log` section at the end of its description, signed with your Git name like comments:
+
+```markdown
+## Time log
+
+- 2026-10-21 — Alex Chen — 2h — Investigated the OAuth flow
+- 2026-10-22 — Alex Chen — 3h — Implemented token validation
+```
+
+Edit the lines like any text to correct them. A list item in the section that doesn't read as an entry is pointed out, and left out of the sums. The time log is in the repository: everyone who can read it sees the entries.
+
+### Dependencies
+
+`depends_on` lists the tasks that must be done first. Type their IDs separated by commas; they are saved as a list.
+
+- A task whose dependencies aren't all done is **blocked**: its card shows a lock, with what it waits for as the tooltip.
+- The task shows what it is **Blocked by** (or **Waits for**, once they are done) and what it **Blocks**, as references with their states.
+- A dependency on a task that doesn't exist, on the task itself, or in a cycle is pointed out on the task.
+
+### Plans in the wiki
+
+Three blocks on any wiki page show the plan, worked out from the tasks whenever the page is shown — see [Wiki](Wiki.md#plans):
+
+- `[EFFORT]`: estimate, logged, remaining, forecast and variance per task, with totals.
+- `[DEPENDENCIES]`: what waits for what, as a diagram.
+- `[GANTT]`: the tasks with a `due` date on a timeline, from their `start`; a task with only a due date is a milestone.

@@ -397,6 +397,10 @@ export const ICONS = {
     ["path", { d: "M3 10a2 2 0 0 0 2 2h3" }],
     ["path", { d: "M3 5v12a2 2 0 0 0 2 2h3" }],
   ],
+  lock: [
+    ["rect", { width: "18", height: "11", x: "3", y: "11", rx: "2", ry: "2" }],
+    ["path", { d: "M7 11V7a5 5 0 0 1 10 0v4" }],
+  ],
   map: [
     [
       "path",

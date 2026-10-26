@@ -81,7 +81,8 @@ function validField(entry: unknown): FieldDefinition {
   if (!FIELD_NAME.test(fieldName))
     throw new Error(`"${fieldName}" is not a valid field name: start with a letter, then use letters, digits, - and _.`);
   if ((TASK_KEYS as readonly string[]).includes(fieldName.toLowerCase())) throw new Error(`${fieldName} is a built-in task property.`);
-  if (!(FIELD_TYPES as readonly unknown[]).includes(type)) throw new Error(`The field ${fieldName} must be text, number, date or choice.`);
+  if (!(FIELD_TYPES as readonly unknown[]).includes(type))
+    throw new Error(`The field ${fieldName} must be text, number, date, choice, effort or tasks.`);
   if (type !== "choice") return { name: fieldName, type: type as FieldDefinition["type"] };
   const values = Array.isArray(options) ? options.map((option) => (typeof option === "number" ? String(option) : trimmed(option))) : [];
   if (

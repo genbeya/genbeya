@@ -1,5 +1,6 @@
 import { renderMarkdownTree } from "./markdown-dom";
 import { parseMarkdown, type GenbeyaOptions } from "./markdown-pipeline";
+import type { PlanTask } from "../../../utilities/planning";
 import type { ReferenceSources } from "./references";
 
 const references: ReferenceSources = {
@@ -114,6 +115,64 @@ describe("wiki extensions", () => {
     const { html } = render("> [!WARNING]\n> Careful here.");
     expect(html).toContain('<blockquote data-callout="warning" class="callout callout-warning">');
     expect(html).not.toContain("[!WARNING]");
+  });
+});
+
+describe("plan macros", () => {
+  const planned = (id: string, status: string, fields: PlanTask["fields"], logged = 0, epic = "Auth"): PlanTask => ({
+    id,
+    path: `tasks/${id}.md`,
+    title: `Task ${id}`,
+    status,
+    epic,
+    assignee: "",
+    labels: [],
+    type: "",
+    fields,
+    logged,
+    unreadable: 0,
+  });
+  const plan = {
+    statuses: ["todo", "in-progress", "done"],
+    tasks: [
+      planned("TP-1", "done", { estimate: "8h", start: "2026-11-02", due: "2026-11-04" }, 10),
+      planned("TP-2", "in-progress", { estimate: "2d", remaining: "6h", depends_on: ["TP-1"], start: "2026-11-03", due: "2026-11-06" }, 4),
+      planned("TP-3", "todo", { depends_on: "TP-2" }, 0, "Billing"),
+    ],
+  };
+
+  it("tables the effort of the matching tasks, with totals, and says what is missing", () => {
+    const { container } = render("[EFFORT epic=Auth]\n\n[EFFORT]", { plan, references });
+    const [auth, all] = [...container.querySelectorAll("table")];
+    const rows = (table: Element) => [...table.querySelectorAll("tr")].map((row) => [...row.children].map((cell) => cell.textContent));
+    expect(rows(auth!)).toEqual([
+      ["Task", "Status", "Estimate", "Logged", "Remaining", "Forecast", "Variance"],
+      ["TP-1", "done", "8h", "10h", "0h", "10h", "+2h"],
+      ["TP-2", "in-progress", "16h", "4h", "6h", "10h", "−6h"],
+      ["Total, 2 tasks", "", "24h", "14h", "6h", "20h", "−4h"],
+    ]);
+    expect(rows(all!).at(-1)).toEqual(["Total, 3 tasks", "", "24h", "14h", "6h", "20h", "−4h"]);
+    expect(container.querySelector(".md-placeholder")?.textContent).toBe(
+      "Totals leave out 1 task without an estimate; 1 unfinished task without a remaining effort.",
+    );
+  });
+
+  it("draws dependencies and the timeline as Mermaid diagrams", () => {
+    const { diagrams, container } = render("[DEPENDENCIES]\n\n[GANTT epic=Auth]\n\n[GANTT epic=Billing]", { plan });
+    expect(diagrams.map(({ language, source }) => [language, source.split("\n")[0]])).toEqual([
+      ["mermaid", "flowchart LR"],
+      ["mermaid", "gantt"],
+    ]);
+    expect(diagrams[1]!.source).toContain("TP-2 Task TP-2 :crit, t1, 2026-11-03, 2026-11-06");
+    expect([...container.querySelectorAll(".md-placeholder")].map((note) => note.textContent)).toEqual([
+      "TP-2 starts before a task it waits for is due.",
+      "None of these tasks has a due date.",
+    ]);
+  });
+
+  it("says when no task matches, and stays text without tasks to plan", () => {
+    expect(render('[EFFORT milestone="Later"]', { plan }).container.textContent).toBe("No tasks match this plan.");
+    expect(render("[EFFORT]").container.textContent).toBe("No tasks to plan here.");
   });
 });
 

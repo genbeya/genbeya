@@ -35,6 +35,8 @@ const LIMITS = {
   fields: 50,
   field: 100,
   value: 2000,
+  /** Items of a list field, such as the tasks a task depends on. */
+  items: 100,
   comment: 64 * 1024,
 } as const;
 /** Keys a field must not have, in lower case: Genbeya's own, and names that would reach object prototypes. */
@@ -78,9 +80,15 @@ const toList = (value: unknown): string[] =>
       : [];
 
 const isFieldValue = (value: unknown): value is FieldValue =>
-  typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value));
+  typeof value === "string" ||
+  typeof value === "boolean" ||
+  (typeof value === "number" && Number.isFinite(value)) ||
+  (Array.isArray(value) && value.every((item) => typeof item === "string"));
 
-/** Frontmatter fields other than Genbeya's own that hold a plain value. */
+/** A field's value as text: lists comma-separated. */
+const fieldText = (value: FieldValue): string => (Array.isArray(value) ? value.join(", ") : String(value));
+
+/** Frontmatter fields other than Genbeya's own that hold a plain value or a list of texts. */
 const extraFields = (data: Record<string, unknown>): Record<string, FieldValue> =>
   Object.fromEntries(Object.entries(data).filter((entry): entry is [string, FieldValue] => isFieldKey(entry[0]) && isFieldValue(entry[1])));
 
@@ -267,7 +275,13 @@ export class TaskEngine {
       throw new Error("Invalid fields.");
     for (const [key, field] of Object.entries(value)) {
       if (!isFieldKey(key)) throw new Error(`Invalid field ${key}.`);
-      if (!isFieldValue(field) || (typeof field === "string" && field.length > LIMITS.value)) throw new Error(`Invalid value of ${key}.`);
+      const tooLong = (text: string) => text.length > LIMITS.value;
+      if (
+        !isFieldValue(field) ||
+        (typeof field === "string" && tooLong(field)) ||
+        (Array.isArray(field) && (field.length > LIMITS.items || field.some(tooLong)))
+      )
+        throw new Error(`Invalid value of ${key}.`);
     }
     return { ...(value as Record<string, FieldValue>) };
   }
@@ -288,9 +302,11 @@ export class TaskEngine {
       if (value === undefined) document.delete(key);
       else document.set(key, value);
     }
+    const written = document.toJS() as Record<string, unknown> | null;
     for (const [key, value] of Object.entries(input.fields ?? {})) {
+      // An unchanged value keeps its spelling, such as a list written [a, b].
       if (value === "") document.delete(key);
-      else if (document.get(key) !== value) document.set(key, value);
+      else if (JSON.stringify(written?.[key]) !== JSON.stringify(value)) document.set(key, value);
     }
     const comments = splitComments(body.replace(/^\r?\n/, "")).blocks.map((block) => block.text);
     return applyTextStyle(compose(yamlText(document), joinComments(input.body, comments)), textStyleOf(original));
@@ -375,7 +391,7 @@ export class TaskEngine {
       labels: toList(data["labels"]),
       description,
       comments: blocks.map((block) => block.comment),
-      fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, String(value)])),
+      fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, fieldText(value)])),
       other: Object.fromEntries(
         Object.entries(data)
           .filter(([key]) => !NOT_FIELDS.includes(key) && !Object.hasOwn(fields, key))

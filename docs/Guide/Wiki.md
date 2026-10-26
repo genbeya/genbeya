@@ -62,6 +62,19 @@ A folder without a matching page still shows up and lists its children. **New su
 | ` ```plantuml ` | A PlantUML diagram |
 | ` ```ts ` (any language) | Syntax highlighting |
 | `- [ ]` and `- [x]` | A checklist; its boxes can be ticked as the page reads, which saves the page |
+| `[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]` | A plan of the tasks; see [Plans](#plans) |
+
+### Plans
+
+A plan block, alone on its line, shows the tasks as they are now. Nothing is stored in the page, so it never goes stale:
+
+| Write | Get |
+| --- | --- |
+| `[EFFORT]` | A table of estimate, logged, remaining, forecast and variance per task, with totals, and how many tasks lack an estimate or a remaining effort |
+| `[DEPENDENCIES]` | A diagram of what waits for what: a blue border is ready, an orange dashed one blocked, a green one done |
+| `[GANTT]` | The tasks with a `due` date on a timeline, one section per epic. Done tasks are greyed, a task that starts before a task it waits for is due is red, and a task with only a due date is a milestone |
+
+Narrow a plan to some tasks with `epic`, `milestone`, `assignee`, `label`, `type` or `status`, all of which must match; quote values with spaces: `[EFFORT epic="Release 1.0" label=cli]`. An epic includes the epics inside it. The fields behind the numbers are described in [Planning](Tasks.md#planning).
 
 [Writing pages](Writing.md) has more: math, code blocks with titles, line numbers and highlighted lines, foldable callouts, footnotes, keys and collapsible sections.
 

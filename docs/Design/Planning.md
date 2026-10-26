@@ -1,7 +1,7 @@
 # Planning
 
 > [!NOTE]
-> Proposal, not built yet. Tasks: [[GENBEYA-43]] to [[GENBEYA-49]].
+> A first prototype is built ([[GENBEYA-43]] to [[GENBEYA-48]]); see [The prototype](#the-prototype) for what it does and what is left. How to use it: [Planning](../Guide/Tasks.md#planning).
 
 Planning and controlling on top of the tasks: what work was budgeted, what it has cost, what is left, what blocks what, and where the plan is heading. The task files stay the only plan; every chart and sum is derived from them and from their Git history.
 
@@ -12,6 +12,25 @@ Planning and controlling on top of the tasks: what work was budgeted, what it ha
 - Planning is an [optional part](Optional-parts.md), and so is the time log.
 
 [TOC]
+
+## The prototype
+
+What the first version answers, to try out before deciding for good:
+
+- **Effort** is a field type of its own, `effort`: hours or days (`16h`, `2d`, a day being 8 hours), or a number of hours. Sums are shown in hours. There is no project unit yet.
+- **Task lists** are a field type too, `tasks`, saved as a YAML list; custom field values may now be lists of texts.
+- **Milestones** are a field value (`milestone`), used by filters; they have no date of their own yet.
+- **The time log** is a section of its own at the end of the description, as below. **Log time** takes one line, `2h What for`, and signs it with the Git name.
+- **Macros** are `[EFFORT]`, `[DEPENDENCIES]` and `[GANTT]`, filtered with `key=value` (`epic`, `milestone`, `assignee`, `label`, `type`, `status`).
+- **Where it lives:** the rules are pure functions in `src/utilities/planning.ts`, shared by the app, its Markdown and VS Code. Nothing new on the backend: logging time is an edit of the description.
+- **The sample project** plans: effort, time logs, a blocked task and a *Release plan* page.
+
+Left for later:
+
+- Turning planning and the time log off ([Optional parts](Optional-parts.md)). For now effort shows once the project configures an `effort` field, or a task has a time log.
+- Diagram nodes that open their task (the diagrams are pictures today), and blocked marks in VS Code's tree and board.
+- Updating `remaining` while logging time, a project unit for effort, dated milestones.
+- Plan history and baselines ([[GENBEYA-49]]).
 
 ## The numbers
 
@@ -128,7 +147,7 @@ Field changes are only as precise as the commits: on the [Content branch](../Arc
 
 ## Open questions
 
-- **Effort:** a new field kind, or a number field with the unit set once for the project?
-- **Milestones:** a field on tasks, or something with its own date (a wiki page, or an entry in `.genbeya.yml`) so that "due after its milestone" can be checked?
-- **Macros:** the names and the filter syntax, and whether they render in the VS Code preview from the start.
-- **Time log:** a section of its own, as above, or an effort on a comment (`### Alex — 2026-10-21 14:00+02:00 — 2h`)? The section reads better; the comment needs no second structure in the file.
+- **Effort:** keep `effort` as a field type, or a number field with the unit set once for the project? The prototype has the type, with hours and days.
+- **Milestones:** a field on tasks, as in the prototype, or something with its own date (a wiki page, or an entry in `.genbeya.yml`) so that "due after its milestone" can be checked?
+- **Macros:** are the names and the filter syntax right? They render in the VS Code preview too.
+- **Time log:** a section of its own, as in the prototype, or an effort on a comment (`### Alex — 2026-10-21 14:00+02:00 — 2h`)? The section reads better; the comment needs no second structure in the file.

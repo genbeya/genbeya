@@ -10,6 +10,7 @@ import { TaskEngine } from "../../engines/task-engine";
 import { toggleCheckboxAt } from "../../client/app/markdown/task-checkbox";
 import { flattenPages } from "../../client/app/features/wiki/wiki-pages";
 import { filePaths } from "../../utilities/file-tree";
+import { planTasks } from "../../utilities/planning";
 import { parseFileFragment, pinnedText } from "../../utilities/references";
 import type { Repository } from "./repository";
 import { RevisionFiles } from "./revision-files";
@@ -329,6 +330,7 @@ export class Webviews implements vscode.Disposable {
       wikiRoot: settings.wikiRoot,
       wiki: snapshot.wiki,
       tasks: snapshot.tasks.map(({ id, path, title, status }) => ({ id, path, title, status })),
+      plan: planTasks(snapshot.tasks),
       statuses: settings.statuses,
       hiddenColumns: settings.hiddenColumns,
       types: settings.types,

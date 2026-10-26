@@ -133,7 +133,7 @@ describe("SettingsEngine", () => {
       ["fields: [{ name: 'due date', type: date }]\n", "field name"],
       ["fields: [{ name: '1st', type: text }]\n", "field name"],
       ["fields: [{ name: due, type: date }, { name: Due, type: text }]\n", "unique"],
-      ["fields: [{ name: due, type: time }]\n", "text, number, date or choice"],
+      ["fields: [{ name: due, type: time }]\n", "text, number, date, choice, effort or tasks"],
       ["fields: [{ name: area, type: choice }]\n", "options"],
       ["fields: [{ name: area, type: choice, options: [a, a] }]\n", "options"],
       ["fields: estimate\n", "List the custom fields"],

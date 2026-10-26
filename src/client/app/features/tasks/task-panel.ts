@@ -36,6 +36,9 @@ import { TaskActivity } from "./task-activity";
 import { branchesOfTask, branchNameFor } from "./task-branches";
 import { TaskComments } from "./task-comments";
 import { type FieldChange, TaskFields } from "./task-fields";
+import { TaskPlan } from "./task-plan";
+import { addTimeEntry, parseEffort } from "../../../../utilities/planning";
+import { today } from "../../ui/calendar-date";
 import { displayId, inputOf } from "./task-model";
 import { TaskProperties } from "./task-properties";
 
@@ -88,7 +91,19 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
  */
 @Component({
   selector: "gd-task-panel",
-  imports: [CdkMenu, CdkMenuTrigger, CodeEditor, Icon, MarkdownView, MenuItem, TaskActivity, TaskComments, TaskFields, TaskProperties],
+  imports: [
+    CdkMenu,
+    CdkMenuTrigger,
+    CodeEditor,
+    Icon,
+    MarkdownView,
+    MenuItem,
+    TaskActivity,
+    TaskComments,
+    TaskFields,
+    TaskPlan,
+    TaskProperties,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-panel", role: "dialog", tabindex: "-1", "[attr.aria-label]": "task() ? 'Task ' + task()!.id : 'New task'" },
   template: `
@@ -141,6 +156,9 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
       }
       <gd-task-properties [value]="shown()" (changed)="patch($event)" />
       <gd-task-fields [value]="shown()" (changed)="setField($event)" />
+      @if (task() && !editing()) {
+        <gd-task-plan [task]="current()!" (logTime)="logTime()" />
+      }
       @if (task() && !editing() && branches().length) {
         <div class="task-branches" role="group" aria-label="Branches of this task">
           @for (branch of branches(); track branch.name) {
@@ -489,6 +507,24 @@ ${this.task()!.hash}`,
     const next = template ? withTemplate(draft, template) : { draft, applied: {} };
     this.fromTemplate = next.applied;
     this.draft.set(next.draft);
+  }
+
+  /** Asks for the time spent and what for, and adds it last to the task's time log, signed like comments. */
+  protected async logTime() {
+    const hoursOf = (text: string) => parseEffort(text.trim().split(/\s+/)[0]);
+    const value = await this.dialogs.prompt({
+      title: "Log time",
+      label: "Time spent, then what for",
+      placeholder: "2h Reviewed the token validation",
+      hint: "Hours or days (2h, 0.5d), then a note. The entry goes into the task's time log, signed with your Git name.",
+      confirm: "Log",
+      validate: (text) => (hoursOf(text) ? null : "Start with the time spent, such as 2h or 0.5d."),
+    });
+    if (!value) return;
+    const author = await this.session.run(() => this.api.content.commentAuthor());
+    if (!author) return;
+    const note = value.trim().split(/\s+/).slice(1).join(" ");
+    await this.enqueue((task) => ({ body: addTimeEntry(task.body, { date: today(), author, hours: hoursOf(value)!, note }) }));
   }
 
   protected toggleCheckbox(offset: number) {

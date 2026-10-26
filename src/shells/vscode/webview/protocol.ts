@@ -4,6 +4,7 @@
  * the extension, through the managers, which check it.
  */
 import type { ContentArea, FieldDefinition, FieldValue, Person, Task, TaskType, WikiNode } from "../../../contracts/model";
+import type { PlanTask } from "../../../utilities/planning";
 
 /** What rendered pages and tasks need: reference targets, people, and the settings tasks are shown with. */
 export interface MarkdownContext {
@@ -12,6 +13,8 @@ export interface MarkdownContext {
   readonly wikiRoot: string;
   readonly wiki: readonly WikiNode[];
   readonly tasks: readonly Pick<Task, "id" | "path" | "title" | "status">[];
+  /** The tasks as plan macros show them. */
+  readonly plan: readonly PlanTask[];
   readonly statuses: readonly string[];
   readonly hiddenColumns: readonly string[];
   readonly types: readonly TaskType[];

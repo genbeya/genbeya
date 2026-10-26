@@ -1,6 +1,17 @@
 import { toString } from "mdast-util-to-string";
 import { SKIP, visit } from "unist-util-visit";
-import type { Link, List, ListItem, Paragraph, PhrasingContent, Root, Text } from "mdast";
+import type { Code, Link, List, ListItem, Paragraph, PhrasingContent, Root, RootContent, Table, TableRow, Text } from "mdast";
+import {
+  dependenciesOf,
+  dependencyChart,
+  effortOf,
+  formatEffort,
+  formatVariance,
+  matchesFilter,
+  parseFilter,
+  timeline,
+  type PlanTask,
+} from "../../../utilities/planning";
 import { fileFragment, shortRevision, WIKILINK } from "../../../utilities/references";
 import type { DateOptions } from "./dates";
 import { headingIds } from "./headings";
@@ -18,6 +29,8 @@ export interface GenbeyaOptions extends MentionOptions, DateOptions {
   subpages?: PageRef[];
   /** Tasks, pages and files that `[[references]]` and task IDs in text point to. */
   references?: ReferenceSources;
+  /** The tasks that plan macros (`[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`) show, and the workflow, whose last state is done. */
+  plan?: { readonly tasks: readonly PlanTask[]; readonly statuses: readonly string[] };
 }
 
 const NO_REFERENCES: ReferenceSources = { wikiRoot: "docs", pages: [], tasks: [], statuses: [], files: [] };
@@ -31,6 +44,8 @@ interface Entry {
 // `[[_TOC_]]` parses as `[[` + emphasis + `]]`, so match the paragraph's plain text.
 const TOC = /^\[(?:TOC|\[_?TOC_?\])\]$/i;
 const SUBPAGES = /^\[(?:SUBPAGES|\[_?TOSP_?\])\]$/i;
+/** `[EFFORT milestone=MVP]` alone in a paragraph: a plan of the matching tasks. */
+const PLAN = /^\[(EFFORT|DEPENDENCIES|GANTT)(?:\s+([^\]]*))?\]$/;
 /** `![[path#L1-L9]]` alone in a paragraph embeds those lines of a file. */
 const EMBED = /^!\[\[([^\]|\n]+)\]\]$/;
 const TASK_ID = /\b[A-Z][A-Z0-9]*-\d+\b/g;
@@ -96,6 +111,83 @@ function referenceLink(reference: Reference, label: string | undefined): Phrasin
   }
 }
 
+const cell = (value: string): Table["children"][number]["children"][number] => ({
+  type: "tableCell",
+  children: value ? [{ type: "text", value }] : [],
+});
+const row = (values: readonly string[]): TableRow => ({ type: "tableRow", children: values.map(cell) });
+const hours = (value: number | null) => (value === null ? "—" : formatEffort(value));
+const variance = (value: number | null) => (value === null ? "—" : formatVariance(value));
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * A plan macro's blocks, from the tasks: `[EFFORT]` a table of estimate,
+ * logged, remaining, forecast and variance with totals; `[DEPENDENCIES]` a
+ * Mermaid flowchart; `[GANTT]` a Mermaid timeline. What is missing is said,
+ * rather than shown as if it were complete.
+ */
+function plan(kind: string, filterText: string, { tasks, statuses }: NonNullable<GenbeyaOptions["plan"]>): RootContent[] {
+  const filter = parseFilter(filterText);
+  const shown = tasks.filter((task) => matchesFilter(task, filter));
+  if (!shown.length) return [placeholder("No tasks match this plan.")];
+  const done = statuses.at(-1);
+  const dependencies = dependenciesOf(tasks, statuses);
+  const notes: string[] = [];
+  const diagram = (value: string): Code => ({ type: "code", lang: "mermaid", meta: null, value });
+  if (kind === "DEPENDENCIES") {
+    const chart = dependencyChart(shown, tasks, dependencies, statuses);
+    const problems = shown.flatMap((task) => (dependencies.problems.get(task.id.toUpperCase()) ?? []).map((text) => `${task.id} ${text}.`));
+    return [chart ? diagram(chart) : placeholder("None of these tasks depends on another."), ...problems.map(placeholder)];
+  }
+  if (kind === "GANTT") {
+    const result = timeline(shown, tasks, dependencies, statuses);
+    if (!result.chart) return [placeholder("None of these tasks has a due date.")];
+    if (result.undated) notes.push(`${count(result.undated, "task")} without a due date ${result.undated === 1 ? "is" : "are"} left out.`);
+    if (result.conflicts.length)
+      notes.push(`${result.conflicts.join(", ")} ${result.conflicts.length === 1 ? "starts" : "start"} before a task it waits for is due.`);
+    return [diagram(result.chart), ...notes.map(placeholder)];
+  }
+  const efforts = shown.map((task) => ({ task, effort: effortOf(task, task.status === done) }));
+  const sum = (values: (number | null)[]) => {
+    const known = values.filter((value): value is number => value !== null);
+    return known.length ? known.reduce((a, b) => a + b, 0) : null;
+  };
+  const table: Table = {
+    type: "table",
+    align: [null, null, "right", "right", "right", "right", "right"],
+    children: [
+      row(["Task", "Status", "Estimate", "Logged", "Remaining", "Forecast", "Variance"]),
+      ...efforts.map(({ task, effort }) =>
+        row([
+          `[[${task.id}]]`,
+          task.status,
+          hours(effort.estimate),
+          formatEffort(effort.logged),
+          hours(effort.remaining),
+          hours(effort.forecast),
+          variance(effort.variance),
+        ]),
+      ),
+      row([
+        `Total, ${count(shown.length, "task")}`,
+        "",
+        hours(sum(efforts.map(({ effort }) => effort.estimate))),
+        formatEffort(sum(efforts.map(({ effort }) => effort.logged)) ?? 0),
+        hours(sum(efforts.map(({ effort }) => effort.remaining))),
+        hours(sum(efforts.map(({ effort }) => effort.forecast))),
+        variance(sum(efforts.map(({ effort }) => effort.variance))),
+      ]),
+    ],
+  };
+  const noEstimate = efforts.filter(({ effort }) => effort.estimate === null).length;
+  const noRemaining = efforts.filter(({ effort }) => effort.remaining === null).length;
+  const unreadable = shown.reduce((total, task) => total + task.unreadable, 0);
+  if (noEstimate) notes.push(`${count(noEstimate, "task")} without an estimate.`);
+  if (noRemaining) notes.push(`${count(noRemaining, "unfinished task")} without a remaining effort.`);
+  if (unreadable) notes.push(`${count(unreadable, "time log line")} that can't be read.`);
+  return [table, ...(notes.length ? [placeholder(`Totals leave out ${notes.join(" ").replace(/\.(?= )/g, ";")}`)] : [])];
+}
+
 function list(entries: Entry[], className?: string): List {
   return {
     type: "list",
@@ -145,6 +237,7 @@ const pageEntries = (pages: PageRef[]): Entry[] =>
  * Genbeya's wiki extensions:
  * - heading ids, and `[TOC]` / `[[_TOC_]]` for a table of contents
  * - `[SUBPAGES]` / `[[_TOSP_]]` for the pages below this one
+ * - `[EFFORT]`, `[DEPENDENCIES]` and `[GANTT]`, with filters such as `milestone=MVP`, for plans of the tasks
  * - `[[GENBEYA-12]]`, `[[Page title]]`, `[[path/to/file.ts#L1-L9]]` references, `[[target|label]]`
  * - `[[path/to/file.ts#L1-L9@v1.0]]` pinned to a revision, `#@v1.0` for a whole file
  * - `![[path/to/file.ts#L1-L9]]` alone in a paragraph embeds the lines, of a revision when pinned
@@ -161,6 +254,12 @@ export function remarkGenbeya(options: GenbeyaOptions = {}) {
       if (!parent || index === undefined || node.children.some((c) => c.type !== "text" && c.type !== "emphasis")) return;
       const text = toString(node).trim();
       let replacement: List | Paragraph | null = null;
+      const macro = PLAN.exec(text);
+      if (macro) {
+        const blocks = options.plan ? plan(macro[1]!, macro[2] ?? "", options.plan) : [placeholder("No tasks to plan here.")];
+        parent.children.splice(index, 1, ...(blocks as typeof parent.children));
+        return [SKIP, index + blocks.length];
+      }
       if (TOC.test(text)) {
         const entries = outline(headings);
         replacement = entries.length ? list(entries, "md-toc") : placeholder("This page has no sections yet.");

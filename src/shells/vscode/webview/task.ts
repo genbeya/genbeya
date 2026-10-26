@@ -9,6 +9,7 @@ import { initials, avatarHue } from "../../../client/app/ui/avatar-hue";
 import { relativeTime } from "../../../client/app/ui/relative-time";
 import { statusTone } from "../../../client/app/ui/status-tone";
 import type { FieldDefinition, FieldValue, Task, TaskActivity } from "../../../contracts/model";
+import { parseEffort } from "../../../utilities/planning";
 import type { Bridge } from "./bridge";
 import { TextCompletion } from "./completion";
 import type { MarkdownRenderer } from "./markdown";
@@ -163,7 +164,8 @@ export class TaskView {
       const id = `field-${field.name}`;
       const label = element("label", "", titleCase(field.name));
       label.htmlFor = id;
-      const current = String(task.fields[field.name] ?? "");
+      const value = task.fields[field.name] ?? "";
+      const current = Array.isArray(value) ? value.join(", ") : String(value);
       let input: HTMLInputElement | HTMLSelectElement;
       if (field.type === "choice") {
         input = element("select");
@@ -175,6 +177,8 @@ export class TaskView {
         input = element("input");
         input.type = field.type === "number" ? "number" : field.type === "date" ? "date" : "text";
         input.value = current;
+        if (field.type === "effort") input.placeholder = "16h or 2d";
+        if (field.type === "tasks") input.placeholder = "Task IDs, separated by commas";
       }
       input.id = id;
       input.dataset["field"] = field.name;
@@ -184,7 +188,7 @@ export class TaskView {
     for (const [name, value] of others) {
       const label = element("span", "", name);
       label.title = "Add this field in the settings to edit it here.";
-      grid.append(label, element("span", "gb-field-value", String(value)));
+      grid.append(label, element("span", "gb-field-value", Array.isArray(value) ? value.join(", ") : String(value)));
     }
     return [grid];
   }
@@ -284,10 +288,25 @@ export class TaskView {
       const name = input.dataset["field"];
       if (!name) return;
       let value: FieldValue = input.value;
-      if (input.dataset["kind"] === "number" && value !== "") {
+      const kind = input.dataset["kind"];
+      if (kind === "number" && value !== "") {
         const number = Number(value);
         if (!Number.isFinite(number)) return;
         value = number;
+      }
+      // Effort that doesn't read as hours or days stays unsaved; task IDs become a list.
+      const text = input.value.trim();
+      if (kind === "effort" && text && parseEffort(text) === null) return;
+      if (kind === "tasks") {
+        const ids = [
+          ...new Set(
+            text
+              .split(/[\s,]+/)
+              .map((id) => id.toUpperCase())
+              .filter(Boolean),
+          ),
+        ];
+        value = ids.length ? ids : "";
       }
       this.bridge.post({ type: "field", path: task().path, name, value });
     });

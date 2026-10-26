@@ -13,6 +13,7 @@ import { referenceCandidates } from "../../markdown/references";
 import { parseFileFragment } from "../../../../utilities/references";
 import type { GenbeyaOptions } from "../../markdown/markdown-pipeline";
 import { filePaths } from "../../../../utilities/file-tree";
+import { TaskPlanning } from "../tasks/task-planning";
 import type { MovePageOptions, PageMoveChoice } from "./move-page-dialog";
 import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
 
@@ -24,9 +25,10 @@ export class WikiActions {
   private readonly router = inject(Router);
   private readonly external = inject(ExternalLinks);
   private readonly directory = inject(People);
+  private readonly planning = inject(TaskPlanning);
   private readonly root = computed(() => this.session.snapshot()?.settings.wikiRoot ?? "docs");
 
-  /** Tasks, pages and files that Markdown can reference by ID, title or path, and the people it can mention. */
+  /** Tasks, pages and files that Markdown can reference by ID, title or path, the people it can mention, and the tasks plans show. */
   readonly linkTargets = computed<GenbeyaOptions>(
     () => {
       const snapshot = this.session.snapshot();
@@ -39,6 +41,7 @@ export class WikiActions {
           files: filePaths(snapshot?.files ?? []),
         },
         people: this.directory.list(),
+        plan: { tasks: this.planning.tasks(), statuses: this.planning.statuses() },
       };
     },
     { equal: sameJson },

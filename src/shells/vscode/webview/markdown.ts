@@ -47,6 +47,7 @@ export function markdownOptions(context: MarkdownContext, path: string): Genbeya
     },
     people: context.people,
     subpages: subpagesOf(findPage(context.wiki, path)?.node.children ?? []),
+    plan: { tasks: context.plan, statuses: context.statuses },
   };
 }
 

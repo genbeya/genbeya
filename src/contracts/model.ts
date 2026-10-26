@@ -57,10 +57,14 @@ const KNOWN_TYPES: Readonly<Record<string, Omit<TaskType, "name">>> = {
 /** A type of this name with its usual icon and colour: well-known names have their own, others a generic icon. */
 export const taskType = (name: string): TaskType => ({ name, ...(KNOWN_TYPES[name.toLowerCase()] ?? { icon: GENERIC_TYPE_ICON }) });
 
-export const FIELD_TYPES = ["text", "number", "date", "choice"] as const;
+export const FIELD_TYPES = ["text", "number", "date", "choice", "effort", "tasks"] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
-/** A custom task field: a frontmatter key with an editor. Dates are written as `YYYY-MM-DD`. */
+/**
+ * A custom task field: a frontmatter key with an editor. Dates are written as
+ * `YYYY-MM-DD`, effort as an amount of hours or days (`16h`, `2d`), tasks as
+ * a list of task IDs.
+ */
 export interface FieldDefinition {
   readonly name: string;
   readonly type: FieldType;
@@ -71,8 +75,8 @@ export interface FieldDefinition {
 /** The frontmatter keys Genbeya writes itself; the epic is the task's folder. Custom fields use other names. */
 export const TASK_KEYS = ["id", "title", "type", "status", "priority", "assignee", "labels", "epic"] as const;
 
-/** The value of a custom field; an empty string removes the field. */
-export type FieldValue = string | number | boolean;
+/** The value of a custom field, a list for `tasks` fields; an empty string removes the field. */
+export type FieldValue = string | number | boolean | readonly string[];
 
 /** Project settings, stored in `.genbeya.yml` next to the wiki and tasks. */
 export interface Settings {
@@ -166,7 +170,7 @@ export interface Task {
   readonly labels: readonly string[];
   /** One of the configured task types, or another name; "" for none. */
   readonly type: string;
-  /** Other frontmatter fields with a plain value (text, number or true/false), by key. */
+  /** Other frontmatter fields with a plain value (text, number or true/false) or a list of texts, by key. */
   readonly fields: Readonly<Record<string, FieldValue>>;
   /** The description: the Markdown above the comments. */
   readonly body: string;

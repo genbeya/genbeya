@@ -46,6 +46,21 @@ describe("TaskEngine.parse", () => {
     expect(task).toMatchObject({ type: "bug", fields: { estimate: 3, due: "2026-05-01", flag: true } });
   });
 
+  it("reads lists of texts as field values, such as the tasks a task depends on", () => {
+    const content = "---\nid: TP-2\ntitle: Two\nstatus: todo\ndepends_on: [TP-1, TP-3]\nmixed: [a, 1]\n---\n";
+    const task = engine.parse("tasks/TP-2.md", content, "h", "tasks");
+    expect(task.fields).toEqual({ depends_on: ["TP-1", "TP-3"] });
+  });
+
+  it("keeps an unchanged list as written, and writes a changed one", () => {
+    const original = "---\nid: TP-2\ntitle: Two\nstatus: todo\ndepends_on: [TP-1]\n---\n";
+    const kept = engine.serializeUpdate(original, { ...input, fields: { depends_on: ["TP-1"] } });
+    expect(kept).toContain("depends_on: [TP-1]\n");
+    const changed = engine.serializeUpdate(original, { ...input, fields: { depends_on: ["TP-1", "TP-3"] } });
+    expect(changed).toContain("depends_on:\n  - TP-1\n  - TP-3\n");
+    expect(engine.serializeUpdate(original, { ...input, fields: { depends_on: "" } })).not.toContain("depends_on");
+  });
+
   it("accepts comma-separated labels and CRLF files", () => {
     const task = engine.parse("t.md", "---\r\nid: 7\r\ntitle: T\r\nstatus: done\r\nlabels: a, b\r\n---\r\n", "h", "tasks");
     expect(task.id).toBe("7");
@@ -143,7 +158,8 @@ describe("TaskEngine.validate", () => {
     [{ fields: [] }, "Invalid fields"],
     [{ fields: { status: "done" } }, "Invalid field status"],
     [{ fields: { estimate: Number.NaN } }, "Invalid value of estimate"],
-    [{ fields: { notes: ["a"] } }, "Invalid value of notes"],
+    [{ fields: { notes: [1] } }, "Invalid value of notes"],
+    [{ fields: { depends_on: Array.from({ length: 101 }, (_, i) => `TP-${i}`) } }, "Invalid value of depends_on"],
     [{ fields: { notes: null } }, "Invalid value of notes"],
     [{ fields: { Title: "x" } }, "Invalid field Title"],
     [{ fields: { ID: "x" } }, "Invalid field ID"],
@@ -400,10 +416,11 @@ describe("TaskEngine.changesBetween", () => {
   });
 
   it("names a changed type and custom fields with their values, and other fields by name", () => {
-    const before = version("tasks/TP-1.md", "type: bug\nestimate: 3\nlinks: [a]\n");
-    const after = version("tasks/TP-1.md", "type: feature\nestimate: 5\nlinks: [b]\n");
+    const before = version("tasks/TP-1.md", "type: bug\nestimate: 3\ndepends_on: [TP-2]\nlinks: { a: 1 }\n");
+    const after = version("tasks/TP-1.md", "type: feature\nestimate: 5\ndepends_on: [TP-2, TP-3]\nlinks: { a: 2 }\n");
     expect(engine.changesBetween(before, after, "tasks")).toEqual([
       { kind: "field", field: "type", from: "bug", to: "feature" },
+      { kind: "custom", field: "depends_on", from: "TP-2", to: "TP-2, TP-3" },
       { kind: "custom", field: "estimate", from: "3", to: "5" },
       { kind: "other", fields: ["links"] },
     ]);

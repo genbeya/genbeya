@@ -2,7 +2,7 @@ import { TestBed } from "@angular/core/testing";
 import { openRepository, settle } from "../../testing/component-harness";
 import type { TaskInput } from "../../../../contracts/model";
 import { UnsavedChanges } from "../../core/unsaved-changes";
-import { task } from "../../testing/fake-platform";
+import { SETTINGS, task } from "../../testing/fake-platform";
 import { FIELD_DELAY, TaskPanel } from "./task-panel";
 
 const first = task("TP-1", { title: "First task", priority: "high", body: "- [ ] one\n- [ ] two\n" });
@@ -24,6 +24,42 @@ describe("TaskPanel", () => {
     const { element } = await render({ task: first });
     expect(element.querySelector("h1")!.textContent).toBe("First task");
     expect(element.querySelectorAll(".md-check.is-interactive")).toHaveLength(2);
+  });
+
+  it("shows the effort, and logs time last in the time log, signed with the Git name", async () => {
+    const logged = task("TP-2", {
+      fields: { estimate: "16h", remaining: "6h", depends_on: ["TP-1"] },
+      body: "Body.\n\n## Time log\n\n- 2026-10-21 — Alex — 2h — Started\n",
+    });
+    const { managers, dialogs } = await openRepository({
+      tasks: [first, logged],
+      settings: {
+        ...SETTINGS,
+        fields: [
+          { name: "estimate", type: "effort" },
+          { name: "remaining", type: "effort" },
+        ],
+      },
+    });
+    const fixture = TestBed.createComponent(TaskPanel);
+    fixture.componentRef.setInput("task", logged);
+    await settle(fixture);
+    const element = fixture.nativeElement as HTMLElement;
+    expect([...element.querySelectorAll(".task-effort-item")].map((item) => item.textContent!.trim().replace(/\s+/g, " "))).toEqual([
+      "Estimate 16h",
+      "Logged 2h",
+      "Remaining 6h",
+      "Forecast 8h",
+      "Variance −8h",
+    ]);
+    expect(element.querySelector(".task-relations")?.textContent).toContain("Blocked by");
+    dialogs.prompt.mockResolvedValue("1.5h Reviewed it");
+    managers.content.commentAuthor.mockResolvedValue("Ada");
+    managers.content.updateTask.mockResolvedValue({ ...logged, hash: "h2" });
+    [...element.querySelectorAll("button")].find((button) => button.textContent!.includes("Log time"))!.click();
+    await vi.waitFor(() => expect(managers.content.updateTask).toHaveBeenCalled());
+    const body = (managers.content.updateTask.mock.calls[0]![2] as TaskInput).body;
+    expect(body).toMatch(/- 2026-10-21 — Alex — 2h — Started\n- \d{4}-\d{2}-\d{2} — Ada — 1.5h — Reviewed it\n$/);
   });
 
   it("takes focus when it opens a task", async () => {

@@ -6,6 +6,7 @@ import { today } from "../../ui/calendar-date";
 import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
 import { DueDates, dueDatesOf } from "./due-dates";
+import { TaskPlanning } from "./task-planning";
 import { LabelChip, PriorityIcon, TypeIcon } from "./task-icons";
 import { displayId, titleCase } from "./task-model";
 
@@ -20,6 +21,11 @@ import { displayId, titleCase } from "./task-model";
         <gd-type-icon [type]="task().type" [size]="13" />
       }
       <span class="task-id mono">{{ displayId(task().id) }}</span>
+      @if (blockedBy(); as blockers) {
+        <span class="task-blocked" [title]="'Blocked by ' + blockers" aria-label="Blocked"
+          ><svg gd-icon name="lock" [size]="12"></svg
+        ></span>
+      }
       <span class="grow"></span>
       @if (task().assignee) {
         <gd-avatar [name]="assignee()" [size]="18" />
@@ -55,5 +61,17 @@ export class TaskCard {
   private readonly session = inject(Session);
   /** The assignee's name, as mentions show them. */
   protected readonly assignee = computed(() => this.people.nameOf(this.task().assignee));
+  private readonly planning = inject(TaskPlanning);
+  /** The unfinished tasks this one waits for, while it is blocked. */
+  protected readonly blockedBy = computed(() => {
+    const id = this.task().id.toUpperCase();
+    const { states, waitsFor } = this.planning.dependencies();
+    if (states.get(id) !== "blocked") return null;
+    const done = this.planning.statuses().at(-1);
+    const unfinished = (waitsFor.get(id) ?? []).filter(
+      (other) => this.planning.tasks().find((task) => task.id.toUpperCase() === other)?.status !== done,
+    );
+    return unfinished.join(", ");
+  });
   protected readonly hasDates = computed(() => dueDatesOf(this.task(), this.session.snapshot()!.settings, today()).length > 0);
 }
