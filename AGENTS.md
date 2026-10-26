@@ -16,6 +16,8 @@ This project plans its work as Genbeya tasks and documents itself in a Genbeya w
 
 Work on a branch off `develop` (`feature/…`, `fix/…`) and open the pull request into `develop`, naming the task. Never commit to `main` or `develop` directly, and never bump the version unless asked: releases are `develop` merged into `main`, see [[Development]].
 
+Commit under the Git identity configured for the person you work for, and don't change it. Keep commit messages and pull requests free of `Co-Authored-By`, session links and generated-by lines. Open pull requests, but never merge them: a person reviews and merges every change. Sign comments you add to tasks with your own name as an agent (such as `Claude`), not the name of the person you work for.
+
 ## Keeping the web demo in step
 
 The web demo ([[Demo]], `src/managers/demo/`) implements the same manager contracts on in-memory repositories. When you change what a manager does, change its demo counterpart in the same commit, and run `npm run e2e:demo` besides the other tests. New contract methods don't compile until the demo implements them.
