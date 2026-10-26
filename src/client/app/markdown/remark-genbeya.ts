@@ -33,7 +33,12 @@ export interface GenbeyaOptions extends MentionOptions, DateOptions {
   /** Tasks, pages and files that `[[references]]` and task IDs in text point to. */
   references?: ReferenceSources;
   /** The tasks that plan macros (`[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`) show, and the workflow, whose last state is done. */
-  plan?: { readonly tasks: readonly PlanTask[]; readonly statuses: readonly string[] };
+  plan?: {
+    readonly tasks: readonly PlanTask[];
+    readonly statuses: readonly string[];
+    /** `YYYY-MM-DD` on this computer's calendar, for the timeline. */
+    readonly today: string;
+  };
 }
 
 const NO_REFERENCES: ReferenceSources = { wikiRoot: "docs", pages: [], tasks: [], statuses: [], files: [] };
@@ -130,7 +135,7 @@ const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? on
  * path as an arrow diagram, `[FLOAT]` as a table with each task's float. What is missing is said,
  * rather than shown as if it were complete.
  */
-function plan(kind: string, filterText: string, { tasks, statuses }: NonNullable<GenbeyaOptions["plan"]>): RootContent[] {
+function plan(kind: string, filterText: string, { tasks, statuses, today }: NonNullable<GenbeyaOptions["plan"]>): RootContent[] {
   const filter = parseFilter(filterText);
   const shown = tasks.filter((task) => matchesFilter(task, filter));
   if (!shown.length) return [placeholder("No tasks match this plan.")];
@@ -138,6 +143,7 @@ function plan(kind: string, filterText: string, { tasks, statuses }: NonNullable
   const dependencies = dependenciesOf(tasks, statuses);
   const notes: string[] = [];
   const diagram = (value: string): Code => ({ type: "code", lang: "mermaid", meta: null, value });
+  const plantuml = (value: string): Code => ({ type: "code", lang: "plantuml", meta: null, value });
   if (kind === "DEPENDENCIES") {
     const chart = dependencyChart(shown, tasks, dependencies, statuses);
     const problems = shown.flatMap((task) => (dependencies.problems.get(task.id.toUpperCase()) ?? []).map((text) => `${task.id} ${text}.`));
@@ -190,12 +196,15 @@ function plan(kind: string, filterText: string, { tasks, statuses }: NonNullable
     ];
   }
   if (kind === "GANTT") {
-    const result = timeline(shown, tasks, dependencies, statuses);
-    if (!result.chart) return [placeholder("None of these tasks has a due date.")];
-    if (result.undated) notes.push(`${count(result.undated, "task")} without a due date ${result.undated === 1 ? "is" : "are"} left out.`);
+    const result = timeline(shown, tasks, dependencies, scheduleOf(shown, dependencies, statuses), statuses, today);
+    if (!result.chart) return [placeholder("None of these tasks has dates or a duration.")];
+    if (result.undated)
+      notes.push(`${count(result.undated, "task")} without dates or a duration ${result.undated === 1 ? "is" : "are"} left out.`);
     if (result.conflicts.length)
-      notes.push(`${result.conflicts.join(", ")} ${result.conflicts.length === 1 ? "starts" : "start"} before a task it waits for is due.`);
-    return [diagram(result.chart), ...notes.map(placeholder)];
+      notes.push(
+        `${result.conflicts.join(", ")} ${result.conflicts.length === 1 ? "starts" : "start"} before a task it waits for is due (orange).`,
+      );
+    return [plantuml(result.chart), ...notes.map(placeholder)];
   }
   const efforts = shown.map((task) => ({ task, effort: effortOf(task, task.status === done) }));
   const sum = (values: (number | null)[]) => {

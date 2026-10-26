@@ -72,7 +72,7 @@ A plan block, alone on its line, shows the tasks as they are now. Nothing is sto
 | --- | --- |
 | `[EFFORT]` | A table of estimate, logged, remaining, forecast and variance per task, with totals, and how many tasks lack an estimate or a remaining effort |
 | `[DEPENDENCIES]` | A diagram of what waits for what: a blue border is ready, an orange dashed one blocked, a green one done |
-| `[GANTT]` | The tasks with a `due` date on a timeline, one section per epic. Done tasks are greyed, a task that starts before a task it waits for is due is red, and a task with only a due date is a milestone |
+| `[GANTT]` | The tasks on a PlantUML timeline, one section per epic, weekends closed and today marked. Dates are shown as written; a task without dates is placed after what it waits for (or from today) for its duration. Arrows join tasks to what they wait for, a task that starts before that is due is orange, the critical path is red, and the bars fill with the logged share of the forecast. A due date without a duration is a milestone |
 | `[ARROWS]` | The critical path as an arrow diagram: circles are events with their earliest / latest day, arrows are tasks with their duration and float, dashed arrows join tasks that wait for the same tasks, and the critical path is red |
 | `[FLOAT]` | The schedule as a table: duration, earliest and latest start and finish, float and free float of each unfinished task |
 

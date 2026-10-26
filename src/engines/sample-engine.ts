@@ -179,7 +179,7 @@ const RELEASE_PLAN = text(
   "",
   "## Timeline",
   "",
-  "Give tasks `start` and `due` dates (add them as date fields in **Settings**) to see them on a timeline:",
+  "Tasks are placed after what they wait for, by their effort at 8 hours a day; `start` and `due` dates (date fields in **Settings**) pin them:",
   "",
   "[GANTT]",
   "",

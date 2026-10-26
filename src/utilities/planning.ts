@@ -515,50 +515,100 @@ export function dependencyChart(
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface Timeline {
-  /** A Mermaid Gantt chart; null when no task has dates. */
+  /** A PlantUML Gantt chart; null when no task can be placed on it. */
   readonly chart: string | null;
-  /** Tasks left out for want of a start and a due date. */
+  /** Tasks left out: without dates, and without a duration to place them by. */
   readonly undated: number;
   /** Tasks that start before a task they wait for is due. */
   readonly conflicts: readonly string[];
 }
 
+/** A task's name in PlantUML, which ends at `]`. */
+const ganttName = (text: string) =>
+  text
+    .replace(/[[\]\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** A duration for PlantUML: whole days as days, anything else in hours. */
+const ganttDuration = (days: number) => {
+  if (Number.isInteger(days) && days > 0) return `${days} ${days === 1 ? "day" : "days"}`;
+  const hours = Math.max(1, Math.round(days * HOURS_PER_DAY));
+  return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+};
+
 /**
- * The tasks with a start and a due date as a Mermaid Gantt chart, one section
- * per epic. Done tasks show as done, a task that starts before one it waits
- * for is due is critical. A task with only a due date is a milestone.
+ * The tasks on a timeline, as a PlantUML Gantt chart: one section per epic,
+ * weekends closed, `today` marked. Written dates stay as written: start and
+ * due span a task, a due date alone ends it (or makes it a milestone without
+ * a duration). Tasks without dates are placed by PlantUML after the tasks
+ * they wait for, or from today, for their duration ({@link durationOf}).
+ * Arrows join tasks to what they wait for, except for a task that starts
+ * before that is due: PlantUML would move it, so the conflict is coloured
+ * orange instead. Critical tasks are red; progress is logged / (logged +
+ * remaining), finished tasks are complete.
  */
 export function timeline(
   tasks: readonly PlanTask[],
   all: readonly PlanTask[],
   dependencies: Dependencies,
+  schedule: Schedule,
   statuses: readonly string[],
+  today: string,
 ): Timeline {
   const byId = new Map(all.map((task) => [task.id.toUpperCase(), task]));
   const dateOf = (task: PlanTask | undefined, field: string) => {
     const value = String(task?.fields[field] ?? "");
     return DATE.test(value) ? value : null;
   };
-  const dated = tasks.filter((task) => dateOf(task, PLANNING_FIELDS.due));
-  const conflicts: string[] = [];
-  const sections = new Map<string, string[]>();
-  dated.forEach((task, index) => {
-    const [start, due] = [dateOf(task, PLANNING_FIELDS.start), dateOf(task, PLANNING_FIELDS.due)!];
-    const late = start
-      ? (dependencies.waitsFor.get(task.id.toUpperCase()) ?? []).some((other) => {
-          const before = dateOf(byId.get(other), PLANNING_FIELDS.due);
-          return before !== null && before > start;
-        })
-      : false;
-    if (late) conflicts.push(task.id);
-    const tags = [task.status === statuses.at(-1) ? "done" : "", late ? "crit" : "", start ? "" : "milestone"].filter(Boolean);
-    const span = start && start <= due ? `${start}, ${due}` : `${due}, 0d`;
-    const line = `  ${label(`${task.id} ${task.title}`)} :${[...tags, `t${index}`].join(", ")}, ${span}`;
-    const section = task.epic || "No epic";
-    sections.set(section, [...(sections.get(section) ?? []), line]);
+  const done = (task: PlanTask) => task.status === statuses.at(-1);
+  const critical = new Set(schedule.tasks.filter((task) => task.critical).map((task) => task.id.toUpperCase()));
+  const placed = tasks.filter((task) => {
+    const dated = dateOf(task, PLANNING_FIELDS.start) || dateOf(task, PLANNING_FIELDS.due);
+    return dated || (!done(task) && durationOf(task) !== null);
   });
-  if (!dated.length) return { chart: null, undated: tasks.length, conflicts };
-  const lines = ["gantt", "  dateFormat YYYY-MM-DD", "  axisFormat %d %b"];
-  for (const [section, entries] of sections) lines.push(`  section ${label(section)}`, ...entries);
-  return { chart: lines.join("\n"), undated: tasks.length - dated.length, conflicts };
+  if (!placed.length) return { chart: null, undated: tasks.length, conflicts: [] };
+  const alias = new Map(placed.map((task, index) => [task.id.toUpperCase(), `t${index}`]));
+  const declarations = new Map<string, string[]>();
+  const constraints: string[] = [];
+  const conflicts: string[] = [];
+  const dates = [today];
+  for (const task of placed) {
+    const id = task.id.toUpperCase();
+    const name = `[${ganttName(`${task.id} ${task.title}`)}] as [${alias.get(id)}]`;
+    const [start, due] = [dateOf(task, PLANNING_FIELDS.start), dateOf(task, PLANNING_FIELDS.due)];
+    const days = durationOf(task)?.days ?? null;
+    dates.push(...[start, due].filter((date): date is string => date !== null));
+    const waits = (dependencies.waitsFor.get(id) ?? []).filter((other) => alias.has(other));
+    let line: string;
+    if (start && due && due >= start) line = `${name} starts ${start} and ends ${due}`;
+    else if (due) line = days === null ? `${name} happens ${due}` : `${name} requires ${ganttDuration(days)} and ends ${due}`;
+    else if (start) line = `${name} starts ${start} and requires ${ganttDuration(days ?? 1)}`;
+    else line = `${name} requires ${ganttDuration(days!)}`;
+    // Undated work that waits for nothing unfinished starts today, not in the past; a start date wins over arrows.
+    if (!start && !due && waits.every((other) => done(byId.get(other)!))) constraints.push(`[${alias.get(id)}] starts ${today}`);
+    const late = waits.filter((other) => {
+      const before = dateOf(byId.get(other), PLANNING_FIELDS.due);
+      return start !== null && before !== null && before >= start;
+    });
+    if (late.length) conflicts.push(task.id);
+    for (const other of waits) if (!late.includes(other)) constraints.push(`[${alias.get(other)}] -> [${alias.get(id)}]`);
+    const effort = effortOf(task, done(task));
+    const progress = done(task) ? 100 : effort.logged > 0 && effort.forecast ? Math.round((100 * effort.logged) / effort.forecast) : 0;
+    if (progress) constraints.push(`[${alias.get(id)}] is ${progress}% completed`);
+    if (late.length) constraints.push(`[${alias.get(id)}] is colored in #fed7aa/#ea580c`);
+    else if (critical.has(id)) constraints.push(`[${alias.get(id)}] is colored in #fecaca/#dc2626`);
+    const section = task.epic || "No epic";
+    declarations.set(section, [...(declarations.get(section) ?? []), line]);
+  }
+  const lines = [
+    "@startgantt",
+    `Project starts ${dates.sort()[0]}`,
+    "saturday are closed",
+    "sunday are closed",
+    `today is ${today} and is colored in #fef3c7`,
+  ];
+  for (const [section, entries] of declarations) lines.push(`-- ${ganttName(section)} --`, ...entries);
+  lines.push(...constraints, "@endgantt");
+  return { chart: lines.join("\n"), undated: tasks.length - placed.length, conflicts };
 }

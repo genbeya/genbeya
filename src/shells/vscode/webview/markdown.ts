@@ -12,6 +12,7 @@ import { resolveHref } from "../../../client/app/markdown/link-target";
 import { icon, renderMarkdownTree, type Diagram, type Formula, type RepositoryImage } from "../../../client/app/markdown/markdown-dom";
 import { parseMarkdown, type GenbeyaOptions } from "../../../client/app/markdown/markdown-pipeline";
 import { mathElement } from "../../../client/app/markdown/mathml";
+import { today } from "../../../client/app/ui/calendar-date";
 import { flattenPages, subpagesOf, findPage } from "../../../client/app/features/wiki/wiki-pages";
 import type { ContentArea } from "../../../contracts/model";
 import type { Bridge } from "./bridge";
@@ -47,7 +48,7 @@ export function markdownOptions(context: MarkdownContext, path: string): Genbeya
     },
     people: context.people,
     subpages: subpagesOf(findPage(context.wiki, path)?.node.children ?? []),
-    plan: { tasks: context.plan, statuses: context.statuses },
+    plan: { tasks: context.plan, statuses: context.statuses, today: today() },
   };
 }
 

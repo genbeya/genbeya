@@ -13,6 +13,7 @@ import { referenceCandidates } from "../../markdown/references";
 import { parseFileFragment } from "../../../../utilities/references";
 import type { GenbeyaOptions } from "../../markdown/markdown-pipeline";
 import { filePaths } from "../../../../utilities/file-tree";
+import { today } from "../../ui/calendar-date";
 import { TaskPlanning } from "../tasks/task-planning";
 import type { MovePageOptions, PageMoveChoice } from "./move-page-dialog";
 import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
@@ -41,7 +42,7 @@ export class WikiActions {
           files: filePaths(snapshot?.files ?? []),
         },
         people: this.directory.list(),
-        plan: { tasks: this.planning.tasks(), statuses: this.planning.statuses() },
+        plan: { tasks: this.planning.tasks(), statuses: this.planning.statuses(), today: today() },
       };
     },
     { equal: sameJson },

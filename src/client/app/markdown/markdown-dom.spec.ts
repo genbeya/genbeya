@@ -134,6 +134,7 @@ describe("plan macros", () => {
   });
   const plan = {
     statuses: ["todo", "in-progress", "done"],
+    today: "2026-10-26",
     tasks: [
       planned("TP-1", "done", { estimate: "8h", start: "2026-11-02", due: "2026-11-04" }, 10),
       planned("TP-2", "in-progress", { estimate: "2d", remaining: "6h", depends_on: ["TP-1"], start: "2026-11-03", due: "2026-11-06" }, 4),
@@ -157,16 +158,17 @@ describe("plan macros", () => {
     );
   });
 
-  it("draws dependencies and the timeline as Mermaid diagrams", () => {
+  it("draws dependencies with Mermaid, and the timeline with PlantUML", () => {
     const { diagrams, container } = render("[DEPENDENCIES]\n\n[GANTT epic=Auth]\n\n[GANTT epic=Billing]", { plan });
     expect(diagrams.map(({ language, source }) => [language, source.split("\n")[0]])).toEqual([
       ["mermaid", "flowchart LR"],
-      ["mermaid", "gantt"],
+      ["plantuml", "@startgantt"],
     ]);
-    expect(diagrams[1]!.source).toContain("TP-2 Task TP-2 :crit, t1, 2026-11-03, 2026-11-06");
+    expect(diagrams[1]!.source).toContain("[TP-2 Task TP-2] as [t1] starts 2026-11-03 and ends 2026-11-06");
+    expect(diagrams[1]!.source).toContain("[t1] is colored in #fed7aa/#ea580c");
     expect([...container.querySelectorAll(".md-placeholder")].map((note) => note.textContent)).toEqual([
-      "TP-2 starts before a task it waits for is due.",
-      "None of these tasks has a due date.",
+      "TP-2 starts before a task it waits for is due (orange).",
+      "None of these tasks has dates or a duration.",
     ]);
   });
 

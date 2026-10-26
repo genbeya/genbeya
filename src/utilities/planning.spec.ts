@@ -181,26 +181,61 @@ describe("plan macros", () => {
     expect(dependencyChart([tasks[2]!], tasks, dependencies, statuses)).toBeNull();
   });
 
-  it("puts dated tasks on a timeline by epic, and marks those that start before what they wait for is due", () => {
+  it("puts tasks on a PlantUML timeline: written dates as written, undated work after what it waits for", () => {
     const tasks = [
       task("TP-1", { start: "2026-11-02", due: "2026-11-10" }, { status: "done", epic: "Auth" }),
       task("TP-2", { start: "2026-11-05", due: "2026-11-12", depends_on: ["TP-1"] }, { epic: "Auth" }),
       task("TP-3", { due: "2026-11-20" }),
       task("TP-4", { start: "2026-11-01" }),
+      task("TP-5", { duration: "2d", depends_on: ["TP-2"] }, { epic: "Auth" }),
+      task("TP-6", { estimate: "4h" }),
+      task("TP-7", {}),
     ];
-    const result = timeline(tasks, tasks, dependenciesOf(tasks, statuses), statuses);
+    const dependencies = dependenciesOf(tasks, statuses);
+    const result = timeline(tasks, tasks, dependencies, scheduleOf(tasks, dependencies, statuses), statuses, "2026-10-26");
     expect(result.chart?.split("\n")).toEqual([
-      "gantt",
-      "  dateFormat YYYY-MM-DD",
-      "  axisFormat %d %b",
-      "  section Auth",
-      "  TP-1 Task TP-1 :done, t0, 2026-11-02, 2026-11-10",
-      "  TP-2 Task TP-2 :crit, t1, 2026-11-05, 2026-11-12",
-      "  section No epic",
-      "  TP-3 Task TP-3 :milestone, t2, 2026-11-20, 0d",
+      "@startgantt",
+      "Project starts 2026-10-26",
+      "saturday are closed",
+      "sunday are closed",
+      "today is 2026-10-26 and is colored in #fef3c7",
+      "-- Auth --",
+      "[TP-1 Task TP-1] as [t0] starts 2026-11-02 and ends 2026-11-10",
+      "[TP-2 Task TP-2] as [t1] starts 2026-11-05 and ends 2026-11-12",
+      "[TP-5 Task TP-5] as [t4] requires 2 days",
+      "-- No epic --",
+      "[TP-3 Task TP-3] as [t2] happens 2026-11-20",
+      "[TP-4 Task TP-4] as [t3] starts 2026-11-01 and requires 1 day",
+      "[TP-6 Task TP-6] as [t5] requires 4 hours",
+      "[t0] is 100% completed",
+      // TP-2 starts before TP-1 is due: no arrow, which would move it, but orange.
+      "[t1] is colored in #fed7aa/#ea580c",
+      "[t1] -> [t4]",
+      "[t4] is colored in #fecaca/#dc2626",
+      "[t5] starts 2026-10-26",
+      "@endgantt",
     ]);
     expect(result).toMatchObject({ undated: 1, conflicts: ["TP-2"] });
-    expect(timeline([tasks[3]!], tasks, dependenciesOf(tasks, statuses), statuses)).toEqual({ chart: null, undated: 1, conflicts: [] });
+    const none = scheduleOf([], dependencies, statuses);
+    expect(timeline([tasks[6]!], tasks, dependencies, none, statuses, "2026-10-26")).toEqual({ chart: null, undated: 1, conflicts: [] });
+  });
+
+  it("names tasks for PlantUML without brackets, and shows progress as logged of the forecast", () => {
+    const tasks = [task("TP-1", { estimate: "8h", remaining: "6h" }, { title: "Parse [x] and ]y[", logged: 2 })];
+    const dependencies = dependenciesOf(tasks, statuses);
+    const chart = timeline(tasks, tasks, dependencies, scheduleOf(tasks, dependencies, statuses), statuses, "2026-10-26").chart!;
+    expect(chart).toContain("[TP-1 Parse x and y] as [t0] requires 6 hours");
+    expect(chart).toContain("[t0] is 25% completed");
+  });
+
+  it("starts undated work that only waits for finished tasks today, not after them in the past", () => {
+    const tasks = [task("TP-1", { due: "2026-10-01" }, { status: "done" }), task("TP-2", { duration: "1d", depends_on: ["TP-1"] })];
+    const dependencies = dependenciesOf(tasks, statuses);
+    const lines = timeline(tasks, tasks, dependencies, scheduleOf(tasks, dependencies, statuses), statuses, "2026-10-26").chart!.split(
+      "\n",
+    );
+    expect(lines).toContain("[t0] -> [t1]");
+    expect(lines).toContain("[t1] starts 2026-10-26");
   });
 });
 

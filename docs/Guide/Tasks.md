@@ -253,6 +253,6 @@ Three blocks on any wiki page show the plan, worked out from the tasks whenever 
 
 - `[EFFORT]`: estimate, logged, remaining, forecast and variance per task, with totals.
 - `[DEPENDENCIES]`: what waits for what, as a diagram.
-- `[GANTT]`: the tasks with a `due` date on a timeline, from their `start`; a task with only a due date is a milestone.
+- `[GANTT]`: the tasks on a timeline, as dated, or placed after what they wait for by their duration.
 - `[ARROWS]`: the critical path as an arrow diagram, each task an arrow with its duration and float.
 - `[FLOAT]`: the critical path as a table, with each task's earliest and latest start and finish and its float.

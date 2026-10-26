@@ -21,7 +21,7 @@ What the first version answers, to try out before deciding for good:
 - **Task lists** are a field type too, `tasks`, saved as a YAML list; custom field values may now be lists of texts.
 - **Milestones** are a field value (`milestone`), used by filters; they have no date of their own yet.
 - **The time log** is a section of its own at the end of the description, as below. **Log time** takes one line, `2h What for`, and signs it with the Git name.
-- **Macros** are `[EFFORT]`, `[DEPENDENCIES]` and `[GANTT]`, filtered with `key=value` (`epic`, `milestone`, `assignee`, `label`, `type`, `status`).
+- **Macros** are `[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`, `[ARROWS]` and `[FLOAT]`, filtered with `key=value` (`epic`, `milestone`, `assignee`, `label`, `type`, `status`). Diagrams are Mermaid, except the timeline: a PlantUML Gantt chart (drawn by rockuml), which closes weekends, marks today, draws arrows between bars and places undated tasks after what they wait for.
 - **Where it lives:** the rules are pure functions in `src/utilities/planning.ts`, shared by the app, its Markdown and VS Code. Nothing new on the backend: logging time is an edit of the description.
 - **Critical path and float** ([[GENBEYA-65]]): durations from a `duration` field, else the dates, else the effort at 8 hours a day; days count from today, without a calendar. `[ARROWS]` draws it as an arrow diagram (activity on arrow), `[FLOAT]` as a table, and each task shows its float.
 - **The sample project** plans: effort, time logs, a blocked task and a *Release plan* page.
@@ -32,7 +32,7 @@ Left for later:
 - Turning planning and the time log off ([Optional parts](Optional-parts.md)). For now effort shows once the project configures an `effort` field, or a task has a time log.
 - Diagram nodes that open their task (the diagrams are pictures today), and blocked marks in VS Code's tree and board.
 - Updating `remaining` while logging time, a project unit for effort, dated milestones.
-- A calendar of working days for the critical path, and critical tasks marked on the timeline and the board.
+- A calendar of working days for the critical path (the timeline closes weekends already), and critical tasks marked on the board.
 - Plan history and baselines ([[GENBEYA-49]]).
 
 ## The numbers
@@ -108,7 +108,7 @@ The views of a plan are not new screens. They are blocks on ordinary wiki pages,
 
 ## Dates and the timeline
 
-Dates are set by people. The timeline shows them and marks conflicts, such as a task that starts before a task it depends on is due, or one that is due after its milestone. Genbeya never moves dates by itself.
+Dates are set by people. The timeline shows them as written and marks conflicts, such as a task that starts before a task it depends on is due, or one that is due after its milestone; it only places tasks that have no dates, after what they wait for. Genbeya never moves dates by itself.
 
 The critical path and float come from durations, which are not effort: a `duration` field, else a task's dates, else its effort at 8 hours a day. Calculated scheduling (dates proposed from durations, calendars and capacity) turns Genbeya into a scheduling tool and stays out until people ask for it.
 

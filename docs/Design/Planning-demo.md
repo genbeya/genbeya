@@ -17,7 +17,7 @@ Estimate, logged, remaining, forecast and variance per task. GENBEYA-64 has a re
 
 ## Timeline
 
-Tasks with a due date; GENBEYA-63 has only a due date and is a milestone. GENBEYA-60 starts before GENBEYA-58, which it waits for, is due.
+A PlantUML Gantt chart. GENBEYA-60 is orange: it starts before GENBEYA-58, which it waits for, is due. GENBEYA-61 and GENBEYA-64 have no dates and are placed from today by their duration; the critical path is red.
 
 [GANTT milestone=DEMO]
 
