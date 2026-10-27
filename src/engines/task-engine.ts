@@ -53,13 +53,14 @@ export interface TaskVersion {
   readonly content: string | null;
 }
 
-interface Frontmatter {
+export interface Frontmatter {
   readonly document: YAML.Document;
   readonly data: Record<string, unknown>;
   readonly body: string;
 }
 
-function splitFrontmatter(file: string): Frontmatter {
+/** A Markdown file's YAML frontmatter, as a document to edit and as data, and the text after it. */
+export function splitFrontmatter(file: string): Frontmatter {
   const raw = withoutByteOrderMark(file);
   const match = FRONTMATTER.exec(raw);
   const document = YAML.parseDocument(match?.[1] ?? "");
@@ -106,9 +107,10 @@ const fieldsOf = (input: TaskInput) => ({
 });
 
 /** Flow lists keep the usual spelling, [a, b]. */
-const yamlText = (document: YAML.Document) => document.toString({ flowCollectionPadding: false });
+export const yamlText = (document: YAML.Document) => document.toString({ flowCollectionPadding: false });
 
-const compose = (frontmatter: string, body: string) => {
+/** A Markdown file of frontmatter and a body, the body's surrounding blank lines trimmed. */
+export const compose = (frontmatter: string, body: string) => {
   const text = body.replace(/^\s*\n/, "").trimEnd();
   return `---\n${frontmatter}---\n${text && `\n${text}\n`}`;
 };

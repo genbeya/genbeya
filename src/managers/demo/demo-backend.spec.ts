@@ -31,9 +31,13 @@ describe("the demo backend", () => {
     expect(snapshot.changes).toEqual([{ path: "src/forecast.ts", index: " ", worktree: "M" }]);
     expect(snapshot.tasks.map((task) => task.id).sort()).toEqual(["PW-1", "PW-2", "PW-3", "PW-4", "PW-5", "PW-6"]);
     expect(snapshot.wiki.map((node) => node.title)).toContain("Architecture");
-    expect(snapshot.storage).toEqual({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null });
+    expect(snapshot.storage).toEqual({
+      areas: { wiki: "checkout", tasks: "checkout", settings: "checkout", pulls: "checkout" },
+      branch: null,
+    });
     const log = await vc.log(id, 0, 50);
     expect(log.map((commit) => commit.subject)).toEqual([
+      "Ask for a review of the Fahrenheit branch",
       "Explain how to run the report",
       "Put a cloud in front of the sun",
       "Add an icon",
@@ -121,12 +125,12 @@ describe("the demo backend", () => {
     it("knows the people of the repository", async () => {
       const { content, id } = await demo();
       const { people, me } = await content.people(id);
-      // Authors of main's commits go by their mailbox; an assignee without commits on main by the handle written.
+      // Authors of main's commits go by their mailbox, Sam since asking for a review there.
       expect(people.map((person) => [person.name, person.handle])).toEqual(
         expect.arrayContaining([
           ["Alex Chen", "alex"],
           ["Genbeya", "sample"],
-          ["sam", "sam"],
+          ["Sam Rivera", "sam"],
         ]),
       );
       expect(me).toBeNull();
@@ -151,6 +155,35 @@ describe("the demo backend", () => {
       expect(images.modified).toBe(await content.image(id, "repo", "assets/icon.png"));
       await expect(content.read(id, "repo", "assets/icon.png")).rejects.toThrow("assets/icon.png is a binary file.");
       await expect(vc.diffImages(id, "README.md", "worktree")).rejects.toThrow("README.md is not a supported image.");
+    });
+
+    it("compares the Fahrenheit branch with main for its pull request, through a rebase", async () => {
+      const { vc, content, id, snapshot } = await demo();
+      const [pull] = (await snapshot()).pulls;
+      expect(pull).toMatchObject({ id: "PR-1", source: "fahrenheit", target: "main", status: "open", reviewers: ["Alex Chen"] });
+      const head = (await vc.compare(id, "fahrenheit", "main", [], null)).head!;
+      const compared = await vc.compare(id, "fahrenheit", "main", [head], "pulls");
+      expect(compared).toMatchObject({ head, ahead: 2, behind: 4, conflicts: true });
+      expect(compared.files.map((file) => file.path).sort()).toEqual(["README.md", "src/units.test.ts", "src/units.ts"]);
+      expect(compared.revisions).toEqual([{ revision: head, commit: head, change: compared.change }]);
+      const diff = await vc.diff(id, "src/units.ts", { from: compared.base!, to: head });
+      expect(diff).toMatchObject({ original: "", modified: expect.stringContaining("toFahrenheit") });
+
+      // Review files leave the change as it is.
+      const updated = await content.updatePull(id, pull!.path, { ...pull!, body: `${pull!.body}\nMore.\n` }, pull!.hash);
+      await vc.stage(id, [updated.path]);
+      await vc.commit(id, "Review", false);
+      const again = await vc.compare(id, "fahrenheit", "main", [head], "pulls");
+      expect(again).toMatchObject({ change: compared.change, behind: 5 });
+      expect(await vc.compare(id, "gone", "main", [], null)).toMatchObject({ head: null, change: null });
+    });
+
+    it("opens pull requests with the next ID", async () => {
+      const { content, id, snapshot } = await demo();
+      const input = { title: "Storms", status: "draft" as const, source: "main", target: "fahrenheit", reviewers: [], body: "" };
+      expect(await content.createPull(id, input)).toMatchObject({ id: "PR-2", path: "pulls/PR-2.md", author: "You" });
+      expect((await snapshot()).pulls.map((pull) => pull.id)).toEqual(["PR-1", "PR-2"]);
+      await expect(content.updatePull(id, "pulls/PR-2.md", input, "stale")).rejects.toThrow("changed on disk");
     });
 
     it("reads a file as committed in a revision", async () => {

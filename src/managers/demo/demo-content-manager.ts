@@ -14,6 +14,7 @@ import {
   type LinkUpdate,
   type PageMove,
   type People,
+  type PullRequest,
   type Scope,
   type SearchHit,
   type SearchMatch,
@@ -30,6 +31,7 @@ import { isMissing } from "../../access/hosts/host";
 import type { AgentEngine } from "../../engines/agent-engine";
 import type { LinkEngine } from "../../engines/link-engine";
 import type { PeopleEngine } from "../../engines/people-engine";
+import type { PullEngine } from "../../engines/pull-engine";
 import { SEARCH_LIMITS, type SearchEngine, type SearchQuery } from "../../engines/search-engine";
 import { contentAreaOf, SETTINGS_FILE, type SettingsEngine } from "../../engines/settings-engine";
 import type { TaskEngine, TaskVersion } from "../../engines/task-engine";
@@ -54,6 +56,7 @@ const sameText = (a: string | null, b: string) => a !== null && a.replace(/\r\n/
 export interface DemoContentEngines {
   readonly settings: SettingsEngine;
   readonly tasks: TaskEngine;
+  readonly pulls: PullEngine;
   readonly wiki: WikiEngine;
   readonly agents: AgentEngine;
   readonly links: LinkEngine;
@@ -254,6 +257,36 @@ export class DemoContentManager implements ContentManagerContract {
           changes: this.engines.tasks.changesBetween(committed, now, settings.taskRoot),
         });
       return activity;
+    });
+  }
+
+  createPull(id: unknown, input: unknown): Promise<PullRequest> {
+    return this.on(id, async (workspace) => {
+      const { settings } = await workspace.settings();
+      const valid = this.engines.pulls.validate(input);
+      const files = workspace.repository.files();
+      const existing = await workspace.pulls(files, settings, []);
+      const pullId = this.engines.pulls.nextId(
+        settings.pullPrefix,
+        existing.map((pull) => pull.id),
+        (candidate) => files.includes(this.engines.pulls.pathOf(settings.pullRoot, candidate)),
+      );
+      const path = workspace.path(this.engines.pulls.pathOf(settings.pullRoot, pullId));
+      const file = await workspace.files.write(path, this.engines.pulls.serializeNew(pullId, valid, this.author(workspace)), null);
+      return this.engines.pulls.parse(path, file.content, file.hash);
+    });
+  }
+
+  updatePull(id: unknown, path: unknown, input: unknown, expectedHash: unknown): Promise<PullRequest> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { settings } = await workspace.settings();
+      if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
+      const valid = this.engines.pulls.validate(input);
+      const original = await workspace.files.read(relative);
+      if (original.hash !== expectedHash) throw new Error("This pull request changed on disk. Reopen it to see the latest version.");
+      const file = await workspace.files.write(relative, this.engines.pulls.serializeUpdate(original.content, valid), original.hash);
+      return this.engines.pulls.parse(relative, file.content, file.hash);
     });
   }
 

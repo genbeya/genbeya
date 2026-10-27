@@ -15,6 +15,7 @@ import { RebaseEngine } from "../engines/rebase-engine";
 import { SampleEngine } from "../engines/sample-engine";
 import { SearchEngine } from "../engines/search-engine";
 import { SettingsEngine } from "../engines/settings-engine";
+import { PullEngine } from "../engines/pull-engine";
 import { TaskEngine } from "../engines/task-engine";
 import { WikiEngine } from "../engines/wiki-engine";
 import { ContentManager } from "./content-manager";
@@ -33,6 +34,7 @@ export async function createBackend(machine: Machine, dataFolder: string): Promi
   const engines = {
     settings: new SettingsEngine(),
     tasks: new TaskEngine(),
+    pulls: new PullEngine(),
     wiki: new WikiEngine(),
     agents: new AgentEngine(),
     links: new LinkEngine(),

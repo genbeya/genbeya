@@ -3,12 +3,13 @@
  * settings, the queue that runs its operations one at a time, and what has
  * to end with it or with the client using it (terminals).
  */
-import type { ContentArea, Location, Scope, Settings, Task } from "../contracts/model";
+import type { ContentArea, Location, PullRequest, Scope, Settings, Task } from "../contracts/model";
 import { ContentStore, type ContentLocation } from "../access/content/content-store";
 import { FileStore } from "../access/files/file-store";
 import type { RepositoryAccess } from "../access/git/repository-access";
 import { isMissing, type Host } from "../access/hosts/host";
 import { contentAreaOf, SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
+import type { PullEngine } from "../engines/pull-engine";
 import type { TaskEngine } from "../engines/task-engine";
 import { baseName, validateRepositoryPath } from "../utilities/repository-path";
 import { SerialQueue } from "../utilities/serial-queue";
@@ -28,6 +29,7 @@ export interface LoadedSettings {
 export interface Engines {
   readonly settings: SettingsEngine;
   readonly tasks: TaskEngine;
+  readonly pulls: PullEngine;
 }
 
 /** The settings in `files`: `fallback` while there are none, and also, saying why, while they are broken. */
@@ -89,6 +91,31 @@ export async function readTasks(
     }
   });
   return tasks;
+}
+
+/** The pull requests among `files`, read from `store`, by ID; problems become `warnings`. */
+export async function readPulls(
+  store: FileStore,
+  files: readonly string[],
+  settings: Settings,
+  engine: PullEngine,
+  warnings: string[],
+): Promise<PullRequest[]> {
+  const paths = files.filter((file) => engine.isPullFile(file, settings.pullRoot));
+  const contents = await store.readMany(paths);
+  const pulls: PullRequest[] = [];
+  contents.forEach((file, i) => {
+    const path = paths[i]!;
+    if (!file || file instanceof Error)
+      return void warnings.push(`${path}: ${file instanceof Error ? file.message : "could not be read."}`);
+    try {
+      pulls.push(engine.parse(path, file.content, file.hash));
+    } catch (error) {
+      warnings.push(`${path}: ${(error as Error).message}`);
+    }
+  });
+  const number = (id: string) => Number(/(\d+)$/.exec(id)?.[1] ?? 0);
+  return pulls.sort((a, b) => number(a.id) - number(b.id));
 }
 
 export class Workspace {
@@ -177,6 +204,11 @@ export class Workspace {
   /** Reads every task file below the task folder; problems become `warnings`. */
   async tasks(files: readonly string[], settings: Settings, warnings: string[]): Promise<Task[]> {
     return readTasks((await this.content.locate("tasks")).files, files, settings, this.engines.tasks, warnings);
+  }
+
+  /** Reads every pull request file in the pull request folder; problems become `warnings`. */
+  async pulls(files: readonly string[], settings: Settings, warnings: string[]): Promise<PullRequest[]> {
+    return readPulls((await this.content.locate("pulls")).files, files, settings, this.engines.pulls, warnings);
   }
 
   /**

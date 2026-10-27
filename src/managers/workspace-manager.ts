@@ -184,7 +184,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
   /** Everything the client shows, stamped with a version of its content; staged changes are compared with `base`. */
   private async compose(workspace: Workspace, base: ChangeBase = "head"): Promise<Snapshot> {
     const { areas, branch: content } = await workspace.content.layout();
-    const readsBranch = content && (areas.wiki === "branch" || areas.tasks === "branch");
+    const readsBranch = content && (areas.wiki === "branch" || areas.tasks === "branch" || areas.pulls === "branch");
     const [repository, branchFiles, contentBranch, loaded] = await Promise.all([
       workspace.repository.state(base),
       readsBranch ? content.git.files() : null,
@@ -197,6 +197,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     if (workspace.content.commitFailure && content)
       warnings.push(`Saved, but not committed to the ${content.branch} branch: ${workspace.content.commitFailure}`);
     const tasks = await workspace.tasks(filesOf("tasks"), settings, warnings);
+    const pulls = await workspace.pulls(filesOf("pulls"), settings, warnings);
     if (contentBranch?.uncommitted)
       warnings.push(
         `${contentBranch.uncommitted} file(s) on the ${contentBranch.branch} branch are not committed. Commit them in ${content!.root}.`,
@@ -227,6 +228,7 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       files: buildFileTree(repository.files),
       wiki: this.engines.wiki.tree(filesOf("wiki"), settings),
       tasks,
+      pulls,
       warnings,
     };
     return { version: sha256(JSON.stringify(body)), ...body };

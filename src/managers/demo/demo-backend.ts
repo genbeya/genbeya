@@ -15,6 +15,7 @@ import { RebaseEngine } from "../../engines/rebase-engine";
 import { SampleEngine } from "../../engines/sample-engine";
 import { SearchEngine } from "../../engines/search-engine";
 import { SettingsEngine } from "../../engines/settings-engine";
+import { PullEngine } from "../../engines/pull-engine";
 import { TaskEngine } from "../../engines/task-engine";
 import { WikiEngine } from "../../engines/wiki-engine";
 import { DemoContentManager } from "./demo-content-manager";
@@ -56,6 +57,7 @@ export function createDemoBackend({ now = () => new Date(), networkDelay = 400 }
   const engines = {
     settings: new SettingsEngine(),
     tasks: new TaskEngine(),
+    pulls: new PullEngine(),
     wiki: new WikiEngine(),
     agents: new AgentEngine(),
     links: new LinkEngine(),

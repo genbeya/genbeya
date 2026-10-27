@@ -41,9 +41,10 @@ const FIELD_NAME = /^[A-Za-z][\w-]{0,39}$/;
  * with its templates, or the wiki folder with everything pages link to
  * there, such as images; null for code.
  */
-export function contentAreaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot">): ContentArea | null {
+export function contentAreaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot" | "pullRoot">): ContentArea | null {
   if (path === SETTINGS_FILE) return "settings";
   if (within(path, settings.taskRoot)) return "tasks";
+  if (within(path, settings.pullRoot)) return "pulls";
   return within(path, settings.wikiRoot) ? "wiki" : null;
 }
 
@@ -128,6 +129,9 @@ function unique(names: readonly string[], message: string) {
 
 /** Keys that stay out of the file while they hold these values. */
 const OPTIONAL: Readonly<Record<string, unknown>> = {
+  pullRoot: "pulls",
+  pullPrefix: "PR",
+  requiredApprovals: 1,
   hiddenColumns: [],
   types: DEFAULT_TYPES.map((type) => type.name),
   fields: [],
@@ -148,6 +152,9 @@ export class SettingsEngine {
       types: DEFAULT_TYPES,
       fields: [],
       people: [],
+      pullRoot: "pulls",
+      pullPrefix: "PR",
+      requiredApprovals: 1,
     };
   }
 
@@ -166,6 +173,14 @@ export class SettingsEngine {
     if (!wikiHome.endsWith(".md")) throw new Error("The wiki home must be a Markdown file.");
     if (wikiRoot === taskRoot || within(wikiRoot, taskRoot) || within(taskRoot, wikiRoot))
       throw new Error("Wiki and task folders must not contain each other.");
+    const pullRoot = folder(value.pullRoot, "Pull request folder");
+    if ([wikiRoot, taskRoot].some((other) => other === pullRoot || within(pullRoot, other) || within(other, pullRoot)))
+      throw new Error("The pull request folder must not contain the wiki or task folder, nor be inside them.");
+    const pullPrefix = text(value.pullPrefix, "Pull request prefix", 12).toUpperCase();
+    if (!/^[A-Z][A-Z0-9]*$/.test(pullPrefix)) throw new Error("The pull request prefix uses letters and digits, starting with a letter.");
+    const requiredApprovals = value.requiredApprovals;
+    if (!Number.isInteger(requiredApprovals) || requiredApprovals < 0 || requiredApprovals > 20)
+      throw new Error("Required approvals is a whole number from 0 to 20.");
     const taskPrefix = text(value.taskPrefix, "Task prefix", 12).toUpperCase();
     if (!/^[A-Z][A-Z0-9]*$/.test(taskPrefix)) throw new Error("The task prefix uses letters and digits, starting with a letter.");
     const statuses = Array.isArray(value.statuses) ? value.statuses.map(trimmed) : [];
@@ -209,7 +224,22 @@ export class SettingsEngine {
         const other = handles.get(alias.toLowerCase());
         if (other && other !== person) throw new Error(`An alias of @${person.handle} is another person's handle: ${alias}.`);
       }
-    return { name, wikiRoot, wikiHome, taskRoot, taskPrefix, statuses, statusIcons, hiddenColumns, types, fields, people };
+    return {
+      name,
+      wikiRoot,
+      wikiHome,
+      taskRoot,
+      taskPrefix,
+      statuses,
+      statusIcons,
+      hiddenColumns,
+      types,
+      fields,
+      people,
+      pullRoot,
+      pullPrefix,
+      requiredApprovals,
+    };
   }
 
   /** Reads a settings file over `fallback`; unknown keys are ignored here and kept by {@link serialize}. */

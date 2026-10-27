@@ -33,7 +33,12 @@ const everyArea = (mode: StorageMode): AreaModes =>
 const IN_CHECKOUT = everyArea("checkout");
 const ON_BRANCH = everyArea("branch");
 
-const AREA_NAMES: Readonly<Record<ContentArea, string>> = { wiki: "the wiki", tasks: "tasks", settings: "settings" };
+const AREA_NAMES: Readonly<Record<ContentArea, string>> = {
+  wiki: "the wiki",
+  tasks: "tasks",
+  settings: "settings",
+  pulls: "pull requests",
+};
 
 export interface ContentLocation {
   readonly root: string;

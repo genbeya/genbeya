@@ -141,7 +141,9 @@ export class RepositoryAccess {
         ? [await this.blob(`:${path}`, limit), await this.worktreeFile(path, limit)]
         : source === "index"
           ? [await this.blob(`${await this.staging.base(base)}:${oldPath}`, limit), await this.blob(`:${path}`, limit)]
-          : [await this.blob(`${source.commit}^:${oldPath}`, limit), await this.blob(`${source.commit}:${path}`, limit)];
+          : "from" in source
+            ? [await this.blob(`${source.from}:${oldPath}`, limit), await this.blob(`${source.to}:${path}`, limit)]
+            : [await this.blob(`${source.commit}^:${oldPath}`, limit), await this.blob(`${source.commit}:${path}`, limit)];
     return before && after ? [before, after] : null;
   }
 

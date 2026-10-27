@@ -76,6 +76,53 @@
           </div>
         </div>
         <div class="setting-row">
+          <div class="setting-label"><label for="setting-pulls">Pull request folder</label></div>
+          <div class="setting-control">
+            <input
+              #pullRoot
+              id="setting-pulls"
+              class="input mono"
+              spellcheck="false"
+              [value]="form().pullRoot"
+              (input)="set('pullRoot', pullRoot.value)"
+            />
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <label for="setting-pull-prefix">Pull request ID prefix</label
+            ><small>New pull requests are numbered {{ pullPrefix() }}-1, …</small>
+          </div>
+          <div class="setting-control">
+            <input
+              #pullPrefix
+              id="setting-pull-prefix"
+              class="input mono short"
+              spellcheck="false"
+              [value]="form().pullPrefix"
+              (input)="set('pullPrefix', pullPrefix.value)"
+            />
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <label for="setting-approvals">Approvals needed</label
+            ><small>Before a pull request counts as ready to merge. Genbeya advises; it can't enforce.</small>
+          </div>
+          <div class="setting-control">
+            <input
+              #approvals
+              id="setting-approvals"
+              class="input mono short"
+              type="number"
+              min="0"
+              max="20"
+              [value]="form().requiredApprovals"
+              (input)="setApprovals(approvals.valueAsNumber)"
+            />
+          </div>
+        </div>
+        <div class="setting-row">
           <div class="setting-label"><span>Workflow</span><small>Board columns, in order. The last state counts as done.</small></div>
           <div class="setting-control">
             <gd-status-editor

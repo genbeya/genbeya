@@ -12,6 +12,7 @@ import {
   type ChangeBase,
   type Commit,
   type CommitDetail,
+  type ComparedRevision,
   type ConflictFile,
   type Diff,
   type DiffChange,
@@ -21,6 +22,7 @@ import {
   type IgnoreKind,
   type LinePatch,
   type OperationOutcome,
+  type PullComparison,
   type PushOutcome,
   type PushPlan,
   type PushRequest,
@@ -37,6 +39,7 @@ import { NOTHING_TO_AMEND } from "../../access/git/staging-access";
 import { isMissing } from "../../access/hosts/host";
 import { fileBytes } from "../../access/memory/file-bytes";
 import { splitLines } from "../../access/memory/line-diff";
+import { mergeTrees } from "../../access/memory/memory-operations";
 import type { MemoryRepository } from "../../access/memory/memory-repository";
 import { unifiedDiff } from "../../access/memory/unified-diff";
 import type { FileDiff, PatchEngine } from "../../engines/patch-engine";
@@ -60,6 +63,7 @@ import {
   resetMode,
   resetState,
   revision,
+  revisionList,
   stashOptions,
   syncAction,
   tagMessage,
@@ -67,6 +71,12 @@ import {
 import type { DemoRegistry, DemoWorkspace } from "./demo-workspace";
 
 const short = (hash: string) => hash.slice(0, 7);
+
+/** Markdown files directly in `folder`. */
+const isPullFile = (path: string, folder: string) =>
+  path.startsWith(`${folder}/`) && !path.slice(folder.length + 1).includes("/") && path.toLowerCase().endsWith(".md");
+
+const MERGE_LABELS = { ours: "target", theirs: "source" };
 
 /** The version of a diff's two sides; empty when they are too large to compare. */
 const versionOf = (sides: readonly [string, string] | null): string => (sides ? sha256(sides.map(sha256).join(":")) : "");
@@ -182,6 +192,75 @@ export class DemoVersionControlManager implements VersionControlManagerContract 
   }
 
   /** Both sides of a diff; a side without the file is undefined. */
+  compare(id: unknown, source: unknown, target: unknown, revisions: unknown, exclude?: unknown): Promise<PullComparison> {
+    return this.on(id, (workspace, repository) => {
+      const asked = revisionList(revisions);
+      const folder = exclude === undefined || exclude === null ? null : workspace.path(exclude);
+      const [from, into] = [refName(source, "branch"), refName(target, "branch")];
+      const commitOf = (name: string) => {
+        try {
+          return repository.resolve(name);
+        } catch {
+          return null;
+        }
+      };
+      const [head, targetCommit] = [commitOf(from), commitOf(into)];
+      const compared = (revision: string): ComparedRevision => {
+        const commit = commitOf(revision);
+        const base = commit && targetCommit ? repository.commits.mergeBase(targetCommit, commit) : null;
+        return { revision, commit, change: commit && base ? this.changeId(repository, base, commit, folder) : null };
+      };
+      const revisionsAsked = asked.map(compared);
+      if (!head || !targetCommit)
+        return {
+          head,
+          target: targetCommit,
+          base: null,
+          ahead: 0,
+          behind: 0,
+          files: [],
+          change: null,
+          revisions: revisionsAsked,
+          conflicts: null,
+        };
+      const base = repository.commits.mergeBase(targetCommit, head);
+      const [ofHead, ofTarget] = [repository.commits.ancestors(head), repository.commits.ancestors(targetCommit)];
+      const merged = base
+        ? mergeTrees(repository.treeOf(base), repository.treeOf(targetCommit), repository.treeOf(head), MERGE_LABELS)
+        : null;
+      return {
+        head,
+        target: targetCommit,
+        base,
+        ahead: [...ofHead].filter((hash) => !ofTarget.has(hash)).length,
+        behind: [...ofTarget].filter((hash) => !ofHead.has(hash)).length,
+        files: base ? repository.changedFiles(repository.treeOf(base), repository.treeOf(head)) : [],
+        change: base ? this.changeId(repository, base, head, folder) : null,
+        revisions: revisionsAsked,
+        conflicts: merged ? merged.conflicts.size > 0 : null,
+      };
+    });
+  }
+
+  /** Like the backend's change ID: the diff from `base` to `head` without hunk positions, the pull request files in `exclude` left out. */
+  private changeId(repository: MemoryRepository, base: string, head: string, exclude: string | null): string {
+    const [before, after] = [repository.treeOf(base), repository.treeOf(head)];
+    const paths = [...new Set([...before.keys(), ...after.keys()])]
+      .filter((path) => before.get(path) !== after.get(path) && !(exclude && isPullFile(path, exclude)))
+      .sort();
+    const diff = paths
+      .map((path) =>
+        unifiedDiff(before.has(path) ? path : null, after.has(path) ? path : null, before.get(path) ?? "", after.get(path) ?? ""),
+      )
+      .join("");
+    return sha256(
+      diff
+        .split("\n")
+        .filter((line) => !line.startsWith("@@"))
+        .join("\n"),
+    );
+  }
+
   private sides(
     repository: MemoryRepository,
     path: string,
@@ -191,6 +270,11 @@ export class DemoVersionControlManager implements VersionControlManagerContract 
   ): [string | undefined, string | undefined] {
     if (source === "worktree") return [repository.index.get(path), repository.worktree.get(path)];
     if (source === "index") return [this.baseTree(repository, base).get(oldPath), repository.index.get(path)];
+    if ("from" in source) {
+      for (const commit of [source.from, source.to])
+        if (!repository.commits.has(commit)) throw new Error(`Commit ${short(commit)} does not exist.`);
+      return [repository.treeOf(source.from).get(oldPath), repository.treeOf(source.to).get(path)];
+    }
     if (!repository.commits.has(source.commit)) throw new Error(`Commit ${short(source.commit)} does not exist.`);
     const commit = repository.commits.get(source.commit);
     return [repository.treeOf(commit.parents[0] ?? null).get(oldPath), commit.tree.get(path)];

@@ -12,6 +12,7 @@ import {
   type LinkUpdate,
   type PageMove,
   type People,
+  type PullRequest,
   type Scope,
   type SearchResults,
   type Settings,
@@ -28,6 +29,7 @@ import { isMissing } from "../access/hosts/host";
 import type { AgentEngine } from "../engines/agent-engine";
 import type { LinkEngine, LinkRewrite } from "../engines/link-engine";
 import type { PeopleEngine } from "../engines/people-engine";
+import type { PullEngine } from "../engines/pull-engine";
 import type { SearchEngine } from "../engines/search-engine";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine, TaskVersion } from "../engines/task-engine";
@@ -56,6 +58,7 @@ export class ContentManager implements ContentManagerContract {
     private readonly engines: {
       readonly settings: SettingsEngine;
       readonly tasks: TaskEngine;
+      readonly pulls: PullEngine;
       readonly wiki: WikiEngine;
       readonly agents: AgentEngine;
       readonly links: LinkEngine;
@@ -300,6 +303,41 @@ export class ContentManager implements ContentManagerContract {
     });
   }
 
+  createPull(id: unknown, input: unknown): Promise<PullRequest> {
+    return this.on(id, async (workspace) => {
+      const { settings } = await workspace.settings();
+      const valid = this.engines.pulls.validate(input);
+      const files = await workspace.content.files("pulls");
+      const existing = await workspace.pulls(files, settings, []);
+      const pullId = this.engines.pulls.nextId(
+        settings.pullPrefix,
+        existing.map((pull) => pull.id),
+        (candidate) => files.includes(this.engines.pulls.pathOf(settings.pullRoot, candidate)),
+      );
+      const path = workspace.path(this.engines.pulls.pathOf(settings.pullRoot, pullId));
+      const content = this.engines.pulls.serializeNew(pullId, valid, await this.author(workspace));
+      const file = await (await workspace.content.locate("pulls")).files.write(path, content, null);
+      await workspace.content.record("pulls", [path], `Open ${pullId}: ${valid.title}`);
+      return this.engines.pulls.parse(path, file.content, file.hash);
+    });
+  }
+
+  updatePull(id: unknown, path: unknown, input: unknown, expectedHash: unknown): Promise<PullRequest> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { settings } = await workspace.settings();
+      if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
+      const valid = this.engines.pulls.validate(input);
+      const { files } = await workspace.content.locate("pulls");
+      const original = await files.read(relative);
+      if (original.hash !== expectedHash) throw new Error("This pull request changed on disk. Reopen it to see the latest version.");
+      const pull = this.engines.pulls.parse(relative, original.content, original.hash);
+      const file = await files.write(relative, this.engines.pulls.serializeUpdate(original.content, valid), original.hash);
+      await workspace.content.record("pulls", [relative], `Update ${pull.id}: ${valid.title}`);
+      return this.engines.pulls.parse(relative, file.content, file.hash);
+    });
+  }
+
   commentAuthor(id: unknown): Promise<string> {
     return this.on(id, (workspace) => this.author(workspace));
   }
@@ -393,7 +431,12 @@ export class ContentManager implements ContentManagerContract {
       if (!CONTENT_AREAS.includes(area as ContentArea)) throw new Error("Invalid content area.");
       if (!STORAGE_MODES.includes(mode as StorageMode)) throw new Error("Invalid storage mode.");
       const { settings } = await workspace.settings();
-      const paths: Readonly<Record<ContentArea, string>> = { wiki: settings.wikiRoot, tasks: settings.taskRoot, settings: SETTINGS_FILE };
+      const paths: Readonly<Record<ContentArea, string>> = {
+        wiki: settings.wikiRoot,
+        tasks: settings.taskRoot,
+        settings: SETTINGS_FILE,
+        pulls: settings.pullRoot,
+      };
       await workspace.content.setStorage(area as ContentArea, mode as StorageMode, paths[area as ContentArea]);
       workspace.forgetSettings();
     });

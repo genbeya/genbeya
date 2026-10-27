@@ -33,6 +33,9 @@ describe("SettingsEngine", () => {
       ],
       fields: [],
       people: [],
+      pullRoot: "pulls",
+      pullPrefix: "PR",
+      requiredApprovals: 1,
     });
   });
 

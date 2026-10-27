@@ -94,6 +94,12 @@ export interface Settings {
   readonly fields: readonly FieldDefinition[];
   /** The project's people as `.genbeya.yml` lists them; they win over what Genbeya derives from Git. */
   readonly people: readonly PersonEntry[];
+  /** The folder of pull request files. */
+  readonly pullRoot: string;
+  /** The prefix of pull request IDs: `PR` makes PR-1, PR-2, … */
+  readonly pullPrefix: string;
+  /** Effective approvals a pull request needs to be ready to merge; 0 for none. */
+  readonly requiredApprovals: number;
 }
 
 /** A person listed in the settings: the handle `@mentions` use, with the name and email shown for it. */
@@ -349,7 +355,7 @@ export interface Head {
 }
 
 /** The parts of a repository's Genbeya content that can each live in the checkout or on the content branch. */
-export const CONTENT_AREAS = ["wiki", "tasks", "settings"] as const;
+export const CONTENT_AREAS = ["wiki", "tasks", "settings", "pulls"] as const;
 export type ContentArea = (typeof CONTENT_AREAS)[number];
 
 /** `checkout`: next to the code, changing with the checked-out branch. `branch`: on the shared content branch. */
@@ -398,6 +404,8 @@ export interface Snapshot {
   readonly files: readonly FileNode[];
   readonly wiki: readonly WikiNode[];
   readonly tasks: readonly Task[];
+  /** Pull requests, by ID. */
+  readonly pulls: readonly PullRequest[];
   readonly warnings: readonly string[];
 }
 
@@ -419,7 +427,8 @@ export interface RevisionFile {
   readonly content: string | null;
 }
 
-export type DiffSource = "worktree" | "index" | { readonly commit: string };
+/** What a diff compares: the working tree with the index, the index with HEAD, a commit with its first parent, or two commits. */
+export type DiffSource = "worktree" | "index" | { readonly commit: string } | { readonly from: string; readonly to: string };
 
 /**
  * What staged changes are compared with: HEAD, or while amending, the commit
@@ -519,6 +528,73 @@ export interface CommitFile {
   readonly path: string;
   readonly oldPath?: string;
   readonly status: string;
+}
+
+/** Where a pull request stands: open for review, a draft, merged or closed without merging. */
+export const PULL_STATUSES = ["draft", "open", "merged", "closed"] as const;
+export type PullStatus = (typeof PULL_STATUSES)[number];
+
+/** A pull request: one Markdown file holding a unit of work's review, from `source` into `target`. */
+export interface PullRequest {
+  readonly id: string;
+  readonly path: string;
+  readonly title: string;
+  readonly status: PullStatus;
+  readonly author: string;
+  readonly source: string;
+  readonly target: string;
+  readonly reviewers: readonly string[];
+  /** The commit that merged it, once merged. */
+  readonly mergeCommit: string | null;
+  /** The description, the review and the discussion: everything after the frontmatter. */
+  readonly body: string;
+  /** Version of the file; updates must name it. */
+  readonly hash: string;
+}
+
+/** A pull request as the client creates or edits it; updates leave out what doesn't change. */
+export interface PullInput {
+  readonly title: string;
+  readonly status: PullStatus;
+  readonly source: string;
+  readonly target: string;
+  readonly reviewers: readonly string[];
+  readonly body: string;
+  readonly mergeCommit?: string | null;
+}
+
+/** A revision's change, as {@link PullComparison} compares it: its commit and change ID. */
+export interface ComparedRevision {
+  readonly revision: string;
+  /** The commit, in full; null when Git doesn't know it. */
+  readonly commit: string | null;
+  /** The change ID of the commit against where it left the target; null when there is no such commit. */
+  readonly change: string | null;
+}
+
+/**
+ * What merging `source` into `target` brings: the commits, the files, and a
+ * change ID that stays the same when the same change is rebased, so an
+ * approval of an earlier commit can be checked against it.
+ */
+export interface PullComparison {
+  /** The source's commit; null when the branch doesn't exist. */
+  readonly head: string | null;
+  /** The target's commit; null when the branch doesn't exist. */
+  readonly target: string | null;
+  /** Where the source left the target; null without a common commit. */
+  readonly base: string | null;
+  /** Commits on the source that the target doesn't have, and the other way round. */
+  readonly ahead: number;
+  readonly behind: number;
+  /** The files the source changes since the base. */
+  readonly files: readonly CommitFile[];
+  /** The change ID of the source against the base, leaving out the pull request files. */
+  readonly change: string | null;
+  /** The revisions asked about, such as approved commits. */
+  readonly revisions: readonly ComparedRevision[];
+  /** Whether merging would conflict; null when Git can't tell (before Git 2.38). */
+  readonly conflicts: boolean | null;
 }
 
 export interface CommitDetail {

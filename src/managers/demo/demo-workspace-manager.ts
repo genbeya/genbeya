@@ -157,6 +157,7 @@ export class DemoWorkspaceManager implements WorkspaceManagerContract {
     const files = repository.files();
     const warnings = problem ? [problem] : [];
     const tasks = await workspace.tasks(files, settings, warnings);
+    const pulls = await workspace.pulls(files, settings, warnings);
     const amending = base === "parent" ? amendingOf(repository) : null;
     const changes = repository.status();
     const branches = [...repository.branches.keys()].sort();
@@ -187,6 +188,7 @@ export class DemoWorkspaceManager implements WorkspaceManagerContract {
       files: buildFileTree(files),
       wiki: this.engines.wiki.tree(files, settings),
       tasks,
+      pulls,
       warnings,
     };
     return { version: sha256(JSON.stringify(body)), ...body };

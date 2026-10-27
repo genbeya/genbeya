@@ -18,6 +18,7 @@ import type {
   RebasePlan,
   ResetPlan,
   ResetResult,
+  PullComparison,
   RevisionFile,
   Stash,
   StashDetail,
@@ -25,6 +26,7 @@ import type {
 import { IGNORE_KINDS, isDefaultBranch } from "../contracts/model";
 import { IMAGE_LIMIT, TEXT_LIMIT } from "../access/files/file-store";
 import { isCommitId } from "../access/git/git-parsers";
+import { compareBranches } from "../access/git/pull-access";
 import { DIFF_OPTIONS, type PatchTarget } from "../access/git/staging-access";
 import { isMissing } from "../access/hosts/host";
 import type { FileDiff, PatchEngine } from "../engines/patch-engine";
@@ -48,6 +50,7 @@ import {
   resetMode,
   resetState,
   revision,
+  revisionList,
   stashOptions,
   syncAction,
   tagMessage,
@@ -135,6 +138,14 @@ export class VersionControlManager implements VersionControlManagerContract {
         string | null,
       ];
       return { original, modified };
+    });
+  }
+
+  compare(id: unknown, source: unknown, target: unknown, revisions: unknown, exclude?: unknown): Promise<PullComparison> {
+    return this.on(id, async (workspace) => {
+      const asked = revisionList(revisions);
+      const folder = exclude === undefined || exclude === null ? null : workspace.path(exclude);
+      return compareBranches(workspace.repository.git, refName(source, "branch"), refName(target, "branch"), asked, folder);
     });
   }
 
