@@ -8,7 +8,7 @@ const GROUPS: readonly (readonly [string, readonly (readonly [readonly string[],
     [
       [[`${MOD_KEY} K`], "Search and commands"],
       [[`${MOD_KEY} ${SHIFT_KEY} F`], "Search inside files (or type / in the palette)"],
-      [[`${MOD_KEY} 1–5`], "Wiki, Tasks, Code, Changes, History"],
+      [[`${MOD_KEY} 1–6`], "Wiki, Tasks, Code, Changes, History, Pull requests"],
       [["Alt ←", "Alt →"], "Back / forward (also mouse buttons)"],
       [[`${MOD_KEY} O`], "Open a folder"],
       [[`${MOD_KEY} ,`], "Settings"],

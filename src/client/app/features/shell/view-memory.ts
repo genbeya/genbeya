@@ -1,5 +1,5 @@
 /**
- * Where each view was left: going back to it from the sidebar, `Mod+1` … `Mod+5`
+ * Where each view was left: going back to it from the sidebar, `Mod+1` … `Mod+6`
  * or the palette returns to the page, task or file that was open there. Kept
  * per repository for as long as the app runs, not saved.
  */
@@ -10,8 +10,8 @@ import { filePaths } from "../../../../utilities/file-tree";
 import { Session } from "../../core/session";
 import { flattenPages } from "../wiki/wiki-pages";
 
-/** The views of the sidebar, in its order; `Mod+1` … `Mod+5` go to them. */
-export const VIEWS = ["wiki", "tasks", "code", "changes", "history"] as const;
+/** The views of the sidebar, in its order; `Mod+1` … `Mod+6` go to them. */
+export const VIEWS = ["wiki", "tasks", "code", "changes", "history", "pulls"] as const;
 export type View = (typeof VIEWS)[number];
 
 /** Parameters that ask for something once (a line to scroll to, a new task), not a place to return to. */
@@ -21,6 +21,7 @@ const TRANSIENT: Readonly<Record<View, readonly string[]>> = {
   code: ["lines", "rev"],
   changes: [],
   history: [],
+  pulls: [],
 };
 
 /** Drops the parameters naming something the snapshot no longer has: a deleted page, task or file. */
@@ -50,6 +51,9 @@ function stillThere(view: View, params: Params, snapshot: Snapshot): Params {
       drop("conflict", () => snapshot.operation !== null);
       break;
     case "history":
+      break;
+    case "pulls":
+      drop("pull", (id) => snapshot.pulls.some((pull) => pull.id === id));
       break;
   }
   return without(params, gone);

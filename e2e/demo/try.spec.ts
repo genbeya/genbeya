@@ -3,7 +3,7 @@ import { expect, test as base, type Page } from "@playwright/test";
 
 const MOD = process.platform === "darwin" ? "Meta" : "Control";
 /** The views by their links: browsers keep Ctrl+1 to Ctrl+9 for their tabs. */
-const VIEWS = { tasks: "Tasks", changes: "Changes", history: "History" } as const;
+const VIEWS = { tasks: "Tasks", changes: "Changes", history: "History", pulls: "Pull requests" } as const;
 const show = (page: Page, view: keyof typeof VIEWS) =>
   page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: VIEWS[view] }).click();
 
@@ -129,6 +129,31 @@ test("merges a branch, resolving its conflict", async ({ page }) => {
   await expect(banner).toBeHidden();
   await show(page, "history");
   await expect(page.locator(".history-row").first()).toContainText("Merge branch 'fahrenheit'");
+});
+
+test("reviews the Fahrenheit pull request: comments on a line, approves, and sees what blocks the merge", async ({ page }) => {
+  await show(page, "pulls");
+  await page.locator(".pull-row", { hasText: "Show temperatures in Fahrenheit" }).click();
+  const gates = page.getByRole("list", { name: "Ready to merge?" });
+  await expect(gates).toContainText("0 of 1 approval");
+  await expect(gates).toContainText("Conflicts with main");
+  await expect(gates).toContainText("2 open to-dos");
+
+  await page.getByRole("tab", { name: /Files/ }).click();
+  await page.locator(".pull-file", { hasText: "src/units.ts" }).click();
+  await expect(page.locator(".pull-thread")).toContainText("How to convert");
+  await page.locator(".cm-hunkBar").first().getByRole("button", { name: "Comment on hunk" }).click();
+  const dialog = page.getByRole("dialog", { name: /Comment on src\/units.ts/ });
+  await dialog.getByRole("combobox", { name: "Topic" }).selectOption({ label: "New topic" });
+  await dialog.getByRole("textbox", { name: "Topic title" }).fill("Naming");
+  await dialog.getByRole("textbox", { name: "Comment" }).fill("Maybe celsiusToFahrenheit?");
+  await dialog.getByRole("button", { name: "Comment" }).click();
+  await expect(page.locator(".pull-thread", { hasText: "Naming" })).toContainText("Maybe celsiusToFahrenheit?");
+
+  await page.getByRole("tab", { name: "Conversation" }).click();
+  await page.getByRole("button", { name: "Approve" }).click();
+  await expect(gates).toContainText("1 of 1 approval");
+  await expect(page.getByLabel("Reviewers")).toContainText("You");
 });
 
 test("starts over when the demo is reset", async ({ page }) => {

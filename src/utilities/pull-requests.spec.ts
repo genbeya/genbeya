@@ -5,6 +5,7 @@ import {
   addReplyAt,
   addTopic,
   approvalsOf,
+  gatesOf,
   dismissTodo,
   openItems,
   parsePullBody,
@@ -221,5 +222,33 @@ describe("taskIdsOf", () => {
     expect(
       taskIdsOf({ source: "feature/GENBEYA-17-token", title: "Tokens", body: "See [[genbeya-18]] and GENBEYA-17." }, "GENBEYA"),
     ).toEqual(["GENBEYA-17", "GENBEYA-18"]);
+  });
+});
+
+describe("gatesOf", () => {
+  const approvals = { reviewers: [], effective: 1, stale: 1, changesRequested: [], waitingFor: [] };
+
+  it("shows each condition on its own", () => {
+    const gates = gatesOf({ approvals, required: 2, openTodos: 1, conflicts: false, uncommitted: null, target: "main" });
+    expect(gates.map((gate) => [gate.key, gate.state, gate.text])).toEqual([
+      ["approvals", "failed", "1 of 2 approvals (1 stale: code changed since)"],
+      ["changes", "passed", "No changes requested"],
+      ["todos", "failed", "1 open to-do"],
+      ["conflicts", "passed", "Merges into main cleanly"],
+    ]);
+  });
+
+  it("says what it can't check, and blocks on change requests and uncommitted changes", () => {
+    const gates = gatesOf({
+      approvals: { ...approvals, stale: 0, changesRequested: ["Alex"] },
+      required: 0,
+      openTodos: 0,
+      conflicts: null,
+      uncommitted: 3,
+      target: "main",
+    });
+    expect(gates.map((gate) => gate.state)).toEqual(["passed", "failed", "passed", "unknown", "failed"]);
+    expect(gates[1]!.text).toBe("Changes requested by Alex");
+    expect(gates[4]!.text).toBe("3 uncommitted changes in the checkout");
   });
 });

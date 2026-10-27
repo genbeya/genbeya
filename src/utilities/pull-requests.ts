@@ -493,3 +493,56 @@ export function taskIdsOf(pull: { readonly source: string; readonly title: strin
   const found = [pull.source, pull.title, pull.body].flatMap((text) => text.match(pattern) ?? []);
   return [...new Set(found.map((id) => id.toUpperCase()))];
 }
+
+export type GateState = "passed" | "failed" | "unknown";
+
+/** One condition for merging, shown on its own: Genbeya advises, it can't enforce. */
+export interface PullGate {
+  readonly key: "approvals" | "changes" | "todos" | "conflicts" | "uncommitted";
+  readonly state: GateState;
+  readonly text: string;
+}
+
+export interface GateInput {
+  readonly approvals: Approvals;
+  /** How many approvals the project asks for. */
+  readonly required: number;
+  readonly openTodos: number;
+  /** Whether merging conflicts; null when it can't be checked. */
+  readonly conflicts: boolean | null;
+  /** Changed files in the checkout, which merging here would meet; null when the checkout is on neither branch. */
+  readonly uncommitted: number | null;
+  readonly target: string;
+}
+
+const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+
+/** What stands between a pull request and its merge, condition by condition. */
+export function gatesOf({ approvals, required, openTodos, conflicts, uncommitted, target }: GateInput): PullGate[] {
+  const stale = approvals.stale ? ` (${approvals.stale} stale: code changed since)` : "";
+  const gates: PullGate[] = [
+    {
+      key: "approvals",
+      state: approvals.effective >= required ? "passed" : "failed",
+      text: required ? `${approvals.effective} of ${plural(required, "approval")}${stale}` : `No approvals needed${stale}`,
+    },
+    approvals.changesRequested.length
+      ? { key: "changes", state: "failed", text: `Changes requested by ${approvals.changesRequested.join(", ")}` }
+      : { key: "changes", state: "passed", text: "No changes requested" },
+    { key: "todos", state: openTodos ? "failed" : "passed", text: openTodos ? `${plural(openTodos, "open to-do")}` : "No open to-dos" },
+    conflicts === null
+      ? { key: "conflicts", state: "unknown", text: "Conflicts can't be checked (needs Git 2.38 or later, and both branches)" }
+      : {
+          key: "conflicts",
+          state: conflicts ? "failed" : "passed",
+          text: conflicts ? `Conflicts with ${target}` : `Merges into ${target} cleanly`,
+        },
+  ];
+  if (uncommitted !== null)
+    gates.push(
+      uncommitted
+        ? { key: "uncommitted", state: "failed", text: `${plural(uncommitted, "uncommitted change")} in the checkout` }
+        : { key: "uncommitted", state: "passed", text: "No uncommitted changes" },
+    );
+  return gates;
+}

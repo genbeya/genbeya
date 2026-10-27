@@ -16,6 +16,7 @@ export const routes: Routes = [
     ...guardedBy("conflict"),
   },
   { path: "history", loadComponent: () => import("./features/history/history-view").then((m) => m.HistoryView) },
+  { path: "pulls", loadComponent: () => import("./features/pulls/pulls-view").then((m) => m.PullsView) },
   { path: "settings", loadComponent: () => import("./features/settings/settings-view").then((m) => m.SettingsView), ...guardedBy() },
   { path: "**", redirectTo: "wiki" },
 ];

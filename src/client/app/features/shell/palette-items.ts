@@ -10,6 +10,7 @@ import { fuzzyScore } from "./fuzzy";
 
 export type PaletteIcon =
   | "page"
+  | "pulls"
   | "task"
   | "file"
   | "branch"
@@ -62,12 +63,13 @@ export interface PaletteItem {
 
 /** The callbacks items run; the palette closes before any of them. */
 export interface PaletteCommands {
-  go(view: "wiki" | "tasks" | "code" | "changes" | "history"): void;
+  go(view: "wiki" | "tasks" | "code" | "changes" | "history" | "pulls"): void;
   openPage(path: string): void;
   openTask(id: string): void;
   openFile(path: string): void;
   newPage(): void;
   newTask(): void;
+  newPull(): void;
   switchBranch(name: string): void;
   createBranch(name: string): void;
   showBranches(): void;
@@ -192,6 +194,7 @@ export function allItems(
     ["code", "Code"],
     ["changes", "Changes"],
     ["history", "History"],
+    ["pulls", "Pull requests"],
   ] as const;
   const go = views.map(([view, label], i): PaletteItem => ({
     id: `go:${view}`,
@@ -204,6 +207,7 @@ export function allItems(
   const actions: PaletteItem[] = [
     { id: "new-page", group: "Actions", label: "New page…", icon: "add", hint: "N", run: () => commands.newPage() },
     { id: "new-task", group: "Actions", label: "New task", icon: "add", hint: "C", run: () => commands.newTask() },
+    { id: "new-pull", group: "Actions", label: "New pull request…", icon: "add", keywords: "review merge", run: () => commands.newPull() },
     {
       id: "search-text",
       group: "Actions",

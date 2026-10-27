@@ -18,6 +18,7 @@ import { Repositories } from "../../core/repositories";
 import { People } from "../../core/people";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
+import { PullActions } from "../pulls/pull-actions";
 import { ContentFiles } from "../code/content-files";
 import { ResetActions } from "../history/reset-actions";
 import { Onboarding } from "../onboarding/onboarding";
@@ -182,6 +183,7 @@ export class Palette {
   private readonly onboarding = inject(Onboarding);
   private readonly people = inject(People);
   private readonly contentFiles = inject(ContentFiles);
+  private readonly pulls = inject(PullActions);
   protected readonly label =
     this.mode === "branches"
       ? "Switch branch"
@@ -204,6 +206,7 @@ export class Palette {
     openFile: (file) => void this.router.navigate(["/code"], { queryParams: { file } }),
     newPage: () => void this.wiki.createPage(),
     newTask: () => void this.router.navigate(["/tasks"], { queryParams: { create: this.session.snapshot()!.settings.statuses[0] } }),
+    newPull: () => void this.pulls.create(),
     switchBranch: (name) => void this.repository.switchBranch(name),
     createBranch: (name) => void this.repository.createBranch(name),
     showBranches: () => void this.ui.openPalette("branches"),

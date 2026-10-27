@@ -37,6 +37,7 @@ import { branchesOfTask, branchNameFor } from "./task-branches";
 import { TaskComments } from "./task-comments";
 import { type FieldChange, TaskFields } from "./task-fields";
 import { TaskPlan } from "./task-plan";
+import { TaskPulls } from "../pulls/task-pulls";
 import { addTimeEntry, parseEffort } from "../../../../utilities/planning";
 import { today } from "../../ui/calendar-date";
 import { displayId, inputOf } from "./task-model";
@@ -102,6 +103,7 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
     TaskComments,
     TaskFields,
     TaskPlan,
+    TaskPulls,
     TaskProperties,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -158,6 +160,7 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
       <gd-task-fields [value]="shown()" (changed)="setField($event)" />
       @if (task() && !editing()) {
         <gd-task-plan [task]="current()!" (logTime)="logTime()" />
+        <gd-task-pulls [task]="current()!" />
       }
       @if (task() && !editing() && branches().length) {
         <div class="task-branches" role="group" aria-label="Branches of this task">

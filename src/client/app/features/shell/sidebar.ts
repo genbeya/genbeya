@@ -73,6 +73,7 @@ export class Sidebar {
     const { tasks, settings } = this.snapshot();
     return tasks.filter((task) => task.status !== settings.statuses.at(-1)).length;
   });
+  protected readonly openPulls = computed(() => this.snapshot().pulls.filter((pull) => pull.status === "open").length);
   private readonly recent = inject(Repositories).recent;
   protected readonly others = computed(() =>
     this.recent()

@@ -311,12 +311,33 @@ export const ICONS = {
     ["circle", { cx: "6", cy: "6", r: "3" }],
     ["path", { d: "M6 21V9a9 9 0 0 0 9 9" }],
   ],
+  "git-pull-request": [
+    ["circle", { cx: "18", cy: "18", r: "3" }],
+    ["circle", { cx: "6", cy: "6", r: "3" }],
+    ["path", { d: "M13 6h3a2 2 0 0 1 2 2v7" }],
+    ["line", { x1: "6", x2: "6", y1: "9", y2: "21" }],
+  ],
   "git-pull-request-arrow": [
     ["circle", { cx: "5", cy: "6", r: "3" }],
     ["path", { d: "M5 9v12" }],
     ["circle", { cx: "19", cy: "18", r: "3" }],
     ["path", { d: "m15 9-3-3 3-3" }],
     ["path", { d: "M12 6h5a2 2 0 0 1 2 2v7" }],
+  ],
+  "git-pull-request-closed": [
+    ["path", { d: "m15.5 3.5 5 5" }],
+    ["path", { d: "m15.5 8.5 5-5" }],
+    ["path", { d: "M18 11.62V15" }],
+    ["path", { d: "M6 9v12" }],
+    ["circle", { cx: "18", cy: "18", r: "3" }],
+    ["circle", { cx: "6", cy: "6", r: "3" }],
+  ],
+  "git-pull-request-draft": [
+    ["circle", { cx: "18", cy: "18", r: "3" }],
+    ["circle", { cx: "6", cy: "6", r: "3" }],
+    ["path", { d: "M18 6V5" }],
+    ["path", { d: "M18 11v-1" }],
+    ["line", { x1: "6", x2: "6", y1: "9", y2: "21" }],
   ],
   globe: [
     ["circle", { cx: "12", cy: "12", r: "10" }],
@@ -410,6 +431,9 @@ export const ICONS = {
     ],
     ["path", { d: "M15 5.764v15" }],
     ["path", { d: "M9 3.236v15" }],
+  ],
+  "message-square": [
+    ["path", { d: "M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" }],
   ],
   minus: [["path", { d: "M5 12h14" }]],
   monitor: [
@@ -600,6 +624,15 @@ export const ICONS = {
       },
     ],
     ["circle", { cx: "7.5", cy: "7.5", r: ".5", fill: "currentColor" }],
+  ],
+  "thumbs-up": [
+    [
+      "path",
+      {
+        d: "M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z",
+      },
+    ],
+    ["path", { d: "M7 10v12" }],
   ],
   "trash-2": [
     ["path", { d: "M10 11v6" }],

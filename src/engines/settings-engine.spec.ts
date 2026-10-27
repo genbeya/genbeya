@@ -213,6 +213,15 @@ describe("SettingsEngine", () => {
     expect(engine.parse("name: Atlas\ntaskPrefix: at\n", defaults, false)).toEqual({ ...defaults, name: "Atlas", taskPrefix: "AT" });
   });
 
+  it("reads where pull requests live and how many approvals they need", () => {
+    expect(engine.parse("pullRoot: reviews\npullPrefix: mr\nrequiredApprovals: 2\n", defaults, false)).toEqual({
+      ...defaults,
+      pullRoot: "reviews",
+      pullPrefix: "MR",
+      requiredApprovals: 2,
+    });
+  });
+
   it.each([
     ["name: [broken\n", ""],
     ["- a\n", "YAML mapping"],
@@ -224,6 +233,11 @@ describe("SettingsEngine", () => {
     ["wikiHome: Home.txt\n", "Markdown file"],
     ["wikiRoot: ../outside\n", "not a valid path"],
     ["name: ''\n", "Project name is required"],
+    ["pullRoot: docs/pulls\n", "pull request folder"],
+    ["pullRoot: .\n", ""],
+    ["pullPrefix: 7A\n", "pull request prefix"],
+    ["requiredApprovals: 1.5\n", "Required approvals"],
+    ["requiredApprovals: 21\n", "Required approvals"],
   ])("rejects %j", (content, message) => {
     expect(() => engine.parse(content, defaults, false)).toThrow(message);
   });

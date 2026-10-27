@@ -7,6 +7,7 @@ import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
 import { DueDates, dueDatesOf } from "./due-dates";
 import { TaskPlanning } from "./task-planning";
+import { PullLinks } from "../pulls/pull-links";
 import { LabelChip, PriorityIcon, TypeIcon } from "./task-icons";
 import { displayId, titleCase } from "./task-model";
 
@@ -15,6 +16,12 @@ import { displayId, titleCase } from "./task-model";
   imports: [Avatar, DueDates, Icon, LabelChip, PriorityIcon, TypeIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-card", "[class.is-selected]": "selected()" },
+  styles: `
+    .task-in-review {
+      display: inline-flex;
+      color: var(--green);
+    }
+  `,
   template: `
     <div class="task-card-top">
       @if (task().type) {
@@ -24,6 +31,11 @@ import { displayId, titleCase } from "./task-model";
       @if (blockedBy(); as blockers) {
         <span class="task-blocked" [title]="'Blocked by ' + blockers" aria-label="Blocked"
           ><svg gd-icon name="lock" [size]="12"></svg
+        ></span>
+      }
+      @if (inReview()) {
+        <span class="task-in-review" title="An open pull request names this task" aria-label="In a pull request"
+          ><svg gd-icon name="git-pull-request" [size]="12"></svg
         ></span>
       }
       <span class="grow"></span>
@@ -73,5 +85,7 @@ export class TaskCard {
     );
     return unfinished.join(", ");
   });
+  private readonly pulls = inject(PullLinks);
+  protected readonly inReview = computed(() => this.pulls.hasOpen(this.task().id));
   protected readonly hasDates = computed(() => dueDatesOf(this.task(), this.session.snapshot()!.settings, today()).length > 0);
 }

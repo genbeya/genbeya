@@ -110,6 +110,19 @@
   >
     <svg gd-icon name="history" [size]="16"></svg><span class="grow">History</span>
   </a>
+  <a
+    class="nav-item"
+    routerLink="/pulls"
+    [queryParams]="views.params('pulls')"
+    routerLinkActive="is-active"
+    [routerLinkActiveOptions]="activeOptions"
+    [title]="'Pull requests (' + mod + '+6)'"
+  >
+    <svg gd-icon name="git-pull-request" [size]="16"></svg><span class="grow">Pull requests</span>
+    @if (openPulls()) {
+      <span class="nav-count" [attr.aria-label]="openPulls() + ' open'">{{ openPulls() }}</span>
+    }
+  </a>
 </nav>
 
 <div class="grow"></div>
