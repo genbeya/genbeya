@@ -57,6 +57,12 @@ A diff of a binary file has no lines; `diff` says `binary` and gives the `sizes`
 
 Which files the client compares as images, and which it previews in **Code**, the preview registry decides (`src/client/app/features/preview/file-previews.ts`): one renderer per kind of file — Markdown, Mermaid, PlantUML, SVG and raster images — each saying whether the file is text to edit and how its diff compares it. A new kind, such as PDF, audio or video, is another renderer there.
 
+## Pull requests
+
+`content.createPull(input)` writes a new [pull request](../Guide/Pull-requests.md) file with the next free ID and the Git user name as its author; `content.updatePull(path, input, expectedHash)` rewrites its frontmatter fields (keeping others) and its body, refused once the file changed. The pull engine (`src/engines/pull-engine.ts`) reads and writes the frontmatter; the body's review, replies, verdicts and to-dos, and which approvals still count, are pure functions in `src/utilities/pull-requests.ts`, which the client uses to edit the body.
+
+`versionControl.compare(source, target, revisions, exclude)` says what merging the branch `source` into `target` brings (`src/access/git/pull-access.ts`): both commits, their merge base, how far the source is ahead and behind (`git rev-list --left-right --count`), the files it changes from the merge base (`git diff --name-status -M`), whether the merge conflicts (`git merge-tree --write-tree`, without touching the checkout; null before Git 2.38 or for unrelated histories), and a **change ID**: a SHA-256 of `git diff` from the merge base with hunk headers and blob IDs left out, so a rebase that keeps the code keeps it. Markdown files directly in the folder `exclude` (the pull request folder) don't count, so review commits on the source branch leave it alone. For each of `revisions` (the commits verdicts name) it returns the commit and its change ID against the target, which is how the client tells effective approvals from stale ones. A branch that doesn't exist gives a null head and no change. `diff` takes `{ from, to }` for the diff between two commits, as the pull request's files show it.
+
 ## .gitignore
 
 `ignore(path, kind, location)` adds a rule to the `.gitignore` in the folder `location` ("" for the root), which must hold `path`. `src/utilities/gitignore.ts` writes the rule — `/path` for a file, `/path/` for a folder, `*.ext` for an extension — relative to that folder, escapes `\`, `*`, `?`, `[` and trailing spaces, and appends it in the file's line endings, ending with one, unless the file has it already. The client uses the same utility for its preview. `untrack(paths)` runs `git rm --cached -r` and keeps the files.
@@ -170,7 +176,7 @@ Structured files change only where they must. A task update rewrites the fields 
 
 ## Content areas
 
-The wiki, tasks and settings each live in the checkout or on the [Content branch](Content-branch.md). File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.genbeya.yml` belongs to the settings, the task folder to the tasks, and everything else, such as pages and their images, to the wiki. Page, task, comment and settings calls use their own area, and edits are committed right away only when that area is on the content branch. A task's activity is the history of its file where the tasks live. `content.setStorage(workspace, area, mode)` moves one area.
+The wiki, tasks, settings and pull requests each live in the checkout or on the [Content branch](Content-branch.md). File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.genbeya.yml` belongs to the settings, the task folder to the tasks, the pull request folder to the pull requests, and everything else, such as pages and their images, to the wiki. Page, task, pull request, comment and settings calls use their own area, and edits are committed right away only when that area is on the content branch. A task's activity is the history of its file where the tasks live. `content.setStorage(workspace, area, mode)` moves one area.
 
 Inside the backend, `workspace.locateContent(path)` names the location of a content path (its root, files, Git and branch), for reading a file's history wherever it lives.
 

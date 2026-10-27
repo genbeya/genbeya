@@ -1,7 +1,7 @@
 # Pull requests
 
 > [!NOTE]
-> Proposal, not built yet. Tasks: [[GENBEYA-50]] to [[GENBEYA-56]].
+> A first prototype is built ([[GENBEYA-50]] to [[GENBEYA-56]]); see [The prototype](#the-prototype) for what it does and what is left. How to use it: [Pull requests](../Guide/Pull-requests.md).
 
 Code review inside the repository: a pull request is one Markdown file that holds everything about one unit of work: its description, the branches, the suggested changes grouped by issue, the discussion, its to-dos and the reviewers' verdicts. Before the merge, what is still open is resolved, dismissed, or turned into tasks and wiki pages, so the merged file is a short record and the knowledge lands where people look for it.
 
@@ -12,6 +12,27 @@ Code review inside the repository: a pull request is one Markdown file that hold
 - Where pull request files live is the project's choice, as for the wiki and the tasks: in the checkout or on the [Content branch](../Architecture/Content-branch.md).
 
 [TOC]
+
+## The prototype
+
+What the first version answers, to try out before deciding for good:
+
+- **IDs** have their own counter and prefix, `PR-7` (`pullPrefix`), in their own folder (`pullRoot`), a fourth content area.
+- **Line grammar:** replies and verdicts are written as below, the time as in task comments (local time to the minute, with the offset). Lines that start like a reply but can't be read are listed, never dropped.
+- **Policy:** `requiredApprovals` (1 by default). Open to-dos are shown as a condition but there is no setting yet for whether they block.
+- **The change ID** is a SHA-256 of `git diff` from the merge base without hunk headers and blob IDs, not `git patch-id`, which needs input on stdin that Genbeya's hosts don't give processes. Only Markdown files directly in the pull request folder are left out.
+- **Merging** always makes a merge commit named after the pull request, with the merges Genbeya has; a merge that stops for conflicts is finished in **Changes** and then marked merged. Squash and rebase merges are not offered, so their comparison with the approved change is still open.
+- **Cleanup** resolves, dismisses with a reason, promotes to a new task, or shortens a topic to its outcome.
+- **Tasks** show the pull requests that name them (branch, title or description), and board cards mark open ones.
+- **Where it lives:** the body's rules are pure functions in `src/utilities/pull-requests.ts`; the backend reads and writes frontmatter (`content.createPull`, `content.updatePull`) and compares branches (`versionControl.compare`). The web demo has the same, and a pull request for its `fahrenheit` branch.
+
+Left for later:
+
+- In the checkout, the list shows only the pull requests of the checked-out branch; listing those on other branches means reading them from Git.
+- **Recorded, not verified:** comparing a verdict's name with the author of the commit that added it.
+- Comments on unchanged lines (the diff selects changed ones), outdated code ranges by their lines rather than their revision, applying a suggestion.
+- Promoting a to-do to a page section, and whether open to-dos block.
+- Pull requests in VS Code, keyboard shortcuts within the view, and turning the view off ([Optional parts](Optional-parts.md)).
 
 ## Who it is for
 
@@ -184,9 +205,9 @@ The one large new piece: a **Pull requests** view, an [optional part](Optional-p
 
 ## Open questions
 
-- **Line grammar:** the exact form of replies and verdicts, time zones included, documented once with the time log's.
-- **IDs:** `PR-7` with its own counter, or the task prefix?
-- **Policy defaults:** how many approvals, and whether open to-dos block a merge by default.
+- **Line grammar:** the prototype's form of replies and verdicts, documented once with the time log's.
+- **IDs:** the prototype has `PR-7` with its own counter; or the task prefix?
+- **Policy defaults:** one approval in the prototype; whether open to-dos block a merge by default.
 - **Squash and rebase merges:** how the merge check compares a squashed or rebased result with the approved change.
 - **Trust:** what "verified" means offline and with a forge.
 - **References into other repositories:** a code range in a submodule or a sibling repository can't be pinned yet ([pinned references](../Guide/References.md#pinned-to-a-revision) name files of this repository).

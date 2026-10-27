@@ -58,6 +58,7 @@ A branch whose name contains a task's ID belongs to that task, as in Jira and Bi
 - The task lists its branches below its properties; click one to switch to it (a branch only on a remote is checked out). The checked-out one is highlighted.
 - **…** → **Create branch…** offers a name made of the ID and the title, such as `GENBEYA-32-link-branches-to-tasks`, and switches to the new branch.
 - Below the branch in the sidebar, the task of the checked-out branch is shown; click it to open the task.
+- The task also shows the [pull requests](Pull-requests.md#pull-requests-and-tasks) that name it, by branch, title or description.
 
 ## Comments
 

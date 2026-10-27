@@ -47,7 +47,7 @@ A settings page of forty switches would be bloat of its own, so the list stays t
 
 ## What turning a part off does
 
-- **Sidebar, palette and shortcuts:** the view disappears from the sidebar and the `Ctrl+K` palette. `Ctrl+1` … `Ctrl+5` keep their views and skip hidden ones, so muscle memory survives.
+- **Sidebar, palette and shortcuts:** the view disappears from the sidebar and the `Ctrl+K` palette. `Ctrl+1` … `Ctrl+6` keep their views and skip hidden ones, so muscle memory survives.
 - **Search** leaves hidden parts out.
 - **References into a hidden part** still resolve and show their title: `[[A page]]` in a task stays a link and opens a read-only preview, not a broken link.
 - **Files are never touched.** Turning the wiki off doesn't delete `docs/`, and turning it on again shows everything as before.

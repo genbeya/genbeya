@@ -8,8 +8,8 @@
 
 | Section | What it holds | Shared with |
 | --- | --- | --- |
-| **Project** | Name, task ID prefix, wiki folder and home page, task folder, **Workflow**, **Task types**, **Custom fields** | Everyone: saved to `.genbeya.yml` |
-| **Where content lives** | Whether the wiki, the tasks and the settings live in the checkout or on the [Content branch](../Architecture/Content-branch.md), and **Sync automatically** | Everyone, through the content branch |
+| **Project** | Name, task ID prefix, wiki folder and home page, task folder, pull request folder and ID prefix, **Approvals needed**, **Workflow**, **Task types**, **Custom fields** | Everyone: saved to `.genbeya.yml` |
+| **Where content lives** | Whether the wiki, the tasks, the settings and the pull requests live in the checkout or on the [Content branch](../Architecture/Content-branch.md), and **Sync automatically** | Everyone, through the content branch |
 | **AI agents** | Files that teach coding agents to use the tasks and the wiki — see [AI agents](AI-agents.md) | Everyone, once committed |
 | **Remotes** | Add, edit and remove Git remotes | This clone |
 | **App** | Theme, **Reopen last repository** on start, **Show minimap** in the editor, **Editor font** and **Ligatures** | This computer |
@@ -46,6 +46,9 @@ Genbeya rewrites only the keys whose values you changed. Comments, keys it does 
 | `wikiHome` | Markdown file | `Home.md` | The wiki's first page, relative to `wikiRoot` |
 | `taskRoot` | folder | `tasks` | The task folder. It must not contain the wiki folder, nor the other way round |
 | `taskPrefix` | letters and digits, starting with a letter, up to 12 | From the name: its capitals (`TaskBoard` → `TB`), the first letters of its words (`my project` → `MP`), or its first three letters (`atlas` → `ATL`) | New tasks are `TB-1`, `TB-2`, … Written in capitals |
+| `pullRoot` | folder | `pulls` | The [pull request](Pull-requests.md) folder. It must not contain the wiki or task folder, nor sit inside them |
+| `pullPrefix` | letters and digits, starting with a letter, up to 12 | `PR` | New pull requests are `PR-1`, `PR-2`, … |
+| `requiredApprovals` | whole number, 0 to 20 | `1` | How many effective approvals a pull request needs to count as ready to merge. Genbeya advises; protected branches on the Git host enforce |
 
 Changing a folder does not move any files: move them first, then change the setting. Changing the prefix leaves existing IDs as they are.
 
@@ -164,9 +167,10 @@ When a [Content branch](../Architecture/Content-branch.md) exists, the file `.ge
 	wiki = checkout
 	tasks = branch
 	settings = checkout
+	pulls = branch
 ```
 
-Areas it does not name live in the checkout. A content branch without the file holds all three, as content branches did before areas could be split.
+Areas it does not name live in the checkout. A content branch without the file holds every area, as content branches did before areas could be split.
 
 ## Git configuration
 

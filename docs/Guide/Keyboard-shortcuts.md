@@ -9,7 +9,7 @@ On macOS, use `⌘` where this page says `Ctrl`, except for `` Ctrl+` ``: macOS 
 | `Ctrl+K`, `Ctrl+P` | Find pages, tasks, files and commands; paste a Genbeya link to open it |
 | `Ctrl+Shift+F`, or `/` first in the `Ctrl+K` palette | [Search](Search.md) inside pages, tasks and files |
 | `Alt+C`, `Alt+W`, `Alt+R` (on macOS `⌥⌘C`, `⌥⌘W`, `⌥⌘R`) | While searching inside files: match case, whole words, regular expression |
-| `Ctrl+1` … `Ctrl+5` | Wiki, Tasks, Code, Changes, History |
+| `Ctrl+1` … `Ctrl+6` | Wiki, Tasks, Code, Changes, History, Pull requests |
 | `Ctrl+,` | Settings |
 | `` Ctrl+` `` | Show or hide the [Terminal](Terminal.md) |
 | `Alt+←` / `Alt+→`, mouse back/forward | Back / forward |
@@ -82,4 +82,4 @@ The editor for code, pages and tasks follows VS Code; see [Code](Code.md). Where
 | `Alt+Z` | `⌥Z` | Word wrap on or off |
 | `Ctrl+Z` / `Ctrl+Y`, `Ctrl+Shift+Z` | `⌘Z` / `⇧⌘Z` | Undo / redo |
 
-Inside the editor these keys win over Genbeya's own: `Alt+←` / `Alt+→` move the cursor there (by syntax element; by word on macOS) instead of going back and forward, and `Ctrl+Enter` inserts a line instead of saving a task. `Ctrl+K`, `Ctrl+P`, `Ctrl+Shift+F`, `Ctrl+1` … `Ctrl+5`, `Ctrl+,`, `Ctrl+O`, `Ctrl+S` and `` Ctrl+` `` work in the editor as everywhere. Characters typed with `AltGr` (such as `[` `]` `\` `{` `}` on Swiss and German keyboards) are always typed, never taken for `Ctrl+Alt` shortcuts.
+Inside the editor these keys win over Genbeya's own: `Alt+←` / `Alt+→` move the cursor there (by syntax element; by word on macOS) instead of going back and forward, and `Ctrl+Enter` inserts a line instead of saving a task. `Ctrl+K`, `Ctrl+P`, `Ctrl+Shift+F`, `Ctrl+1` … `Ctrl+6`, `Ctrl+,`, `Ctrl+O`, `Ctrl+S` and `` Ctrl+` `` work in the editor as everywhere. Characters typed with `AltGr` (such as `[` `]` `\` `{` `}` on Swiss and German keyboards) are always typed, never taken for `Ctrl+Alt` shortcuts.

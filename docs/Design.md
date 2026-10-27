@@ -21,7 +21,7 @@ Built so far: references pinned to a revision ([[GENBEYA-42]]), which pull reque
 
 ## Keeping Genbeya lean
 
-Every proposal is measured against the same test. Genbeya keeps three kinds of content (pages, tasks, settings) and five views; what makes a feature expensive is:
+Every proposal is measured against the same test. Genbeya keeps four kinds of content (pages, tasks, settings, pull requests) and six views; what makes a feature expensive is:
 
 - **A new kind of content.** It needs its own folder, a place in [[Content branch|where content lives]], search, the agent skill and the VS Code tree.
 - **A new view.**

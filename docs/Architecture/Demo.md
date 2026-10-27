@@ -42,6 +42,7 @@ When you change a manager, look at its counterpart in `src/managers/demo/`; `dem
 | Wiki, tasks, settings, code, search, people, agent files | The app's rules, on files in memory. Search matches with JavaScript regular expressions instead of `git grep` |
 | Changes | Statuses with staged renames, `.gitignore`; staging files, hunks and lines through the patch engine, on unified diffs from Myers' algorithm; commit and amend; discard; stop tracking; stashes with untracked files or the index kept |
 | History | The commit graph; branches and tags; merges with Git's conflict markers in the merge style; rebases, interactive ones and with autostash; cherry-picks and reverts; soft, mixed, hard and keep resets; undoing the last commit |
+| Pull requests | The app's rules, with the branch comparison on the in-memory repository: commits ahead and behind, a three-way merge for conflicts, and the change ID from its unified diffs |
 | Remotes | `origin` is a repository in memory: fetch, pull (fast-forward, or rebase), push, publish, force push with a lease, deleting remote branches and tags. Remotes you add are empty repositories in memory. Each request takes 0.4 s, as a network would |
 | Content branch | Not available: every area stays in the checkout, and **Settings → Where content lives** says so |
 
@@ -51,6 +52,7 @@ The sample's repository starts with the sample project's three commits, and adds
 - the branch `fahrenheit`, two commits by Sam Rivera, whose merge into `main` conflicts in one line of `README.md`;
 - two commits by Alex Chen on `main` that add an icon, `assets/icon.png`, and put a cloud in front of its sun, so **History** has an image to compare;
 - a commit by Alex Chen on `main`;
+- a commit by Sam on `main` with `pulls/PR-1.md`, a pull request for `fahrenheit` with a review topic, a suggestion and a request for Alex's review;
 - all of it pushed to `origin`, which has one more commit on `main`, by Sam, that **Fetch** brings in;
 - the sample's change to `src/forecast.ts`, left to commit.
 
