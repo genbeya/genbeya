@@ -99,7 +99,7 @@ Git's own protocol endpoints answer no other origin, so Git in the page (compile
 
 ## Privacy
 
-Genbeya's promise is privacy first: nothing is collected or sold, and everything that leaves the device or stays on it is the visitor's choice. Genbeya on your forge keeps that promise by design, not by policy alone: [[GENBEYA-43]] is the outside review of what follows.
+Genbeya's promise is privacy first: nothing is collected or sold, and everything that leaves the device or stays on it is the visitor's choice. Genbeya on your forge keeps that promise by design, not by policy alone: [[GENBEYA-43]] is the outside review of what follows, with the brief for reviewers in [Privacy review](Forges/Privacy-review.md).
 
 ### The notice
 
