@@ -108,6 +108,40 @@
                 },
                 "fonts": false
               }
+            },
+            "github": {
+              "outputPath": "dist/github",
+              "index": {
+                "input": "src/client/index.github.html",
+                "output": "index.html"
+              },
+              "fileReplacements": [
+                {
+                  "replace": "src/client/app/platform/connect.ts",
+                  "with": "src/client/app/platform/connect.github.ts"
+                }
+              ],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "750kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
+                }
+              ],
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": false
+              }
             }
           },
           "defaultConfiguration": "production"
@@ -127,6 +161,9 @@
             },
             "demo": {
               "buildTarget": "genbeya:build:demo"
+            },
+            "github": {
+              "buildTarget": "genbeya:build:github"
             }
           },
           "defaultConfiguration": "development"

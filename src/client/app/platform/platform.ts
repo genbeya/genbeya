@@ -9,6 +9,24 @@ export interface DemoControls {
   reset(): void;
   /** Where to get Genbeya itself. */
   readonly downloadUrl: string;
+  /** How the badge describes the page; the demo's own words unless given. */
+  readonly about?: DemoAbout;
+}
+
+/** What the badge says about a page that runs Genbeya in the browser. */
+export interface DemoAbout {
+  /** The badge's tooltip. */
+  readonly title: string;
+  /** The badge's label, such as "Demo". */
+  readonly pill: string;
+  /** Next to the label. */
+  readonly caption: string;
+  /** What the page is, at the top of the badge's menu. */
+  readonly note: string;
+  /** How the menu offers {@link DemoControls.reset}, and how it asks first. */
+  readonly reset: { readonly label: string; readonly title: string; readonly message: string };
+  /** Another page the menu offers, such as the repository on GitHub. */
+  readonly link?: { readonly label: string; readonly url: string };
 }
 
 export interface Platform {

@@ -5,10 +5,11 @@
  * isolated values as with every shell. Nothing is stored anywhere: layout
  * choices live in memory too, and loading the page again starts over.
  */
+import type { Managers } from "../../../contracts/manager-contracts";
 import { connectManagers, dispatch } from "../../../contracts/rpc";
 import { createDemoBackend } from "../../../managers/demo/demo-backend";
 import { DEMO_FOLDER } from "../../../managers/demo/demo-workspace-manager";
-import type { Platform } from "./platform";
+import type { DemoAbout, Platform } from "./platform";
 
 export const DOWNLOAD_URL = "https://genbeya.fyi/download";
 
@@ -24,14 +25,15 @@ function memoryStorage(): Pick<Storage, "getItem" | "setItem"> {
   };
 }
 
-export function connectDemo(page: DemoPage = window): Platform {
-  const backend = createDemoBackend();
+/** Connects the client to `backend` in the page: the demo's own unless given, described by `about`. */
+export function connectDemo(page: DemoPage = window, backend: Managers = createDemoBackend(), about?: DemoAbout): Platform {
   let leaving = false;
   return {
     managers: connectManagers(async (request) => structuredClone(await dispatch(backend, structuredClone(request)))),
     storage: memoryStorage(),
     demo: {
       downloadUrl: DOWNLOAD_URL,
+      ...(about ? { about } : {}),
       reset() {
         leaving = true;
         // Loading the page again starts over, at the start rather than the view the address names.

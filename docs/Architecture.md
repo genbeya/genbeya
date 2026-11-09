@@ -40,6 +40,8 @@ The [VS Code](Architecture/VS-Code.md) extension is a shell without the client: 
 
 The [Demo](Architecture/Demo.md) that runs in a browser has no shell and no machine: its connector runs managers of its own (`src/managers/demo/`) in the page, on Git repositories simulated in memory (`src/access/memory/`), with the same engines.
 
+[GitHub](Architecture/GitHub.md) builds on the demo: it reads a repository from GitHub's API into such an in-memory repository, so a GitHub repository's wiki and board open in a browser tab without cloning.
+
 | Page | Covers |
 | --- | --- |
 | [Managers](Architecture/Managers.md) | What the backend can do, call by call: snapshots, operations that stop, comments, search, moving pages, writes |
@@ -47,5 +49,6 @@ The [Demo](Architecture/Demo.md) that runs in a browser has no shell and no mach
 | [Content branch](Architecture/Content-branch.md) | Keeping the wiki, the tasks or the settings on a shared branch |
 | [Runtimes](Architecture/Runtimes.md) | Electron, Tauri and Deno Desktop compared, with measurements |
 | [Demo](Architecture/Demo.md) | Genbeya in a browser tab, on repositories in memory: how it works, what it simulates, and why |
+| [GitHub](Architecture/GitHub.md) | Genbeya on GitHub: a repository's wiki and board in the browser, read from GitHub's API; what GitHub allows, privacy, the options considered |
 | [VS Code](Architecture/VS-Code.md) | The VS Code extension: managers in the extension host, native views, a preview and a board |
 | [Security](Architecture/Security.md) | How the app protects itself from the repositories it shows |

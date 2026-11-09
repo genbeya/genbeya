@@ -22,6 +22,17 @@ node scripts/serve-demo.mjs 4200
 
 Then open http://127.0.0.1:4200/try/. Reloading the page starts the demo over.
 
+### Genbeya on GitHub
+
+`npm run start:github` serves [GitHub](Architecture/GitHub.md) at http://127.0.0.1:5173/?repo=genbeya/genbeya, reading the repository from GitHub; add `&branch=<branch>` for another branch. To see the static build at the addresses genbeya.fyi will use:
+
+```bash
+npm run build:github
+node scripts/serve-github.mjs 4200
+```
+
+Then open http://127.0.0.1:4200/github/genbeya/genbeya.
+
 ### The VS Code extension
 
 Open this folder in VS Code and press F5 (**Run the VS Code extension**): it builds the [VS Code extension](Architecture/VS-Code.md) into `dist/vscode` and opens this repository in a second VS Code window with it. After a change, run `npm run build:vscode` and reload that window (**Developer: Reload Window**).
@@ -32,14 +43,17 @@ Open this folder in VS Code and press F5 (**Run the VS Code extension**): it bui
 | --- | --- |
 | `npm start` | Client with hot reload plus the Electron app. Restart it after changing the backend or the shell |
 | `npm run start:demo` | The web demo with rebuilds on change, in your browser |
+| `npm run start:github` | Genbeya on GitHub with rebuilds on change; add `?repo=<owner>/<repo>` to the address |
 | `npm run check` | Type-check backend, shells and client |
 | `npm run lint` | ESLint, including the layer rules of the [Architecture](Architecture.md) |
 | `npm run format` | Prettier |
 | `npm test` | Backend and client unit tests |
 | `npm run e2e` | Build, then end-to-end tests against the Electron app |
 | `npm run e2e:demo` | Build the web demo, then its end-to-end tests in Chromium |
+| `npm run e2e:github` | Build Genbeya on GitHub, then its end-to-end tests in Chromium, against a simulated GitHub |
 | `npm run build` | Production client and Electron shell |
 | `npm run build:demo` | The web demo as static files, in `dist/demo/browser` |
+| `npm run build:github` | Genbeya on GitHub as static files, in `dist/github/browser` |
 | `npm run icons` | App icons of all three shells and the favicon, rendered from the logo in `branding/` |
 | `npm run package` | Electron installer for the current OS, in `release/` |
 | `npm run package:tauri` | Tauri installers, in `src/shells/tauri/src-tauri/target/release/bundle/` |

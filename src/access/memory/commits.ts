@@ -53,6 +53,13 @@ export class CommitStore {
     return stored;
   }
 
+  /** Stores a commit read from a real repository under the ID it has there, so links to it lead to the same commit. */
+  adopt(commit: CommitObject): CommitObject {
+    if (!/^[0-9a-f]{40}$/.test(commit.hash)) throw new Error("A commit ID has 40 hexadecimal digits.");
+    this.commits.set(commit.hash, commit);
+    return commit;
+  }
+
   get(hash: string): CommitObject {
     const commit = this.commits.get(hash);
     if (!commit) throw new Error(`Commit ${hash.slice(0, 7)} does not exist.`);

@@ -1,11 +1,17 @@
 import { TestBed } from "@angular/core/testing";
-import { Demo } from "../../core/demo";
+import { Demo, DEMO_ABOUT, type DemoAbout } from "../../core/demo";
 import { settle } from "../../testing/component-harness";
 import { providePlatform } from "../../testing/fake-platform";
 import { DemoBadge } from "./demo-badge";
 
-async function setup(active: boolean) {
-  const demo = { active, reset: vi.fn(async () => undefined), download: vi.fn(async () => undefined) };
+async function setup(active: boolean, about: DemoAbout = DEMO_ABOUT) {
+  const demo = {
+    active,
+    about,
+    reset: vi.fn(async () => undefined),
+    download: vi.fn(async () => undefined),
+    openLink: vi.fn(async () => undefined),
+  };
   TestBed.configureTestingModule({ providers: [...providePlatform(), { provide: Demo, useValue: demo }] });
   const fixture = TestBed.createComponent(DemoBadge);
   await settle(fixture);
@@ -35,5 +41,29 @@ describe("DemoBadge", () => {
     await settle(fixture);
     item("Download Genbeya").click();
     expect(demo.download).toHaveBeenCalled();
+  });
+
+  it("says what another page runs on, and links to it", async () => {
+    const { element, demo, fixture } = await setup(true, {
+      title: "About this page",
+      pill: "GitHub",
+      caption: "acme/rockets",
+      note: "Genbeya runs here in your browser, on acme/rockets as it is on GitHub.",
+      reset: { label: "Read again from GitHub", title: "Read acme/rockets again?", message: "Everything you changed goes." },
+      link: { label: "Open on GitHub", url: "https://github.com/acme/rockets" },
+    });
+    const badge = element.querySelector<HTMLButtonElement>(".demo-badge")!;
+    expect(badge.textContent).toContain("GitHub");
+    expect(badge.textContent).toContain("acme/rockets");
+    expect(badge.title).toBe("About this page");
+    badge.click();
+    await settle(fixture);
+    expect(document.querySelector(".cdk-overlay-container")?.textContent).toContain("as it is on GitHub");
+    item("Open on GitHub").click();
+    expect(demo.openLink).toHaveBeenCalled();
+    badge.click();
+    await settle(fixture);
+    item("Read again from GitHub").click();
+    expect(demo.reset).toHaveBeenCalled();
   });
 });

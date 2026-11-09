@@ -14,23 +14,27 @@ import { MenuItem } from "../../ui/menu-item";
       <button
         type="button"
         class="demo-badge"
-        title="About this demo"
+        [title]="demo.about.title"
         [cdkMenuTriggerFor]="menu"
         #trigger="cdkMenuTriggerFor"
         [class.is-open]="trigger.isOpen()"
       >
-        <span class="demo-pill">Demo</span>
-        <span class="grow ellipsis">Runs in your browser</span>
+        <span class="demo-pill">{{ demo.about.pill }}</span>
+        <span class="grow ellipsis">{{ demo.about.caption }}</span>
         <svg gd-icon name="chevrons-up-down" [size]="13"></svg>
       </button>
       <ng-template #menu>
         <div class="menu" cdkMenu [style.width.px]="280">
-          <p class="demo-note">
-            Genbeya runs here in your browser, on a sample project with a simulated remote. Nothing you do is saved or sent anywhere, and
-            reloading the page starts over.
-          </p>
+          <p class="demo-note">{{ demo.about.note }}</p>
           <div class="menu-separator"></div>
-          <button gd-menu-item (selected)="demo.reset()"><svg icon gd-icon name="undo-2" [size]="14"></svg>Reset demo</button>
+          @if (demo.about.link; as link) {
+            <button gd-menu-item (selected)="demo.openLink()">
+              <svg icon gd-icon name="external-link" [size]="14"></svg>{{ link.label }}
+            </button>
+          }
+          <button gd-menu-item (selected)="demo.reset()">
+            <svg icon gd-icon name="undo-2" [size]="14"></svg>{{ demo.about.reset.label }}
+          </button>
           <button gd-menu-item (selected)="demo.download()">
             <svg icon gd-icon name="external-link" [size]="14"></svg>Download Genbeya
           </button>

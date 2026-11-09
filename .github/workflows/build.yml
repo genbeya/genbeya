@@ -76,6 +76,20 @@ jobs:
             test-results-demo/
           if-no-files-found: ignore
 
+      # Genbeya on GitHub (GENBEYA-39), against a simulated GitHub: no network needed.
+      - name: Test Genbeya on GitHub
+        if: runner.os == 'Linux'
+        run: npm run e2e:github
+
+      - uses: actions/upload-artifact@v4
+        if: failure() && runner.os == 'Linux'
+        with:
+          name: playwright-report-github
+          path: |
+            playwright-report-github/
+            test-results-github/
+          if-no-files-found: ignore
+
       - name: Pack the web demo
         if: runner.os == 'Linux'
         run: |
