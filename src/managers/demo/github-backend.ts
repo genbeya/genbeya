@@ -174,7 +174,11 @@ export function createGitHubBackend(snapshot: GitHubSnapshot, now: () => Date = 
 }
 
 /** The demo's managers on the repository `create` makes, which refuse to reach a remote. */
-export function backendOn(summary: GitHubSummary, create: (options: DemoRepositoryOptions) => MemoryRepository, now: () => Date): GitHubBackend {
+export function backendOn(
+  summary: GitHubSummary,
+  create: (options: DemoRepositoryOptions) => MemoryRepository,
+  now: () => Date,
+): GitHubBackend {
   let repository: MemoryRepository | undefined;
   const managers = createDemoBackend({
     now,
