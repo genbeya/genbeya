@@ -1,10 +1,11 @@
 /** The web demo's controls for the views: whether this is the demo, starting over, and getting the app. */
 import { Injectable, inject } from "@angular/core";
-import { DEMO, type DemoAbout } from "../platform/platform";
+import { DEMO, type DemoAbout, type DemoAction } from "../platform/platform";
 import { Dialogs } from "./dialogs";
 import { ExternalLinks } from "./external-links";
+import { Notifications } from "./notifications";
 
-export type { DemoAbout };
+export type { DemoAbout, DemoAction };
 
 /** The demo's own words; a page that runs Genbeya on something else says what it is. */
 export const DEMO_ABOUT: DemoAbout = {
@@ -24,16 +25,39 @@ export class Demo {
   private readonly controls = inject(DEMO);
   private readonly dialogs = inject(Dialogs);
   private readonly links = inject(ExternalLinks);
+  private readonly notifications = inject(Notifications);
   /** True in the web demo. */
   readonly active = this.controls !== null;
-  /** What the badge says. */
-  readonly about: DemoAbout = this.controls?.about ?? DEMO_ABOUT;
+
+  /** What the badge says now. */
+  get about(): DemoAbout {
+    return this.controls?.about?.() ?? DEMO_ABOUT;
+  }
+
+  /** The badge menu's other choices now. */
+  actions(): readonly DemoAction[] {
+    return this.controls?.actions?.() ?? [];
+  }
 
   /** Starts over, once the visitor confirms. */
   async reset(): Promise<void> {
-    const { title, message, label } = this.about.reset;
-    const confirmed = await this.dialogs.confirm({ title, message, confirm: label, danger: true });
+    const { title, message, label, danger = true } = this.about.reset;
+    const confirmed = await this.dialogs.confirm({ title, message, confirm: label, danger });
     if (confirmed) this.controls?.reset();
+  }
+
+  /** Runs one of the badge's choices once the visitor confirms it, and says what came of it. */
+  async run(action: DemoAction): Promise<void> {
+    if (action.confirm) {
+      const { title, message, label, danger = false } = action.confirm;
+      if (!(await this.dialogs.confirm({ title, message, confirm: label, danger }))) return;
+    }
+    try {
+      const outcome = await action.run();
+      if (outcome) this.notifications.success(outcome);
+    } catch (error) {
+      this.notifications.error(error);
+    }
   }
 
   /** Opens the page the badge links to. */

@@ -60,6 +60,11 @@ export class CommitStore {
     return commit;
   }
 
+  /** Every commit, in the order they were stored. */
+  all(): IterableIterator<CommitObject> {
+    return this.commits.values();
+  }
+
   get(hash: string): CommitObject {
     const commit = this.commits.get(hash);
     if (!commit) throw new Error(`Commit ${hash.slice(0, 7)} does not exist.`);

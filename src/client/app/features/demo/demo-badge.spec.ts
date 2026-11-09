@@ -1,13 +1,15 @@
 import { TestBed } from "@angular/core/testing";
-import { Demo, DEMO_ABOUT, type DemoAbout } from "../../core/demo";
+import { Demo, DEMO_ABOUT, type DemoAbout, type DemoAction } from "../../core/demo";
 import { settle } from "../../testing/component-harness";
 import { providePlatform } from "../../testing/fake-platform";
 import { DemoBadge } from "./demo-badge";
 
-async function setup(active: boolean, about: DemoAbout = DEMO_ABOUT) {
+async function setup(active: boolean, about: DemoAbout = DEMO_ABOUT, actions: readonly DemoAction[] = []) {
   const demo = {
     active,
     about,
+    actions: () => actions,
+    run: vi.fn(async () => undefined),
     reset: vi.fn(async () => undefined),
     download: vi.fn(async () => undefined),
     openLink: vi.fn(async () => undefined),
@@ -65,5 +67,14 @@ describe("DemoBadge", () => {
     await settle(fixture);
     item("Read again from GitHub").click();
     expect(demo.reset).toHaveBeenCalled();
+  });
+
+  it("offers the page's own choices", async () => {
+    const keep: DemoAction = { label: "Keep in this browser", icon: "archive-restore", run: () => undefined };
+    const { element, demo, fixture } = await setup(true, DEMO_ABOUT, [keep]);
+    element.querySelector<HTMLButtonElement>(".demo-badge")!.click();
+    await settle(fixture);
+    item("Keep in this browser").click();
+    expect(demo.run).toHaveBeenCalledWith(keep);
   });
 });

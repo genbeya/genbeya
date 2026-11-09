@@ -1,21 +1,24 @@
 import { TestBed } from "@angular/core/testing";
-import { DEMO, type DemoAbout } from "../platform/platform";
+import { DEMO, type DemoAbout, type DemoAction } from "../platform/platform";
 import { fakeShell, providePlatform } from "../testing/fake-platform";
 import { Demo } from "./demo";
 import { Dialogs } from "./dialogs";
+import { Notifications } from "./notifications";
 
 function setup(demo: boolean, confirmed = true, about?: DemoAbout) {
-  const controls = { reset: vi.fn(), downloadUrl: "https://genbeya.fyi/download", ...(about ? { about } : {}) };
+  const controls = { reset: vi.fn(), downloadUrl: "https://genbeya.fyi/download", ...(about ? { about: () => about } : {}) };
   const shell = fakeShell();
   const dialogs = { confirm: vi.fn(async () => confirmed) };
+  const notifications = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
     providers: [
       ...providePlatform(undefined, shell),
       { provide: Dialogs, useValue: dialogs },
+      { provide: Notifications, useValue: notifications },
       ...(demo ? [{ provide: DEMO, useValue: controls }] : []),
     ],
   });
-  return { demo: TestBed.inject(Demo), controls, shell, dialogs };
+  return { demo: TestBed.inject(Demo), controls, shell, dialogs, notifications };
 }
 
 describe("Demo", () => {
@@ -64,5 +67,30 @@ describe("Demo", () => {
     );
     await demo.openLink();
     expect(shell.openExternal).toHaveBeenCalledWith("https://github.com/acme/rockets");
+  });
+
+  it("runs a choice of the page once the visitor confirms it, and says how it went", async () => {
+    const { demo, dialogs, notifications } = setup(true);
+    const run = vi.fn(async () => "Kept in this browser.");
+    const keep: DemoAction = {
+      label: "Keep",
+      icon: "archive-restore",
+      confirm: { title: "Keep it?", message: "Kept here.", label: "Keep it" },
+      run,
+    };
+    await demo.run(keep);
+    expect(dialogs.confirm).toHaveBeenCalledWith({ title: "Keep it?", message: "Kept here.", confirm: "Keep it", danger: false });
+    expect(notifications.success).toHaveBeenCalledWith("Kept in this browser.");
+
+    const failing: DemoAction = { label: "Fail", icon: "trash-2", run: () => Promise.reject(new Error("Disk full.")) };
+    await demo.run(failing);
+    expect(notifications.error).toHaveBeenCalledWith(new Error("Disk full."));
+  });
+
+  it("does nothing when the visitor declines a choice", async () => {
+    const { demo } = setup(true, false);
+    const run = vi.fn();
+    await demo.run({ label: "Keep", icon: "archive-restore", confirm: { title: "Keep it?", message: "", label: "Keep it" }, run });
+    expect(run).not.toHaveBeenCalled();
   });
 });

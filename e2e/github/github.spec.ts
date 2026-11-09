@@ -4,6 +4,8 @@
  * the page's own files and those two hosts fail the test.
  */
 import { expect, test as base, type Page } from "@playwright/test";
+
+const MOD = process.platform === "darwin" ? "Meta" : "Control";
 import { fakeGitHub, type FakeGitHub } from "../../src/testing/fake-github";
 
 const repository = {
@@ -90,7 +92,7 @@ test("says what it requests before it asks GitHub, then opens the wiki and the b
   await expect(page.getByRole("region", { name: "Todo" })).toContainText("Paint the fins");
 
   await page.getByRole("button", { name: /^GitHub/ }).click();
-  await expect(page.getByText(/on acme\/rockets as it is on GitHub: main at [\da-f]{7}\./)).toBeVisible();
+  await expect(page.getByText(/on acme\/rockets as it was on GitHub: main at [\da-f]{7}\./)).toBeVisible();
   await expect(page.getByText("one other stays on GitHub")).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Open on GitHub" })).toBeVisible();
 });
@@ -102,7 +104,7 @@ test("opens a private repository with a token, which goes only to GitHub's API",
     "GitHub has no public repository acme/secret. A private one opens with a token that can read it.",
   );
   // The token field opens by itself.
-  await page.getByRole("textbox", { name: "Token" }).fill("github_pat_1");
+  await page.getByRole("textbox", { name: "Token for api.github.com" }).fill("github_pat_1");
   await page.getByRole("button", { name: "Open repository" }).click();
   await expect(page.locator(".workspace-name")).toHaveText("Rockets");
   const sent = github.requests
@@ -121,4 +123,111 @@ test("asks for a repository when the address names none", async ({ page }) => {
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/github\/acme\/rockets$/);
   await expect(page.getByRole("heading", { level: 1, name: "acme/rockets" })).toBeVisible();
+});
+
+test("shows the notice at every address of the page, and requests nothing before the visitor agrees", async ({ page, github }) => {
+  for (const address of [
+    "acme/rockets",
+    "acme/rockets/",
+    "acme/rockets/tree/main",
+    "acme/rockets#/tasks",
+    "acme/rockets#/code?file=src%2Ffuel.ts",
+    "./?repo=acme/rockets",
+  ]) {
+    await page.goto(address);
+    await expect(page.getByRole("heading", { level: 1, name: "acme/rockets" }), address).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open repository" })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Keep it in this browser" })).not.toBeChecked();
+    await expect(page.locator("gd-root")).toBeEmpty();
+  }
+  expect(github.requests).toEqual([]);
+});
+
+test("asks nothing of GitHub when the visitor cancels", async ({ page, github }) => {
+  await page.goto("acme/rockets");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Nothing was requested" })).toBeVisible();
+  expect(github.requests).toEqual([]);
+  await page.getByRole("button", { name: "Show the notice again" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "acme/rockets" })).toBeVisible();
+  expect(github.requests).toEqual([]);
+});
+
+test("keeps the repository with its changes when the visitor chooses, and opens it again without asking GitHub", async ({
+  page,
+  github,
+}) => {
+  await page.goto("acme/rockets");
+  await page.getByRole("checkbox", { name: "Keep it in this browser" }).check();
+  await page.getByRole("button", { name: "Open repository" }).click();
+  await expect(page.locator(".workspace-name")).toHaveText("Rockets");
+
+  await page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: "Tasks" }).click();
+  await expect(page.getByRole("region", { name: "Todo" })).toBeVisible();
+  await page.keyboard.press("c");
+  await page.getByRole("textbox", { name: "Task title" }).fill("Count down");
+  await page.keyboard.press(`${MOD}+s`);
+  await expect(page.getByRole("dialog", { name: "Task RKT-3" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^GitHub/ }).click();
+  await expect(page.getByText("It is kept in this browser, and your changes are saved as you go.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  // Saving waits a moment after a change.
+  await page.waitForTimeout(800);
+
+  await page.reload();
+  const kept = page.getByRole("region", { name: "Kept in this browser" });
+  await expect(kept).toContainText(/Branch main at [\da-f]{7}, saved .+, with your changes\. Opening it asks nothing of GitHub\./);
+  await expect(page.getByText(/This browser keeps one repository for Genbeya on GitHub/)).toBeVisible();
+  const asked = github.requests.length;
+  await kept.getByRole("button", { name: "Open kept copy" }).click();
+  await expect(page.locator(".workspace-name")).toHaveText("Rockets");
+  await page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: "Tasks" }).click();
+  await page.getByRole("radio", { name: "List" }).click();
+  await expect(page.locator(".main").getByText("Count down")).toBeVisible();
+  expect(github.requests.length).toBe(asked);
+  expect(await page.evaluate(() => [localStorage.length, sessionStorage.length, document.cookie])).toEqual([0, 0, ""]);
+
+  // Deleting the kept copy keeps the tab open, and the next visit starts with nothing kept.
+  await page.getByRole("button", { name: /^GitHub/ }).click();
+  await page.getByRole("menuitem", { name: "Delete the kept copy" }).click();
+  await page.getByRole("dialog", { name: "Delete the kept copy?" }).getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Deleted from this browser.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Open repository" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Kept in this browser" })).toHaveCount(0);
+});
+
+test("keeps a repository in one tab at a time", async ({ page, github, context }) => {
+  await page.goto("acme/rockets");
+  await page.getByRole("checkbox", { name: "Keep it in this browser" }).check();
+  await page.getByRole("button", { name: "Open repository" }).click();
+  await expect(page.locator(".workspace-name")).toHaveText("Rockets");
+
+  const other = await context.newPage();
+  await serveGitHub(other, github);
+  await other.goto("acme/rockets");
+  await other.getByRole("button", { name: "Open kept copy" }).click();
+  await expect(other.getByRole("alert")).toHaveText(
+    "This repository is open in another tab that keeps it. Close that tab first, or open the repository here without keeping it.",
+  );
+  // Without keeping, it opens here too.
+  await other.getByRole("button", { name: "Read again from GitHub" }).click();
+  await expect(other.locator(".workspace-name")).toHaveText("Rockets");
+  await other.close();
+});
+
+test("deletes everything kept from the start page", async ({ page }) => {
+  await page.goto("acme/rockets");
+  await page.getByRole("checkbox", { name: "Keep it in this browser" }).check();
+  await page.getByRole("button", { name: "Open repository" }).click();
+  await expect(page.locator(".workspace-name")).toHaveText("Rockets");
+
+  await page.goto("./");
+  await expect(page.getByRole("link", { name: "acme/rockets" })).toBeVisible();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Delete everything kept" }).click();
+  await expect(page.getByRole("link", { name: "acme/rockets" })).toHaveCount(0);
+  await page.goto("acme/rockets");
+  await expect(page.getByRole("region", { name: "Kept in this browser" })).toHaveCount(0);
 });

@@ -30,7 +30,7 @@ import type { DemoRepositoryOptions } from "./demo-sample";
 
 export const GITHUB_REMOTE = "origin";
 export const NO_SYNC =
-  "Genbeya on GitHub doesn't fetch or push yet: what you change stays in this tab. Clone the repository to work on it with Genbeya.";
+  "Genbeya on GitHub doesn't fetch or push yet: what you change stays in this browser. Clone the repository to work on it with Genbeya.";
 
 /** The page holds at most this many files, and this many bytes of them. */
 export const MAX_FILES = 3000;
@@ -45,9 +45,30 @@ export interface GitHubSnapshot {
   readonly unread: number;
 }
 
+/** What the page says about a repository it read from GitHub, and keeps with it. */
+export interface GitHubSummary {
+  /** As GitHub spells them. */
+  readonly owner: string;
+  readonly name: string;
+  readonly private: boolean;
+  readonly webUrl: string;
+  readonly cloneUrl: string;
+  readonly defaultBranch: string;
+  readonly branch: string;
+  /** The commit that was read. */
+  readonly commit: string;
+  /** Files of the tree that were not read. */
+  readonly unread: number;
+  /** Entries of the tree that can't be read: links, submodules, large files. */
+  readonly skipped: number;
+  readonly truncated: boolean;
+}
+
 export interface GitHubBackend {
   readonly managers: Managers;
-  readonly snapshot: GitHubSnapshot;
+  readonly summary: GitHubSummary;
+  /** The repository the managers work on, for keeping it. */
+  readonly repository: MemoryRepository;
 }
 
 /** Reads `address` from GitHub and opens Genbeya's managers on it. */
@@ -56,8 +77,24 @@ export async function openGitHubBackend(
   access: GitHubAccess,
   now: () => Date = () => new Date(),
 ): Promise<GitHubBackend> {
-  const snapshot = await readGitHubContent(address, access);
-  return { snapshot, managers: createGitHubBackend(snapshot, now) };
+  return createGitHubBackend(await readGitHubContent(address, access), now);
+}
+
+export function summarize({ tree, unread }: GitHubSnapshot): GitHubSummary {
+  const { owner, name, webUrl, cloneUrl, defaultBranch, branch, skipped, truncated } = tree;
+  return {
+    owner,
+    name,
+    private: tree.private,
+    webUrl,
+    cloneUrl,
+    defaultBranch,
+    branch,
+    commit: tree.commit.sha,
+    unread,
+    skipped: skipped.length,
+    truncated,
+  };
 }
 
 /** Reads the settings, then the wiki, the tasks and every Markdown file, then the files they refer to. */
@@ -132,12 +169,19 @@ export function referencedPaths(file: string, text: string): Set<string> {
   return paths;
 }
 
-export function createGitHubBackend(snapshot: GitHubSnapshot, now: () => Date = () => new Date()): Managers {
-  return createDemoBackend({
+export function createGitHubBackend(snapshot: GitHubSnapshot, now: () => Date = () => new Date()): GitHubBackend {
+  return backendOn(summarize(snapshot), (options) => gitHubRepository(snapshot, options), now);
+}
+
+/** The demo's managers on the repository `create` makes, which refuse to reach a remote. */
+export function backendOn(summary: GitHubSummary, create: (options: DemoRepositoryOptions) => MemoryRepository, now: () => Date): GitHubBackend {
+  let repository: MemoryRepository | undefined;
+  const managers = createDemoBackend({
     now,
     network: () => Promise.reject(new Error(NO_SYNC)),
-    repository: (options) => ({ name: snapshot.tree.name, repository: gitHubRepository(snapshot, options) }),
+    repository: (options) => ({ name: summary.name, repository: (repository = create(options)) }),
   });
+  return { managers, summary, repository: repository! };
 }
 
 /** The repository as a clone of `snapshot` would be, with its branch checked out and tracking `origin`. */

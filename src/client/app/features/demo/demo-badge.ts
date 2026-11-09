@@ -32,6 +32,11 @@ import { MenuItem } from "../../ui/menu-item";
               <svg icon gd-icon name="external-link" [size]="14"></svg>{{ link.label }}
             </button>
           }
+          @for (action of demo.actions(); track action.label) {
+            <button gd-menu-item (selected)="demo.run(action)">
+              <svg icon gd-icon [name]="action.icon" [size]="14"></svg>{{ action.label }}
+            </button>
+          }
           <button gd-menu-item (selected)="demo.reset()">
             <svg icon gd-icon name="undo-2" [size]="14"></svg>{{ demo.about.reset.label }}
           </button>

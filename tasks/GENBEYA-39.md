@@ -20,11 +20,16 @@ This task is the proof of concept: read-only, public repositories without signin
 - [x] Try it on this repository: 3 API requests and 85 files, about 3 seconds
 - [x] Read only Genbeya's content and what it refers to: reading all 706 files of this repository took 13 seconds, and a second load ran into raw.githubusercontent.com's limit (429)
 - [ ] Try it on a private repository with a token, from a real browser (the development environment's proxy can't show CORS preflights)
+- [x] The notice: a plain **Cancel** next to **Open repository**; say that GitHub sees the requests come from genbeya.fyi (the `Origin` header no page can suppress) and may process them in the US
+- [x] A test that every address of the page shows the notice and requests nothing before the visitor agrees
 
 Later, as their own tasks once the concept holds:
 
+- [[GENBEYA-40]] Keep a repository in the browser, by choice
+- [[GENBEYA-41]] Serve it from its own origin, with a static badge
+- [[GENBEYA-42]] Other forges, also self-hosted
+- [[GENBEYA-43]] Privacy review
 - Sign in with a GitHub App (OAuth through a stateless relay on genbeya.fyi; GitHub's token endpoints refuse requests from web pages)
 - Commit edits back to GitHub
 - Task activity and history from GitHub's commits
-- The `/github/…` route and its notice on genbeya.fyi
 - A GitHub Action that publishes the wiki and the board to Pages, for public repositories

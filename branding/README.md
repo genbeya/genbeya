@@ -8,7 +8,9 @@ The logo is an obeya, the project room, seen from its corner: a wiki page on the
 | [`genbeya-small.svg`](genbeya-small.svg) | Up to 48 pixels: favicons, small app icons, marks in the app. Bolder, with wider gaps and no people                                 |
 | [`genbeya-mono.svg`](genbeya-mono.svg)   | One colour, with the details cut out: on brand-coloured surfaces, in print, as a stamp. Fills with `currentColor` (navy by default) |
 
-All three are 512 × 512 with a transparent background. `npm run icons` renders the app icons and the favicon from them (see [Development](../docs/Development.md)).
+All three are 512 × 512 with a transparent background.
+
+[`open-in-genbeya.svg`](open-in-genbeya.svg) is the badge a README links to its repository on genbeya.fyi with (see [GitHub](../docs/Architecture/GitHub.md#the-badge)): navy and a darker purple (`#5b5fd6`), so white text stays readable. It is one static file for every repository; never serve it per repository, which would tell the server who reads which README. `npm run icons` renders the app icons and the favicon from them (see [Development](../docs/Development.md)).
 
 ## Colours
 

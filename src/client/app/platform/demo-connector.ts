@@ -6,10 +6,10 @@
  * choices live in memory too, and loading the page again starts over.
  */
 import type { Managers } from "../../../contracts/manager-contracts";
-import { connectManagers, dispatch } from "../../../contracts/rpc";
+import { connectManagers, dispatch, type Request } from "../../../contracts/rpc";
 import { createDemoBackend } from "../../../managers/demo/demo-backend";
 import { DEMO_FOLDER } from "../../../managers/demo/demo-workspace-manager";
-import type { DemoAbout, Platform } from "./platform";
+import type { DemoControls, Platform } from "./platform";
 
 export const DOWNLOAD_URL = "https://genbeya.fyi/download";
 
@@ -25,15 +25,31 @@ function memoryStorage(): Pick<Storage, "getItem" | "setItem"> {
   };
 }
 
-/** Connects the client to `backend` in the page: the demo's own unless given, described by `about`. */
-export function connectDemo(page: DemoPage = window, backend: Managers = createDemoBackend(), about?: DemoAbout): Platform {
+/** A page that runs other managers in the demo's place, such as Genbeya on GitHub. */
+export interface DemoConnection extends Pick<DemoControls, "about" | "actions"> {
+  /** The managers; the demo's own unless given. */
+  readonly backend?: Managers;
+  /** Called after each call the client makes, once it has answered. */
+  readonly afterCall?: (request: Request) => void;
+}
+
+/** Connects the client to the demo's managers in the page, or to those of `connection`. */
+export function connectDemo(
+  page: DemoPage = window,
+  { backend = createDemoBackend(), about, actions, afterCall }: DemoConnection = {},
+): Platform {
   let leaving = false;
   return {
-    managers: connectManagers(async (request) => structuredClone(await dispatch(backend, structuredClone(request)))),
+    managers: connectManagers(async (request) => {
+      const response = structuredClone(await dispatch(backend, structuredClone(request)));
+      afterCall?.(request);
+      return response;
+    }),
     storage: memoryStorage(),
     demo: {
       downloadUrl: DOWNLOAD_URL,
       ...(about ? { about } : {}),
+      ...(actions ? { actions } : {}),
       reset() {
         leaving = true;
         // Loading the page again starts over, at the start rather than the view the address names.

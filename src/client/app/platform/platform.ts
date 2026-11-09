@@ -2,6 +2,7 @@
 import { InjectionToken } from "@angular/core";
 import type { Managers } from "../../../contracts/manager-contracts";
 import type { ShellContract } from "../../../contracts/shell";
+import type { IconName } from "../ui/icon-data";
 
 /** The web demo's own controls: it runs in a web page, with a simulated backend. */
 export interface DemoControls {
@@ -9,8 +10,19 @@ export interface DemoControls {
   reset(): void;
   /** Where to get Genbeya itself. */
   readonly downloadUrl: string;
-  /** How the badge describes the page; the demo's own words unless given. */
-  readonly about?: DemoAbout;
+  /** How the badge describes the page now; the demo's own words unless given. */
+  about?(): DemoAbout;
+  /** More choices the badge's menu offers now, such as keeping the repository in the browser. */
+  actions?(): readonly DemoAction[];
+}
+
+/** A choice in the badge's menu, asked about first when it has a `confirm`. */
+export interface DemoAction {
+  readonly label: string;
+  readonly icon: IconName;
+  readonly confirm?: { readonly title: string; readonly message: string; readonly label: string; readonly danger?: boolean };
+  /** Does it, and says what came of it, if anything. */
+  run(): Promise<string | undefined> | string | undefined;
 }
 
 /** What the badge says about a page that runs Genbeya in the browser. */
@@ -24,7 +36,7 @@ export interface DemoAbout {
   /** What the page is, at the top of the badge's menu. */
   readonly note: string;
   /** How the menu offers {@link DemoControls.reset}, and how it asks first. */
-  readonly reset: { readonly label: string; readonly title: string; readonly message: string };
+  readonly reset: { readonly label: string; readonly title: string; readonly message: string; readonly danger?: boolean };
   /** Another page the menu offers, such as the repository on GitHub. */
   readonly link?: { readonly label: string; readonly url: string };
 }

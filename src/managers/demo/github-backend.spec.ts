@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fakeGitHub } from "../../testing/fake-github";
-import { NO_SYNC, openGitHubBackend, referencedPaths } from "./github-backend";
+import { NO_SYNC, openGitHubBackend, readGitHubContent, referencedPaths } from "./github-backend";
 
 const github = () =>
   fakeGitHub([
@@ -29,7 +29,7 @@ const github = () =>
 
 describe("Genbeya on a repository read from GitHub", () => {
   it("opens the repository with its settings, wiki and tasks, clean and in step with GitHub", async () => {
-    const { managers, snapshot } = await openGitHubBackend({ owner: "acme", name: "rockets" }, { fetch: github() });
+    const { managers, summary } = await openGitHubBackend({ owner: "acme", name: "rockets" }, { fetch: github() });
     const opened = await managers.workspace.restore([]);
     const view = opened!.snapshot;
     expect(view.settings.name).toBe("Rockets");
@@ -38,7 +38,7 @@ describe("Genbeya on a repository read from GitHub", () => {
     expect(view.changes).toEqual([]);
     expect(view.head).toMatchObject({
       branch: "main",
-      commit: snapshot.tree.commit.sha.slice(0, 7),
+      commit: summary.commit.slice(0, 7),
       upstream: "origin/main",
       ahead: 0,
       behind: 0,
@@ -46,7 +46,7 @@ describe("Genbeya on a repository read from GitHub", () => {
     expect(view.remotes).toEqual([{ name: "origin", url: "https://github.com/acme/rockets.git" }]);
 
     const [commit] = await managers.versionControl.log(opened!.id, 0, 10);
-    expect(commit).toMatchObject({ hash: snapshot.tree.commit.sha, subject: "Plan the launch", author: "Ada Lovelace" });
+    expect(commit).toMatchObject({ hash: summary.commit, subject: "Plan the launch", author: "Ada Lovelace" });
   });
 
   it("keeps edits in the tab and refuses to fetch or push", async () => {
@@ -61,7 +61,7 @@ describe("Genbeya on a repository read from GitHub", () => {
 
   it("reads Genbeya's content and the files it refers to, and leaves other code on GitHub", async () => {
     const fetch = github();
-    const { snapshot } = await openGitHubBackend({ owner: "acme", name: "rockets" }, { fetch });
+    const snapshot = await readGitHubContent({ owner: "acme", name: "rockets" }, { fetch });
     expect([...snapshot.files.keys()].sort()).toEqual([
       ".genbeya.yml",
       "README.md",
