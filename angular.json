@@ -109,16 +109,16 @@
                 "fonts": false
               }
             },
-            "github": {
-              "outputPath": "dist/github",
+            "forge": {
+              "outputPath": "dist/forge",
               "index": {
-                "input": "src/client/index.github.html",
+                "input": "src/client/index.forge.html",
                 "output": "index.html"
               },
               "fileReplacements": [
                 {
                   "replace": "src/client/app/platform/connect.ts",
-                  "with": "src/client/app/platform/connect.github.ts"
+                  "with": "src/client/app/platform/connect.forge.ts"
                 }
               ],
               "budgets": [
@@ -162,8 +162,8 @@
             "demo": {
               "buildTarget": "genbeya:build:demo"
             },
-            "github": {
-              "buildTarget": "genbeya:build:github"
+            "forge": {
+              "buildTarget": "genbeya:build:forge"
             }
           },
           "defaultConfiguration": "development"

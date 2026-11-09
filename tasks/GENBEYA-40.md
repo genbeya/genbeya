@@ -7,7 +7,7 @@ priority: medium
 labels: [integrations, github, web, privacy]
 ---
 
-Genbeya on GitHub ([[GENBEYA-39]]) keeps everything in the tab's memory. Let visitors choose to keep a repository, with their changes, in the browser's private file storage (OPFS), so it survives a reload and opens again without asking GitHub. Design: [[Architecture/GitHub#keeping-a-repository]].
+Genbeya on GitHub ([[GENBEYA-39]]) keeps everything in the tab's memory. Let visitors choose to keep a repository, with their changes, in the browser's private file storage (OPFS), so it survives a reload and opens again without asking GitHub. Design: [[Architecture/Forges#keeping-a-repository]].
 
 Off by default and a choice of its own, never bundled with agreeing to the requests. Nothing kept ever leaves the device, and deleting it is as easy as keeping it.
 

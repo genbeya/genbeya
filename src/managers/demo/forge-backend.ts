@@ -1,53 +1,50 @@
 /**
- * Genbeya on GitHub: the web demo's managers, opened on a repository read from GitHub instead of the
- * sample project. The repository is the commit its branch points to, with GitHub's commit ID, so links
- * to it and its files lead to the same place on github.com. Edits work as in the demo and stay in the
- * tab: fetching and pushing are refused, since nothing is written back to GitHub yet.
+ * Genbeya on a forge: the web demo's managers, opened on a repository read from GitHub, GitLab, Bitbucket,
+ * Gitea or Forgejo instead of the sample project. The repository is the commit its branch points to, with
+ * the forge's commit ID, so links to it and its files lead to the same place on the forge. Edits work as in
+ * the demo and stay in the browser: fetching and pushing are refused, since nothing is written back yet.
  *
  * Only Genbeya's content is read: the settings, the wiki and task folders, every Markdown file, and the
- * files those link to or embed. Reading a whole repository on every visit runs into the limits
- * raw.githubusercontent.com sets on how fast one browser reads files; the rest of the code stays on GitHub.
+ * files those link to or embed. Reading a whole repository on every visit runs into the limits forges set
+ * on how fast one browser reads files (raw.githubusercontent.com did); the rest of the code stays on the forge.
  */
 import type { Managers } from "../../contracts/manager-contracts";
-import {
-  readGitHubFiles,
-  readGitHubTree,
-  type GitHubAccess,
-  type GitHubPerson,
-  type GitHubTree,
-  type TreeFile,
-} from "../../access/github/github-reader";
+import type { ForgeAccess, ForgePerson, ForgeReader, ForgeTree, TreeFile } from "../../access/forges/forge";
+import { FORGE_READERS } from "../../access/forges/readers";
 import { isoDate } from "../../access/memory/commits";
 import { fileContent } from "../../access/memory/file-bytes";
 import { MemoryRepository } from "../../access/memory/memory-repository";
 import { SETTINGS_FILE, SettingsEngine } from "../../engines/settings-engine";
 import { decodeLenient } from "../../utilities/bytes";
-import type { GitHubAddress } from "../../utilities/github-address";
+import type { Forge, ForgeAddress } from "../../utilities/forge-address";
 import { WIKILINK } from "../../utilities/references";
 import { resolveLinkPath, within } from "../../utilities/repository-path";
 import { createDemoBackend } from "./demo-backend";
 import type { DemoRepositoryOptions } from "./demo-sample";
 
-export const GITHUB_REMOTE = "origin";
+export const FORGE_REMOTE = "origin";
 export const NO_SYNC =
-  "Genbeya on GitHub doesn't fetch or push yet: what you change stays in this browser. Clone the repository to work on it with Genbeya.";
+  "Genbeya in the browser doesn't fetch or push yet: what you change stays in this browser. Clone the repository to work on it with Genbeya.";
 
 /** The page holds at most this many files, and this many bytes of them. */
 export const MAX_FILES = 3000;
 export const MAX_BYTES = 30_000_000;
 
-/** What was read of a branch on GitHub. */
-export interface GitHubSnapshot {
-  readonly tree: GitHubTree;
+/** What was read of a branch on a forge. */
+export interface ForgeSnapshot {
+  readonly tree: ForgeTree;
   /** The files that were read, by path: their bytes. */
   readonly files: ReadonlyMap<string, Uint8Array>;
   /** Files of the tree that were not read: neither Genbeya's content nor referenced from it, or past the limits. */
   readonly unread: number;
 }
 
-/** What the page says about a repository it read from GitHub, and keeps with it. */
-export interface GitHubSummary {
-  /** As GitHub spells them. */
+/** What the page says about a repository it read from a forge, and keeps with it. */
+export interface ForgeSummary {
+  readonly forge: Forge;
+  /** The forge's website, or a server of its own. */
+  readonly host: string;
+  /** As the forge spells them. */
   readonly owner: string;
   readonly name: string;
   readonly private: boolean;
@@ -64,25 +61,27 @@ export interface GitHubSummary {
   readonly truncated: boolean;
 }
 
-export interface GitHubBackend {
+export interface ForgeBackend {
   readonly managers: Managers;
-  readonly summary: GitHubSummary;
+  readonly summary: ForgeSummary;
   /** The repository the managers work on, for keeping it. */
   readonly repository: MemoryRepository;
 }
 
-/** Reads `address` from GitHub and opens Genbeya's managers on it. */
-export async function openGitHubBackend(
-  address: GitHubAddress,
-  access: GitHubAccess,
+/** Reads `address` from its forge and opens Genbeya's managers on it. */
+export async function openForgeBackend(
+  address: ForgeAddress,
+  access: ForgeAccess,
   now: () => Date = () => new Date(),
-): Promise<GitHubBackend> {
-  return createGitHubBackend(await readGitHubContent(address, access), now);
+): Promise<ForgeBackend> {
+  return createForgeBackend(await readForgeContent(address, access), now);
 }
 
-export function summarize({ tree, unread }: GitHubSnapshot): GitHubSummary {
+export function summarize({ tree, unread }: ForgeSnapshot): ForgeSummary {
   const { owner, name, webUrl, cloneUrl, defaultBranch, branch, skipped, truncated } = tree;
   return {
+    forge: tree.address.forge,
+    host: tree.address.host,
     owner,
     name,
     private: tree.private,
@@ -98,12 +97,13 @@ export function summarize({ tree, unread }: GitHubSnapshot): GitHubSummary {
 }
 
 /** Reads the settings, then the wiki, the tasks and every Markdown file, then the files they refer to. */
-export async function readGitHubContent(
-  address: GitHubAddress,
-  access: GitHubAccess,
+export async function readForgeContent(
+  address: ForgeAddress,
+  access: ForgeAccess,
   settings = new SettingsEngine(),
-): Promise<GitHubSnapshot> {
-  const tree = await readGitHubTree(address, access);
+  reader: ForgeReader = FORGE_READERS[address.forge],
+): Promise<ForgeSnapshot> {
+  const tree = await reader.readTree(address, access);
   const byPath = new Map(tree.files.map((file) => [file.path, file]));
   const files = new Map<string, Uint8Array>();
   let bytes = 0;
@@ -118,8 +118,12 @@ export async function readGitHubContent(
       return fits;
     });
     const done = files.size;
-    const read = await readGitHubFiles(tree, batch, { ...access, progress: (count) => access.progress?.(done + count, total) });
-    for (const [path, content] of read) files.set(path, content);
+    const read = await reader.readFiles(tree, batch, { ...access, progress: (count) => access.progress?.(done + count, total) });
+    for (const [path, content] of read) {
+      files.set(path, content);
+      // Forges that list no sizes (GitLab) count what arrived.
+      if (!byPath.get(path)?.size) bytes += content.length;
+    }
   };
 
   const settingsFile = byPath.get(SETTINGS_FILE);
@@ -169,16 +173,16 @@ export function referencedPaths(file: string, text: string): Set<string> {
   return paths;
 }
 
-export function createGitHubBackend(snapshot: GitHubSnapshot, now: () => Date = () => new Date()): GitHubBackend {
-  return backendOn(summarize(snapshot), (options) => gitHubRepository(snapshot, options), now);
+export function createForgeBackend(snapshot: ForgeSnapshot, now: () => Date = () => new Date()): ForgeBackend {
+  return backendOn(summarize(snapshot), (options) => forgeRepository(snapshot, options), now);
 }
 
 /** The demo's managers on the repository `create` makes, which refuse to reach a remote. */
 export function backendOn(
-  summary: GitHubSummary,
+  summary: ForgeSummary,
   create: (options: DemoRepositoryOptions) => MemoryRepository,
   now: () => Date,
-): GitHubBackend {
+): ForgeBackend {
   let repository: MemoryRepository | undefined;
   const managers = createDemoBackend({
     now,
@@ -189,7 +193,7 @@ export function backendOn(
 }
 
 /** The repository as a clone of `snapshot` would be, with its branch checked out and tracking `origin`. */
-export function gitHubRepository(snapshot: GitHubSnapshot, options: DemoRepositoryOptions): MemoryRepository {
+export function forgeRepository(snapshot: ForgeSnapshot, options: DemoRepositoryOptions): MemoryRepository {
   const repository = new MemoryRepository(options);
   const tree = new Map([...snapshot.files].map(([path, bytes]) => [path, fileContent(bytes)] as const));
   const { branch, commit: head, cloneUrl, defaultBranch } = snapshot.tree;
@@ -207,19 +211,19 @@ export function gitHubRepository(snapshot: GitHubSnapshot, options: DemoReposito
     repository.worktree.set(path, content);
     repository.index.set(path, content);
   }
-  repository.sync.set(GITHUB_REMOTE, cloneUrl);
-  const server = repository.remotes.get(GITHUB_REMOTE)!;
+  repository.sync.set(FORGE_REMOTE, cloneUrl);
+  const server = repository.remotes.get(FORGE_REMOTE)!;
   server.branches.set(branch, commit.hash);
-  repository.tracking.set(`${GITHUB_REMOTE}/${branch}`, commit.hash);
-  repository.upstreams.set(branch, { remote: GITHUB_REMOTE, branch });
+  repository.tracking.set(`${FORGE_REMOTE}/${branch}`, commit.hash);
+  repository.upstreams.set(branch, { remote: FORGE_REMOTE, branch });
   if (branch === defaultBranch) {
     server.head = branch;
-    repository.remoteHeads.set(GITHUB_REMOTE, branch);
+    repository.remoteHeads.set(FORGE_REMOTE, branch);
   }
   return repository;
 }
 
-const signature = (person: GitHubPerson) => {
+const signature = (person: ForgePerson) => {
   const date = new Date(person.date);
   return { name: person.name, email: person.email, date: isoDate(Number.isNaN(date.getTime()) ? new Date(0) : date) };
 };

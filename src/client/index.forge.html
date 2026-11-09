@@ -2,17 +2,22 @@
 <html lang="en" data-theme="system">
   <head>
     <meta charset="utf-8" />
-    <title>Genbeya on GitHub</title>
+    <title>Genbeya on your forge</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Open a GitHub repository's wiki, task board and code in Genbeya, in your browser." />
+    <meta
+      name="description"
+      content="Open a repository's wiki, task board and code in Genbeya, in your browser, from GitHub, GitLab, Bitbucket, Codeberg, Gitea or Forgejo."
+    />
     <meta name="referrer" content="no-referrer" />
     <!--
-      The policy every shell serves (src/shells/content-security-policy.ts), and connections to GitHub's API and
-      raw files, which the page reads the repository from; frame-ancestors only works as a header.
+      The policy every shell serves (src/shells/content-security-policy.ts), and connections to forges over https,
+      which the page reads repositories from. This is the fallback: the server sends the same policy as a header,
+      with connections only to the hosts of the forge the address names (scripts/serve-forge.mjs), and browsers
+      enforce both. frame-ancestors only works as a header.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <link rel="icon" type="image/png" sizes="48x48" href="icon.png" />
     <link rel="icon" type="image/svg+xml" href="icon.svg" />
@@ -69,6 +74,24 @@
         font-weight: 600;
         letter-spacing: 0.04em;
         text-transform: uppercase;
+      }
+      .gh-warning {
+        margin-top: 14px !important;
+        padding: 10px 12px;
+        border: 1px solid var(--yellow);
+        border-radius: var(--radius);
+        background: var(--yellow-soft);
+        color: var(--text);
+      }
+      .gh-form select {
+        width: 100%;
+        height: 32px;
+        padding: 0 6px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        background: var(--bg-input);
+        color: var(--text);
+        font: inherit;
       }
       .gh-subtitle,
       .gh-hint {
@@ -161,6 +184,6 @@
   </head>
   <body>
     <gd-root></gd-root>
-    <noscript>Genbeya on GitHub needs JavaScript.</noscript>
+    <noscript>Genbeya on your forge needs JavaScript.</noscript>
   </body>
 </html>

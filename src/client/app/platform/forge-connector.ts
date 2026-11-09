@@ -1,30 +1,29 @@
 /**
- * Genbeya on GitHub, at `/github/<owner>/<repo>` on genbeya.fyi: the start screen (`github-notice.ts`) says
- * what the page requests and keeps; once the visitor chooses, the repository is read from GitHub, or its
- * kept copy opened, and the client runs on it with the web demo's managers (`github-backend.ts`).
+ * Genbeya on a forge, at `/github/<owner>/<repo>`, `/gitlab/…` and so on (`forge-address.ts`): the start
+ * screen (`forge-notice.ts`) says what the page requests and keeps; once the visitor chooses, the repository
+ * is read from its forge, or its kept copy opened, and the client runs on it with the web demo's managers
+ * (`forge-backend.ts`).
  *
  * Keeping is the visitor's choice, off by default: then the repository is saved with every change to the
- * browser's private storage (`github-keeping.ts`), and one tab at a time holds it. A token is used while
+ * browser's private storage (`forge-keeping.ts`), and one tab at a time holds it. A token is used while
  * the files are read, and then dropped; it is never kept.
  */
 import { opfsFiles } from "../../../access/browser/kept-files";
-import type { Fetch } from "../../../access/github/github-reader";
+import type { Fetch } from "../../../access/forges/forge";
 import type { Request } from "../../../contracts/rpc";
-import { openGitHubBackend, type GitHubBackend, type GitHubSummary } from "../../../managers/demo/github-backend";
-import { GitHubKeeper, type KeptRepository } from "../../../managers/demo/github-keeping";
-import { gitHubAddressPath, parseGitHubAddress, type GitHubAddress } from "../../../utilities/github-address";
+import { openForgeBackend, type ForgeBackend, type ForgeSummary } from "../../../managers/demo/forge-backend";
+import { ForgeKeeper, type KeptRepository } from "../../../managers/demo/forge-keeping";
+import { FORGE_LABELS, forgeWebUrl, isSelfHosted, parseForgeAddress, type ForgeAddress } from "../../../utilities/forge-address";
 import { connectDemo, type DemoPage } from "./demo-connector";
-import { StartScreen, type KeptCopy, type KeptTotal, type NoticePage } from "./github-notice";
+import { StartScreen, type KeptCopy, type KeptTotal, type NoticePage } from "./forge-notice";
 import type { DemoAbout, DemoAction, Platform } from "./platform";
 
-export { PRIVACY_URL } from "./github-notice";
+export type ForgePage = DemoPage & NoticePage;
 
-export type GitHubPage = DemoPage & NoticePage;
-
-export interface GitHubConnectorOptions {
+export interface ForgeConnectorOptions {
   readonly fetch?: Fetch;
   /** Where kept repositories live; null when the browser can't keep them. */
-  readonly keeper?: GitHubKeeper | null;
+  readonly keeper?: ForgeKeeper | null;
   /** One tab at a time keeps a repository; null where the browser has no locks. */
   readonly locks?: LockManager | null;
 }
@@ -66,17 +65,17 @@ const READS = new Set([
 
 const browserFetch: Fetch = (url, init) => globalThis.fetch(url, init);
 
-function defaultKeeper(): GitHubKeeper | null {
+function defaultKeeper(): ForgeKeeper | null {
   const files = opfsFiles();
-  return files && new GitHubKeeper(files);
+  return files && new ForgeKeeper(files);
 }
 
-export async function connectGitHub(
-  page: GitHubPage = window,
-  { fetch = browserFetch, keeper = defaultKeeper(), locks = globalThis.navigator?.locks ?? null }: GitHubConnectorOptions = {},
+export async function connectForge(
+  page: ForgePage = window,
+  { fetch = browserFetch, keeper = defaultKeeper(), locks = globalThis.navigator?.locks ?? null }: ForgeConnectorOptions = {},
 ): Promise<Platform> {
   const screen = new StartScreen(page);
-  const address = parseGitHubAddress(page.location.pathname, page.location.search);
+  const address = parseForgeAddress(page.location.pathname, page.location.search);
   const kept = (await keeper?.list().catch(() => [])) ?? [];
   const total = async (): Promise<KeptTotal | null> =>
     keeper ? { count: (await keeper.list()).length, bytes: await keeper.usage() } : null;
@@ -85,14 +84,14 @@ export async function connectGitHub(
 
   const keptCopy = keeper && (await keeper.find(address));
   const keeping = new Keeping(keeper, locks);
-  const backend = await screen.notice<GitHubBackend>(address, {
+  const backend = await screen.notice<ForgeBackend>(address, {
     canKeep: !!keeper,
     kept: keptCopy && copyOf(keptCopy),
     total: await total(),
     async read(token, keep, progress) {
       // Taking the lock first, so another tab can't keep the same repository meanwhile.
       if (keep) await keeping.lock(address);
-      const opened = await openGitHubBackend(address, { fetch, token, progress });
+      const opened = await openForgeBackend(address, { fetch, token, progress });
       if (keep) await keeping.start(opened);
       return opened;
     },
@@ -108,7 +107,7 @@ export async function connectGitHub(
   screen.remove();
   return connectDemo(page, {
     backend: backend.managers,
-    about: () => aboutGitHub(backend.summary, keeping),
+    about: () => aboutForge(backend.summary, keeping),
     actions: () => keepingActions(address, backend, keeping),
     afterCall: (request) => keeping.changed(request),
   });
@@ -116,7 +115,7 @@ export async function connectGitHub(
 
 /** Keeping the open repository in the browser while the visitor wants it kept. */
 export class Keeping {
-  private backend: GitHubBackend | null = null;
+  private backend: ForgeBackend | null = null;
   private release: (() => void) | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private saving: Promise<void> = Promise.resolve();
@@ -124,7 +123,7 @@ export class Keeping {
   problem: string | null = null;
 
   constructor(
-    readonly keeper: GitHubKeeper | null,
+    readonly keeper: ForgeKeeper | null,
     private readonly locks: LockManager | null,
   ) {}
 
@@ -133,9 +132,9 @@ export class Keeping {
   }
 
   /** Holds the repository for this tab until keeping stops or the tab closes; fails when another tab holds it. */
-  async lock(address: Pick<GitHubAddress, "owner" | "name">): Promise<void> {
+  async lock(address: Pick<ForgeAddress, "forge" | "host" | "owner" | "name">): Promise<void> {
     if (this.release || !this.locks) return;
-    const name = `genbeya:github.com/${address.owner}/${address.name}`.toLowerCase();
+    const name = `genbeya:${address.forge}:${address.host}/${address.owner}/${address.name}`.toLowerCase();
     const held = await new Promise<boolean>((resolve) => {
       void this.locks!.request(name, { ifAvailable: true }, (lock) => {
         if (!lock) return resolve(false);
@@ -147,7 +146,7 @@ export class Keeping {
   }
 
   /** Keeps `backend`'s repository from now on, saving it at once. */
-  async start(backend: GitHubBackend): Promise<void> {
+  async start(backend: ForgeBackend): Promise<void> {
     if (!this.keeper) throw new Error("This browser can't keep files for web pages.");
     await this.lock(backend.summary);
     await this.keeper.persist().catch(() => false);
@@ -200,7 +199,7 @@ export class Keeping {
 }
 
 /** The badge's choices about keeping: keep the repository, or stop and delete the kept copy. */
-export function keepingActions(address: GitHubAddress, backend: GitHubBackend, keeping: Keeping): DemoAction[] {
+export function keepingActions(address: ForgeAddress, backend: ForgeBackend, keeping: Keeping): DemoAction[] {
   if (!keeping.keeper) return [];
   if (keeping.active)
     return [
@@ -226,8 +225,7 @@ export function keepingActions(address: GitHubAddress, backend: GitHubBackend, k
       icon: "archive-restore",
       confirm: {
         title: "Keep this repository in this browser?",
-        message:
-          "Genbeya saves it with your changes in this browser's private storage for genbeya.fyi, so it opens again without asking GitHub, until you delete it. It never leaves your device, and tokens are never kept.",
+        message: `Genbeya saves it with your changes in this browser's private storage for this site, so it opens again without asking ${FORGE_LABELS[address.forge]}, until you delete it. It never leaves your device, and tokens are never kept.`,
         label: "Keep it",
       },
       run: async () => {
@@ -240,27 +238,28 @@ export function keepingActions(address: GitHubAddress, backend: GitHubBackend, k
 }
 
 /** What the badge says about the repository. */
-export function aboutGitHub(summary: GitHubSummary, keeping?: Pick<Keeping, "active" | "problem">): DemoAbout {
+export function aboutForge(summary: ForgeSummary, keeping?: Pick<Keeping, "active" | "problem">): DemoAbout {
+  const forge = FORGE_LABELS[summary.forge];
   const label = `${summary.owner}/${summary.name}`;
+  const where = isSelfHosted(summary) ? ` on ${summary.host}` : "";
   const { unread, skipped } = summary;
   const missing = [
     unread
-      ? `Code has the files the wiki and the tasks refer to; ${unread === 1 ? "one other stays" : `${unread} others stay`} on GitHub.`
+      ? `Code has the files the wiki and the tasks refer to; ${unread === 1 ? "one other stays" : `${unread} others stay`} on ${forge}.`
       : "",
     skipped ? `${skipped === 1 ? "One entry is" : `${skipped} entries are`} left out: links, submodules or files over a megabyte.` : "",
-    summary.truncated ? "GitHub listed only part of the repository's files." : "",
+    summary.truncated ? `${forge} listed only part of the repository's files.` : "",
   ].filter(Boolean);
-  const branch = summary.branch === summary.defaultBranch ? "" : `/tree/${summary.branch.split("/").map(encodeURIComponent).join("/")}`;
   const kept = !!keeping?.active;
   return {
     title: "About this page",
-    pill: "GitHub",
-    caption: label,
+    pill: forge,
+    caption: isSelfHosted(summary) ? `${summary.host}: ${label}` : label,
     note: [
-      `Genbeya runs here in your browser, on ${label} as it was on GitHub: ${summary.branch} at ${summary.commit.slice(0, 7)}.`,
+      `Genbeya runs here in your browser, on ${label}${where} as it was on ${forge}: ${summary.branch} at ${summary.commit.slice(0, 7)}.`,
       kept
-        ? "It is kept in this browser, and your changes are saved as you go. Nothing is written back to GitHub."
-        : "What you change stays in this tab. Nothing is written back to GitHub, and closing the tab forgets it.",
+        ? `It is kept in this browser, and your changes are saved as you go. Nothing is written back to ${forge}.`
+        : `What you change stays in this tab. Nothing is written back to ${forge}, and closing the tab forgets it.`,
       ...(keeping?.problem ? [keeping.problem] : []),
       ...missing,
     ].join(" "),
@@ -268,24 +267,29 @@ export function aboutGitHub(summary: GitHubSummary, keeping?: Pick<Keeping, "act
       ? {
           label: "Back to the start",
           title: "Go back to the start?",
-          message:
-            "Your changes stay kept in this browser: open the kept copy from the start page, or read the repository from GitHub again.",
+          message: `Your changes stay kept in this browser: open the kept copy from the start page, or read the repository from ${forge} again.`,
           danger: false,
         }
       : {
-          label: "Read again from GitHub",
+          label: `Read again from ${forge}`,
           title: `Read ${label} again?`,
-          message: "Everything you changed goes, and the repository is read from GitHub as it is now.",
+          message: `Everything you changed goes, and the repository is read from ${forge} as it is now.`,
         },
-    link: { label: "Open on GitHub", url: summary.webUrl + branch },
+    link: { label: `Open on ${forge}`, url: forgeWebUrl(addressOf(summary)) },
   };
+}
+
+/** The address that opens a repository: its branch, unless that is the default one. */
+function addressOf(summary: ForgeSummary): ForgeAddress {
+  const { forge, host, owner, name, branch, defaultBranch } = summary;
+  return { forge, host, owner, name, ...(branch === defaultBranch ? {} : { branch }) };
 }
 
 function copyOf(kept: KeptRepository): KeptCopy {
   const saved = new Date(kept.savedAt).toLocaleString("en", { dateStyle: "medium", timeStyle: "short" });
   return {
-    path: gitHubAddressPath(kept.branch === kept.defaultBranch ? { owner: kept.owner, name: kept.name } : kept),
-    label: `${kept.owner}/${kept.name}`,
+    address: addressOf(kept),
+    label: `${FORGE_LABELS[kept.forge]}: ${isSelfHosted(kept) ? `${kept.host}/` : ""}${kept.owner}/${kept.name}`,
     description: `Branch ${kept.branch} at ${kept.commit.slice(0, 7)}, saved ${saved}`,
   };
 }

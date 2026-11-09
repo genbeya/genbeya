@@ -76,18 +76,18 @@ jobs:
             test-results-demo/
           if-no-files-found: ignore
 
-      # Genbeya on GitHub (GENBEYA-39), against a simulated GitHub: no network needed.
-      - name: Test Genbeya on GitHub
+      # Genbeya on forges (GENBEYA-39, GENBEYA-42), against simulated forges: no network needed.
+      - name: Test Genbeya on forges
         if: runner.os == 'Linux'
-        run: npm run e2e:github
+        run: npm run e2e:forge
 
       - uses: actions/upload-artifact@v4
         if: failure() && runner.os == 'Linux'
         with:
-          name: playwright-report-github
+          name: playwright-report-forge
           path: |
-            playwright-report-github/
-            test-results-github/
+            playwright-report-forge/
+            test-results-forge/
           if-no-files-found: ignore
 
       - name: Pack the web demo

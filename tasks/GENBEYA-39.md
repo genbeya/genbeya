@@ -7,7 +7,7 @@ priority: medium
 labels: [integrations, github, web]
 ---
 
-The forge plugin for GitHub: anyone looking at a repository on GitHub opens its Genbeya board and wiki at `genbeya.fyi/github/<owner>/<repo>`, without cloning, with references resolved as in the app. Design and findings: [[Architecture/GitHub]].
+The forge plugin for GitHub: anyone looking at a repository on GitHub opens its Genbeya board and wiki at `genbeya.fyi/github/<owner>/<repo>`, without cloning, with references resolved as in the app. Design and findings: [[Architecture/Forges]].
 
 This task is the proof of concept: read-only, public repositories without signing in, private ones with a token kept in the tab's memory. Signing in through a GitHub App, writing back and the website's route follow once the concept holds.
 

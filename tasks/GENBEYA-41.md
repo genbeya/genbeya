@@ -7,7 +7,7 @@ priority: medium
 labels: [integrations, github, web, privacy]
 ---
 
-Host the build of [[GENBEYA-39]] on the website, on an origin of its own (such as `open.genbeya.fyi`), with `genbeya.fyi/github/…` redirecting there. Browser storage and the content security policy belong to an origin: on its own, what the viewer keeps ([[GENBEYA-40]]) can't be read by the rest of the site, and genbeya.fyi's promise (no request to another origin, nothing stored) stays literally true. See [[Architecture/GitHub#hosting]].
+Host the build of [[GENBEYA-39]] on the website, on an origin of its own (such as `open.genbeya.fyi`), with `genbeya.fyi/github/…` redirecting there. Browser storage and the content security policy belong to an origin: on its own, what the viewer keeps ([[GENBEYA-40]]) can't be read by the rest of the site, and genbeya.fyi's promise (no request to another origin, nothing stored) stays literally true. See [[Architecture/Forges#hosting]].
 
 - [ ] Worker route: the build below `/_app/`, its page for every `/github/…` address, the policy as a header
 - [ ] The build in each release, installed by the website like the demo

@@ -56,11 +56,11 @@ export default tseslint.config(
     ),
   },
   {
-    // The Tauri, web demo and GitHub connectors are the places the client composes an in-page backend.
+    // The Tauri, web demo and forge connectors are the places the client composes an in-page backend.
     files: [
       "src/client/app/platform/tauri-connector.ts",
       "src/client/app/platform/demo-connector.ts",
-      "src/client/app/platform/github-connector.ts",
+      "src/client/app/platform/forge-connector.ts",
     ],
     rules: { "no-restricted-imports": "off" },
   },

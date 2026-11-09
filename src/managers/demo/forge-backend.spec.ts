@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fakeGitHub } from "../../testing/fake-github";
-import { NO_SYNC, openGitHubBackend, readGitHubContent, referencedPaths } from "./github-backend";
+import { fakeGitHub } from "../../testing/fake-forges";
+import { NO_SYNC, openForgeBackend, readForgeContent, referencedPaths } from "./forge-backend";
 
 const github = () =>
   fakeGitHub([
@@ -29,7 +29,10 @@ const github = () =>
 
 describe("Genbeya on a repository read from GitHub", () => {
   it("opens the repository with its settings, wiki and tasks, clean and in step with GitHub", async () => {
-    const { managers, summary } = await openGitHubBackend({ owner: "acme", name: "rockets" }, { fetch: github() });
+    const { managers, summary } = await openForgeBackend(
+      { forge: "github", host: "github.com", owner: "acme", name: "rockets" },
+      { fetch: github() },
+    );
     const opened = await managers.workspace.restore([]);
     const view = opened!.snapshot;
     expect(view.settings.name).toBe("Rockets");
@@ -50,7 +53,10 @@ describe("Genbeya on a repository read from GitHub", () => {
   });
 
   it("keeps edits in the tab and refuses to fetch or push", async () => {
-    const { managers } = await openGitHubBackend({ owner: "acme", name: "rockets" }, { fetch: github() });
+    const { managers } = await openForgeBackend(
+      { forge: "github", host: "github.com", owner: "acme", name: "rockets" },
+      { fetch: github() },
+    );
     const { id } = (await managers.workspace.restore([]))!;
     const page = await managers.content.read(id, "content", "docs/Guide.md");
     await managers.content.write(id, "content", "docs/Guide.md", "# Guide\n\nMore.\n", page.hash);
@@ -61,7 +67,7 @@ describe("Genbeya on a repository read from GitHub", () => {
 
   it("reads Genbeya's content and the files it refers to, and leaves other code on GitHub", async () => {
     const fetch = github();
-    const snapshot = await readGitHubContent({ owner: "acme", name: "rockets" }, { fetch });
+    const snapshot = await readForgeContent({ forge: "github", host: "github.com", owner: "acme", name: "rockets" }, { fetch });
     expect([...snapshot.files.keys()].sort()).toEqual([
       ".genbeya.yml",
       "README.md",

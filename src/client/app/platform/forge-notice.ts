@@ -1,26 +1,75 @@
 /**
- * The page Genbeya on GitHub shows before anything else: what the page requests and from whom, and the
- * choices the visitor has. Nothing is requested from GitHub and nothing is kept until the visitor chooses
+ * The page Genbeya on a forge shows before anything else: what the page requests and from whom, and the
+ * choices the visitor has. Nothing is requested from the forge and nothing is kept until the visitor chooses
  * so here. It is plain DOM, shown before the client starts, so none of the app runs before then.
  */
-import { gitHubAddressPath, parseGitHubAddress, type GitHubAddress } from "../../../utilities/github-address";
+import {
+  FORGE_HOSTS,
+  FORGE_LABELS,
+  FORGES,
+  forgeAddressPath,
+  forgeConnectHosts,
+  forgeWebUrl,
+  isSelfHosted,
+  parseForgeAddress,
+  SELF_HOSTED,
+  type Forge,
+  type ForgeAddress,
+} from "../../../utilities/forge-address";
 
-export const PRIVACY_URL = "https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement";
+/** Who runs each forge's website, and the privacy statement the requests fall under. */
+export const OPERATORS: Readonly<
+  Record<Exclude<Forge, "gitea" | "forgejo">, { who: string; statement: string; url: string; where: string }>
+> = {
+  github: {
+    who: "GitHub",
+    statement: "GitHub's privacy statement",
+    url: "https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement",
+    where: ", also in the United States",
+  },
+  gitlab: {
+    who: "GitLab",
+    statement: "GitLab's privacy statement",
+    url: "https://about.gitlab.com/privacy/",
+    where: ", also in the United States",
+  },
+  bitbucket: {
+    who: "Atlassian, which runs Bitbucket,",
+    statement: "Atlassian's privacy policy",
+    url: "https://www.atlassian.com/legal/privacy-policy",
+    where: ", also in the United States",
+  },
+  codeberg: {
+    who: "Codeberg e.V.",
+    statement: "Codeberg's privacy policy",
+    url: "https://codeberg.org/Codeberg/org/src/branch/main/PrivacyPolicy.md",
+    where: "",
+  },
+};
+
+/** What a token for each forge must be allowed to do. */
+const TOKENS: Readonly<Record<Forge, string>> = {
+  github: "A fine-grained personal access token that may read the repository's contents.",
+  gitlab: "A personal, project or group access token with the read_api scope.",
+  bitbucket: "A repository, project or workspace access token with the repository:read scope.",
+  codeberg: "An access token with read access to repositories (read:repository).",
+  gitea: "An access token with read access to repositories (read:repository).",
+  forgejo: "An access token with read access to repositories (read:repository).",
+};
 
 /** What the start screen needs of the page. */
 export type NoticePage = Pick<Window, "document" | "location" | "history" | "confirm">;
 
 /** A repository kept in this browser, as the start screen shows it. */
 export interface KeptCopy {
-  /** Where it opens, such as `/github/acme/rockets`. */
-  readonly path: string;
-  /** owner/repository */
+  readonly address: ForgeAddress;
+  /** Such as "GitLab: acme/rockets". */
   readonly label: string;
   /** Such as "Branch main at 1a2b3c4, saved 9 Nov 2026, 10:01". */
   readonly description: string;
 }
 
-/** Everything this browser keeps for Genbeya on GitHub. */
+/** Everything this browser keeps for Genbeya on forges. */
 export interface KeptTotal {
   readonly count: number;
   readonly bytes: number;
@@ -32,9 +81,9 @@ export interface NoticeChoices<T> {
   /** This repository's kept copy, if there is one. */
   readonly kept: KeptCopy | null;
   readonly total: KeptTotal | null;
-  /** Reads the repository from GitHub, once the visitor agreed; keeps it if `keep`. */
+  /** Reads the repository from its forge, once the visitor agreed; keeps it if `keep`. */
   read(token: string | undefined, keep: boolean, progress: (read: number, total: number) => void): Promise<T>;
-  /** Opens the kept copy, asking nothing of GitHub. */
+  /** Opens the kept copy, asking nothing of the forge. */
   openKept(): Promise<T>;
   deleteKept(): Promise<void>;
   deleteAll(): Promise<void>;
@@ -47,6 +96,29 @@ export interface ChooseChoices {
 }
 
 const megabytes = (bytes: number) => `${(bytes / 1_000_000).toLocaleString("en", { maximumFractionDigits: 1 })} MB`;
+const listed = (items: readonly string[]) => (items.length < 2 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
+/** The forge whose website a host is, if any. */
+const forgeOfHost = (host: string) => FORGES.find((forge) => FORGE_HOSTS[forge] === host);
+
+/** The repository a visitor typed: `owner/repository` on the chosen forge, or a repository's address on any forge. */
+export function parseRepositoryInput(value: string, forge: Forge, host: string): ForgeAddress | null {
+  const text = value.trim();
+  if (/^https?:\/\//i.test(text)) {
+    let url: URL;
+    try {
+      url = new URL(text);
+    } catch {
+      return null;
+    }
+    const known = forgeOfHost(url.host);
+    const kind = known ?? (SELF_HOSTED.includes(forge) ? forge : null);
+    if (!kind) return null;
+    return parseForgeAddress(`/${kind}${url.pathname.replace(/\/$/, "")}`, known ? "" : `?host=${encodeURIComponent(url.host)}`);
+  }
+  const query = new URLSearchParams({ forge, repo: text.replace(/\.git$/, "") });
+  if (host.trim()) query.set("host", host.trim());
+  return parseForgeAddress("", `?${query}`);
+}
 
 export class StartScreen {
   private readonly document: Document;
@@ -60,10 +132,15 @@ export class StartScreen {
 
   /** Asks for a repository when the address names none; opening one loads the page again. */
   choose({ kept, total, deleteAll }: ChooseChoices): Promise<never> {
-    this.page.document.title = "Genbeya on GitHub";
+    this.page.document.title = "Genbeya on your forge";
     this.root.replaceChildren();
-    const card = this.card("Open a GitHub repository", "Its wiki, its task board and its code, read from GitHub into your browser.");
+    const card = this.card("Genbeya", "Open a repository", "Its wiki, its task board and its code, read from its forge into your browser.");
     const form = this.element("form", { className: "gh-form" });
+    const forge = this.element("select", { id: "gh-forge" });
+    for (const kind of FORGES) forge.append(this.element("option", { value: kind, textContent: FORGE_LABELS[kind] }));
+    const host = this.element("input", { id: "gh-host", placeholder: "gitlab.example.com", autocomplete: "off", spellcheck: false });
+    const hostRow = this.element("div");
+    hostRow.append(this.element("label", { textContent: "Server", htmlFor: "gh-host" }), host);
     const input = this.element("input", {
       id: "gh-repository",
       placeholder: "owner/repository",
@@ -72,17 +149,28 @@ export class StartScreen {
       required: true,
     });
     const error = this.alert();
+    const showHost = () => {
+      hostRow.hidden = !SELF_HOSTED.includes(forge.value as Forge);
+      host.placeholder = forge.value === "gitlab" ? "gitlab.com, or your own server" : "git.example.com";
+      host.required = forge.value === "gitea" || forge.value === "forgejo";
+    };
+    forge.addEventListener("change", showHost);
+    showHost();
     form.append(
+      this.element("label", { textContent: "Forge", htmlFor: "gh-forge" }),
+      forge,
+      hostRow,
       this.element("label", { textContent: "Repository", htmlFor: "gh-repository" }),
       input,
+      this.text("owner/repository, a GitLab group path, or the repository's address on its forge.", "gh-hint"),
       error,
       this.actions(this.element("button", { className: "btn btn-primary", type: "submit", textContent: "Continue" })),
     );
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const value = input.value.trim().replace(/^https:\/\/github\.com\//, "");
-      const address = parseGitHubAddress("", `?repo=${encodeURIComponent(value)}`);
-      if (!address) return this.show(error, "Enter a repository as owner/repository, such as genbeya/genbeya.");
+      const address = parseRepositoryInput(input.value, forge.value as Forge, hostRow.hidden ? "" : host.value);
+      if (!address)
+        return this.show(error, "Enter a repository as owner/repository, such as genbeya/genbeya, or its address on its forge.");
       this.go(address);
     });
     card.append(form);
@@ -92,7 +180,7 @@ export class StartScreen {
         const link = this.element("a", { textContent: copy.label, href: "#" });
         link.addEventListener("click", (event) => {
           event.preventDefault();
-          this.page.location.replace(this.addressOf(copy.path));
+          this.go(copy.address);
         });
         list.append(this.item(link, ` · ${copy.description}`));
       }
@@ -104,30 +192,49 @@ export class StartScreen {
   }
 
   /** Says what the page requests and keeps, and resolves once the visitor has chosen and the repository is open. */
-  notice<T>(address: GitHubAddress, choices: NoticeChoices<T>): Promise<T> {
+  notice<T>(address: ForgeAddress, choices: NoticeChoices<T>): Promise<T> {
+    const forge = FORGE_LABELS[address.forge];
     const label = `${address.owner}/${address.name}`;
+    const own = isSelfHosted(address);
+    const hosts = forgeConnectHosts(address);
     this.page.document.title = `${label} · Genbeya`;
     this.root.replaceChildren();
-    const card = this.card(label, address.branch ? `Branch ${address.branch}` : "");
+    const card = this.card(
+      `Genbeya on ${forge}`,
+      label,
+      [own ? `On ${address.host}` : "", address.branch ? `Branch ${address.branch}` : ""].filter(Boolean).join(" · "),
+    );
+    if (own) {
+      const warning = this.element("p", { className: "gh-warning" });
+      warning.setAttribute("role", "note");
+      const server = this.element("strong", { textContent: address.host });
+      warning.append(
+        "This address names a server of its own: ",
+        server,
+        `. Genbeya can't tell who runs it. Open the repository, and give it a token, only if you know and trust ${address.host}.`,
+      );
+      card.append(warning);
+    }
     card.append(
-      this.text("Genbeya opens this repository here in your browser: its wiki, its task board and its code, as they are on GitHub now."),
+      this.text(`Genbeya opens this repository here in your browser: its wiki, its task board and its code, as they are on ${forge} now.`),
       this.element("h2", { textContent: "What happens when you open it" }),
     );
-    const privacy = this.element("a", {
-      href: PRIVACY_URL,
-      target: "_blank",
-      rel: "noopener noreferrer",
-      textContent: "GitHub's privacy statement",
-    });
     const list = this.element("ul");
+    const operator =
+      own || address.forge === "gitea" || address.forge === "forgejo" ? null : OPERATORS[address.forge as keyof typeof OPERATORS];
+    const sees = `sees your IP address and that the requests come from a page on genbeya.fyi, which browsers tell sites with every such request`;
     list.append(
-      this.item(
-        "Your browser asks GitHub for the repository's files, at api.github.com and raw.githubusercontent.com. GitHub sees your IP address and that the requests come from a page on genbeya.fyi, which browsers tell sites with every such request, and processes them under ",
-        privacy,
-        ", also in the United States.",
-      ),
+      operator
+        ? this.item(
+            `Your browser asks ${forge} for the repository's files, at ${listed(hosts)}. ${operator.who} ${sees}, and processes them under `,
+            this.element("a", { href: operator.url, target: "_blank", rel: "noopener noreferrer", textContent: operator.statement }),
+            `${operator.where}.`,
+          )
+        : this.item(
+            `Your browser asks ${address.host} for the repository's files. Whoever runs ${address.host} ${sees}, and processes them under their own terms.`,
+          ),
       this.item("Nothing goes anywhere else: genbeya.fyi receives nothing, and nothing on this page tracks you."),
-      this.item("What you change stays in this browser. Nothing is written back to GitHub."),
+      this.item(`What you change stays in this browser. Nothing is written back to ${forge}.`),
     );
     card.append(list);
 
@@ -164,7 +271,7 @@ export class StartScreen {
         });
         kept.append(
           this.element("h2", { id: "gh-kept-title", textContent: "Kept in this browser" }),
-          this.text(`${choices.kept.description}, with your changes. Opening it asks nothing of GitHub.`),
+          this.text(`${choices.kept.description}, with your changes. Opening it asks nothing of ${forge}.`),
           this.actions(open, remove),
         );
         card.append(kept);
@@ -180,37 +287,38 @@ export class StartScreen {
       keepLabel.prepend(keep);
       const keepHint = this.text(
         choices.canKeep
-          ? "Off, nothing is stored: closing or reloading the tab forgets the repository. On, Genbeya saves it with your changes in this browser's private storage for genbeya.fyi, so it opens again without asking GitHub. It never leaves your device, you can delete it at any time, and tokens are never kept."
+          ? `Off, nothing is stored: closing or reloading the tab forgets the repository. On, Genbeya saves it with your changes in this browser's private storage for this site, so it opens again without asking ${forge}. It never leaves your device, you can delete it at any time, and tokens are never kept.`
           : "This browser can't keep files for web pages: the repository lives in this tab only.",
         "gh-hint",
       );
+      const apiHost = hosts[0]!;
       const details = this.element("details");
       const token = this.element("input", { id: "gh-token", type: "password", autocomplete: "off", spellcheck: false });
       details.append(
         this.element("summary", { textContent: "Private repository?" }),
-        this.element("label", { textContent: "Token for api.github.com", htmlFor: "gh-token" }),
+        this.element("label", { textContent: `Token for ${apiHost}`, htmlFor: "gh-token" }),
         token,
         this.text(
-          "A fine-grained personal access token that may read the repository's contents. It goes only to api.github.com, is used while the files are read, and is then forgotten.",
+          `${TOKENS[address.forge]} It goes only to ${apiHost}, is used while the files are read, and is then forgotten.`,
           "gh-hint",
         ),
       );
       const open = this.element("button", {
         className: choices.kept ? "btn" : "btn btn-primary",
         type: "submit",
-        textContent: choices.kept ? "Read again from GitHub" : "Open repository",
+        textContent: choices.kept ? `Read again from ${forge}` : "Open repository",
       });
       const cancel = this.element("button", { className: "btn", type: "button", textContent: "Cancel" });
       busy.push(open, cancel, keep, token);
       cancel.addEventListener("click", () => this.declined(address));
-      const github = this.element("a", {
+      const view = this.element("a", {
         className: "btn btn-ghost",
-        href: `https://github.com${gitHubAddressPath(address).slice("/github".length)}`,
+        href: forgeWebUrl(address),
         target: "_blank",
         rel: "noopener noreferrer",
-        textContent: "View on GitHub",
+        textContent: `View on ${forge}`,
       });
-      form.append(keepLabel, keepHint, details, status, error, this.actions(open, cancel, github));
+      form.append(keepLabel, keepHint, details, status, error, this.actions(open, cancel, view));
       form.addEventListener("submit", (event) => {
         event.preventDefault();
         run(
@@ -218,9 +326,9 @@ export class StartScreen {
             choices.read(
               token.value.trim() || undefined,
               keep.checked,
-              (read, total) => (status.textContent = `Reading files from GitHub: ${read} of ${total}`),
+              (read, total) => (status.textContent = `Reading files from ${forge}: ${read} of ${total}`),
             ),
-          "Reading the repository from GitHub…",
+          `Reading the repository from ${forge}…`,
         );
       });
       card.append(form);
@@ -236,10 +344,13 @@ export class StartScreen {
   }
 
   /** The visitor said no: nothing was requested, and nothing happens until they choose otherwise. */
-  private declined(address: GitHubAddress): void {
+  private declined(address: ForgeAddress): void {
+    const forge = FORGE_LABELS[address.forge];
     this.root.replaceChildren();
-    const card = this.card("Nothing was requested", "");
-    card.append(this.text("Genbeya asked GitHub for nothing and kept nothing. You can close this tab."));
+    const card = this.card(`Genbeya on ${forge}`, "Nothing was requested", "");
+    card.append(
+      this.text(`Genbeya asked ${isSelfHosted(address) ? address.host : forge} for nothing and kept nothing. You can close this tab.`),
+    );
     const again = this.element("button", { className: "btn", type: "button", textContent: "Show the notice again" });
     again.addEventListener("click", () => this.page.location.reload());
     const buttons: HTMLElement[] = [again];
@@ -248,13 +359,15 @@ export class StartScreen {
       back.addEventListener("click", () => this.page.history.back());
       buttons.unshift(back);
     }
-    const github = this.element("a", {
-      className: "btn btn-ghost",
-      href: `https://github.com${gitHubAddressPath(address).slice("/github".length)}`,
-      rel: "noopener noreferrer",
-      textContent: "View on GitHub",
-    });
-    card.append(this.actions(...buttons, github));
+    buttons.push(
+      this.element("a", {
+        className: "btn btn-ghost",
+        href: forgeWebUrl(address),
+        rel: "noopener noreferrer",
+        textContent: `View on ${forge}`,
+      }),
+    );
+    card.append(this.actions(...buttons));
   }
 
   /** How much this browser keeps, and a way to delete it all. */
@@ -272,30 +385,28 @@ export class StartScreen {
     });
     const footer = this.element("p", { className: "gh-footer" });
     footer.append(
-      `This browser keeps ${total.count === 1 ? "one repository" : `${total.count} repositories`} for Genbeya on GitHub (${megabytes(total.bytes)}). `,
+      `This browser keeps ${total.count === 1 ? "one repository" : `${total.count} repositories`} for Genbeya (${megabytes(total.bytes)}). `,
       remove,
     );
     card.append(footer);
   }
 
-  /** The address of the page for `path`, wherever the page is served. */
-  private addressOf(path: string): string {
-    const address = parseGitHubAddress(path)!;
+  /** Opens `address`: at its path where the page is served at forge paths, else by the query. */
+  private go(address: ForgeAddress): void {
     const { pathname } = this.page.location;
-    return /\/github(\/|$)/.test(pathname)
-      ? pathname.replace(/\/github(\/.*)?$/, path)
-      : `${pathname}?repo=${address.owner}/${address.name}${address.branch ? `&branch=${encodeURIComponent(address.branch)}` : ""}`;
+    const at = /\/(?:github|gitlab|bitbucket|codeberg|gitea|forgejo)(?:\/.*)?$/.exec(pathname);
+    if (at) return this.page.location.replace(pathname.slice(0, at.index) + forgeAddressPath(address));
+    const query = new URLSearchParams({ forge: address.forge, repo: `${address.owner}/${address.name}` });
+    if (address.branch) query.set("branch", address.branch);
+    if (isSelfHosted(address)) query.set("host", address.host);
+    this.page.location.replace(`${pathname}?${query}`);
   }
 
-  private go(address: GitHubAddress): void {
-    this.page.location.replace(this.addressOf(gitHubAddressPath(address)));
-  }
-
-  private card(title: string, subtitle: string): HTMLElement {
+  private card(eyebrow: string, title: string, subtitle: string): HTMLElement {
     const card = this.element("section", { className: "gh-card" });
     card.setAttribute("aria-labelledby", "gh-title");
     card.append(
-      this.element("p", { className: "gh-eyebrow", textContent: "Genbeya on GitHub" }),
+      this.element("p", { className: "gh-eyebrow", textContent: eyebrow }),
       this.element("h1", { id: "gh-title", textContent: title }),
     );
     if (subtitle) card.append(this.text(subtitle, "gh-subtitle"));

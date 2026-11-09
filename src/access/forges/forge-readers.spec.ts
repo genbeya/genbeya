@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { fakeGitHub, type FakeRepository } from "../../testing/fake-github";
-import { MAX_FILE_BYTES, readGitHubFiles, readGitHubTree, type GitHubAccess, type GitHubTarget } from "./github-reader";
+import { fakeForges, fakeGitHub, type FakeRepository } from "../../testing/fake-forges";
+import type { Forge, ForgeAddress } from "../../utilities/forge-address";
+import { MAX_FILE_BYTES, type ForgeAccess, type ForgeTree, type TreeFile } from "./forge";
+import { github } from "./github";
+import { FORGE_READERS } from "./readers";
+
+type Target = Pick<ForgeAddress, "owner" | "name" | "branch">;
+
+const readGitHubTree = (target: Target, access: ForgeAccess) => github.readTree({ forge: "github", host: "github.com", ...target }, access);
+const readGitHubFiles = (tree: ForgeTree, files: readonly TreeFile[], access: ForgeAccess) => github.readFiles(tree, files, access);
 
 /** The whole branch: its tree, and every file of it. */
-async function readGitHubRepository(target: GitHubTarget, access: GitHubAccess) {
+async function readGitHubRepository(target: Target, access: ForgeAccess) {
   const tree = await readGitHubTree(target, access);
   return { ...tree, files: await readGitHubFiles(tree, tree.files, access) };
 }
@@ -153,5 +161,116 @@ describe("reading a repository from GitHub", () => {
     await expect(readGitHubRepository({ owner: "Acme", name: "Rockets" }, { fetch: limited })).rejects.toThrow(
       "GitHub is limiting how fast this page reads files. Try again in a few minutes.",
     );
+  });
+});
+
+/** The same repository on every forge the readers know, on its website or a server of its own. */
+const FORGES: readonly { forge: Forge; host: string; owner: string; api: string }[] = [
+  { forge: "github", host: "github.com", owner: "Acme", api: "https://api.github.com/" },
+  { forge: "gitlab", host: "gitlab.com", owner: "acme/space", api: "https://gitlab.com/api/v4/" },
+  { forge: "gitlab", host: "gitlab.example.com", owner: "acme", api: "https://gitlab.example.com/api/v4/" },
+  { forge: "codeberg", host: "codeberg.org", owner: "Acme", api: "https://codeberg.org/api/v1/" },
+  { forge: "gitea", host: "git.example.com", owner: "Acme", api: "https://git.example.com/api/v1/" },
+  { forge: "forgejo", host: "code.example.org:3000", owner: "Acme", api: "https://code.example.org:3000/api/v1/" },
+  { forge: "bitbucket", host: "bitbucket.org", owner: "acme", api: "https://api.bitbucket.org/2.0/" },
+];
+
+describe.each(FORGES)("reading a repository from $forge on $host", ({ forge, host, owner, api }) => {
+  const repository = (overrides: Partial<FakeRepository> = {}): FakeRepository => ({ ...project, forge, host, owner, ...overrides });
+  const address = (branch?: string): ForgeAddress => ({ forge, host, owner, name: "Rockets", ...(branch ? { branch } : {}) });
+  const reader = FORGE_READERS[forge];
+  const readAll = async (target: ForgeAddress, access: ForgeAccess) => {
+    const tree = await reader.readTree(target, access);
+    return { tree, files: await reader.readFiles(tree, tree.files, access) };
+  };
+
+  it("lists the branch through every page, and reads its files", async () => {
+    const fetch = fakeForges([repository()], { pageSize: 2 });
+    const { tree, files } = await readAll(address(), { fetch });
+    expect(tree).toMatchObject({ owner, name: "Rockets", branch: "main", defaultBranch: "main", private: false });
+    expect(tree.commit).toMatchObject({ message: "Plan the launch", author: { name: "Ada Lovelace", email: "ada@example.com" } });
+    expect(tree.commit.sha).toMatch(/^[\da-f]{40}$/);
+    expect(tree.cloneUrl).toMatch(/^https:\/\/[^@]+\.git$/);
+    expect(tree.files.map((file) => file.path)).toEqual([".genbeya.yml", "docs/Home.md", "logo.png", "src/main.ts", "tasks/RKT-1.md"]);
+    expect(tree.skipped).toEqual([
+      { path: "latest", reason: "link" },
+      { path: "vendor/engine", reason: "submodule" },
+    ]);
+    expect(tree.truncated).toBe(false);
+    expect(decode(files.get("tasks/RKT-1.md"))).toContain("title: Launch");
+    expect([...files.get("logo.png")!]).toEqual([0x89, 0x50, 0x4e, 0x47, 0, 255]);
+    // Nothing but the forge's own hosts, and no headers of its own without a token.
+    expect(
+      fetch.requests.every((request) => request.url.startsWith(api) || request.url.startsWith("https://raw.githubusercontent.com/")),
+    ).toBe(true);
+    expect(fetch.requests.every((request) => Object.keys(request.headers).length === 0)).toBe(true);
+  });
+
+  it("reads the branch it is asked for", async () => {
+    const tree = await reader.readTree(address("feature/fins"), { fetch: fakeForges([repository()]) });
+    expect(tree.branch).toBe("feature/fins");
+    expect(tree.files.map((file) => file.path)).toEqual(["docs/Home.md"]);
+  });
+
+  it("reads a private repository with a token, which goes only to the forge's API", async () => {
+    const fetch = fakeForges([repository({ private: true })], { token: "secret" });
+    const { tree, files } = await readAll(address(), { fetch, token: "secret" });
+    expect(tree.private).toBe(true);
+    expect(decode(files.get("docs/Home.md"))).toContain("[[RKT-1]]");
+    expect(fetch.requests.every((request) => request.url.startsWith(api) && request.headers["authorization"]?.endsWith(" secret"))).toBe(
+      true,
+    );
+  });
+
+  it("explains a missing or private repository, a missing branch and a bad token", async () => {
+    const label = { github: "GitHub", gitlab: "GitLab", codeberg: "Codeberg", gitea: "Gitea", forgejo: "Forgejo", bitbucket: "Bitbucket" }[
+      forge
+    ];
+    const fetch = fakeForges([repository({ private: true })], { token: "secret", otherTokens: ["other"] });
+    await expect(reader.readTree(address(), { fetch })).rejects.toThrow(
+      `${label} has no public repository ${owner}/Rockets. A private one opens with a token that can read it.`,
+    );
+    await expect(reader.readTree(address(), { fetch, token: "other" })).rejects.toThrow(
+      `${label} has no repository ${owner}/Rockets that your token can read.`,
+    );
+    await expect(reader.readTree(address(), { fetch, token: "wrong" })).rejects.toThrow(`${label} didn't accept the token.`);
+    await expect(reader.readTree(address("nope"), { fetch, token: "secret" })).rejects.toThrow(`${owner}/Rockets has no branch nope.`);
+  });
+
+  it("leaves out files over a megabyte", async () => {
+    const fetch = fakeForges([
+      repository({
+        branches: { main: { files: { "big.md": "x".repeat(MAX_FILE_BYTES + 1), "docs/Home.md": "# Home\n" } } },
+        links: [],
+        submodules: [],
+      }),
+    ]);
+    const { tree, files } = await readAll(address(), { fetch });
+    // GitLab lists no sizes: the file is read, then left out.
+    expect([...files.keys()]).toEqual(["docs/Home.md"]);
+    expect(tree.skipped).toEqual(forge === "gitlab" ? [] : [{ path: "big.md", reason: "large" }]);
+  });
+});
+
+describe("forges' listings", () => {
+  it("stops following pages at the limit and says the tree is cut short", async () => {
+    const files = Object.fromEntries(Array.from({ length: 120 }, (_, n) => [`docs/page-${String(n).padStart(3, "0")}.md`, "# Page\n"]));
+    const fetch = fakeForges([{ forge: "gitlab", owner: "acme", name: "big", branches: { main: { files } } }], { pageSize: 1 });
+    const tree = await FORGE_READERS.gitlab.readTree({ forge: "gitlab", host: "gitlab.com", owner: "acme", name: "big" }, { fetch });
+    expect(tree.truncated).toBe(true);
+    expect(tree.files.length).toBeLessThan(120);
+  });
+
+  it("never follows a next page off the forge's API", async () => {
+    const real = fakeForges([{ ...project, forge: "bitbucket", owner: "acme" }], { pageSize: 2 });
+    const hijacked = async (url: string, init?: Parameters<typeof real>[1]) => {
+      const response = await real(url, init);
+      if (!url.includes("/src/")) return response;
+      const body = (await response.json()) as { next?: string };
+      return new Response(JSON.stringify({ ...body, next: "https://evil.example.com/steal" }), { status: 200 });
+    };
+    await expect(
+      FORGE_READERS.bitbucket.readTree({ forge: "bitbucket", host: "bitbucket.org", owner: "acme", name: "Rockets" }, { fetch: hijacked }),
+    ).rejects.toThrow("answered with something unexpected");
   });
 });

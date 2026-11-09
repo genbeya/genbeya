@@ -10,10 +10,10 @@ out/
 .test-work/
 test-results/
 test-results-demo/
-test-results-github/
+test-results-forge/
 playwright-report/
 playwright-report-demo/
-playwright-report-github/
+playwright-report-forge/
 *.log
 src/shells/tauri/src-tauri/target/
 src/shells/tauri/src-tauri/gen/

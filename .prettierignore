@@ -7,9 +7,9 @@ release-vscode/
 .test-work/
 test-results/
 test-results-demo/
-test-results-github/
+test-results-forge/
 playwright-report/
-playwright-report-github/
+playwright-report-forge/
 playwright-report-demo/
 package-lock.json
 src/shells/tauri/src-tauri/target/
