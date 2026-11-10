@@ -19,3 +19,4 @@ Everything of [[GENBEYA-39]] above the reader is forge-neutral. A reader per for
 - [x] Kept repositories told apart by forge and host
 - [x] Tried on gitlab.com, gitea.com and Bitbucket Cloud; Codeberg limited the development environment's requests while it was probed
 - [ ] Not covered: GitHub Enterprise Server, Bitbucket Data Center, Bitbucket API tokens with Basic authentication
+- [x] Servers behind a proxy that ends TLS, which name themselves with http (seen on git.daheim.win: paging stopped with "answered with something unexpected"): their own links are followed over https

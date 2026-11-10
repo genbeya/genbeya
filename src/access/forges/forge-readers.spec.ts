@@ -271,6 +271,50 @@ describe("forges' listings", () => {
     };
     await expect(
       FORGE_READERS.bitbucket.readTree({ forge: "bitbucket", host: "bitbucket.org", owner: "acme", name: "Rockets" }, { fetch: hijacked }),
-    ).rejects.toThrow("answered with something unexpected");
+    ).rejects.toThrow("Bitbucket linked to a next page outside its API, which Genbeya doesn't follow: https://evil.example.com/steal");
+  });
+
+  it("follows a server's http links to its own API over https, as GitLab behind a proxy that ends TLS sends them", async () => {
+    const files = Object.fromEntries(Array.from({ length: 7 }, (_, n) => [`docs/page-${n}.md`, "# Page\n"]));
+    for (const forge of ["gitlab", "gitea"] as const) {
+      const fetch = fakeForges([{ forge, host: "git.example.com", owner: "acme", name: "deck", branches: { main: { files } } }], {
+        pageSize: 2,
+        httpSelfLinks: true,
+      });
+      const tree = await FORGE_READERS[forge].readTree({ forge, host: "git.example.com", owner: "acme", name: "deck" }, { fetch });
+      expect(tree.files).toHaveLength(7);
+      expect(tree.webUrl).toBe("https://git.example.com/acme/deck");
+      expect(tree.cloneUrl).toBe("https://git.example.com/acme/deck.git");
+      expect(fetch.requests.every((request) => request.url.startsWith("https://git.example.com/api/"))).toBe(true);
+    }
+  });
+
+  it("never follows an http link to another host", async () => {
+    const real = fakeForges(
+      [
+        {
+          forge: "gitlab",
+          host: "git.example.com",
+          owner: "acme",
+          name: "deck",
+          branches: { main: { files: project.branches.main!.files } },
+        },
+      ],
+      {
+        pageSize: 2,
+      },
+    );
+    const elsewhere = async (url: string, init?: Parameters<typeof real>[1]) => {
+      const response = await real(url, init);
+      const link = response.headers.get("link");
+      if (!link) return response;
+      return new Response(response.body, {
+        status: 200,
+        headers: { link: link.replace("https://git.example.com", "http://evil.example.com") },
+      });
+    };
+    await expect(
+      FORGE_READERS.gitlab.readTree({ forge: "gitlab", host: "git.example.com", owner: "acme", name: "deck" }, { fetch: elsewhere }),
+    ).rejects.toThrow("GitLab linked to a next page outside its API, which Genbeya doesn't follow: http://evil.example.com/api/v4/");
   });
 });

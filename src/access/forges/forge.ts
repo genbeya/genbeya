@@ -123,7 +123,8 @@ export interface ApiOptions {
 
 /** A forge's API, and raw files elsewhere where the forge has them, with errors a visitor can act on. */
 export class Api {
-  private readonly forge: string;
+  /** The forge's name, for messages. */
+  readonly forge: string;
   private readonly label: string;
 
   constructor(
@@ -159,6 +160,25 @@ export class Api {
   /** Whether `url` is the API's, so a page link from a response may be followed. */
   isApi(url: string): boolean {
     return url.startsWith(this.options.api);
+  }
+
+  /**
+   * The next page a response links to, relative to the page that linked it. A server behind a proxy that
+   * ends TLS may believe it is reached over http (GitLab's `external_url`) and link its own API that way:
+   * such a link, to the API's own host and path, is followed over https. A link anywhere else is refused.
+   */
+  nextPage(link: string, from: string): string {
+    let next: URL;
+    try {
+      next = new URL(link, from);
+    } catch {
+      throw new Error(`${this.forge} linked to a next page Genbeya can't read: ${link}`);
+    }
+    const api = new URL(this.options.api);
+    if (next.protocol === "http:" && api.protocol === "https:" && next.host === api.host) next.protocol = "https:";
+    if (!this.isApi(next.href))
+      throw new Error(`${this.forge} linked to a next page outside its API, which Genbeya doesn't follow: ${next.origin}${next.pathname}`);
+    return next.href;
   }
 
   private async request(url: string, notFound?: string, accept?: string): Promise<Response> {
@@ -214,13 +234,20 @@ export async function allPages<T>(
   let url: string | null = first;
   for (let count = 0; url; count++) {
     if (count === MAX_TREE_PAGES) return { items, truncated: true };
-    // A next page elsewhere than the API is never followed.
-    if (!api.isApi(url)) throw new Error("The forge answered with something unexpected.");
     const result: { items: T[]; next: string | null } = await page(url);
     items.push(...result.items);
-    url = result.next;
+    // A next page elsewhere than the API is never followed.
+    url = result.next === null ? null : api.nextPage(result.next, url);
   }
   return { items, truncated: false };
+}
+
+/**
+ * `url` over https when it is an http address on `host`, which the page was just reached on over https: a
+ * self-hosted forge behind a proxy that ends TLS may name its own pages with http. Anything else as it is.
+ */
+export function upgraded(url: string, host: string): string {
+  return url.toLowerCase().startsWith(`http://${host.toLowerCase()}/`) ? `https://${url.slice("http://".length)}` : url;
 }
 
 /** The `rel="next"` link of a response's `Link` header. */

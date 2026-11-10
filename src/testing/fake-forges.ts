@@ -39,6 +39,8 @@ export interface FakeForgeOptions {
   readonly anonymousLimit?: number;
   /** Entries per page of a tree listing, small so the readers follow pages. */
   readonly pageSize?: number;
+  /** Servers of their own name themselves with http, as one behind a proxy that ends TLS may (GitLab's `external_url`). */
+  readonly httpSelfLinks?: boolean;
 }
 
 export interface FakeRequest {
@@ -121,6 +123,8 @@ export function fakeForges(repositories: readonly FakeRepository[], options: Fak
     const known = authorized || (token !== undefined && options.otherTokens?.includes(token));
     const parsed = new URL(url);
     const { host } = parsed;
+    /** The server's own address, named with http when it believes it is reached so. */
+    const self = (path: string) => `${options.httpSelfLinks ? "http" : "https"}://${host}${path}`;
     const path = parsed.pathname.split("/").map(decodeURIComponent);
     const visible = (repository: FakeRepository | undefined) =>
       repository && (!repository.private || authorized) ? repository : undefined;
@@ -199,8 +203,8 @@ export function fakeForges(repositories: readonly FakeRepository[], options: Fak
         return json(200, {
           path_with_namespace: `${repository.owner}/${repository.name}`,
           visibility: repository.private ? "private" : "public",
-          web_url: `https://${host}/${repository.owner}/${repository.name}`,
-          http_url_to_repo: `https://${host}/${repository.owner}/${repository.name}.git`,
+          web_url: self(`/${repository.owner}/${repository.name}`),
+          http_url_to_repo: self(`/${repository.owner}/${repository.name}.git`),
           default_branch: defaultBranch(repository),
         });
       if (rest[0] === "repository" && rest[1] === "branches") {
@@ -235,6 +239,7 @@ export function fakeForges(repositories: readonly FakeRepository[], options: Fak
         const start = Number(parsed.searchParams.get("page_token") ?? 0);
         const next = new URL(url);
         next.searchParams.set("page_token", String(start + pageSize));
+        if (options.httpSelfLinks) next.protocol = "http:";
         return json(200, all.slice(start, start + pageSize), start + pageSize < all.length ? { link: `<${next.href}>; rel="next"` } : {});
       }
       if (rest[0] === "repository" && rest[1] === "blobs" && rest[3] === "raw") {
@@ -255,8 +260,8 @@ export function fakeForges(repositories: readonly FakeRepository[], options: Fak
           name: repository.name,
           owner: { login: repository.owner },
           private: !!repository.private,
-          html_url: `https://${host}/${repository.owner}/${repository.name}`,
-          clone_url: `https://${host}/${repository.owner}/${repository.name}.git`,
+          html_url: self(`/${repository.owner}/${repository.name}`),
+          clone_url: self(`/${repository.owner}/${repository.name}.git`),
           default_branch: defaultBranch(repository),
         });
       if (rest[0] === "branches") {

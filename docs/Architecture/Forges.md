@@ -71,7 +71,9 @@ Everything else stays on the forge; the badge says how many files. At most 3000 
 | Gitea, Forgejo, Codeberg (API v1) | `git/trees/<sha>?recursive=true`, pages of up to 1000 | `raw/<path>?ref=<commit>` | `Authorization: token`; `read:repository` |
 | Bitbucket Cloud (API 2.0) | `src/<commit>/?max_depth=50`, one listing through every folder, pages through `next` | `src/<commit>/<path>` | `Authorization: Bearer`; repository, project or workspace token with `repository:read` |
 
-Readers follow at most 100 pages of a listing and then say the tree is cut short; they never follow a next page that leads off the forge's API. GitLab lists no sizes, so its files over 1 MB are left out once they have arrived.
+Readers follow at most 100 pages of a listing and then say the tree is cut short; they never follow a next page that leads off the forge's API.
+
+A server of its own behind a proxy that ends TLS may believe it is reached over http (GitLab's `external_url`, Gitea's `ROOT_URL`) and name itself so: its next-page links and the repository's web and clone addresses then start with `http://` and its own host. Readers follow such a link over https, and show such addresses with https, since the page has just reached that host over https; an http link would also be blocked by the page's policy and as mixed content. A link to any other host or path is still refused, with a message that names it. GitLab lists no sizes, so its files over 1 MB are left out once they have arrived.
 
 ## What forges allow from a web page
 

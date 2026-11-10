@@ -12,6 +12,7 @@ import {
   COMMIT_ID,
   nextLink,
   safePath,
+  upgraded,
   type ForgeAccess,
   type ForgeReader,
   type SkippedFile,
@@ -90,8 +91,8 @@ export const gitlab: ForgeReader = {
       owner: repository.path_with_namespace.slice(0, at),
       name: repository.path_with_namespace.slice(at + 1),
       private: repository.visibility !== "public",
-      webUrl: repository.web_url,
-      cloneUrl: repository.http_url_to_repo,
+      webUrl: upgraded(repository.web_url, address.host),
+      cloneUrl: upgraded(repository.http_url_to_repo, address.host),
       defaultBranch: repository.default_branch ?? branch,
       branch,
       commit: {
