@@ -5,14 +5,16 @@
  * themselves once the project uses them, unless the user chose otherwise.
  * Files are never touched; references into a hidden part still open it.
  */
-import { computed, Injectable, inject } from "@angular/core";
+import { computed, effect, Injectable, inject, untracked } from "@angular/core";
 import {
   AUTOMATIC_PARTS,
   PART_NEEDS,
   PARTS,
   repositoryKey,
   shownParts,
+  SKIPPABLE_AREAS,
   type Part,
+  type SkippedArea,
   type PartChoices,
   type Snapshot,
 } from "../../../contracts/model";
@@ -91,6 +93,24 @@ export class Parts {
 
   /** The first view that shows, where a repository opens; Settings when none does. */
   readonly home = computed(() => VIEW_PARTS.find((part) => this.isShown(part)) ?? "settings");
+
+  /**
+   * Areas the user turned off, or the project doesn't use: snapshots leave
+   * them out, so a large repository doesn't read tasks nobody shows. Parts
+   * that are off only until the project uses them are still read, to notice that.
+   */
+  readonly skipped = computed((): SkippedArea[] => {
+    const choices = this.choices();
+    const off = new Set<Part>([...this.unused(), ...PARTS.filter((part) => choices[part] === false)]);
+    return SKIPPABLE_AREAS.filter((area) => off.has(area));
+  });
+
+  constructor() {
+    effect(() => {
+      const skipped = this.skipped();
+      untracked(() => void this.session.skipAreas(skipped));
+    });
+  }
 
   /**
    * Shows or hides `part` for the user: in this repository alone, or in

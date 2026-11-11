@@ -5,7 +5,14 @@
  */
 import { computed, DestroyRef, Injectable, inject, signal } from "@angular/core";
 import type { GenbeyaLink } from "../../../contracts/genbeya-link";
-import { syncsContentBranch, type ChangeBase, type Location, type Preferences, type Snapshot } from "../../../contracts/model";
+import {
+  syncsContentBranch,
+  type ChangeBase,
+  type Location,
+  type Preferences,
+  type SkippedArea,
+  type Snapshot,
+} from "../../../contracts/model";
 import { requestedLink, requestedLocation } from "../../../utilities/launch-request";
 import { MANAGERS, SHELL } from "../platform/platform";
 import { messageOf, Notifications } from "./notifications";
@@ -116,6 +123,16 @@ export class Session {
     this.shell.setTitle("Genbeya");
   }
 
+  /** Areas snapshots leave out, because nobody shows them here; see `Parts`. */
+  private readonly skip = signal<readonly SkippedArea[]>([]);
+
+  /** Leaves `areas` out of snapshots from now on, and fetches one that does. */
+  async skipAreas(areas: readonly SkippedArea[]): Promise<void> {
+    if (JSON.stringify(areas) === JSON.stringify(this.skip())) return;
+    this.skip.set(areas);
+    await this.refresh().catch((error: unknown) => this.notifications.error(error));
+  }
+
   /** Compares staged changes with `base` from now on, and fetches a snapshot that does. */
   async compareWith(base: ChangeBase): Promise<void> {
     if (this.base() === base) return;
@@ -128,7 +145,7 @@ export class Session {
     const open = this.current();
     if (!open) return;
     const ticket = ++this.refreshes;
-    const next = await this.managers.workspace.snapshot(open.id, open.snapshot.version, this.base());
+    const next = await this.managers.workspace.snapshot(open.id, open.snapshot.version, this.base(), this.skip());
     // A repository switch or a newer refresh while fetching makes the result stale.
     if (next && ticket === this.refreshes && this.current()?.id === open.id) this.current.set({ id: open.id, snapshot: next });
   }

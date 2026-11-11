@@ -3,7 +3,16 @@
  * settings, the queue that runs its operations one at a time, and what has
  * to end with it or with the client using it (terminals).
  */
-import type { ContentArea, Location, PullRequest, Scope, Settings, Task } from "../contracts/model";
+import {
+  SKIPPABLE_AREAS,
+  type ContentArea,
+  type Location,
+  type PullRequest,
+  type Scope,
+  type Settings,
+  type SkippedArea,
+  type Task,
+} from "../contracts/model";
 import { localBranches, pullFilesOn } from "../access/git/pull-access";
 import { ContentStore, type ContentLocation } from "../access/content/content-store";
 import { FileStore } from "../access/files/file-store";
@@ -95,6 +104,21 @@ export async function readTasks(
 }
 
 /** The pull requests among `files`, read from `store`, by ID; problems become `warnings`. */
+/** Areas to leave out of a snapshot, as asked. */
+export function skippedAreas(value: unknown): SkippedArea[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.some((area) => !(SKIPPABLE_AREAS as readonly unknown[]).includes(area)))
+    throw new Error("Invalid areas to skip.");
+  return SKIPPABLE_AREAS.filter((area) => value.includes(area));
+}
+
+/** Each task file's ID, from its name: what references need of tasks nobody shows, without reading them. */
+export function taskIndexOf(files: readonly string[], taskRoot: string, engine: TaskEngine): { id: string; path: string }[] {
+  return files
+    .filter((file) => engine.isTaskFile(file, taskRoot))
+    .map((path) => ({ id: path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/i, ""), path }));
+}
+
 export async function readPulls(
   store: FileStore,
   files: readonly string[],

@@ -40,7 +40,10 @@ export class WikiActions {
         references: {
           wikiRoot: this.root(),
           pages: flattenPages(snapshot?.wiki ?? []).map(({ title, path }) => ({ title, path })),
-          tasks: (snapshot?.tasks ?? []).map(({ id, path, title, status }) => ({ id, path, title, status })),
+          // Tasks nobody shows aren't read: references reach them by the IDs in their file names.
+          tasks: snapshot?.taskIndex
+            ? snapshot.taskIndex.map(({ id, path }) => ({ id, path, title: id, status: "" }))
+            : (snapshot?.tasks ?? []).map(({ id, path, title, status }) => ({ id, path, title, status })),
           statuses: snapshot?.settings.statuses ?? [],
           files: filePaths(snapshot?.files ?? []),
         },
@@ -138,6 +141,8 @@ export class WikiActions {
     // A pinned link shows the file as it was, even a page's or a task's.
     if (revision) return void (await this.router.navigate(["/code"], { queryParams: { file: path, lines: range, rev: revision } }));
     const task = path.startsWith(`${taskRoot}/`) ? snapshot.tasks.find((candidate) => candidate.path === path) : undefined;
+    const indexed = !task && path.startsWith(`${taskRoot}/`) ? snapshot.taskIndex?.find((candidate) => candidate.path === path) : undefined;
+    if (indexed) return this.preview(indexed.id, indexed.path, "content", "The task board");
     if (task && !this.parts.isShown("tasks")) return this.preview(`${task.id} ${task.title}`, task.path, "content", "The task board");
     if (task) return void (await this.router.navigate(["/tasks"], { queryParams: { task: task.id } }));
     if (path === root || path.startsWith(`${root}/`)) {

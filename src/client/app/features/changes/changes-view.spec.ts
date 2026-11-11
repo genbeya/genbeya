@@ -216,7 +216,7 @@ describe("ChangesView", () => {
     amend.checked = true;
     amend.dispatchEvent(new Event("change"));
     await settle(fixture);
-    expect(managers.workspace.snapshot).toHaveBeenCalledWith("w1", "v1", "parent");
+    expect(managers.workspace.snapshot).toHaveBeenCalledWith("w1", "v1", "parent", []);
     expect(session.changeBase()).toBe("parent");
     const box = element.querySelector(".commit-box")!.textContent!;
     expect(box).toContain("The changes of abc1234 are staged");

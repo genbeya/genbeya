@@ -121,6 +121,10 @@ export interface Milestone {
   readonly due: string;
 }
 
+/** Areas a snapshot can leave out while they are turned off: reading every task or pull request is what costs. */
+export const SKIPPABLE_AREAS = ["tasks", "pulls"] as const;
+export type SkippedArea = (typeof SKIPPABLE_AREAS)[number];
+
 /** The parts of the app that can be turned off, for a project or for a person; see `docs/Design/Optional-parts.md`. */
 export const PARTS = ["wiki", "tasks", "planning", "timelog", "code", "changes", "history", "pulls", "terminal"] as const;
 export type Part = (typeof PARTS)[number];
@@ -465,6 +469,10 @@ export interface Snapshot {
   readonly tasks: readonly Task[];
   /** Pull requests, by ID. */
   readonly pulls: readonly PullRequest[];
+  /** Areas the snapshot left out, as asked, because nobody shows them: their lists are empty. */
+  readonly skipped?: readonly SkippedArea[];
+  /** With tasks skipped: each task file's ID, from its name, so references still reach the tasks. */
+  readonly taskIndex?: readonly { readonly id: string; readonly path: string }[];
   readonly warnings: readonly string[];
 }
 

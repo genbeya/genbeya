@@ -530,6 +530,17 @@ describe("ContentManager", () => {
     await expect(content.planHistory(id, "-x")).rejects.toThrow();
   });
 
+  it("leaves tasks and pull requests out of snapshots when asked, with the IDs of the task files", async () => {
+    const { content, id, workspace } = await opened();
+    const task = await content.createTask(id, input);
+    await content.createPull(id, { title: "P", status: "open", source: "f", target: "main", reviewers: [], body: "" });
+    const skipped = (await workspace.snapshot(id, undefined, "head", ["tasks", "pulls"]))!;
+    expect(skipped).toMatchObject({ tasks: [], pulls: [], skipped: ["tasks", "pulls"], taskIndex: [{ id: "TP-1", path: task.path }] });
+    const full = (await workspace.snapshot(id))!;
+    expect([full.tasks.length, full.pulls.length, full.skipped, full.taskIndex]).toEqual([1, 1, undefined, undefined]);
+    await expect(workspace.snapshot(id, undefined, "head", ["wiki"] as never)).rejects.toThrow("Invalid areas to skip.");
+  });
+
   it("tells who committed each line of a pull request", async () => {
     const { content, id, repository } = await opened();
     const pull = await content.createPull(id, {

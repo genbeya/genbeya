@@ -167,7 +167,7 @@ describe("plan macros", () => {
     expect(diagrams[1]!.source).toContain("[TP-2 Task TP-2] as [t1] starts 2026-11-03 and ends 2026-11-06");
     expect(diagrams[1]!.source).toContain("[t1] is colored in #fed7aa/#ea580c");
     expect([...container.querySelectorAll(".md-placeholder")].map((note) => note.textContent)).toEqual([
-      "TP-2 starts before a task it waits for is due (orange).",
+      "TP-2 starts before a task it waits for is due, or ends after its milestone (orange).",
       "None of these tasks has dates or a duration.",
     ]);
   });
@@ -177,11 +177,12 @@ describe("plan macros", () => {
     const rows = [...container.querySelectorAll("tr")].map((row) => [...row.children].map((cell) => cell.textContent));
     expect(rows).toEqual([
       ["Task", "Duration", "Earliest start", "Earliest finish", "Latest start", "Latest finish", "Float", "Free float"],
-      ["TP-2", "4d", "0d", "4d", "0d", "4d", "0d, critical", "0d"],
-      ["TP-3", "0d", "4d", "4d", "4d", "4d", "0d, critical", "0d"],
+      // Dates show as dates do in pages.
+      ["TP-2", "4d", "Oct 26, 2026", "Oct 29, 2026", "Oct 26, 2026", "Oct 29, 2026", "0d, critical", "0d"],
+      ["TP-3", "0d", "Oct 30, 2026", "Oct 30, 2026", "Oct 30, 2026", "Oct 30, 2026", "0d, critical", "0d"],
     ]);
     expect([...container.querySelectorAll(".md-placeholder")].map((note) => note.textContent)).toEqual([
-      "Days from today; finished tasks are left out. All of it takes 4d.",
+      "Working days from today (Oct 26, 2026); finished tasks are left out. All of it takes 4d, until Oct 29, 2026.",
       "TP-3 has no duration, dates or effort, so it counts as taking no time.",
     ]);
   });

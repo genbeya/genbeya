@@ -58,6 +58,7 @@ import type {
   TaskTemplate,
   TerminalOutput,
   PlanHistory,
+  SkippedArea,
 } from "./model";
 
 /** Opening, closing and observing repositories; the user's recent list and preferences. */
@@ -73,7 +74,8 @@ export interface WorkspaceManagerContract {
    * Resolves to null when nothing changed since `since`. With `base`
    * "parent", staged changes are compared with HEAD's parent, for amending.
    */
-  snapshot(workspace: string, since?: string, base?: ChangeBase): Promise<Snapshot | null>;
+  /** `skip` names areas to leave out, such as tasks nobody shows. */
+  snapshot(workspace: string, since?: string, base?: ChangeBase, skip?: readonly SkippedArea[]): Promise<Snapshot | null>;
   recent(): Promise<readonly RecentEntry[]>;
   forget(location: Location): Promise<void>;
   preferences(): Promise<Preferences>;
