@@ -488,8 +488,9 @@ export class ContentManager implements ContentManagerContract {
     if (!Array.isArray(targets) || targets.some((target) => !AGENT_TARGETS.includes(target as AgentTarget)))
       throw new Error("Unknown agent file.");
     const { settings } = await workspace.settings();
+    const pulls = (await workspace.content.files("pulls")).some((path) => this.engines.pulls.isPullFile(path, settings.pullRoot));
     return Promise.all(
-      this.engines.agents.files(settings, targets as AgentTarget[]).map(async (file) => ({
+      this.engines.agents.files(settings, targets as AgentTarget[], pulls).map(async (file) => ({
         file,
         existing: await workspace.checkout.read(file.path).catch((error: unknown) => {
           if (isMissing(error)) return null;

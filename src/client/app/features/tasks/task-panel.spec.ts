@@ -55,13 +55,15 @@ describe("TaskPanel", () => {
       "Variance −8h",
     ]);
     expect(element.querySelector(".task-relations")?.textContent).toContain("Blocked by");
-    dialogs.prompt.mockResolvedValue("1.5h Reviewed it");
+    dialogs.open.mockResolvedValue({ hours: 1.5, note: "Reviewed it", remaining: "4.5h" });
     managers.content.commentAuthor.mockResolvedValue("Ada");
     managers.content.updateTask.mockResolvedValue({ ...logged, hash: "h2" });
     [...element.querySelectorAll("button")].find((button) => button.textContent!.includes("Log time"))!.click();
     await vi.waitFor(() => expect(managers.content.updateTask).toHaveBeenCalled());
     const body = (managers.content.updateTask.mock.calls[0]![2] as TaskInput).body;
     expect(body).toMatch(/- 2026-10-21 — Alex — 2h — Started\n- \d{4}-\d{2}-\d{2} — Ada — 1.5h — Reviewed it\n$/);
+    expect(dialogs.open.mock.calls[0]![1]).toEqual({ remaining: 6, tracksRemaining: true });
+    expect((managers.content.updateTask.mock.calls[0]![2] as TaskInput).fields).toMatchObject({ remaining: "4.5h" });
   });
 
   it("takes focus when it opens a task", async () => {

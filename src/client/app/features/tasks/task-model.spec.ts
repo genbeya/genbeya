@@ -7,6 +7,7 @@ import {
   epicName,
   labelsOf,
   lanesOf,
+  milestonesOf,
   NO_FILTERS,
   peopleOf,
   shownLanesOf,
@@ -46,6 +47,10 @@ describe("task ordering and filters", () => {
   it("filters by type, with tasks without one as their own choice", () => {
     expect(visibleTasks(tasks, { ...NO_FILTERS, type: "bug" }).map((t) => t.id)).toEqual(["TP-5"]);
     expect(visibleTasks(tasks, { ...NO_FILTERS, type: "" }).map((t) => t.id)).toEqual(["TP-2", "TP-3", "TP-1", "TP-4"]);
+    const planned = [task("TP-8", { fields: { milestone: "MVP" } }), task("TP-9")];
+    expect(visibleTasks(planned, { ...NO_FILTERS, milestone: "MVP" }).map((t) => t.id)).toEqual(["TP-8"]);
+    expect(visibleTasks(planned, { ...NO_FILTERS, milestone: "" }).map((t) => t.id)).toEqual(["TP-9"]);
+    expect(milestonesOf(planned)).toEqual(["MVP"]);
   });
 
   it("lists the configured types, then other types tasks have", () => {

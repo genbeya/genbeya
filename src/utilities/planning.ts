@@ -435,6 +435,12 @@ export function arrowChart(schedule: Schedule, all: readonly PlanTask[], depende
 
 // The wiki's plan macros.
 
+/** The milestone a task counts towards, as written; "" for none. */
+export const milestoneOf = (task: Pick<Task, "fields">): string => {
+  const value = task.fields[PLANNING_FIELDS.milestone];
+  return value === undefined || value === null ? "" : String(value).trim();
+};
+
 /** Which tasks a plan macro shows: `epic`, `milestone`, `assignee`, `label`, `type`, `status`, all to match. */
 export type PlanFilter = Readonly<Record<string, string>>;
 

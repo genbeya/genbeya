@@ -10,7 +10,11 @@ import type { Settings } from "../contracts/model";
 
 export const SKILL_NAME = "genbeya";
 
-type Values = Pick<Settings, "wikiRoot" | "wikiHome" | "taskRoot" | "taskPrefix"> & Partial<Pick<Settings, "unused">>;
+type Values = Pick<Settings, "wikiRoot" | "wikiHome" | "taskRoot" | "taskPrefix"> &
+  Partial<Pick<Settings, "unused" | "pullRoot">> & {
+    /** Whether the project reviews in pull request files; the text teaches their format then. */
+    readonly pulls?: boolean;
+  };
 
 /** What the project uses of the wiki and the tasks, and how the text names that. */
 function usedAreas(unused: Settings["unused"] = []) {
@@ -25,7 +29,7 @@ const when = (condition: boolean, text: string) => (condition ? text : "");
 /** A YAML scalar for the frontmatter; quoted only when the text would not parse as a plain one. */
 const yamlScalar = (text: string): string => (/: | #|^[^A-Za-z]/.test(text) ? JSON.stringify(text) : text);
 
-export function skill({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix, unused }: Values): string {
+export function skill({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix, unused, pullRoot = "pulls", pulls = false }: Values): string {
   const { wiki, tasks, name } = usedAreas(unused);
   const description =
     tasks && wiki
@@ -152,7 +156,7 @@ Task IDs written plainly (\`${prefix}-12\`) link to the task as well. Name the t
 - \`[TOC]\` inserts a table of contents and \`[SUBPAGES]\` lists the pages below; \`> [!NOTE]\`, \`[!TIP]\`, \`[!IMPORTANT]\`, \`[!WARNING]\` and \`[!CAUTION]\` start callouts.
 - Write for the team: current facts, decisions with their reasons, how-tos. Keep session logs and scratch notes out of the wiki.
 `,
-  )}
+  )}${when(pulls, pullSection(pullRoot))}
 ## Ground rules
 
 - Edit \`.genbeya.yml\` only when asked to.
@@ -162,7 +166,33 @@ Task IDs written plainly (\`${prefix}-12\`) link to the task as well. Name the t
 }
 
 /** The section for AGENTS.md and other instruction files; `skillPath` is where the details are, if anywhere. */
-export function section({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix, unused }: Values, skillPath: string | null): string {
+/** How agents read and write pull request files, for projects that review in them. */
+function pullSection(pullRoot: string): string {
+  return `
+## Pull requests
+
+Code review happens in Markdown files in \`${pullRoot}/\`, one per pull request, named after its ID (\`${pullRoot}/PR-7.md\`). The frontmatter has \`id\`, \`title\`, \`status\` (\`draft\`, \`open\`, \`merged\` or \`closed\`), \`author\`, the \`source\` branch to merge, the \`target\` it goes into, and \`reviewers\`.
+
+- The description comes first. \`## Review\` holds one \`###\` topic per issue, and below it one \`####\` code range per place in the code: a reference pinned to the commit it was written about, such as \`#### [[src/auth.ts#L42-L48@<full commit ID>]]\`, with an optional \`diff\` code block that suggests a change, replies and to-dos. \`## Discussion\` holds remarks about the whole pull request and the verdicts.
+- A reply is one paragraph that starts with the name and the time in bold: \`**Name — 2026-10-23 12:41+02:00:** text\`. Add yours at the end of the topic, code range or discussion it answers; never edit other people's.
+- A verdict is a reply in \`## Discussion\` whose bold part names it, with the full ID of the commit reviewed: \`approved\`, \`requested changes at\`, \`requested review\` or \`withdrew approval\`. Write only your own.
+- To-dos are checkboxes; tick one when its change is made. Write nothing into the file that can be worked out, such as approval counts or whether it can be merged.
+- Name the pull request's tasks by their IDs, in its description or its source branch.
+
+Verdicts read like this:
+
+\`\`\`markdown
+**Alex — 2026-10-23 12:45+02:00 — requested changes at \`<commit>\`:** See the topic on errors.
+
+**Frank — 2026-10-24 11:00+02:00 — approved \`<commit>\`:** Looks good.
+\`\`\`
+`;
+}
+
+export function section(
+  { wikiRoot, wikiHome, taskRoot, taskPrefix: prefix, unused, pullRoot = "pulls", pulls = false }: Values,
+  skillPath: string | null,
+): string {
   const { wiki, tasks, name } = usedAreas(unused);
   const details = skillPath
     ? `\n- The \`${SKILL_NAME}\` skill (\`${skillPath}\`) describes the file formats and the workflow in detail.`
@@ -183,7 +213,7 @@ ${when(tasks, `\n- Use tasks instead of an internal todo list. Tasks are files i
     wiki,
     `\n- Use the wiki instead of private memory files. Pages are Markdown files in \`${wikiRoot}/\`, starting at \`${wikiRoot}/${wikiHome}\`. Read the relevant pages before you change an area, and record durable project knowledge there.`,
   )}
-- \`.genbeya.yml\` holds the workflow states, the task prefix and the folders. If \`git worktree list\` shows a worktree inside \`.git/genbeya/\`, its \`.genbeya-content\` file says which areas (\`wiki\`, \`tasks\`, \`settings\`) live there (\`branch\`) and which in the checkout (\`checkout\`); without that file all three live there. Edit and commit an area on the content branch in that worktree.
+- \`.genbeya.yml\` holds the workflow states, the task prefix and the folders. If \`git worktree list\` shows a worktree inside \`.git/genbeya/\`, its \`.genbeya-content\` file says which areas (\`wiki\`, \`tasks\`, \`settings\`) live there (\`branch\`) and which in the checkout (\`checkout\`); without that file all three live there. Edit and commit an area on the content branch in that worktree.${when(pulls, `\n- Code review happens in pull request files in \`${pullRoot}/\` (\`PR-7.md\`). Add replies and verdicts at the end of the section they answer, signed \`**Name — 2026-10-23 12:41+02:00:**\`.`)}
 ${
   tasks
     ? `- Reference ${wiki ? `tasks, pages and files as \`[[${prefix}-12]]\`, \`[[Page title]]\`` : `tasks and files as \`[[${prefix}-12]]\``} or \`[[src/file.ts#L10-L20]]\`, and name the task in commit messages and pull requests.`

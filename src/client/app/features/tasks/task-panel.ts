@@ -39,7 +39,8 @@ import { TaskComments } from "./task-comments";
 import { type FieldChange, TaskFields } from "./task-fields";
 import { TaskPlan } from "./task-plan";
 import { TaskPulls } from "../pulls/task-pulls";
-import { addTimeEntry, parseEffort } from "../../../../utilities/planning";
+import { addTimeEntry, parseEffort, PLANNING_FIELDS } from "../../../../utilities/planning";
+import type { LoggedTime, LogTimeRequest } from "./log-time-dialog";
 import { today } from "../../ui/calendar-date";
 import { displayId, inputOf } from "./task-model";
 import { TaskProperties } from "./task-properties";
@@ -518,20 +519,21 @@ ${this.task()!.hash}`,
 
   /** Asks for the time spent and what for, and adds it last to the task's time log, signed like comments. */
   protected async logTime() {
-    const hoursOf = (text: string) => parseEffort(text.trim().split(/\s+/)[0]);
-    const value = await this.dialogs.prompt({
-      title: "Log time",
-      label: "Time spent, then what for",
-      placeholder: "2h Reviewed the token validation",
-      hint: "Hours or days (2h, 0.5d), then a note. The entry goes into the task's time log, signed with your Git name.",
-      confirm: "Log",
-      validate: (text) => (hoursOf(text) ? null : "Start with the time spent, such as 2h or 0.5d."),
+    const task = this.current();
+    if (!task) return;
+    const { LogTimeDialog } = await import("./log-time-dialog");
+    const tracksRemaining = this.session.snapshot()!.settings.fields.some((field) => field.name === PLANNING_FIELDS.remaining);
+    const logged = await this.dialogs.open<LoggedTime, LogTimeRequest>(LogTimeDialog, {
+      remaining: parseEffort(task.fields[PLANNING_FIELDS.remaining]),
+      tracksRemaining,
     });
-    if (!value) return;
+    if (!logged) return;
     const author = await this.session.run(() => this.api.content.commentAuthor());
     if (!author) return;
-    const note = value.trim().split(/\s+/).slice(1).join(" ");
-    await this.enqueue((task) => ({ body: addTimeEntry(task.body, { date: today(), author, hours: hoursOf(value)!, note }) }));
+    await this.enqueue((current) => ({
+      body: addTimeEntry(current.body, { date: today(), author, hours: logged.hours, note: logged.note }),
+      ...(logged.remaining ? { fields: { ...current.fields, [PLANNING_FIELDS.remaining]: logged.remaining } } : {}),
+    }));
   }
 
   protected toggleCheckbox(offset: number) {

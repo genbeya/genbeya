@@ -5,6 +5,8 @@ import { Dialogs } from "../../core/dialogs";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { DialogFrame } from "../../ui/dialog-frame";
+import { normalizeTitle } from "../../../../utilities/references";
+import { flattenPages, pageNameProblem, pagePath } from "../wiki/wiki-pages";
 import { PullActions } from "./pull-actions";
 
 /**
@@ -36,6 +38,14 @@ import { PullActions } from "./pull-actions";
                   (click)="promote(todo.line, todo.text)"
                 >
                   To task
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-s"
+                  title="A section of a wiki page, referenced here"
+                  (click)="toPage(todo.line, todo.text)"
+                >
+                  To page…
                 </button>
               </li>
             }
@@ -131,6 +141,32 @@ export class CleanupDialog {
       }),
     );
     if (task) await this.actions.editBody(this.pull()!, (body) => promoteTodo(body, line, task.id), `Created ${task.id}`);
+  }
+
+  /** Adds the to-do as a section of a page, new or existing, and references the page instead. */
+  protected async toPage(line: number, text: string) {
+    const pull = this.pull()!;
+    const { wiki, settings } = this.session.snapshot()!;
+    const name = await this.dialogs.prompt({
+      title: "To a wiki page",
+      label: "Page",
+      placeholder: "Decisions/Authentication",
+      hint: "A section goes at the end of the page; a page that doesn't exist yet is created.",
+      confirm: "Add",
+      validate: pageNameProblem,
+    });
+    if (!name) return;
+    const path = pagePath(settings.wikiRoot, name);
+    const existing = flattenPages(wiki).find((page) => page.path === path || normalizeTitle(page.title) === normalizeTitle(name));
+    const added = await this.session.run(async () => {
+      if (!existing) await this.api.content.createPage(path);
+      const page = await this.api.content.read("content", existing?.path ?? path);
+      const section = `## From ${pull.id}: ${pull.title}\n\n${text}\n`;
+      await this.api.content.write("content", page.path, `${page.content.trimEnd()}\n\n${section}`, page.hash);
+      return true;
+    });
+    const title = existing?.title ?? name.split("/").at(-1)!;
+    if (added) await this.actions.editBody(this.pull()!, (body) => promoteTodo(body, line, title), "Added to the page");
   }
 
   protected async shorten(line: number, title: string) {

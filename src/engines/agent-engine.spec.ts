@@ -106,6 +106,11 @@ describe("AgentEngine", () => {
     const wikiOnly = { ...genbeya, unused: ["tasks" as const] };
     expect(fileOf("claudeSkill", wikiOnly).text).not.toContain("## Tasks");
     expect(fileOf("agents", wikiOnly).text).not.toContain("GENBEYA-12");
+    const reviewing = engine.files(genbeya, ALL, true);
+    expect(reviewing.find((file) => file.target === "claudeSkill")!.text).toContain("## Pull requests");
+    expect(reviewing.find((file) => file.target === "agents")!.text).toContain("pull request files in `pulls/`");
+    expect(engine.files({ ...genbeya, unused: ["pulls"] }, ALL, true)[0]!.text).not.toContain("## Pull requests");
+    expect(fileOf("claudeSkill").text).not.toContain("## Pull requests");
     // Without unused parts, nothing mentions them.
     expect(fileOf("claudeSkill").text).not.toContain("unused");
   });
@@ -114,7 +119,7 @@ describe("AgentEngine", () => {
     const options = { ...(await resolveConfig("AGENTS.md")), parser: "markdown" };
     const parts = (unused: Settings["unused"]) => ({ ...genbeya, unused });
     for (const settings of [genbeya, custom, parts(["wiki"]), parts(["tasks"]), parts(["wiki", "tasks"])])
-      for (const file of engine.files(settings, ALL)) {
+      for (const file of [...engine.files(settings, ALL), ...engine.files(settings, ALL, true)]) {
         const content = engine.merge(file, null);
         expect(await format(content, options), file.path).toBe(content);
       }
