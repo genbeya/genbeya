@@ -3,12 +3,23 @@
  * settings, the queue that runs its operations one at a time, and what has
  * to end with it or with the client using it (terminals).
  */
-import type { ContentArea, Location, Scope, Settings, Task } from "../contracts/model";
+import {
+  SKIPPABLE_AREAS,
+  type ContentArea,
+  type Location,
+  type PullRequest,
+  type Scope,
+  type Settings,
+  type SkippedArea,
+  type Task,
+} from "../contracts/model";
+import { localBranches, pullFilesOn } from "../access/git/pull-access";
 import { ContentStore, type ContentLocation } from "../access/content/content-store";
 import { FileStore } from "../access/files/file-store";
 import type { RepositoryAccess } from "../access/git/repository-access";
 import { isMissing, type Host } from "../access/hosts/host";
 import { contentAreaOf, SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
+import type { PullEngine } from "../engines/pull-engine";
 import type { TaskEngine } from "../engines/task-engine";
 import { baseName, validateRepositoryPath } from "../utilities/repository-path";
 import { SerialQueue } from "../utilities/serial-queue";
@@ -28,6 +39,7 @@ export interface LoadedSettings {
 export interface Engines {
   readonly settings: SettingsEngine;
   readonly tasks: TaskEngine;
+  readonly pulls: PullEngine;
 }
 
 /** The settings in `files`: `fallback` while there are none, and also, saying why, while they are broken. */
@@ -91,10 +103,52 @@ export async function readTasks(
   return tasks;
 }
 
+/** The pull requests among `files`, read from `store`, by ID; problems become `warnings`. */
+/** Areas to leave out of a snapshot, as asked. */
+export function skippedAreas(value: unknown): SkippedArea[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.some((area) => !(SKIPPABLE_AREAS as readonly unknown[]).includes(area)))
+    throw new Error("Invalid areas to skip.");
+  return SKIPPABLE_AREAS.filter((area) => value.includes(area));
+}
+
+/** Each task file's ID, from its name: what references need of tasks nobody shows, without reading them. */
+export function taskIndexOf(files: readonly string[], taskRoot: string, engine: TaskEngine): { id: string; path: string }[] {
+  return files
+    .filter((file) => engine.isTaskFile(file, taskRoot))
+    .map((path) => ({ id: path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/i, ""), path }));
+}
+
+export async function readPulls(
+  store: FileStore,
+  files: readonly string[],
+  settings: Settings,
+  engine: PullEngine,
+  warnings: string[],
+): Promise<PullRequest[]> {
+  const paths = files.filter((file) => engine.isPullFile(file, settings.pullRoot));
+  const contents = await store.readMany(paths);
+  const pulls: PullRequest[] = [];
+  contents.forEach((file, i) => {
+    const path = paths[i]!;
+    if (!file || file instanceof Error)
+      return void warnings.push(`${path}: ${file instanceof Error ? file.message : "could not be read."}`);
+    try {
+      pulls.push(engine.parse(path, file.content, file.hash));
+    } catch (error) {
+      warnings.push(`${path}: ${(error as Error).message}`);
+    }
+  });
+  const number = (id: string) => Number(/(\d+)$/.exec(id)?.[1] ?? 0);
+  return pulls.sort((a, b) => number(a.id) - number(b.id));
+}
+
 export class Workspace {
   readonly checkout: FileStore;
   readonly content: ContentStore;
   private readonly queue = new SerialQueue();
+  /** Pull requests read from other branches, by branch, with the commit they were read at. */
+  private pullsByBranch = new Map<string, { commit: string; folder: string; pulls: PullRequest[] }>();
   private loadedSettings: LoadedSettings | null = null;
   private closed = false;
   private readonly releaseListeners = new Set<() => void>();
@@ -177,6 +231,41 @@ export class Workspace {
   /** Reads every task file below the task folder; problems become `warnings`. */
   async tasks(files: readonly string[], settings: Settings, warnings: string[]): Promise<Task[]> {
     return readTasks((await this.content.locate("tasks")).files, files, settings, this.engines.tasks, warnings);
+  }
+
+  /** Reads every pull request file in the pull request folder; problems become `warnings`. */
+  async pulls(files: readonly string[], settings: Settings, warnings: string[]): Promise<PullRequest[]> {
+    const present = await readPulls((await this.content.locate("pulls")).files, files, settings, this.engines.pulls, warnings);
+    // On the content branch every pull request is there; in the checkout, each file lives on its branch.
+    if ((await this.content.layout()).areas.pulls !== "checkout") return present;
+    return this.engines.pulls.withBranches(present, await this.branchPulls(settings.pullRoot));
+  }
+
+  /** Pull requests on the local branches but the checked-out one, read again only for branches that moved. */
+  private async branchPulls(folder: string): Promise<PullRequest[]> {
+    const git = this.repository.git;
+    const [branches, current] = await Promise.all([localBranches(git), git.attempt(["symbolic-ref", "--quiet", "--short", "HEAD"])]);
+    const read = new Map<string, { commit: string; folder: string; pulls: PullRequest[] }>();
+    for (const [branch, commit] of branches) {
+      if (branch === current?.trim()) continue;
+      const known = this.pullsByBranch.get(branch);
+      if (known?.commit === commit && known.folder === folder) {
+        read.set(branch, known);
+        continue;
+      }
+      const files = await pullFilesOn(git, branch, commit, folder);
+      const pulls = files.flatMap((file) => {
+        try {
+          return [{ ...this.engines.pulls.parse(file.path, file.content, file.hash), branch }];
+        } catch {
+          // A file that doesn't parse there is that branch's to fix.
+          return [];
+        }
+      });
+      read.set(branch, { commit, folder, pulls });
+    }
+    this.pullsByBranch = read;
+    return [...read.values()].flatMap((entry) => entry.pulls);
   }
 
   /**

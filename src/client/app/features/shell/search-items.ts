@@ -1,5 +1,6 @@
 /** Full-text search in the command palette: the "/" prefix, and its results as palette rows. */
 import type { Scope, SearchHit, SearchMatch, SearchRange, SearchResults } from "../../../../contracts/model";
+import { baseName } from "../../../../utilities/repository-path";
 import type { PaletteItem } from "./palette-items";
 
 /** Typed first in the palette, it searches the text of pages, tasks and files. */
@@ -32,6 +33,7 @@ export type PaletteRow = PaletteItem & { readonly match?: MatchView };
 export interface SearchCommands {
   openPage(path: string, line: number): void;
   openTask(id: string): void;
+  openPull(id: string): void;
   /** A file of a content area kept on the content branch has the scope "content". */
   openFile(path: string, line: number, scope: Scope): void;
 }
@@ -79,6 +81,13 @@ export function searchItems(results: SearchResults, commands: SearchCommands): P
       (task) => commands.openTask(task.id),
     ),
     ...rows(
+      results.pulls,
+      "Pull requests",
+      "pulls",
+      (pull) => ({ file: pull.title, fileDetail: pull.path }),
+      (pull) => commands.openPull(baseName(pull.path).replace(/\.md$/i, "")),
+    ),
+    ...rows(
       results.code,
       "Code",
       "file",
@@ -105,7 +114,7 @@ export function segments(text: string, ranges: readonly SearchRange[]): Segment[
 
 /** "3 matches in 2 files", for the palette's status line. */
 export function describeResults(results: SearchResults): string {
-  const hits = [...results.wiki, ...results.tasks, ...results.code];
+  const hits = [...results.wiki, ...results.tasks, ...results.pulls, ...results.code];
   const matches = hits.reduce((sum, hit) => sum + hit.matches.length, 0);
   const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   if (!matches) return "No matches";

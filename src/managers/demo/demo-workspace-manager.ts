@@ -5,6 +5,7 @@
  * visitor's computer is reachable, and preferences last as long as the page.
  */
 import type { WorkspaceManagerContract } from "../../contracts/manager-contracts";
+import { skippedAreas, taskIndexOf } from "../workspace";
 import {
   CHANGE_BASES,
   CONTENT_AREAS,
@@ -15,6 +16,7 @@ import {
   type OpenedWorkspace,
   type Preferences,
   type RecentEntry,
+  type SkippedArea,
   type Snapshot,
 } from "../../contracts/model";
 import { restage } from "../../access/git/staging-access";
@@ -108,10 +110,11 @@ export class DemoWorkspaceManager implements WorkspaceManagerContract {
     if (typeof id === "string") this.registry.close(id);
   }
 
-  async snapshot(id: unknown, since?: unknown, base?: unknown): Promise<Snapshot | null> {
+  async snapshot(id: unknown, since?: unknown, base?: unknown, skip?: unknown): Promise<Snapshot | null> {
     const workspace = this.registry.get(id);
     if (base !== undefined && base !== null && !CHANGE_BASES.includes(base as ChangeBase)) throw new Error("Invalid comparison base.");
-    const snapshot = await workspace.exclusive(() => this.compose(workspace, (base as ChangeBase | null | undefined) ?? "head"));
+    const skipped = skippedAreas(skip);
+    const snapshot = await workspace.exclusive(() => this.compose(workspace, (base as ChangeBase | null | undefined) ?? "head", skipped));
     return snapshot.version === since ? null : snapshot;
   }
 
@@ -151,12 +154,13 @@ export class DemoWorkspaceManager implements WorkspaceManagerContract {
   }
 
   /** Everything the client shows, stamped with a version of its content; staged changes are compared with `base`. */
-  private async compose(workspace: DemoWorkspace, base: ChangeBase = "head"): Promise<Snapshot> {
+  private async compose(workspace: DemoWorkspace, base: ChangeBase = "head", skipped: readonly SkippedArea[] = []): Promise<Snapshot> {
     const repository = workspace.repository;
     const { settings, hash, problem } = await workspace.settings(true);
     const files = repository.files();
     const warnings = problem ? [problem] : [];
-    const tasks = await workspace.tasks(files, settings, warnings);
+    const tasks = skipped.includes("tasks") ? [] : await workspace.tasks(files, settings, warnings);
+    const pulls = skipped.includes("pulls") ? [] : await workspace.pulls(files, settings, warnings);
     const amending = base === "parent" ? amendingOf(repository) : null;
     const changes = repository.status();
     const branches = [...repository.branches.keys()].sort();
@@ -187,6 +191,9 @@ export class DemoWorkspaceManager implements WorkspaceManagerContract {
       files: buildFileTree(files),
       wiki: this.engines.wiki.tree(files, settings),
       tasks,
+      pulls,
+      ...(skipped.length ? { skipped } : {}),
+      ...(skipped.includes("tasks") ? { taskIndex: taskIndexOf(files, settings.taskRoot, this.engines.tasks) } : {}),
       warnings,
     };
     return { version: sha256(JSON.stringify(body)), ...body };

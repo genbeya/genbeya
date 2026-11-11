@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { dependenciesOf, effortOf, planTasks } from "../utilities/planning";
 import { validateRepositoryPath } from "../utilities/repository-path";
 import { REPORT_LINES, SampleEngine } from "./sample-engine";
 import { SETTINGS_FILE, SettingsEngine } from "./settings-engine";
@@ -15,7 +16,11 @@ describe("SampleEngine", () => {
   it("has valid settings that hide a column", () => {
     expect(settings).toMatchObject({ name: "Pocket Weather", taskPrefix: "PW", hiddenColumns: ["backlog"] });
     expect(settings.types.map((type) => type.name)).toEqual(["feature", "bug", "docs", "chore"]);
-    expect(settings.fields).toEqual([{ name: "estimate", type: "number" }]);
+    expect(settings.fields).toEqual([
+      { name: "estimate", type: "effort" },
+      { name: "remaining", type: "effort" },
+      { name: "depends_on", type: "tasks" },
+    ]);
   });
 
   it("names only paths a repository may hold, on every file system", () => {
@@ -40,9 +45,25 @@ describe("SampleEngine", () => {
 
   it("has a wiki with a home page, subpages and diagrams", () => {
     const wiki = new WikiEngine().tree([...files.keys()], settings);
-    expect(wiki.map((page) => page.title)).toEqual(["Home", "Architecture", "Where files live"]);
+    expect(wiki.map((page) => page.title)).toEqual(["Home", "Architecture", "Release plan", "Where files live"]);
     expect(wiki[1]!.children.map((page) => page.title)).toEqual(["Forecast source"]);
     expect(files.get("docs/Architecture.md")).toMatch(/```mermaid[\s\S]*```plantuml/);
+  });
+
+  it("plans: effort and time logs that add up, and a task blocked by others", () => {
+    const tasks = new TaskEngine();
+    const parsed = [...files]
+      .filter(([path]) => tasks.isTaskFile(path, settings.taskRoot))
+      .map(([path, content]) => tasks.parse(path, content, "hash", settings.taskRoot));
+    const plan = planTasks(parsed);
+    const byId = (id: string) => plan.find((task) => task.id === id)!;
+    expect(effortOf(byId("PW-1"), true)).toEqual({ estimate: 4, logged: 5, remaining: 0, forecast: 5, variance: 1 });
+    expect(effortOf(byId("PW-2"), false)).toEqual({ estimate: 8, logged: 4, remaining: 3, forecast: 7, variance: -1 });
+    expect(plan.every((task) => task.unreadable === 0)).toBe(true);
+    const dependencies = dependenciesOf(plan, settings.statuses);
+    expect(dependencies.states.get("PW-6")).toBe("blocked");
+    expect(dependencies.problems.size).toBe(0);
+    expect(files.get("docs/Release-plan.md")).toMatch(/\[EFFORT\][\s\S]*\[DEPENDENCIES\][\s\S]*\[GANTT\]/);
   });
 
   it("embeds the lines of the report function", () => {

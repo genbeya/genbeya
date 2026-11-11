@@ -81,7 +81,10 @@ const DATA_ATTRIBUTES = new Set([
   "data-footnote-backref",
   "data-footnotes",
   "data-embed",
+  "data-plan-history",
+  "data-filter",
   "data-lines",
+  "data-revision",
   "data-line",
 ]);
 
@@ -112,16 +115,27 @@ export interface RepositoryImage {
   readonly path: string;
 }
 
-/** Lines of a repository file shown in place (`![[path#L1-L9]]`). */
+/** Lines of a repository file shown in place (`![[path#L1-L9]]`, `![[path#L1-L9@v1.0]]`). */
 export interface Embed {
   readonly element: HTMLElement;
   readonly path: string;
   /** "10-20", or null for the whole file. */
   readonly lines: string | null;
+  /** The revision whose version is shown; null for the file as it is now. */
+  readonly revision: string | null;
+}
+
+/** A plan over time to fill in once its history is read: `[BURNDOWN]` or `[BASELINE]`, with what follows the name. */
+export interface PlanHistoryBlock {
+  readonly element: HTMLElement;
+  readonly kind: "BURNDOWN" | "BASELINE";
+  readonly args: string;
 }
 
 export interface RenderedMarkdown {
   readonly fragment: DocumentFragment;
+  /** Placeholders to fill with plans over time once inserted. */
+  readonly histories: readonly PlanHistoryBlock[];
   /** Placeholders to fill with file contents once inserted. */
   readonly embeds: readonly Embed[];
   /** Placeholders to draw diagrams into once inserted. */
@@ -223,6 +237,7 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
   const formulas: Formula[] = [];
   const images: RepositoryImage[] = [];
   const embeds: Embed[] = [];
+  const histories: PlanHistoryBlock[] = [];
 
   const create = (tag: string, classes: string[] = []) => {
     const element = document.createElement(tag);
@@ -357,8 +372,13 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
   const embed = (node: Element): Node => {
     const placeholder = create("div", ["md-embed"]);
     placeholder.append(create("span", ["spinner"]));
-    const lines = node.properties["dataLines"];
-    embeds.push({ element: placeholder, path: String(node.properties["dataEmbed"] ?? ""), lines: lines ? String(lines) : null });
+    const { dataLines: lines, dataRevision: revision } = node.properties;
+    embeds.push({
+      element: placeholder,
+      path: String(node.properties["dataEmbed"] ?? ""),
+      lines: lines ? String(lines) : null,
+      revision: revision ? String(revision) : null,
+    });
     return placeholder;
   };
 
@@ -390,6 +410,13 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
     if (tag === "a") return link(node, taskOffset);
     if (tag === "img") return image(node);
     if (tag === "div" && classesOf(node).includes("md-embed")) return embed(node);
+    if (tag === "div" && classesOf(node).includes("md-plan-history")) {
+      const placeholder = create("div", ["md-plan-history"]);
+      placeholder.append(create("span", ["spinner"]));
+      const kind = node.properties["dataPlanHistory"] === "BASELINE" ? "BASELINE" : "BURNDOWN";
+      histories.push({ element: placeholder, kind, args: String(node.properties["dataFilter"] ?? "") });
+      return placeholder;
+    }
     if ((tag === "span" || tag === "div") && classesOf(node).includes("md-math")) return formula(node);
     if (!ALLOWED.has(tag)) {
       const unwrapped = document.createDocumentFragment();
@@ -410,5 +437,5 @@ export function renderMarkdownTree(tree: Root, document: Document, options: Rend
 
   const fragment = document.createDocumentFragment();
   children(tree.children, fragment, null);
-  return { fragment, embeds, diagrams, formulas, images };
+  return { fragment, embeds, histories, diagrams, formulas, images };
 }

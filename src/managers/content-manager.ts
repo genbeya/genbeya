@@ -1,5 +1,8 @@
 /** Everything that edits files: repository files, wiki pages, tasks, settings and the files that teach coding agents to use them. */
 import type { ContentManagerContract } from "../contracts/manager-contracts";
+import { filesAt, folderHistory } from "../access/git/folder-history";
+import { PLAN_HISTORY_LIMIT, planVersions } from "./plan-history";
+import { revision } from "./version-control-arguments";
 import {
   AGENT_TARGETS,
   CONTENT_AREAS,
@@ -12,6 +15,8 @@ import {
   type LinkUpdate,
   type PageMove,
   type People,
+  type PlanHistory,
+  type PullRequest,
   type Scope,
   type SearchResults,
   type Settings,
@@ -25,9 +30,11 @@ import type { ContentLocation } from "../access/content/content-store";
 import { IMAGE_LIMIT, type VersionedFile } from "../access/files/file-store";
 import { commitAuthors, commitIdentity, type AuthorCount } from "../access/git/authors";
 import { isMissing } from "../access/hosts/host";
+import { lineAuthors, lineList } from "../engines/line-origins";
 import type { AgentEngine } from "../engines/agent-engine";
 import type { LinkEngine, LinkRewrite } from "../engines/link-engine";
 import type { PeopleEngine } from "../engines/people-engine";
+import type { PullEngine } from "../engines/pull-engine";
 import type { SearchEngine } from "../engines/search-engine";
 import { SETTINGS_FILE, type SettingsEngine } from "../engines/settings-engine";
 import type { TaskEngine, TaskVersion } from "../engines/task-engine";
@@ -56,6 +63,7 @@ export class ContentManager implements ContentManagerContract {
     private readonly engines: {
       readonly settings: SettingsEngine;
       readonly tasks: TaskEngine;
+      readonly pulls: PullEngine;
       readonly wiki: WikiEngine;
       readonly agents: AgentEngine;
       readonly links: LinkEngine;
@@ -300,6 +308,79 @@ export class ContentManager implements ContentManagerContract {
     });
   }
 
+  lineAuthors(id: unknown, path: unknown, lines: unknown): Promise<readonly (string | null)[]> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { settings } = await workspace.settings();
+      if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
+      const wanted = lineList(lines);
+      return lineAuthors(await workspace.content.history("pulls", relative, ACTIVITY_LIMIT, true), wanted);
+    });
+  }
+
+  planHistory(id: unknown, baseline?: unknown): Promise<PlanHistory> {
+    return this.on(id, async (workspace) => {
+      const { settings } = await workspace.settings();
+      const asked = baseline === undefined || baseline === null || baseline === "" ? null : revision(baseline);
+      const { git } = await workspace.content.locate("tasks");
+      const history = await folderHistory(git, settings.taskRoot, PLAN_HISTORY_LIMIT);
+      const commits = history
+        .map((commit) => ({
+          commit: commit.hash,
+          author: commit.author,
+          date: commit.date,
+          subject: commit.subject,
+          tasks: planVersions(commit.files, this.engines.tasks, settings.taskRoot),
+        }))
+        .filter((commit) => commit.tasks.length);
+      let base: PlanHistory["baseline"] = null;
+      if (asked) {
+        const at = await filesAt(git, asked, settings.taskRoot);
+        const tasks = planVersions(at.files, this.engines.tasks, settings.taskRoot).flatMap((version) =>
+          version.task ? [version.task] : [],
+        );
+        const date = at.commit ? (await git.attempt(["show", "-s", "--format=%aI", at.commit]))?.trim() || null : null;
+        base = { revision: asked, commit: at.commit, date, tasks };
+      }
+      return { commits, truncated: history.length === PLAN_HISTORY_LIMIT, baseline: base };
+    });
+  }
+
+  createPull(id: unknown, input: unknown): Promise<PullRequest> {
+    return this.on(id, async (workspace) => {
+      const { settings } = await workspace.settings();
+      const valid = this.engines.pulls.validate(input);
+      const files = await workspace.content.files("pulls");
+      const existing = await workspace.pulls(files, settings, []);
+      const pullId = this.engines.pulls.nextId(
+        settings.pullPrefix,
+        existing.map((pull) => pull.id),
+        (candidate) => files.includes(this.engines.pulls.pathOf(settings.pullRoot, candidate)),
+      );
+      const path = workspace.path(this.engines.pulls.pathOf(settings.pullRoot, pullId));
+      const content = this.engines.pulls.serializeNew(pullId, valid, await this.author(workspace));
+      const file = await (await workspace.content.locate("pulls")).files.write(path, content, null);
+      await workspace.content.record("pulls", [path], `Open ${pullId}: ${valid.title}`);
+      return this.engines.pulls.parse(path, file.content, file.hash);
+    });
+  }
+
+  updatePull(id: unknown, path: unknown, input: unknown, expectedHash: unknown): Promise<PullRequest> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { settings } = await workspace.settings();
+      if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
+      const valid = this.engines.pulls.validate(input);
+      const { files } = await workspace.content.locate("pulls");
+      const original = await files.read(relative);
+      if (original.hash !== expectedHash) throw new Error("This pull request changed on disk. Reopen it to see the latest version.");
+      const pull = this.engines.pulls.parse(relative, original.content, original.hash);
+      const file = await files.write(relative, this.engines.pulls.serializeUpdate(original.content, valid), original.hash);
+      await workspace.content.record("pulls", [relative], `Update ${pull.id}: ${valid.title}`);
+      return this.engines.pulls.parse(relative, file.content, file.hash);
+    });
+  }
+
   commentAuthor(id: unknown): Promise<string> {
     return this.on(id, (workspace) => this.author(workspace));
   }
@@ -393,7 +474,12 @@ export class ContentManager implements ContentManagerContract {
       if (!CONTENT_AREAS.includes(area as ContentArea)) throw new Error("Invalid content area.");
       if (!STORAGE_MODES.includes(mode as StorageMode)) throw new Error("Invalid storage mode.");
       const { settings } = await workspace.settings();
-      const paths: Readonly<Record<ContentArea, string>> = { wiki: settings.wikiRoot, tasks: settings.taskRoot, settings: SETTINGS_FILE };
+      const paths: Readonly<Record<ContentArea, string>> = {
+        wiki: settings.wikiRoot,
+        tasks: settings.taskRoot,
+        settings: SETTINGS_FILE,
+        pulls: settings.pullRoot,
+      };
       await workspace.content.setStorage(area as ContentArea, mode as StorageMode, paths[area as ContentArea]);
       workspace.forgetSettings();
     });
@@ -445,8 +531,9 @@ export class ContentManager implements ContentManagerContract {
     if (!Array.isArray(targets) || targets.some((target) => !AGENT_TARGETS.includes(target as AgentTarget)))
       throw new Error("Unknown agent file.");
     const { settings } = await workspace.settings();
+    const pulls = (await workspace.content.files("pulls")).some((path) => this.engines.pulls.isPullFile(path, settings.pullRoot));
     return Promise.all(
-      this.engines.agents.files(settings, targets as AgentTarget[]).map(async (file) => ({
+      this.engines.agents.files(settings, targets as AgentTarget[], pulls).map(async (file) => ({
         file,
         existing: await workspace.checkout.read(file.path).catch((error: unknown) => {
           if (isMissing(error)) return null;

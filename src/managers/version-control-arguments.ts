@@ -21,6 +21,7 @@ import {
   type SyncAction,
 } from "../contracts/model";
 import { TEXT_LIMIT } from "../access/files/file-store";
+import { isRevision } from "../utilities/references";
 import { isCommitId } from "../access/git/git-parsers";
 import { REBASE_LIMIT } from "../access/git/operation-access";
 
@@ -47,6 +48,18 @@ export function refName(value: unknown, kind: "branch" | "tag"): string {
   return value;
 }
 
+/** A revision a reference is pinned to; see `isRevision` for what it may hold. */
+export function revision(value: unknown): string {
+  if (!isRevision(value)) throw new Error("Invalid revision.");
+  return value;
+}
+
+/** Revisions to compare, such as approved commits; up to 50. */
+export function revisionList(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > 50) throw new Error("Invalid revisions.");
+  return value.map(revision);
+}
+
 /** What staged changes are compared with; HEAD unless given. */
 export function changeBase(value: unknown): ChangeBase {
   if (value === undefined || value === null) return "head";
@@ -55,9 +68,11 @@ export function changeBase(value: unknown): ChangeBase {
 }
 
 export function diffSource(value: unknown): DiffSource {
-  if (value !== "worktree" && value !== "index" && !isCommitId((value as { commit?: unknown } | null)?.commit))
-    throw new Error("Invalid diff source.");
-  return value === "worktree" || value === "index" ? value : { commit: (value as { commit: string }).commit };
+  if (value === "worktree" || value === "index") return value;
+  const { commit, from, to } = (value ?? {}) as Partial<Record<string, unknown>>;
+  if (isCommitId(commit)) return { commit };
+  if (isCommitId(from) && isCommitId(to)) return { from, to };
+  throw new Error("Invalid diff source.");
 }
 
 function lineRanges(value: unknown): LineRange[] {

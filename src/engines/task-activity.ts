@@ -12,6 +12,8 @@ export interface TaskState {
   readonly labels: readonly string[];
   readonly description: string;
   readonly comments: readonly TaskComment[];
+  /** The time log's entries as written; the description is without them. */
+  readonly timeLog?: readonly string[];
   /** Custom fields with a plain value, by name, as text. */
   readonly fields: Readonly<Record<string, string>>;
   /** Other frontmatter fields, by name, as JSON. */
@@ -23,6 +25,18 @@ const FIELDS: readonly TaskField[] = ["title", "type", "status", "priority", "as
 /** The names of the entries that differ between `before` and `after`, sorted. */
 const changedNames = (before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>): string[] =>
   [...new Set([...Object.keys(before), ...Object.keys(after)])].sort().filter((name) => before[name] !== after[name]);
+
+/** Entries added to a time log and how many left it, each line counted as often as it is there; null when it didn't change. */
+function timeLogChange(before: readonly string[], after: readonly string[]): TaskChange | null {
+  const left = [...before];
+  const added: string[] = [];
+  for (const line of after) {
+    const at = left.indexOf(line);
+    if (at < 0) added.push(line.replace(/^[-*+]\s+/, ""));
+    else left.splice(at, 1);
+  }
+  return added.length || left.length ? { kind: "timelog", added, removed: left.length } : null;
+}
 
 /** Text without its outer whitespace, with LF line breaks: Git may convert them on checkout. */
 const normalized = (text: string) => text.replace(/\r\n?/g, "\n").trim();
@@ -65,6 +79,8 @@ export function diffTasks(before: TaskState | null, after: TaskState): TaskChang
   if (added.length || removed.length) changes.push({ kind: "labels", added, removed });
   if (normalized(before.description) !== normalized(after.description)) changes.push({ kind: "description" });
   changes.push(...commentChanges(before.comments, after.comments));
+  const logged = timeLogChange(before.timeLog ?? [], after.timeLog ?? []);
+  if (logged) changes.push(logged);
   for (const field of changedNames(before.fields, after.fields))
     changes.push({ kind: "custom", field, from: before.fields[field] ?? "", to: after.fields[field] ?? "" });
   const other = changedNames(before.other, after.other);

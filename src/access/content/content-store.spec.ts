@@ -8,7 +8,7 @@ import { LocalHost } from "../hosts/local-host";
 import { ContentStore } from "./content-store";
 
 const host = new LocalHost(nodeMachine());
-const FOLDERS: Readonly<Record<ContentArea, string>> = { wiki: "docs", tasks: "tasks", settings: ".genbeya.yml" };
+const FOLDERS: Readonly<Record<ContentArea, string>> = { wiki: "docs", tasks: "tasks", settings: ".genbeya.yml", pulls: "pulls" };
 const FILES = { ...DEFAULT_FILES, "tasks/TP-1.md": "---\nid: TP-1\ntitle: First\n---\n" };
 
 function storeFor(root: string) {
@@ -20,7 +20,7 @@ async function move(store: ContentStore, areas: readonly ContentArea[], mode: "c
   for (const area of areas) await store.setStorage(area, mode, FOLDERS[area]);
 }
 
-const everyArea: readonly ContentArea[] = ["wiki", "tasks", "settings"];
+const everyArea: readonly ContentArea[] = ["wiki", "tasks", "settings", "pulls"];
 
 /** Saves `content` at `path` wherever its area lives and records the edit. */
 async function edit(store: ContentStore, area: ContentArea, path: string, content: string, message = `Edit ${path}`) {
@@ -35,7 +35,10 @@ describe("ContentStore in the checkout", () => {
   it("uses the checkout for every area and never commits", async () => {
     const repository = await createRepository();
     const store = storeFor(repository.root);
-    expect(await store.layout()).toEqual({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null });
+    expect(await store.layout()).toEqual({
+      areas: { wiki: "checkout", tasks: "checkout", settings: "checkout", pulls: "checkout" },
+      branch: null,
+    });
     const location = await store.locate("wiki");
     expect(location.branch).toBeNull();
     expect(location.root).toBe(host.paths.normalize(repository.root));
@@ -136,6 +139,7 @@ describe("ContentStore with every area on the content branch", () => {
     await edit(store, "wiki", "docs/Home.md", "# Home\n\nShared.\n");
     expect((await repository.git("log", "--format=%s", "genbeya")).trim().split("\n")).toEqual([
       "Edit docs/Home.md",
+      "Move pull requests to the content branch",
       "Move settings to the content branch",
       "Move tasks to the content branch",
       "Move the wiki to the content branch",
@@ -159,7 +163,7 @@ describe("ContentStore with every area on the content branch", () => {
     const { git } = await store.locate("wiki");
     await git.text(["rm", "--quiet", ".genbeya-content"]);
     await git.text(["commit", "--quiet", "-m", "Forget the areas"]);
-    expect((await store.layout()).areas).toEqual({ wiki: "branch", tasks: "branch", settings: "branch" });
+    expect((await store.layout()).areas).toEqual({ wiki: "branch", tasks: "branch", settings: "branch", pulls: "branch" });
   });
 
   it("reports conflicting edits and leaves no rebase behind", async () => {
@@ -199,7 +203,7 @@ describe("ContentStore with every area on the content branch", () => {
     await move(store, everyArea, "branch");
     await move(store, everyArea, "checkout");
     expect((await store.locate("wiki")).branch).toBeNull();
-    expect((await store.layout()).areas).toEqual({ wiki: "checkout", tasks: "checkout", settings: "checkout" });
+    expect((await store.layout()).areas).toEqual({ wiki: "checkout", tasks: "checkout", settings: "checkout", pulls: "checkout" });
     expect((await repository.git("status", "--porcelain")).trim()).toBe("");
     expect(await repository.git("fsck", "--no-progress")).not.toMatch(/missing/);
   });
@@ -235,7 +239,7 @@ describe("ContentStore with some areas on the content branch", () => {
     const repository = await createRepository(FILES);
     const store = storeFor(repository.root);
     await move(store, ["tasks"], "branch");
-    expect((await store.layout()).areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout" });
+    expect((await store.layout()).areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout", pulls: "checkout" });
     expect((await store.locate("wiki")).branch).toBeNull();
     expect((await store.locate("settings")).branch).toBeNull();
     expect((await store.files("tasks")).sort()).toEqual([".genbeya-content", "tasks/TP-1.md"]);
@@ -278,7 +282,7 @@ describe("ContentStore with some areas on the content branch", () => {
     const repository = await createRepository(FILES);
     const store = storeFor(repository.root);
     await move(store, ["wiki"], "branch");
-    expect((await store.layout()).areas).toEqual({ wiki: "branch", tasks: "checkout", settings: "checkout" });
+    expect((await store.layout()).areas).toEqual({ wiki: "branch", tasks: "checkout", settings: "checkout", pulls: "checkout" });
     expect((await store.files("wiki")).filter((file) => file.startsWith("tasks/"))).toEqual([]);
 
     await edit(store, "wiki", "docs/Home.md", "# Home\n\nShared.\n");
@@ -304,7 +308,7 @@ describe("ContentStore with some areas on the content branch", () => {
     expect((await repository.git("status", "--porcelain")).trim()).toBe("M docs/Home.md");
 
     const theirs = storeFor((await cloneRepository(remote)).root);
-    expect((await theirs.layout()).areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout" });
+    expect((await theirs.layout()).areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout", pulls: "checkout" });
     expect(lf((await (await theirs.locate("tasks")).files.read("tasks/TP-1.md")).content)).toContain("title: Shared");
     expect(lf((await (await theirs.locate("wiki")).files.read("docs/Home.md")).content)).toBe("# Home\n");
   });
@@ -360,7 +364,7 @@ describe("ContentStore with some areas on the content branch", () => {
     expect(await store.layout()).toMatchObject({ areas: { wiki: "checkout", tasks: "checkout" }, branch: null });
 
     await move(store, ["tasks"], "branch");
-    expect((await store.layout()).areas).toEqual({ wiki: "branch", tasks: "branch", settings: "checkout" });
+    expect((await store.layout()).areas).toEqual({ wiki: "branch", tasks: "branch", settings: "checkout", pulls: "checkout" });
     expect(await repository.git("config", "--get", "genbeya.storage").catch(() => "")).toBe("");
   });
 });

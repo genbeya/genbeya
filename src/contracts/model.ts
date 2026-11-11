@@ -57,10 +57,14 @@ const KNOWN_TYPES: Readonly<Record<string, Omit<TaskType, "name">>> = {
 /** A type of this name with its usual icon and colour: well-known names have their own, others a generic icon. */
 export const taskType = (name: string): TaskType => ({ name, ...(KNOWN_TYPES[name.toLowerCase()] ?? { icon: GENERIC_TYPE_ICON }) });
 
-export const FIELD_TYPES = ["text", "number", "date", "choice"] as const;
+export const FIELD_TYPES = ["text", "number", "date", "choice", "effort", "tasks"] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
-/** A custom task field: a frontmatter key with an editor. Dates are written as `YYYY-MM-DD`. */
+/**
+ * A custom task field: a frontmatter key with an editor. Dates are written as
+ * `YYYY-MM-DD`, effort as an amount of hours or days (`16h`, `2d`), tasks as
+ * a list of task IDs.
+ */
 export interface FieldDefinition {
   readonly name: string;
   readonly type: FieldType;
@@ -71,8 +75,8 @@ export interface FieldDefinition {
 /** The frontmatter keys Genbeya writes itself; the epic is the task's folder. Custom fields use other names. */
 export const TASK_KEYS = ["id", "title", "type", "status", "priority", "assignee", "labels", "epic"] as const;
 
-/** The value of a custom field; an empty string removes the field. */
-export type FieldValue = string | number | boolean;
+/** The value of a custom field, a list for `tasks` fields; an empty string removes the field. */
+export type FieldValue = string | number | boolean | readonly string[];
 
 /** Project settings, stored in `.genbeya.yml` next to the wiki and tasks. */
 export interface Settings {
@@ -90,7 +94,74 @@ export interface Settings {
   readonly fields: readonly FieldDefinition[];
   /** The project's people as `.genbeya.yml` lists them; they win over what Genbeya derives from Git. */
   readonly people: readonly PersonEntry[];
+  /** The folder of pull request files. */
+  readonly pullRoot: string;
+  /** The prefix of pull request IDs: `PR` makes PR-1, PR-2, … */
+  readonly pullPrefix: string;
+  /** Effective approvals a pull request needs to be ready to merge; 0 for none. */
+  readonly requiredApprovals: number;
+  /** Whether open to-dos keep a pull request from being ready to merge. */
+  readonly todosBlockMerge: boolean;
+  /** Parts of the app the project doesn't use: nobody sees them. */
+  readonly unused: readonly Part[];
+  /** The days of the week the project works on, for plans in days. */
+  readonly workdays: readonly Weekday[];
+  /** Days off, `YYYY-MM-DD`, closed on timelines and skipped by plans. */
+  readonly holidays: readonly string[];
+  /** Milestones with their dates; tasks name them in their `milestone` field. */
+  readonly milestones: readonly Milestone[];
 }
+
+export const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+export type Weekday = (typeof WEEKDAYS)[number];
+
+export interface Milestone {
+  readonly name: string;
+  /** `YYYY-MM-DD`. */
+  readonly due: string;
+}
+
+/** Areas a snapshot can leave out while they are turned off: reading every task or pull request is what costs. */
+export const SKIPPABLE_AREAS = ["tasks", "pulls"] as const;
+export type SkippedArea = (typeof SKIPPABLE_AREAS)[number];
+
+/** The parts of the app that can be turned off, for a project or for a person; see `docs/Design/Optional-parts.md`. */
+export const PARTS = ["wiki", "tasks", "planning", "timelog", "code", "changes", "history", "pulls", "terminal"] as const;
+export type Part = (typeof PARTS)[number];
+
+/** The part each part needs: turning that one off turns this one off too. */
+export const PART_NEEDS: Readonly<Partial<Record<Part, Part>>> = { planning: "tasks", timelog: "planning" };
+
+/** The parts that go with `part` when it is turned off: those that need it, directly or through another. */
+export function dependentParts(part: Part): Part[] {
+  const found: Part[] = [];
+  for (const candidate of PARTS) {
+    let need = PART_NEEDS[candidate];
+    while (need && need !== part) need = PART_NEEDS[need];
+    if (need === part) found.push(candidate);
+  }
+  return found;
+}
+
+/** Which parts the hidden ones leave: all but those, and those that need one of them. */
+export function shownParts(hidden: Iterable<Part>): ReadonlySet<Part> {
+  const off = new Set<Part>();
+  for (const part of hidden) for (const gone of [part, ...dependentParts(part)]) off.add(gone);
+  return new Set(PARTS.filter((part) => !off.has(part)));
+}
+
+/** A person's choice per part: shown, hidden, or (left out) as the project's use of it says. */
+export type PartChoices = Readonly<Partial<Record<Part, boolean>>>;
+
+/** What a person shows and hides: in every repository, and per repository, which overrides that. */
+export interface PartPreferences {
+  readonly all: PartChoices;
+  /** By {@link repositoryKey}. */
+  readonly repositories: Readonly<Record<string, PartChoices>>;
+}
+
+/** Parts that show by themselves only once the project uses them; the others show unless turned off. */
+export const AUTOMATIC_PARTS: readonly Part[] = ["planning", "timelog", "pulls"];
 
 /** A person listed in the settings: the handle `@mentions` use, with the name and email shown for it. */
 export interface PersonEntry {
@@ -166,7 +237,7 @@ export interface Task {
   readonly labels: readonly string[];
   /** One of the configured task types, or another name; "" for none. */
   readonly type: string;
-  /** Other frontmatter fields with a plain value (text, number or true/false), by key. */
+  /** Other frontmatter fields with a plain value (text, number or true/false) or a list of texts, by key. */
   readonly fields: Readonly<Record<string, FieldValue>>;
   /** The description: the Markdown above the comments. */
   readonly body: string;
@@ -203,6 +274,8 @@ export type TaskChange =
   | { readonly kind: "labels"; readonly added: readonly string[]; readonly removed: readonly string[] }
   | { readonly kind: "description" }
   | { readonly kind: "comments"; readonly added: number; readonly edited: number; readonly removed: number }
+  /** Time log entries: the lines added, as written without the list marker, and how many went away. */
+  | { readonly kind: "timelog"; readonly added: readonly string[]; readonly removed: number }
   /** A custom field with a plain value, written as text; "" where the task did not have it. */
   | { readonly kind: "custom"; readonly field: string; readonly from: string; readonly to: string }
   /** Frontmatter fields Genbeya has no words for, such as lists. */
@@ -345,7 +418,7 @@ export interface Head {
 }
 
 /** The parts of a repository's Genbeya content that can each live in the checkout or on the content branch. */
-export const CONTENT_AREAS = ["wiki", "tasks", "settings"] as const;
+export const CONTENT_AREAS = ["wiki", "tasks", "settings", "pulls"] as const;
 export type ContentArea = (typeof CONTENT_AREAS)[number];
 
 /** `checkout`: next to the code, changing with the checked-out branch. `branch`: on the shared content branch. */
@@ -394,6 +467,12 @@ export interface Snapshot {
   readonly files: readonly FileNode[];
   readonly wiki: readonly WikiNode[];
   readonly tasks: readonly Task[];
+  /** Pull requests, by ID. */
+  readonly pulls: readonly PullRequest[];
+  /** Areas the snapshot left out, as asked, because nobody shows them: their lists are empty. */
+  readonly skipped?: readonly SkippedArea[];
+  /** With tasks skipped: each task file's ID, from its name, so references still reach the tasks. */
+  readonly taskIndex?: readonly { readonly id: string; readonly path: string }[];
   readonly warnings: readonly string[];
 }
 
@@ -407,7 +486,16 @@ export interface FileContent {
   readonly hash: string;
 }
 
-export type DiffSource = "worktree" | "index" | { readonly commit: string };
+/** A file as committed in a revision, for references pinned to it. */
+export interface RevisionFile {
+  /** The commit the revision names, in full; null when the repository has no such commit. */
+  readonly commit: string | null;
+  /** The file's text in that commit; null when the commit has no such file. */
+  readonly content: string | null;
+}
+
+/** What a diff compares: the working tree with the index, the index with HEAD, a commit with its first parent, or two commits. */
+export type DiffSource = "worktree" | "index" | { readonly commit: string } | { readonly from: string; readonly to: string };
 
 /**
  * What staged changes are compared with: HEAD, or while amending, the commit
@@ -507,6 +595,79 @@ export interface CommitFile {
   readonly path: string;
   readonly oldPath?: string;
   readonly status: string;
+}
+
+/** Where a pull request stands: open for review, a draft, merged or closed without merging. */
+export const PULL_STATUSES = ["draft", "open", "merged", "closed"] as const;
+export type PullStatus = (typeof PULL_STATUSES)[number];
+
+/** A pull request: one Markdown file holding a unit of work's review, from `source` into `target`. */
+export interface PullRequest {
+  readonly id: string;
+  readonly path: string;
+  readonly title: string;
+  readonly status: PullStatus;
+  readonly author: string;
+  readonly source: string;
+  readonly target: string;
+  readonly reviewers: readonly string[];
+  /** The commit that merged it, once merged. */
+  readonly mergeCommit: string | null;
+  /**
+   * The local branch the file was read from, when it isn't in the checkout:
+   * pull request files in the checkout live on their branches. Read-only
+   * until that branch is checked out. Null for files where pull requests live.
+   */
+  readonly branch?: string | null;
+  /** The description, the review and the discussion: everything after the frontmatter. */
+  readonly body: string;
+  /** Version of the file; updates must name it. */
+  readonly hash: string;
+}
+
+/** A pull request as the client creates or edits it; updates leave out what doesn't change. */
+export interface PullInput {
+  readonly title: string;
+  readonly status: PullStatus;
+  readonly source: string;
+  readonly target: string;
+  readonly reviewers: readonly string[];
+  readonly body: string;
+  readonly mergeCommit?: string | null;
+}
+
+/** A revision's change, as {@link PullComparison} compares it: its commit and change ID. */
+export interface ComparedRevision {
+  readonly revision: string;
+  /** The commit, in full; null when Git doesn't know it. */
+  readonly commit: string | null;
+  /** The change ID of the commit against where it left the target; null when there is no such commit. */
+  readonly change: string | null;
+}
+
+/**
+ * What merging `source` into `target` brings: the commits, the files, and a
+ * change ID that stays the same when the same change is rebased, so an
+ * approval of an earlier commit can be checked against it.
+ */
+export interface PullComparison {
+  /** The source's commit; null when the branch doesn't exist. */
+  readonly head: string | null;
+  /** The target's commit; null when the branch doesn't exist. */
+  readonly target: string | null;
+  /** Where the source left the target; null without a common commit. */
+  readonly base: string | null;
+  /** Commits on the source that the target doesn't have, and the other way round. */
+  readonly ahead: number;
+  readonly behind: number;
+  /** The files the source changes since the base. */
+  readonly files: readonly CommitFile[];
+  /** The change ID of the source against the base, leaving out the pull request files. */
+  readonly change: string | null;
+  /** The revisions asked about, such as approved commits. */
+  readonly revisions: readonly ComparedRevision[];
+  /** Whether merging would conflict; null when Git can't tell (before Git 2.38). */
+  readonly conflicts: boolean | null;
 }
 
 export interface CommitDetail {
@@ -656,6 +817,8 @@ export interface Preferences {
   readonly tourSeen: boolean;
   /** The repositories that offered the tour, so each offers it once; see {@link repositoryKey}. */
   readonly tourOffered: readonly string[];
+  /** The parts of the app the user shows and hides. */
+  readonly parts: PartPreferences;
 }
 
 /** What a terminal printed since the last read (possibly nothing yet), or its exit code once it ended and everything was read. */
@@ -706,6 +869,8 @@ export interface SearchResults {
   readonly wiki: readonly SearchHit[];
   readonly tasks: readonly TaskSearchHit[];
   readonly code: readonly SearchHit[];
+  /** Pull request files; their title is the ID and title. */
+  readonly pulls: readonly SearchHit[];
   /** More files or matches matched than are listed. */
   readonly truncated: boolean;
 }
@@ -733,3 +898,46 @@ export const describeLocation = (location: Location): string =>
 
 /** Names a repository in preferences: "local:C:\code\app", "wsl:Ubuntu:/home/me/app". */
 export const repositoryKey = (location: Location): string => `${location.kind}:${describeLocation(location)}`;
+
+/** A task as plans see it: its properties, and the hours its time log adds up to. */
+export interface PlanVersion {
+  readonly id: string;
+  readonly path: string;
+  readonly title: string;
+  readonly status: string;
+  readonly epic: string;
+  readonly assignee: string;
+  readonly labels: readonly string[];
+  readonly type: string;
+  readonly fields: Readonly<Record<string, FieldValue>>;
+  /** Hours logged in the task's time log. */
+  readonly logged: number;
+  /** Lines of the time log that are no entry. */
+  readonly unreadable: number;
+}
+
+/** A commit that changed tasks, with the tasks as they were after it. */
+export interface PlanCommit {
+  readonly commit: string;
+  readonly author: string;
+  /** ISO 8601. */
+  readonly date: string;
+  readonly subject: string;
+  /** Tasks the commit changed, by path; null where it removed one. */
+  readonly tasks: readonly { readonly path: string; readonly task: PlanVersion | null }[];
+}
+
+/** The committed history of the tasks, for burn charts and comparisons with a baseline. */
+export interface PlanHistory {
+  /** Newest first, at most so many; `truncated` when there are more. */
+  readonly commits: readonly PlanCommit[];
+  readonly truncated: boolean;
+  /** The tasks at the baseline asked for; null without one. */
+  readonly baseline: {
+    readonly revision: string;
+    readonly commit: string | null;
+    /** When the baseline commit was made, ISO 8601; null without one. */
+    readonly date: string | null;
+    readonly tasks: readonly PlanVersion[];
+  } | null;
+}

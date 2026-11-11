@@ -25,6 +25,8 @@ The Genbeya icon in the activity bar opens two views.
 - Right-click a task to change its status, type, priority, assignee, epic or labels, to rename it or to delete it. With several tasks selected, **Status…** moves them all.
 - **+** creates a task, of a type from its template if you pick one.
 
+A view of a part the project doesn't use ([`unused`](Settings.md#unused)) stays hidden. To hide a view for yourself, right-click its title, as for any view in VS Code.
+
 When the repository keeps content on a [content branch](../Architecture/Content-branch.md), the views' titles show the branch and how many edits it is ahead (↑) and behind (↓), and the sync button exchanges them with the remote.
 
 ## Previews

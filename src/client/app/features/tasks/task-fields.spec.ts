@@ -10,6 +10,8 @@ const fields = [
   { name: "due", type: "date" },
   { name: "area", type: "choice", options: ["ui", "backend"] },
   { name: "notes", type: "text" },
+  { name: "remaining", type: "effort" },
+  { name: "depends_on", type: "tasks" },
 ] as const;
 
 async function render(values: TaskInput["fields"]) {
@@ -68,6 +70,30 @@ describe("TaskFields", () => {
     expect([...control("Area").options].map((option) => option.value)).toEqual(["", "ui", "backend", "legacy"]);
     expect(control("Area").value).toBe("legacy");
     expect(element.querySelector(".task-field-value")!.textContent).toBe("ann");
+  });
+
+  it("takes effort once it reads as hours or days, and marks what doesn't", async () => {
+    const { change, changes, control } = await render({ remaining: "soon" });
+    expect(control("Remaining").getAttribute("aria-invalid")).toBe("true");
+    change("Remaining", "later");
+    change("Remaining", " 2d ");
+    change("Remaining", "");
+    expect(changes).toEqual([
+      { name: "remaining", value: "2d" },
+      { name: "remaining", value: "" },
+    ]);
+  });
+
+  it("edits the tasks a task depends on as IDs separated by commas, saved as a list", async () => {
+    const { change, changes, control } = await render({ depends_on: ["TP-2", "TP-3"] });
+    expect(control("Depends on").value).toBe("TP-2, TP-3");
+    change("Depends on", "TP-2, TP-3");
+    change("Depends on", "tp-4 TP-2,, TP-4");
+    change("Depends on", " ");
+    expect(changes).toEqual([
+      { name: "depends_on", value: ["TP-4", "TP-2"] },
+      { name: "depends_on", value: "" },
+    ]);
   });
 
   it("hides itself without fields", async () => {

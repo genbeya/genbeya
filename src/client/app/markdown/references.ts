@@ -44,7 +44,14 @@ export type Reference =
       readonly tone: StatusTone;
     }
   | { readonly kind: "page"; readonly path: string; readonly title: string; readonly anchor?: string }
-  | { readonly kind: "file"; readonly path: string; readonly lines: LineRange | null; readonly exists: boolean }
+  | {
+      readonly kind: "file";
+      readonly path: string;
+      readonly lines: LineRange | null;
+      /** The revision the reference is pinned to; null for the file as it is now. */
+      readonly revision: string | null;
+      readonly exists: boolean;
+    }
   | { readonly kind: "missing-page"; readonly title: string };
 
 export function referenceTargets(sources: ReferenceSources): ReferenceTargets {

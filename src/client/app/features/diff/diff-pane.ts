@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import type { Diff, DiffImages, LineSelection } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
+import type { DiffNote } from "../../editor/diff-notes";
 import { DiffView, type DiffLines, type HunkAction, type HunkEvent } from "../../editor/diff-view";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
@@ -115,7 +116,7 @@ const lineCount = (selection: LineSelection) =>
         <gd-empty-state title="File too large"><p>Genbeya does not compare files this large line by line.</p></gd-empty-state>
       }
     } @else {
-      @if (actions().length && !diff()!.changes) {
+      @if (actions().length && staging() && !diff()!.changes) {
         <div class="diff-toolbar">
           <span class="diff-toolbar-text">Genbeya can only stage this file as a whole.</span>
         </div>
@@ -143,7 +144,8 @@ const lineCount = (selection: LineSelection) =>
         [path]="path()"
         [diff]="diff()!"
         [inline]="inline()"
-        [hunkActions]="diff()!.changes ? hunkActions() : []"
+        [hunkActions]="diff()!.changes || !staging() ? hunkActions() : []"
+        [notes]="notes()"
         (hunk)="onHunk($event)"
         (lines)="selection.set($event)"
       />
@@ -157,6 +159,10 @@ export class DiffPane {
   readonly badge = input<string>();
   readonly actions = input<readonly DiffAction[]>([]);
   readonly apply = input<DiffActionHandler>(async () => "done");
+  /** Whether the actions patch the file (staging, discarding), which needs Git's changes; others work on any changed lines. */
+  readonly staging = input(true);
+  /** Notes below lines of the new version, such as review threads. */
+  readonly notes = input<readonly DiffNote[]>([]);
   /** Fetches both versions of an image with the arguments of `load`; without it, images show as binary files. */
   readonly loadImages = input<(() => Promise<DiffImages>) | null>(null);
 

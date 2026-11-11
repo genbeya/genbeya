@@ -46,22 +46,24 @@ function findBlock(text: string, path: string): { start: number; end: number } |
 
 export class AgentEngine {
   /**
-   * Every target's file, written as if `selected` were added: instruction
+   * Every target's file, written as if `selected` were added (with the
+   * format of pull request files when the project has them): instruction
    * files point to a skill, and CLAUDE.md to AGENTS.md, only when those are
    * added too.
    */
-  files(settings: Settings, selected: readonly AgentTarget[]): AgentInstructions[] {
+  files(settings: Settings, selected: readonly AgentTarget[], pulls = false): AgentInstructions[] {
     const skillOf = (preferred: readonly AgentTarget[]) => {
       const target = preferred.find((candidate) => selected.includes(candidate));
       return target ? PATHS[target] : null;
     };
     const marked = (text: string) => `${BEGIN}\n\n${text}\n\n${END}`;
-    const forAgents = section(settings, skillOf(["agentsSkill", "claudeSkill"]));
+    const values = { ...settings, pulls: pulls && !settings.unused.includes("pulls") };
+    const forAgents = section(values, skillOf(["agentsSkill", "claudeSkill"]));
     const texts: Record<AgentTarget, string> = {
-      claudeSkill: skill(settings),
-      agentsSkill: skill(settings),
+      claudeSkill: skill(values),
+      agentsSkill: skill(values),
       agents: marked(forAgents),
-      claude: marked(selected.includes("agents") ? agentsImport() : section(settings, skillOf(["claudeSkill", "agentsSkill"]))),
+      claude: marked(selected.includes("agents") ? agentsImport() : section(values, skillOf(["claudeSkill", "agentsSkill"]))),
       copilot: marked(forAgents),
     };
     return AGENT_TARGETS.map((target) => ({ target, path: PATHS[target], text: texts[target], block: !WHOLE_FILES.includes(target) }));

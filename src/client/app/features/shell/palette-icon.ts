@@ -12,6 +12,7 @@ const ICONS: Readonly<Record<Kind, IconName>> = {
   code: "code-xml",
   changes: "git-commit-horizontal",
   history: "history",
+  pulls: "git-pull-request",
   branch: "git-branch",
   "current-branch": "circle-dot",
   "remote-branch": "cloud-download",

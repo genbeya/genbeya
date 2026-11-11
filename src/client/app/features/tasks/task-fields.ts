@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
 import type { FieldDefinition, FieldValue, TaskInput } from "../../../../contracts/model";
 import { Session } from "../../core/session";
+import { parseEffort } from "../../../../utilities/planning";
 import { titleCase } from "./task-model";
 
 export interface FieldChange {
@@ -39,6 +40,29 @@ export interface FieldChange {
           @case ("date") {
             <input class="input" type="date" [id]="id" [value]="current" (change)="setDate(field.name, $any($event.target).value)" />
           }
+          @case ("effort") {
+            <input
+              class="input"
+              [id]="id"
+              [value]="current"
+              placeholder="16h or 2d"
+              [attr.aria-invalid]="current !== '' && !isEffort(current)"
+              title="Hours or days of work, such as 16h or 2d"
+              (change)="setEffort(field.name, $any($event.target))"
+              (keydown.enter)="$any($event.target).blur()"
+            />
+          }
+          @case ("tasks") {
+            <input
+              class="input"
+              [id]="id"
+              [value]="listText(current)"
+              placeholder="GENBEYA-12, GENBEYA-14"
+              title="Task IDs, separated by commas"
+              (change)="setTasks(field.name, $any($event.target).value)"
+              (keydown.enter)="$any($event.target).blur()"
+            />
+          }
           @default {
             <input
               class="input"
@@ -54,7 +78,7 @@ export interface FieldChange {
     @for (entry of others(); track entry.name) {
       <div class="task-field" title="Add this field in Settings to edit it here.">
         <span class="task-field-name ellipsis">{{ entry.name }}</span>
-        <span class="task-field-value selectable">{{ entry.value }}</span>
+        <span class="task-field-value selectable">{{ listText(entry.value) }}</span>
       </div>
     }
   `,
@@ -79,6 +103,28 @@ export class TaskFields {
     return current === "" || options.includes(String(current)) ? options : [...options, String(current)];
   }
 
+  protected readonly isEffort = (value: FieldValue) => parseEffort(value) !== null;
+  protected readonly listText = (value: FieldValue) => (Array.isArray(value) ? value.join(", ") : String(value));
+
+  /** Effort as typed, once it reads as hours or days; anything else stays in the field, marked, unsaved. */
+  protected setEffort(name: string, field: HTMLInputElement) {
+    const value = field.value.trim();
+    if (!value || parseEffort(value) !== null) this.set(name, value);
+  }
+
+  /** Task IDs separated by commas or spaces, as a list; none clears the field. */
+  protected setTasks(name: string, text: string) {
+    const ids = [
+      ...new Set(
+        text
+          .split(/[\s,]+/)
+          .map((id) => id.trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    ];
+    this.set(name, ids.length ? ids : "");
+  }
+
   protected setNumber(name: string, field: HTMLInputElement) {
     this.set(name, field.value === "" || Number.isNaN(field.valueAsNumber) ? "" : field.valueAsNumber);
   }
@@ -92,6 +138,6 @@ export class TaskFields {
   }
 
   protected set(name: string, value: FieldValue) {
-    if ((this.values()[name] ?? "") !== value) this.changed.emit({ name, value });
+    if (JSON.stringify(this.values()[name] ?? "") !== JSON.stringify(value)) this.changed.emit({ name, value });
   }
 }

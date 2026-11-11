@@ -33,6 +33,14 @@ describe("SettingsEngine", () => {
       ],
       fields: [],
       people: [],
+      pullRoot: "pulls",
+      pullPrefix: "PR",
+      requiredApprovals: 1,
+      todosBlockMerge: true,
+      unused: [],
+      workdays: ["mon", "tue", "wed", "thu", "fri"],
+      holidays: [],
+      milestones: [],
     });
   });
 
@@ -133,7 +141,7 @@ describe("SettingsEngine", () => {
       ["fields: [{ name: 'due date', type: date }]\n", "field name"],
       ["fields: [{ name: '1st', type: text }]\n", "field name"],
       ["fields: [{ name: due, type: date }, { name: Due, type: text }]\n", "unique"],
-      ["fields: [{ name: due, type: time }]\n", "text, number, date or choice"],
+      ["fields: [{ name: due, type: time }]\n", "text, number, date, choice, effort or tasks"],
       ["fields: [{ name: area, type: choice }]\n", "options"],
       ["fields: [{ name: area, type: choice, options: [a, a] }]\n", "options"],
       ["fields: estimate\n", "List the custom fields"],
@@ -210,6 +218,32 @@ describe("SettingsEngine", () => {
     expect(engine.parse("name: Atlas\ntaskPrefix: at\n", defaults, false)).toEqual({ ...defaults, name: "Atlas", taskPrefix: "AT" });
   });
 
+  it("reads the calendar: working days in week order, holidays sorted, milestones with dates", () => {
+    const parsed = engine.parse(
+      "workdays: [fri, mon]\nholidays: [2026-12-26, 2026-12-25]\nmilestones:\n  - name: MVP\n    due: 2026-12-01\n",
+      defaults,
+      false,
+    );
+    expect(parsed).toMatchObject({
+      workdays: ["mon", "fri"],
+      holidays: ["2026-12-25", "2026-12-26"],
+      milestones: [{ name: "MVP", due: "2026-12-01" }],
+    });
+  });
+
+  it("reads the parts the project doesn't use, as written, in the app's order", () => {
+    expect(engine.parse("unused: [timelog, wiki]\n", defaults, false).unused).toEqual(["wiki", "timelog"]);
+  });
+
+  it("reads where pull requests live and how many approvals they need", () => {
+    expect(engine.parse("pullRoot: reviews\npullPrefix: mr\nrequiredApprovals: 2\n", defaults, false)).toEqual({
+      ...defaults,
+      pullRoot: "reviews",
+      pullPrefix: "MR",
+      requiredApprovals: 2,
+    });
+  });
+
   it.each([
     ["name: [broken\n", ""],
     ["- a\n", "YAML mapping"],
@@ -221,6 +255,18 @@ describe("SettingsEngine", () => {
     ["wikiHome: Home.txt\n", "Markdown file"],
     ["wikiRoot: ../outside\n", "not a valid path"],
     ["name: ''\n", "Project name is required"],
+    ["pullRoot: docs/pulls\n", "pull request folder"],
+    ["pullRoot: .\n", ""],
+    ["pullPrefix: 7A\n", "pull request prefix"],
+    ["requiredApprovals: 1.5\n", "Required approvals"],
+    ["requiredApprovals: 21\n", "Required approvals"],
+    ["unused: [board]\n", "parts the project doesn't use"],
+    ["workdays: []\n", "working days"],
+    ["workdays: [monday]\n", "working days"],
+    ["holidays: [christmas]\n", "holidays"],
+    ["milestones: [{ name: MVP }]\n", "milestone MVP a date"],
+    ["milestones: [{ name: A, due: 2026-12-01 }, { name: a, due: 2026-12-02 }]\n", "unique"],
+    ["unused: wiki\n", "parts the project doesn't use"],
   ])("rejects %j", (content, message) => {
     expect(() => engine.parse(content, defaults, false)).toThrow(message);
   });

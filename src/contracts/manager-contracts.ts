@@ -29,6 +29,9 @@ import type {
   PageMove,
   People,
   Preferences,
+  PullComparison,
+  PullInput,
+  PullRequest,
   PushOutcome,
   PushPlan,
   PushRequest,
@@ -39,6 +42,7 @@ import type {
   ResetMode,
   ResetPlan,
   ResetResult,
+  RevisionFile,
   Scope,
   SearchOptions,
   SearchResults,
@@ -53,6 +57,8 @@ import type {
   TaskInput,
   TaskTemplate,
   TerminalOutput,
+  PlanHistory,
+  SkippedArea,
 } from "./model";
 
 /** Opening, closing and observing repositories; the user's recent list and preferences. */
@@ -68,7 +74,8 @@ export interface WorkspaceManagerContract {
    * Resolves to null when nothing changed since `since`. With `base`
    * "parent", staged changes are compared with HEAD's parent, for amending.
    */
-  snapshot(workspace: string, since?: string, base?: ChangeBase): Promise<Snapshot | null>;
+  /** `skip` names areas to leave out, such as tasks nobody shows. */
+  snapshot(workspace: string, since?: string, base?: ChangeBase, skip?: readonly SkippedArea[]): Promise<Snapshot | null>;
   recent(): Promise<readonly RecentEntry[]>;
   forget(location: Location): Promise<void>;
   preferences(): Promise<Preferences>;
@@ -108,6 +115,14 @@ export interface ContentManagerContract {
    * file, following moves between epics. Edits not committed yet come first.
    */
   taskActivity(workspace: string, path: string): Promise<readonly TaskActivity[]>;
+  /** For each of `lines` of a pull request file, who committed it first; null while no commit has it. */
+  lineAuthors(workspace: string, path: string, lines: readonly string[]): Promise<readonly (string | null)[]>;
+  /** The committed history of the tasks, and the tasks at `baseline` (a tag, branch or commit) when given. */
+  planHistory(workspace: string, baseline?: string | null): Promise<PlanHistory>;
+  /** A pull request file in the pull request folder, with the next free ID, by the user (Git's user name). */
+  createPull(workspace: string, input: PullInput): Promise<PullRequest>;
+  /** `expectedHash` is the version the edit is based on; fields `input` leaves out stay as written. */
+  updatePull(workspace: string, path: string, input: PullInput, expectedHash: string): Promise<PullRequest>;
   /** The name new comments are signed with: Git's user name in the repository. */
   commentAuthor(workspace: string): Promise<string>;
   /** Appends a comment to the task's file, whatever else changed in it meanwhile. */
@@ -148,6 +163,27 @@ export interface VersionControlManagerContract {
   diff(workspace: string, path: string, source: DiffSource, oldPath?: string, base?: ChangeBase): Promise<Diff>;
   /** The two versions of an image that `diff` with the same arguments compares, each at most as large as `content.image` serves. */
   diffImages(workspace: string, path: string, source: DiffSource, oldPath?: string, base?: ChangeBase): Promise<DiffImages>;
+  /**
+   * A text file as committed in `revision` (a commit ID, tag, branch or
+   * `HEAD~2`), for references pinned to it. Fails for binary files and files
+   * larger than `content.read` reads.
+   */
+  fileAt(workspace: string, revision: string, path: string): Promise<RevisionFile>;
+  /**
+   * What merging the branch `source` into `target` brings, for a pull
+   * request: commits, files, whether it conflicts, and change IDs of the
+   * change and of each of `revisions` (such as approved commits) against
+   * where they left the target, which stay the same when the same change is
+   * rebased. Change IDs leave out the files below `exclude`, the pull
+   * request folder while it is in the checkout.
+   */
+  compare(
+    workspace: string,
+    source: string,
+    target: string,
+    revisions: readonly string[],
+    exclude?: string | null,
+  ): Promise<PullComparison>;
   stage(workspace: string, paths: readonly string[]): Promise<void>;
   /**
    * Compared with `parent` while amending, the paths get their version in
@@ -294,6 +330,10 @@ export const MANAGER_METHODS = {
     "taskTemplate",
     "ensureTaskTemplate",
     "taskActivity",
+    "lineAuthors",
+    "planHistory",
+    "createPull",
+    "updatePull",
     "commentAuthor",
     "addComment",
     "editComment",
@@ -309,6 +349,8 @@ export const MANAGER_METHODS = {
   versionControl: [
     "diff",
     "diffImages",
+    "fileAt",
+    "compare",
     "stage",
     "unstage",
     "discard",
