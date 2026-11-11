@@ -13,8 +13,10 @@ export interface MarkdownContext {
   readonly wikiRoot: string;
   readonly wiki: readonly WikiNode[];
   readonly tasks: readonly Pick<Task, "id" | "path" | "title" | "status">[];
-  /** The tasks as plan macros show them. */
+  /** The tasks as plan macros show them; none while the project doesn't use planning. */
   readonly plan: readonly PlanTask[];
+  /** Whether the project uses planning: blocked marks, plan macros. */
+  readonly planning?: boolean;
   readonly statuses: readonly string[];
   readonly hiddenColumns: readonly string[];
   readonly types: readonly TaskType[];

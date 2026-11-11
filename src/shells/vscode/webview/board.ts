@@ -4,6 +4,7 @@
  * and lanes; a click opens the task in a popup, where it can be changed.
  */
 import "./theme";
+import { dependenciesOf } from "../../../utilities/planning";
 import {
   columnsOf,
   epicName,
@@ -137,6 +138,12 @@ function card(task: Task, showEpic: boolean): HTMLElement {
   head.append(element("span", "gb-id", task.id));
   if (task.priority && task.priority !== "none")
     head.append(element("span", `gb-priority gb-priority-${task.priority}`, titleCase(task.priority)));
+  const blockers = blockedBy.get(task.id.toUpperCase());
+  if (blockers) {
+    const mark = element("span", "gb-blocked", "Blocked");
+    mark.title = `Waits for ${blockers.join(", ")}`;
+    head.append(mark);
+  }
   if (task.assignee) head.append(avatar(task.assignee));
   item.append(head, element("div", "gb-card-title", task.title));
   if (task.type || task.labels.length || (showEpic && task.epic)) {
@@ -159,7 +166,19 @@ function cell(status: string, epic: string | null, cards: readonly Task[]): HTML
   return target;
 }
 
+/** The unfinished tasks each blocked task waits for, by upper-case ID, while the project plans. */
+let blockedBy = new Map<string, string[]>();
+
 function drawBoard() {
+  if (context?.planning !== false && context) {
+    const dependencies = dependenciesOf(context.plan, context.statuses);
+    const done = new Set(context.plan.filter((task) => task.status === context!.statuses.at(-1)).map((task) => task.id.toUpperCase()));
+    blockedBy = new Map(
+      [...dependencies.states]
+        .filter(([, state]) => state === "blocked")
+        .map(([id]) => [id, (dependencies.waitsFor.get(id) ?? []).filter((other) => !done.has(other))]),
+    );
+  } else blockedBy = new Map();
   if (!context) return;
   const board = element("div", "gb-board");
   const visible = visibleTasks(tasks, state.filters);
