@@ -76,7 +76,7 @@ jobs:
             test-results-demo/
           if-no-files-found: ignore
 
-      # Genbeya on forges (GENBEYA-57, GENBEYA-60), against simulated forges: no network needed.
+      # Genbeya on forges (GENBEYA-66, GENBEYA-69), against simulated forges: no network needed.
       - name: Test Genbeya on forges
         if: runner.os == 'Linux'
         run: npm run e2e:forge

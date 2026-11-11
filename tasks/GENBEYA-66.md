@@ -1,5 +1,5 @@
 ---
-id: GENBEYA-57
+id: GENBEYA-66
 title: Open a GitHub repository's board and wiki on genbeya.fyi
 type: feature
 status: review
@@ -25,10 +25,10 @@ This task is the proof of concept: read-only, public repositories without signin
 
 Later, as their own tasks once the concept holds:
 
-- [[GENBEYA-58]] Keep a repository in the browser, by choice
-- [[GENBEYA-59]] Serve it from its own origin, with a static badge
-- [[GENBEYA-60]] Other forges, also self-hosted
-- [[GENBEYA-61]] Privacy review
+- [[GENBEYA-67]] Keep a repository in the browser, by choice
+- [[GENBEYA-68]] Serve it from its own origin, with a static badge
+- [[GENBEYA-69]] Other forges, also self-hosted
+- [[GENBEYA-70]] Privacy review
 - Sign in with a GitHub App (OAuth through a stateless relay on genbeya.fyi; GitHub's token endpoints refuse requests from web pages)
 - Commit edits back to GitHub
 - Task activity and history from GitHub's commits

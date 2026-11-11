@@ -1,5 +1,5 @@
 // node scripts/serve-forge.mjs [port]: serves the forge build (dist/forge/browser, from `npm run build:forge`)
-// the way genbeya.fyi will (GENBEYA-59): its files below /_app/, its page at / and at every forge address
+// the way genbeya.fyi will (GENBEYA-68): its files below /_app/, its page at / and at every forge address
 // (/github/<owner>/<repo>, /gitlab/…, ?host=… for servers of their own), with a content security policy
 // per address that allows connections only to that forge's hosts. Static files only.
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
