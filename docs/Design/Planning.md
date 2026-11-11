@@ -1,7 +1,7 @@
 # Planning
 
 > [!NOTE]
-> A first prototype is built ([[GENBEYA-43]] to [[GENBEYA-48]]); see [The prototype](#the-prototype) for what it does and what is left. How to use it: [Planning](../Guide/Tasks.md#planning).
+> A first prototype is built ([[GENBEYA-43]] to [[GENBEYA-49]], [[GENBEYA-65]]); see [The prototype](#the-prototype) for what it does and what is left. How to use it: [Planning](../Guide/Tasks.md#planning).
 
 Planning and controlling on top of the tasks: what work was budgeted, what it has cost, what is left, what blocks what, and where the plan is heading. The task files stay the only plan; every chart and sum is derived from them and from their Git history.
 
@@ -19,21 +19,22 @@ What the first version answers, to try out before deciding for good:
 
 - **Effort** is a field type of its own, `effort`: hours or days (`16h`, `2d`, a day being 8 hours), or a number of hours. Sums are shown in hours. There is no project unit yet.
 - **Task lists** are a field type too, `tasks`, saved as a YAML list; custom field values may now be lists of texts.
-- **Milestones** are a field value (`milestone`), used by filters; they have no date of their own yet.
-- **The time log** is a section of its own at the end of the description, as below. **Log time** takes one line, `2h What for`, and signs it with the Git name.
-- **Macros** are `[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`, `[ARROWS]` and `[FLOAT]`, filtered with `key=value` (`epic`, `milestone`, `assignee`, `label`, `type`, `status`). Diagrams are Mermaid, except the timeline: a PlantUML Gantt chart (drawn by rockuml), which closes weekends, marks today, draws arrows between bars and places undated tasks after what they wait for.
-- **Where it lives:** the rules are pure functions in `src/utilities/planning.ts`, shared by the app, its Markdown and VS Code. Nothing new on the backend: logging time is an edit of the description.
-- **Critical path and float** ([[GENBEYA-65]]): durations from a `duration` field, else the dates, else the effort at 8 hours a day; days count from today, without a calendar. `[ARROWS]` draws it as an arrow diagram (activity on arrow), `[FLOAT]` as a table, and each task shows its float.
+- **Milestones** are a field value (`milestone`), used by filters and the board's **Filter by**; their dates are in `.genbeya.yml` (`milestones`, with `name` and `due`), set in **Settings → Project → Calendar**. Timelines show them as points in time, and a task due after its milestone is pointed out.
+- **A calendar:** `workdays` and `holidays` in `.genbeya.yml`. The critical path counts working days and shows dates; timelines close the days off.
+- **The time log** is a section of its own at the end of the description, as below. **Log time** asks for the time, a note and the new remaining effort, signs the entry with the Git name and updates `remaining`. The task's activity lists entries added and removed, apart from edits of the description.
+- **Macros** are `[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`, `[ARROWS]`, `[FLOAT]`, `[BURNDOWN]` and `[BASELINE <revision>]`, filtered with `key=value` (`epic`, `milestone`, `assignee`, `label`, `type`, `status`). Diagrams are Mermaid, except the timeline: a PlantUML Gantt chart (drawn by rockuml), which closes days off, marks today, draws arrows between bars and places undated tasks after what they wait for. A click on a task in a diagram opens it.
+- **Where it lives:** the rules are pure functions in `src/utilities/planning.ts` and `src/utilities/plan-history.ts`, shared by the app, its Markdown and VS Code. The backend adds one call, `content.planHistory`, which reads the tasks' history in one `git log`.
+- **Critical path and float** ([[GENBEYA-65]]): durations from a `duration` field, else the dates, else the effort at 8 hours a day, counted on working days from today. `[ARROWS]` draws it as an arrow diagram (activity on arrow), `[FLOAT]` as a table with dates, each task shows its float, and critical tasks are red on the timeline and marked on the board.
+- **Plan history** ([[GENBEYA-49]]): `[BURNDOWN]` draws remaining and logged effort by day; `[BASELINE v1.0]` lists what changed since a tag or commit and who changed it last. Both read the newest 300 commits that changed tasks.
+- **Switching it off:** planning and the time log are [optional parts](Optional-parts.md); they show once the project configures a planning field or logs time.
+- **VS Code** marks blocked tasks in its tree and board.
 - **The sample project** plans: effort, time logs, a blocked task and a *Release plan* page.
 - **Demo tasks** in this repository, the *Planning demo* epic with the milestone `DEMO`, try everything: see [[Planning demo]]. They go once planning is tested.
 
 Left for later:
 
-- Turning planning and the time log off ([Optional parts](Optional-parts.md)). For now effort shows once the project configures an `effort` field, or a task has a time log.
-- Diagram nodes that open their task (the diagrams are pictures today), and blocked marks in VS Code's tree and board.
-- Updating `remaining` while logging time, a project unit for effort, dated milestones.
-- A calendar of working days for the critical path (the timeline closes weekends already), and critical tasks marked on the board.
-- Plan history and baselines ([[GENBEYA-49]]).
+- A project unit for effort (hours or days everywhere).
+- Burn charts of the forecast, and baselines kept as named tags by Genbeya.
 
 ## The numbers
 

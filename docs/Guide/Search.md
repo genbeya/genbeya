@@ -1,6 +1,6 @@
 # Search
 
-Search finds text inside pages, tasks and code. To jump to a page, task or file by its name, use `Ctrl+K` instead.
+Search finds text inside pages, tasks, pull requests and code. To jump to a page, task or file by its name, use `Ctrl+K` instead.
 
 ![Searching for "forecast": matches grouped into wiki, tasks and code, with the selected line in context](../images/search.png)
 
@@ -26,10 +26,11 @@ Regular expressions are read by Git's PCRE support, which Git for Windows and mo
 
 ## Results
 
-Matches are grouped into **Wiki**, **Tasks** and **Code**. Each file is listed once, with its matching lines below it and the match highlighted; the lines around the selected match show at the bottom. `↑` and `↓` move, `Enter` opens:
+Matches are grouped into **Wiki**, **Tasks**, **Pull requests** and **Code**; parts of the app that are [turned off](Settings.md#turning-parts-off) are left out. Each file is listed once, with its matching lines below it and the match highlighted; the lines around the selected match show at the bottom. `↑` and `↓` move, `Enter` opens:
 
 - a page scrolls to the section the line is in,
 - a task opens in its panel,
+- a pull request opens in **Pull requests**,
 - a file opens in the editor with the line selected.
 
 The status line counts the matches. Search lists up to 30 files per group and 10 lines per file, and shortens long lines around the match; when it left something out, the status line says *more not shown*, and a more specific search finds the rest.

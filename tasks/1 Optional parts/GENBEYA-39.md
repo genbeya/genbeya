@@ -2,14 +2,14 @@
 id: GENBEYA-39
 title: Let a project declare which parts of the app it doesn't use
 type: feature
-status: in-progress
+status: review
 priority: medium
 labels: [settings]
 ---
 
 The project layer of [[Design/Optional-parts]]: `.genbeya.yml` says which parts the project doesn't use (wiki, tasks, planning, time log, code, changes, history, terminal, pull requests), and nobody sees them. Done when a part the project doesn't use is gone from the sidebar, the palette, search, onboarding and the generated agent instructions, and its files are untouched.
 
-Prototype on `feature/optional-parts`: `unused: [...]` in `.genbeya.yml`, the parts and their needs in `src/contracts/model.ts`. Left: onboarding beyond the tour.
+Built on `feature/optional-parts`: `unused: [...]` in `.genbeya.yml`, the parts and their needs in `src/contracts/model.ts`.
 
 - [x] Decide the key and its shape (`unused: [...]` or a list of used parts) and the part names
 - [x] Settings engine: read and validate it, including parts that need another (planning needs tasks, the time log needs planning)

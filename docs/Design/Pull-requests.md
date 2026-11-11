@@ -19,20 +19,21 @@ What the first version answers, to try out before deciding for good:
 
 - **IDs** have their own counter and prefix, `PR-7` (`pullPrefix`), in their own folder (`pullRoot`), a fourth content area.
 - **Line grammar:** replies and verdicts are written as below, the time as in task comments (local time to the minute, with the offset). Lines that start like a reply but can't be read are listed, never dropped.
-- **Policy:** `requiredApprovals` (1 by default). Open to-dos are shown as a condition but there is no setting yet for whether they block.
+- **Policy:** `requiredApprovals` (1 by default) and `todosBlockMerge` (true by default).
 - **The change ID** is a SHA-256 of `git diff` from the merge base without hunk headers and blob IDs, not `git patch-id`, which needs input on stdin that Genbeya's hosts don't give processes. Only Markdown files directly in the pull request folder are left out.
-- **Merging** always makes a merge commit named after the pull request, with the merges Genbeya has; a merge that stops for conflicts is finished in **Changes** and then marked merged. Squash and rebase merges are not offered, so their comparison with the approved change is still open.
-- **Cleanup** resolves, dismisses with a reason, promotes to a new task, or shortens a topic to its outcome.
+- **Merging** always makes a merge commit named after the pull request, with the merges Genbeya has; a merge that stops for conflicts is finished in **Changes** and then marked merged. **Decided** for squash and rebase merges done elsewhere: Genbeya doesn't offer them, and **Mark merged** records the target's commit once the target has every commit of the source; approvals are judged before the merge, on the change ID, which a squash or rebase of the same code keeps.
+- **Cleanup** resolves, dismisses with a reason, promotes to a new task or a section of a wiki page, or shortens a topic to its outcome.
+- **In the checkout**, the list also shows the pull requests whose files are on other local branches, read-only until their branch is checked out.
+- **Recorded, not verified:** a verdict whose committer isn't the person it names is marked, with who committed it.
+- **The view** puts threads below their lines in the diff, searches pull requests (`Ctrl+K`, and `/` inside them), has `J`, `K` and `N`, and is an [optional part](Optional-parts.md) that shows once the repository has a pull request file. The agent skill teaches the format to projects that have them.
 - **Tasks** show the pull requests that name them (branch, title or description), and board cards mark open ones.
 - **Where it lives:** the body's rules are pure functions in `src/utilities/pull-requests.ts`; the backend reads and writes frontmatter (`content.createPull`, `content.updatePull`) and compares branches (`versionControl.compare`). The web demo has the same, and a pull request for its `fahrenheit` branch.
 
 Left for later:
 
-- In the checkout, the list shows only the pull requests of the checked-out branch; listing those on other branches means reading them from Git.
-- **Recorded, not verified:** comparing a verdict's name with the author of the commit that added it.
 - Comments on unchanged lines (the diff selects changed ones), outdated code ranges by their lines rather than their revision, applying a suggestion.
-- Promoting a to-do to a page section, and whether open to-dos block.
-- Pull requests in VS Code, keyboard shortcuts within the view, and turning the view off ([Optional parts](Optional-parts.md)).
+- Pull requests in VS Code.
+- Verified verdicts, through signed commits or a forge.
 
 ## Who it is for
 

@@ -65,12 +65,16 @@ Where the file lives is the project's choice, as for the wiki and the tasks (**S
 | | In the checkout | On the content branch |
 | --- | --- | --- |
 | The file | is an ordinary change: commit it, on the source branch if you like, so it merges with the code | is committed with every edit, and shared with **Sync** |
-| The list shows | the pull requests in the checked-out branch | every pull request, whatever is checked out |
+| The list shows | the pull requests of every local branch: those of other branches read-only, until you switch to their branch | every pull request, whatever is checked out |
 | A squash merge | drops the history of the discussion | keeps it |
 
 ## The list
 
-Open pull requests (with drafts), merged, closed or all, newest first, with the number of open to-dos; the filter matches the ID, title, branches, author and reviewers. The sidebar counts the open ones.
+Open pull requests (with drafts), merged, closed or all, newest first, with the number of open to-dos; the filter matches the ID, title, branches, author and reviewers. The sidebar counts the open ones. `J` and `K` open the next and previous one, `N` starts a new one, and `Ctrl+K` finds pull requests by title or ID, and searches inside them with `/` ([Search](Search.md)).
+
+In the checkout, a pull request whose file is on another branch says *file on* that branch. Its page is read-only, with **Switch to** the branch to reply, review or change it.
+
+The view shows by itself once the repository has a pull request file; until then, open the first one with **New pull request** in the `Ctrl+K` palette, or turn the view on in **Settings → App → Show**.
 
 ## A pull request
 
@@ -78,14 +82,14 @@ The header names the branches, how many commits the source has that the target l
 
 ### Conversation
 
-- **Ready to merge?** lists each condition on its own: enough approvals that still count (as many as **Settings → Approvals needed** asks), no request for changes still open, no open to-do, no conflicts with the target, and, when the source or target is checked out, no uncommitted changes. It advises; it can't enforce. Protected branches on the Git host do that.
+- **Ready to merge?** lists each condition on its own: enough approvals that still count (as many as **Settings → Approvals needed** asks), no request for changes still open, no open to-do (unless **Settings → Open to-dos block a merge** is off), no conflicts with the target, and, when the source or target is checked out, no uncommitted changes. It advises; it can't enforce. Protected branches on the Git host do that.
 - **Tasks** the pull request names (in its source branch, title or description) show with their state.
 - The file's description, review and discussion, rendered; tick to-dos right there.
 - **Reply to** the discussion, a topic or a code range. **Approve** and **Request changes** add a verdict naming the commit the source is at, with what you typed; **Withdraw approval** takes yours back. The author can **Request review**.
 
 ### Files
 
-The files the source changes, compared with the commit where the branches meet, as the target will get them. A file with review threads shows how many; its threads show above its diff, marked **outdated** when they were written about an older revision of the source.
+The files the source changes, compared with the commit where the branches meet, as the target will get them. A file with review threads shows how many; its threads show above its diff and below their lines in it, marked **outdated** when they were written about an older revision of the source.
 
 To comment on lines, select them by their numbers, or use the bar above a change, and choose **Comment on**: start a new topic or add the code range to an existing one, with a comment, an optional suggestion (edit the lines as they should be; Genbeya writes the `diff`), and an optional to-do.
 
@@ -96,7 +100,7 @@ An approval names the commit the reviewer looked at. It counts while the change 
 - **The change, not the commit:** Genbeya compares a fingerprint of the diff from where the branches meet to the source, without line positions. A rebase that keeps the code keeps the approval; any code change makes it stale.
 - **Review files don't count:** Markdown files directly in the pull request folder are left out, so replies and verdicts committed to the source branch keep approvals. Anything else in that folder is reviewed like code.
 - **Each person's latest verdict counts.** A request for changes stays open until that person approves or withdraws.
-- **Recorded, not verified:** a verdict says who gave it, and anyone with write access could have written it.
+- **Recorded, not verified:** a verdict says who gave it, and anyone with write access could have written it. Genbeya compares the name with the author of the commit that added the verdict, and marks the reviewer when they differ ("committed by Sam"), or when the verdict isn't committed yet.
 
 ## Cleaning up
 
@@ -105,6 +109,7 @@ An approval names the commit the reviewer looked at. It counts while the change 
 - **Resolve** ticks a to-do: the change was made.
 - **Dismiss…** ticks it, struck through, with the reason.
 - **To task** creates a task from it and replaces it with a reference to the task.
+- **To page…** adds it as a section to a wiki page, new or existing, and replaces it with a reference to the page.
 - **Shorten to outcome…** replaces a topic's remarks, code ranges and to-dos with what came of it. Verdicts stay, and the full discussion stays in Git.
 
 ## Merging
