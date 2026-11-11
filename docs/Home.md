@@ -42,3 +42,4 @@ By default, wiki pages, tasks and settings change with the branch you have check
 - [Keyboard shortcuts](Guide/Keyboard-shortcuts.md) — every key on one page
 - [Architecture](Architecture.md) — how the app is put together, for contributors
 - [Development](Development.md) — build, test and package
+- [Design](Design.md) — proposals for what comes next: optional parts, planning, pull requests
