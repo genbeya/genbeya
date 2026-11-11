@@ -492,6 +492,27 @@ describe("ContentManager", () => {
     expect((await latest()).pulls.map((candidate) => candidate.id)).toEqual(["PR-1", "PR-2"]);
   });
 
+  it("tells who committed each line of a pull request", async () => {
+    const { content, id, repository } = await opened();
+    const pull = await content.createPull(id, {
+      title: "Add it",
+      status: "open",
+      source: "f",
+      target: "main",
+      reviewers: [],
+      body: "Why.\n",
+    });
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Open PR-1");
+    const verdict = "**Frank — 2026-10-24 11:00+02:00 — approved `abc1234`:** Looks good.";
+    await repository.write(pull.path, `${await repository.read(pull.path)}\n## Discussion\n\n${verdict}\n`);
+    expect(await content.lineAuthors(id, pull.path, [verdict, "Why."])).toEqual([null, "Test"]);
+    await repository.git("add", ".");
+    await repository.git("-c", "user.name=Sam", "commit", "-qm", "Approve as Frank");
+    expect(await content.lineAuthors(id, pull.path, [verdict])).toEqual(["Sam"]);
+    await expect(content.lineAuthors(id, "docs/Home.md", [])).rejects.toThrow("is not a pull request");
+  });
+
   it("keeps pull requests on the content branch, committing every change", async () => {
     const { content, id, latest, repository } = await opened();
     await content.setStorage(id, "pulls", "branch");

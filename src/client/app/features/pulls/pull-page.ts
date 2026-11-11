@@ -12,6 +12,7 @@ import {
   parsePullBody,
   taskIdsOf,
   verdictRevisions,
+  type PullReply,
   type Verdict,
 } from "../../../../utilities/pull-requests";
 import { Dialogs } from "../../core/dialogs";
@@ -90,6 +91,9 @@ const linesText = ({ from, to }: LineRange) => (from === to ? `L${from}` : `L${f
             <span class="pull-reviewer is-{{ verdictClass(state.reply.verdict, state.approval) }}" [title]="verdictTitle(state)">
               <gd-avatar [name]="state.person" [size]="16" />{{ state.person }}
               <svg gd-icon [name]="verdictIcon(state.reply.verdict)" [size]="12"></svg>
+              @if (committedBy(state.reply)) {
+                <svg gd-icon name="triangle-alert" class="pull-unverified" [size]="12" aria-label="Committed by someone else"></svg>
+              }
             </span>
           }
           @for (person of approvals().waitingFor; track person) {
@@ -484,11 +488,21 @@ export class PullPage {
     return JSON.stringify([pull.source, pull.target, verdictRevisions(this.parsed().replies), branches, remoteBranches, head.commit]);
   });
   private ticket = 0;
+  /** Who committed each verdict's line, by the line; null while it isn't committed. */
+  private readonly committers = signal<ReadonlyMap<string, string | null>>(new Map());
 
   constructor() {
     effect(() => {
       this.compareKey();
       untracked(() => void this.compare());
+    });
+    effect(() => {
+      const pull = this.pull();
+      const lines = pull.body.split("\n");
+      const verdicts = this.parsed()
+        .replies.filter((reply) => reply.verdict)
+        .map((reply) => lines[reply.line]!);
+      untracked(() => void this.findCommitters(pull.path, verdicts));
     });
     void this.actions.author().then(
       (name) => this.me.set(name),
@@ -499,6 +513,17 @@ export class PullPage {
       const first = this.comparison()?.files[0];
       if (this.tab() === "files" && first && !this.selected()) untracked(() => this.selectFile(first.path));
     });
+  }
+
+  private async findCommitters(path: string, lines: readonly string[]) {
+    if (!lines.length) return this.committers.set(new Map());
+    try {
+      const authors = await this.api.content.lineAuthors(path, lines);
+      this.committers.set(new Map(lines.map((line, i) => [line, authors[i] ?? null])));
+    } catch {
+      // Without history, verdicts stay just recorded.
+      this.committers.set(new Map());
+    }
   }
 
   private async compare() {
@@ -642,11 +667,23 @@ export class PullPage {
     return verdict?.kind === "approved" ? "circle-check" : verdict?.kind === "requested changes" ? "circle-x" : "circle-dashed";
   }
 
-  protected verdictTitle(state: {
-    readonly reply: { readonly verdict: Verdict | null; readonly date: string };
-    readonly approval: string | null;
-  }) {
+  /** The author of the commit that added a verdict, when it isn't the person the verdict names; "" while uncommitted. */
+  protected committedBy(reply: PullReply): string | null {
+    const committer = this.committers().get(this.pull().body.split("\n")[reply.line] ?? "");
+    if (committer === undefined) return null;
+    if (committer === null) return "";
+    return committer.trim().toLowerCase() === reply.author.trim().toLowerCase() ? null : committer;
+  }
+
+  protected verdictTitle(state: { readonly reply: PullReply; readonly approval: string | null }) {
     const { verdict, date } = state.reply;
+    const committer = this.committedBy(state.reply);
+    const recorded =
+      committer === null
+        ? "Recorded in the file, not verified."
+        : committer
+          ? `Recorded for ${state.reply.author}, but committed by ${committer}.`
+          : "Recorded in the file, not committed yet.";
     const at = verdict?.revision ? ` at ${short(verdict.revision)}` : "";
     const how =
       verdict?.kind === "approved"
@@ -658,6 +695,6 @@ export class PullPage {
         : verdict?.kind === "requested changes"
           ? "Requested changes"
           : "Withdrew the approval";
-    return `${how}${at}, ${date}. Recorded in the file, not verified.`;
+    return `${how}${at}, ${date}. ${recorded}`;
   }
 }

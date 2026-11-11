@@ -26,6 +26,7 @@ import type { ContentLocation } from "../access/content/content-store";
 import { IMAGE_LIMIT, type VersionedFile } from "../access/files/file-store";
 import { commitAuthors, commitIdentity, type AuthorCount } from "../access/git/authors";
 import { isMissing } from "../access/hosts/host";
+import { lineAuthors, lineList } from "../engines/line-origins";
 import type { AgentEngine } from "../engines/agent-engine";
 import type { LinkEngine, LinkRewrite } from "../engines/link-engine";
 import type { PeopleEngine } from "../engines/people-engine";
@@ -300,6 +301,16 @@ export class ContentManager implements ContentManagerContract {
           changes: this.engines.tasks.changesBetween(committed, now, settings.taskRoot),
         });
       return activity;
+    });
+  }
+
+  lineAuthors(id: unknown, path: unknown, lines: unknown): Promise<readonly (string | null)[]> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { settings } = await workspace.settings();
+      if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
+      const wanted = lineList(lines);
+      return lineAuthors(await workspace.content.history("pulls", relative, ACTIVITY_LIMIT, true), wanted);
     });
   }
 

@@ -161,6 +161,10 @@
   border-style: dashed;
 }
 
+.pull-unverified {
+  color: var(--orange);
+}
+
 .pull-tabs-row {
   display: flex;
   align-items: center;

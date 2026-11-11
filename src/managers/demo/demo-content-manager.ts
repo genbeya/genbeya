@@ -29,6 +29,7 @@ import {
 } from "../../contracts/model";
 import { IMAGE_LIMIT, type VersionedFile } from "../../access/files/file-store";
 import { isMissing } from "../../access/hosts/host";
+import { lineAuthors, lineList } from "../../engines/line-origins";
 import type { AgentEngine } from "../../engines/agent-engine";
 import type { LinkEngine } from "../../engines/link-engine";
 import type { PeopleEngine } from "../../engines/people-engine";
@@ -258,6 +259,15 @@ export class DemoContentManager implements ContentManagerContract {
           changes: this.engines.tasks.changesBetween(committed, now, settings.taskRoot),
         });
       return activity;
+    });
+  }
+
+  lineAuthors(id: unknown, path: unknown, lines: unknown): Promise<readonly (string | null)[]> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { settings } = await workspace.settings();
+      if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
+      return lineAuthors(workspace.repository.fileHistory(relative, ACTIVITY_LIMIT), lineList(lines));
     });
   }
 
