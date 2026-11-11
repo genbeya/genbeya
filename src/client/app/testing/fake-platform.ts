@@ -7,6 +7,7 @@ import {
   type ContentArea,
   type ContentBranch,
   type Preferences,
+  type PullRequest,
   type Settings,
   type Snapshot,
   type Storage,
@@ -55,8 +56,25 @@ export const PREFERENCES: Preferences = {
   lastSeenVersion: APP_VERSION,
   tourSeen: true,
   tourOffered: [],
-  hiddenParts: { all: [], repositories: {} },
+  parts: { all: {}, repositories: {} },
 };
+
+export function pull(id: string, change: Partial<PullRequest> = {}): PullRequest {
+  return {
+    id,
+    path: `pulls/${id}.md`,
+    title: `Pull ${id}`,
+    status: "open",
+    author: "Ada",
+    source: "feature",
+    target: "main",
+    reviewers: [],
+    mergeCommit: null,
+    body: "",
+    hash: `hash-${id}`,
+    ...change,
+  };
+}
 
 export function task(id: string, change: Partial<Task> = {}): Task {
   return {

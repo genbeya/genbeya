@@ -346,7 +346,8 @@
               aria-labelledby="parts-label"
               [off]="parts.hidden()"
               [omit]="parts.unused()"
-              (toggled)="parts.setHidden($event.part, !$event.on, !parts.ownChoice())"
+              [automatic]="automaticParts()"
+              (toggled)="parts.setShown($event.part, $event.on, !parts.ownChoice())"
             />
           </div>
         </div>

@@ -17,12 +17,15 @@ describe("changePreferences", () => {
     expect(DEFAULT_PREFERENCES).toMatchObject({ editorFont: "jetbrains-mono", ligatures: true });
   });
 
-  it("keeps the parts a user hides, everywhere and per repository, by their names", () => {
+  it("keeps the user's choice per part, everywhere and per repository", () => {
     const next = changePreferences(DEFAULT_PREFERENCES, {
-      hiddenParts: { all: ["terminal", "wiki", "wiki"], repositories: { "local:/a": ["planning"] } },
+      parts: { all: { terminal: false, wiki: false, pulls: true }, repositories: { "local:/a": { planning: false } } },
     });
-    expect(next.hiddenParts).toEqual({ all: ["wiki", "terminal"], repositories: { "local:/a": ["planning"] } });
-    expect(() => changePreferences(DEFAULT_PREFERENCES, { hiddenParts: { all: ["board"], repositories: {} } })).toThrow(/parts to hide/);
-    expect(() => changePreferences(DEFAULT_PREFERENCES, { hiddenParts: { all: [] } })).toThrow(/hiddenParts/);
+    expect(next.parts).toEqual({ all: { wiki: false, pulls: true, terminal: false }, repositories: { "local:/a": { planning: false } } });
+    expect(() => changePreferences(DEFAULT_PREFERENCES, { parts: { all: { board: false }, repositories: {} } })).toThrow(
+      /parts preference/,
+    );
+    expect(() => changePreferences(DEFAULT_PREFERENCES, { parts: { all: { wiki: "no" }, repositories: {} } })).toThrow(/parts preference/);
+    expect(() => changePreferences(DEFAULT_PREFERENCES, { parts: { all: {} } })).toThrow(/parts preference/);
   });
 });

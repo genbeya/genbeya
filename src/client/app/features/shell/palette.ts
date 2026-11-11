@@ -284,7 +284,7 @@ export class Palette {
         this.session.preferences().theme,
         { mod: MOD_KEY, ctrl: CTRL_KEY, shift: SHIFT_KEY },
         this.commands,
-        this.parts.shown(),
+        this.parts.offered(),
       ),
       ...mentionItems(this.people.me(), this.commands),
     ];

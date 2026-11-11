@@ -56,6 +56,8 @@ const EDITOR_FONT_NAMES: Readonly<Record<EditorFont, string>> = {
 export class SettingsView {
   protected readonly session = inject(Session);
   protected readonly parts = inject(Parts);
+  /** Parts left to the project's use of them, for a hint beside their switch. */
+  protected readonly automaticParts = computed(() => PARTS.filter((part) => this.parts.isAutomatic(part)));
   protected readonly editorFonts = EDITOR_FONTS.map((id) => ({ id, name: EDITOR_FONT_NAMES[id] }));
   protected readonly onboarding = inject(Onboarding);
   protected readonly demo = inject(Demo);

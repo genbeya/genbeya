@@ -131,12 +131,18 @@ export function shownParts(hidden: Iterable<Part>): ReadonlySet<Part> {
   return new Set(PARTS.filter((part) => !off.has(part)));
 }
 
-/** The parts a person hides: in every repository, and per repository, which overrides that. */
-export interface HiddenParts {
-  readonly all: readonly Part[];
+/** A person's choice per part: shown, hidden, or (left out) as the project's use of it says. */
+export type PartChoices = Readonly<Partial<Record<Part, boolean>>>;
+
+/** What a person shows and hides: in every repository, and per repository, which overrides that. */
+export interface PartPreferences {
+  readonly all: PartChoices;
   /** By {@link repositoryKey}. */
-  readonly repositories: Readonly<Record<string, readonly Part[]>>;
+  readonly repositories: Readonly<Record<string, PartChoices>>;
 }
+
+/** Parts that show by themselves only once the project uses them; the others show unless turned off. */
+export const AUTOMATIC_PARTS: readonly Part[] = ["planning", "timelog", "pulls"];
 
 /** A person listed in the settings: the handle `@mentions` use, with the name and email shown for it. */
 export interface PersonEntry {
@@ -780,8 +786,8 @@ export interface Preferences {
   readonly tourSeen: boolean;
   /** The repositories that offered the tour, so each offers it once; see {@link repositoryKey}. */
   readonly tourOffered: readonly string[];
-  /** Parts of the app the user doesn't want to see. */
-  readonly hiddenParts: HiddenParts;
+  /** The parts of the app the user shows and hides. */
+  readonly parts: PartPreferences;
 }
 
 /** What a terminal printed since the last read (possibly nothing yet), or its exit code once it ended and everything was read. */

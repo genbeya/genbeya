@@ -8,7 +8,7 @@ import { People } from "../../core/people";
 import { Session } from "../../core/session";
 import { sameJson } from "../../core/signals";
 import { WorkspaceApi } from "../../core/workspace-api";
-import type { WikiNode } from "../../../../contracts/model";
+import type { Scope, WikiNode } from "../../../../contracts/model";
 import type { LinkTarget } from "../../markdown/link-target";
 import { referenceCandidates } from "../../markdown/references";
 import { parseFileFragment } from "../../../../utilities/references";
@@ -16,6 +16,7 @@ import type { GenbeyaOptions } from "../../markdown/markdown-pipeline";
 import { filePaths } from "../../../../utilities/file-tree";
 import { today } from "../../ui/calendar-date";
 import { TaskPlanning } from "../tasks/task-planning";
+import type { HiddenPreviewRequest } from "./hidden-preview";
 import type { MovePageOptions, PageMoveChoice } from "./move-page-dialog";
 import { findPage, flattenPages, pageName, pageNameProblem, pagePath } from "./wiki-pages";
 
@@ -135,17 +136,26 @@ export class WikiActions {
     // A pinned link shows the file as it was, even a page's or a task's.
     if (revision) return void (await this.router.navigate(["/code"], { queryParams: { file: path, lines: range, rev: revision } }));
     const task = path.startsWith(`${taskRoot}/`) ? snapshot.tasks.find((candidate) => candidate.path === path) : undefined;
+    if (task && !this.parts.isShown("tasks")) return this.preview(`${task.id} ${task.title}`, task.path, "content", "The task board");
     if (task) return void (await this.router.navigate(["/tasks"], { queryParams: { task: task.id } }));
     if (path === root || path.startsWith(`${root}/`)) {
       // Links may leave out `.md` or point at a page's folder.
       if (!/\.[a-z0-9]+$/i.test(path)) path += ".md";
       if (path.endsWith(".md")) {
         const found = findPage(snapshot.wiki, path) ?? findPage(snapshot.wiki, path.slice(0, -3));
+        if (found?.node.path && !this.parts.isShown("wiki")) return this.preview(found.node.title, found.node.path, "content", "The wiki");
         if (found?.node.path) return void (await this.openPage(found.node.path, { anchor: target.anchor }));
         if (found?.node.folder) return void (await this.openFolder(found.node.folder));
         return void (await this.openPage(path, { anchor: target.anchor }));
       }
     }
+    if (!this.parts.isShown("code")) return this.preview(path, path, "repo", "Code");
     await this.router.navigate(["/code"], { queryParams: { file: path, lines: range } });
+  }
+
+  /** Shows a page, task or file of a hidden part read-only, without its view. */
+  private async preview(title: string, path: string, scope: Scope, part: string): Promise<void> {
+    const { HiddenPreview } = await import("./hidden-preview");
+    await this.dialogs.open<unknown, HiddenPreviewRequest>(HiddenPreview, { title, path, scope, part });
   }
 }

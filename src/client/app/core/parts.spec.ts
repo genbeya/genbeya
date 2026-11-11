@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing";
 import { openRepository } from "../testing/component-harness";
-import { SETTINGS } from "../testing/fake-platform";
-import { Parts } from "./parts";
+import { pull, SETTINGS, task } from "../testing/fake-platform";
+import { Parts, usesPart } from "./parts";
 
 const KEY = "local:/repo";
 
@@ -11,10 +11,19 @@ async function setup(unused: typeof SETTINGS.unused = []) {
 }
 
 describe("Parts", () => {
-  it("shows everything until the project or the user leaves something out", async () => {
+  it("shows the parts every project has, and the others once the project uses them", async () => {
     const { parts } = await setup();
-    expect(parts.isShown("wiki")).toBe(true);
+    expect(["wiki", "tasks", "code", "terminal"].every((part) => parts.isShown(part as never))).toBe(true);
+    expect(["planning", "timelog", "pulls"].some((part) => parts.isShown(part as never))).toBe(false);
     expect(parts.home()).toBe("wiki");
+    const snapshot = {
+      settings: SETTINGS,
+      tasks: [task("TP-1", { body: "## Time log\n\n- 2026-10-21 — Ada — 2h\n" })],
+      pulls: [pull("PR-1")],
+    };
+    expect(["planning", "timelog", "pulls"].map((part) => usesPart(part as never, snapshot))).toEqual([true, true, true]);
+    const fields = { ...SETTINGS, fields: [{ name: "estimate", type: "effort" as const }] };
+    expect(usesPart("planning", { settings: fields, tasks: [], pulls: [] })).toBe(true);
   });
 
   it("leaves out what the project doesn't use, with the parts that need it", async () => {
@@ -23,23 +32,25 @@ describe("Parts", () => {
     expect(parts.home()).toBe("code");
   });
 
-  it("hides parts for the user in every repository, or in this one alone", async () => {
+  it("follows the user's choices, in every repository or in this one alone", async () => {
     const { parts, managers, session } = await setup();
-    await parts.setHidden("terminal", true, true);
-    expect(managers.workspace.setPreferences).toHaveBeenLastCalledWith({ hiddenParts: { all: ["terminal"], repositories: {} } });
+    await parts.setShown("terminal", false, true);
+    expect(managers.workspace.setPreferences).toHaveBeenLastCalledWith({ parts: { all: { terminal: false }, repositories: {} } });
     expect(parts.isShown("terminal")).toBe(false);
     expect(parts.ownChoice()).toBe(false);
 
     await parts.setOwnChoice(true);
-    expect(session.preferences().hiddenParts).toEqual({ all: ["terminal"], repositories: { [KEY]: ["terminal"] } });
-    await parts.setHidden("tasks", true, false);
-    expect(session.preferences().hiddenParts.repositories[KEY]).toEqual(["tasks", "terminal"]);
-    expect(parts.isShown("planning")).toBe(false);
-    // Showing planning shows the tasks it needs.
-    await parts.setHidden("planning", false, false);
-    expect(parts.isShown("tasks")).toBe(true);
+    expect(session.preferences().parts).toEqual({ all: { terminal: false }, repositories: { [KEY]: { terminal: false } } });
+    await parts.setShown("tasks", false, false);
+    expect(parts.isShown("tasks")).toBe(false);
+    // Showing the time log shows what it needs, planning and tasks.
+    expect(parts.isAutomatic("timelog")).toBe(true);
+    await parts.setShown("timelog", true, false);
+    expect(session.preferences().parts.repositories[KEY]).toEqual({ terminal: false, tasks: true, timelog: true, planning: true });
+    expect(["tasks", "planning", "timelog"].every((part) => parts.isShown(part as never))).toBe(true);
+    expect(parts.isAutomatic("timelog")).toBe(false);
 
     await parts.setOwnChoice(false);
-    expect(session.preferences().hiddenParts).toEqual({ all: ["terminal"], repositories: {} });
+    expect(session.preferences().parts).toEqual({ all: { terminal: false }, repositories: {} });
   });
 });

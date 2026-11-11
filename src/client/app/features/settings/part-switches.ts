@@ -26,6 +26,8 @@ export const PART_LABELS: Readonly<Record<Part, string>> = {
         {{ row.label }}
         @if (row.blocked) {
           <small class="faint">needs {{ row.blocked }}</small>
+        } @else if (row.automatic) {
+          <small class="faint" title="Shows once the project uses it, until you choose">automatic</small>
         }
       </label>
     }
@@ -46,6 +48,8 @@ export class PartSwitches {
   readonly off = input.required<readonly Part[]>();
   /** Parts left out of the list, such as those the project doesn't use. */
   readonly omit = input<readonly Part[]>([]);
+  /** Parts that follow the project's use of them until switched. */
+  readonly automatic = input<readonly Part[]>([]);
   readonly toggled = output<{ readonly part: Part; readonly on: boolean }>();
 
   protected readonly rows = computed(() => {
@@ -57,6 +61,7 @@ export class PartSwitches {
         label: PART_LABELS[part],
         need,
         on: shown.has(part),
+        automatic: this.automatic().includes(part),
         // Switched off with what it needs: on again with that.
         blocked: need && !shown.has(need) ? PART_LABELS[need] : null,
       };

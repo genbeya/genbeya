@@ -14,7 +14,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lastSeenVersion: null,
   tourSeen: false,
   tourOffered: [],
-  hiddenParts: { all: [], repositories: {} },
+  parts: { all: {}, repositories: {} },
 };
 /** The last seen version of state saved before versions were remembered: all news is new to its user. */
 export const UNKNOWN_VERSION = "0.0.0";
