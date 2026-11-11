@@ -276,7 +276,7 @@ Blocks on any wiki page show the plan, worked out from the tasks whenever the pa
 - `[GANTT]`: the tasks on a timeline, as dated, or placed after what they wait for by their duration.
 - `[ARROWS]`: the critical path as an arrow diagram, each task an arrow with its duration and float.
 - `[FLOAT]`: the critical path as a table, with each task's earliest and latest start and finish dates and its float.
-- `[BURNDOWN]`: remaining effort (bars) and logged effort (a line) day by day, from the tasks' history in Git.
+- `[BURNDOWN]`: remaining effort (bars) and logged effort (a line) day by day, from the tasks' history in Git. Remaining counts the tasks with a `remaining` field; finished tasks count as nothing left.
 - `[BASELINE v1.0]`: what changed since a tag or commit: tasks added and removed, estimates, dates, milestones and dependencies changed, with who changed them last, and how the estimate and forecast moved.
 
 The history is only as precise as the commits: on the [content branch](../Architecture/Content-branch.md) every edit is a commit; in the checkout, only what someone committed counts, and edits not committed yet count as today's.

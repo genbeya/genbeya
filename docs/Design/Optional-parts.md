@@ -16,6 +16,7 @@ What the first version answers, to try out before deciding for good:
 - **The key** is `unused: [wiki, planning]` in `.genbeya.yml`: listing what is off, so a missing key means everything is on and nothing changes for existing projects.
 - **The parts** are `wiki`, `tasks`, `planning`, `timelog`, `code`, `changes`, `history`, `pulls` and `terminal`. Planning needs tasks and the time log needs planning; turning one off takes those along, and turning one on brings back what it needs.
 - **The user layer** is `parts` in the personal preferences: a choice per part (shown or hidden) for every repository, and choices for single repositories, which win. **Settings → App → Show** switches between **This repository** and **Every repository**.
+- **Decided:** the wiki, the tasks and the other views never hide themselves, even without their folder: only planning, the time log and pull requests are automatic.
 - **Automatic parts:** planning, the time log and pull requests show once the project uses them (a planning field or a time log; a time log; a pull request file) until the user chooses. Existing users keep seeing everything they saw; the time log is off until someone logs time, as the planning design asks. **New pull request** stays in the palette meanwhile.
 - **Hidden parts** leave the sidebar, the palette (views, commands, pages, tasks, files), full-text search results and the tour. `Ctrl+1` … `Ctrl+6` keep their numbers. A repository opens in the first view that shows.
 - **References** into a hidden part open a read-only preview of the page, task or file: hidden is out of the way, not locked.
@@ -26,7 +27,6 @@ What the first version answers, to try out before deciding for good:
 
 Left for later:
 
-- Tasks as an automatic part too, which would hide the board of a repository without a task folder; for now it shows, as before.
 - Plan macros in VS Code's preview follow the project layer only.
 
 ## Two layers
