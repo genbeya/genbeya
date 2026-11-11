@@ -22,6 +22,7 @@ import { Dialogs } from "../core/dialogs";
 import { Session } from "../core/session";
 import { WorkspaceApi } from "../core/workspace-api";
 import { Theme } from "../core/theme";
+import { boxAt, mentionsTasks, taskBoxes, type TaskBox } from "./diagram-links";
 import { Diagrams } from "./diagrams";
 import { resolveHref, type LinkTarget } from "./link-target";
 import { checkPinned, fillEmbed, type EmbeddedFiles } from "./file-embeds";
@@ -33,6 +34,9 @@ import { Typesetter } from "./typesetter";
 const COPIED_FEEDBACK = 1200;
 
 /** What a zoomable picture of the page is: a repository image, or a drawn diagram with its source. */
+/** A task as references know it. */
+type ReferenceTask = NonNullable<GenbeyaOptions["references"]>["tasks"][number];
+
 type Picture = { readonly path: string } | { readonly diagram: Diagram; readonly svg: string };
 
 /** A button that opens a picture zoomed: for the keyboard, and for images in links, whose click follows the link. */
@@ -62,6 +66,7 @@ function makeZoomable(image: HTMLImageElement) {
   host: {
     class: "markdown selectable",
     "(click)": "click($event)",
+    "(mousemove)": "pointAtTask($event)",
     "(keydown)": "key($event)",
     "(mouseover)": "hover($event)",
     "(mouseout)": "unhover($event)",
@@ -113,6 +118,8 @@ export class MarkdownView {
   private preview: HTMLElement | null = null;
   /** The images and diagrams on the page that open zoomed. */
   private pictures = new WeakMap<HTMLImageElement, Picture>();
+  /** The task labels of each diagram, measured at the size it had. */
+  private taskLabels = new WeakMap<HTMLImageElement, { readonly size: string; readonly boxes: readonly TaskBox<ReferenceTask>[] }>();
 
   constructor() {
     effect(() => {
@@ -146,6 +153,7 @@ export class MarkdownView {
     this.revoke();
     this.preview = this.previewed = null;
     this.pictures = new WeakMap();
+    this.taskLabels = new WeakMap();
     for (const image of images) {
       this.pictures.set(image.element, { path: image.path });
       makeZoomable(image.element);
@@ -275,6 +283,9 @@ export class MarkdownView {
     // An image in a link follows the link; its zoom button, beside the link, opens it zoomed.
     if (zoom || !anchor || !this.host.contains(anchor)) {
       const image = zoom ? zoom.parentElement?.querySelector<HTMLImageElement>(":scope > img, :scope > a img") : target.closest("img");
+      // A task's label in a diagram opens the task; the rest of the diagram opens zoomed.
+      const task = !zoom && image ? this.taskIn(image, event) : null;
+      if (task) return this.linkClicked.emit({ kind: "file", path: task.path, anchor: undefined });
       if (image) void this.zoom(image);
       return;
     }
@@ -285,6 +296,30 @@ export class MarkdownView {
     if (link.kind === "anchor") this.goTo(link.id);
     else if (link.kind === "person") void this.showPerson(anchor, link.handle);
     else this.linkClicked.emit(link);
+  }
+
+  /** The task whose label in a diagram is under the pointer; the labels are measured once per size of the picture. */
+  private taskIn(image: HTMLImageElement, event: MouseEvent): ReferenceTask | null {
+    const picture = this.pictures.get(image);
+    if (!picture || !("diagram" in picture)) return null;
+    const box = image.getBoundingClientRect();
+    const size = `${box.width}x${box.height}`;
+    let measured = this.taskLabels.get(image);
+    if (measured?.size !== size) {
+      const tasks = new Map((this.links().references?.tasks ?? []).map((task) => [task.id.toUpperCase(), task]));
+      measured = { size, boxes: mentionsTasks(picture.svg, tasks) ? taskBoxes(picture.svg, box.width, box.height, tasks) : [] };
+      this.taskLabels.set(image, measured);
+    }
+    return boxAt(measured.boxes, { x: event.clientX - box.left, y: event.clientY - box.top });
+  }
+
+  /** Over a task's label in a diagram, the pointer says that a click opens it. */
+  protected pointAtTask(event: MouseEvent) {
+    const image = (event.target as Element).closest?.("img");
+    if (!image || !this.pictures.has(image)) return;
+    const task = this.taskIn(image, event);
+    image.style.cursor = task ? "pointer" : "";
+    image.title = task ? `Open ${task.id}` : "";
   }
 
   protected key(event: KeyboardEvent) {

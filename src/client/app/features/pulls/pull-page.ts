@@ -24,6 +24,7 @@ import { MarkdownView } from "../../markdown/markdown-view";
 import { toggleCheckboxAt } from "../../markdown/task-checkbox";
 import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
+import type { DiffNote } from "../../editor/diff-notes";
 import { DiffPane, type DiffAction, type DiffActionHandler } from "../diff/diff-pane";
 import { WikiActions } from "../wiki/wiki-actions";
 import type { CommentRequest, CommentResult } from "./comment-dialog";
@@ -340,6 +341,7 @@ const linesText = ({ from, to }: LineRange) => (from === to ? `L${from}` : `L${f
                 [staging]="false"
                 [apply]="commentOn"
                 [badge]="short(comparison()!.base) + '…' + short(comparison()!.head)"
+                [notes]="notes()"
               />
             }
           }
@@ -443,6 +445,28 @@ export class PullPage {
             .join("\n")
             .trim(),
         })),
+    );
+  });
+  /**
+   * The threads beside their lines in the diff: below the last line of
+   * their range, with their latest reply. Ranges written at the source's
+   * head fit its lines; older ones are marked, their lines may have moved.
+   */
+  protected readonly notes = computed((): DiffNote[] => {
+    const head = this.comparison()?.head;
+    return this.parsed().topics.flatMap((topic) =>
+      topic.locations
+        .filter((location) => location.path === this.file() && location.lines)
+        .map((location) => {
+          const outdated = !!head && !!location.revision && !head.startsWith(location.revision);
+          const reply = location.replies.at(-1);
+          const text = reply ? `${reply.author}: ${reply.text.replace(/\s+/g, " ")}` : location.suggestion ? "Suggests a change." : "";
+          return {
+            line: location.lines!.to,
+            title: `${topic.title}${outdated ? " (outdated)" : ""}`,
+            text: text.length > 200 ? `${text.slice(0, 199)}…` : text,
+          };
+        }),
     );
   });
   private readonly threadCounts = computed(() => {

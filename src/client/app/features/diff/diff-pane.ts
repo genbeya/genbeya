@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import type { Diff, DiffImages, LineSelection } from "../../../../contracts/model";
 import { messageOf } from "../../core/notifications";
 import { Session } from "../../core/session";
+import type { DiffNote } from "../../editor/diff-notes";
 import { DiffView, type DiffLines, type HunkAction, type HunkEvent } from "../../editor/diff-view";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
@@ -144,6 +145,7 @@ const lineCount = (selection: LineSelection) =>
         [diff]="diff()!"
         [inline]="inline()"
         [hunkActions]="diff()!.changes || !staging() ? hunkActions() : []"
+        [notes]="notes()"
         (hunk)="onHunk($event)"
         (lines)="selection.set($event)"
       />
@@ -159,6 +161,8 @@ export class DiffPane {
   readonly apply = input<DiffActionHandler>(async () => "done");
   /** Whether the actions patch the file (staging, discarding), which needs Git's changes; others work on any changed lines. */
   readonly staging = input(true);
+  /** Notes below lines of the new version, such as review threads. */
+  readonly notes = input<readonly DiffNote[]>([]);
   /** Fetches both versions of an image with the arguments of `load`; without it, images show as binary files. */
   readonly loadImages = input<(() => Promise<DiffImages>) | null>(null);
 

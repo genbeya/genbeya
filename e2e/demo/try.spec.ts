@@ -149,6 +149,8 @@ test("reviews the Fahrenheit pull request: comments on a line, approves, and see
   await dialog.getByRole("textbox", { name: "Comment" }).fill("Maybe celsiusToFahrenheit?");
   await dialog.getByRole("button", { name: "Comment" }).click();
   await expect(page.locator(".pull-thread", { hasText: "Naming" })).toContainText("Maybe celsiusToFahrenheit?");
+  // Threads show beside their lines in the diff too.
+  await expect(page.locator(".cm-diff-note", { hasText: "Naming" })).toContainText("Maybe celsiusToFahrenheit?");
 
   await page.getByRole("tab", { name: "Conversation" }).click();
   await page.getByRole("button", { name: "Approve" }).click();
@@ -161,7 +163,7 @@ test("turns parts of the app off for the project and for the user", async ({ pag
   await page.getByRole("link", { name: "Settings" }).click();
   // For the user alone: gone from the sidebar at once.
   const mine = page.getByRole("group", { name: "Show" });
-  await mine.getByRole("checkbox", { name: "Pull requests", exact: true }).uncheck();
+  await mine.getByRole("checkbox", { name: /^Pull requests/ }).uncheck();
   await expect(views.getByRole("link", { name: "Pull requests" })).toHaveCount(0);
 
   // For the project: saved to .genbeya.yml, and what needs the part goes with it.
@@ -172,6 +174,30 @@ test("turns parts of the app off for the project and for the user", async ({ pag
   await expect(views.getByRole("link", { name: "Tasks" })).toHaveCount(0);
   await expect(mine.getByRole("checkbox", { name: "Tasks", exact: true })).toHaveCount(0);
   await expect(views.getByRole("link", { name: "Wiki" })).toBeVisible();
+});
+
+test("plans the release live from the tasks, and opens a task from the diagram", async ({ page }) => {
+  await page.getByRole("link", { name: "Release plan" }).first().click();
+  const article = page.locator(".document-article");
+  await expect(article.getByRole("heading", { level: 1, name: "Release plan" })).toBeVisible();
+  // [EFFORT] adds up estimate, logged and remaining effort.
+  await expect(article.locator("table").first()).toContainText("PW-2");
+  await expect(article.locator("table").first()).toContainText("Total");
+  // [DEPENDENCIES] draws what waits for what; a task's label opens the task.
+  const diagram = article.locator(".md-diagram img[alt='Mermaid diagram']").first();
+  await expect(diagram).toBeVisible();
+  // Over a task's label, the diagram offers to open the task.
+  await diagram.scrollIntoViewIfNeeded();
+  const box = (await diagram.boundingBox())!;
+  let point: { x: number; y: number } | null = null;
+  for (let y = 4; y < box.height && !point; y += 6)
+    for (let x = 4; x < box.width && !point; x += 12) {
+      await page.mouse.move(box.x + x, box.y + y);
+      if ((await diagram.getAttribute("title")) === "Open PW-6") point = { x, y };
+    }
+  expect(point).not.toBeNull();
+  await diagram.click({ position: point! });
+  await expect(page.getByRole("heading", { level: 1, name: "Publish the first release" })).toBeVisible();
 });
 
 test("starts over when the demo is reset", async ({ page }) => {
