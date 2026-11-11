@@ -1,7 +1,18 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal, ViewEncapsulation } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  type ElementRef,
+  inject,
+  input,
+  signal,
+  viewChild,
+  ViewEncapsulation,
+} from "@angular/core";
 import { Router } from "@angular/router";
 import type { PullRequest } from "../../../../contracts/model";
 import { openItems, parsePullBody } from "../../../../utilities/pull-requests";
+import { hotkey } from "../../core/hotkeys";
 import { Session } from "../../core/session";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
@@ -59,7 +70,7 @@ const isShown = (pull: PullRequest, shown: Shown) =>
         </div>
         <label class="filter pull-filter">
           <svg gd-icon name="search" [size]="13"></svg>
-          <input #search placeholder="Filter" aria-label="Filter pull requests" [value]="query()" (input)="query.set(search.value)" />
+          <input #filter placeholder="Filter" aria-label="Filter pull requests" [value]="query()" (input)="query.set(filter.value)" />
         </label>
         <div class="side-panel-scroll" role="list" aria-label="Pull requests">
           @for (item of rows(); track item.pull.id) {
@@ -151,6 +162,24 @@ export class PullsView {
         todos: pull.status === "open" || pull.status === "draft" ? openItems(parsePullBody(pull.body)).todos.length : 0,
       }));
   });
+
+  private readonly filter = viewChild.required<ElementRef<HTMLInputElement>>("filter");
+
+  constructor() {
+    hotkey("/", () => this.filter().nativeElement.focus());
+    hotkey("n", () => void this.actions.create());
+    hotkey("j", () => this.step(1));
+    hotkey("k", () => this.step(-1));
+  }
+
+  /** Opens the next or the previous pull request of the list. */
+  private step(by: number) {
+    const rows = this.rows();
+    if (!rows.length) return;
+    const at = rows.findIndex((row) => row.pull.id === this.selected()?.id);
+    const next = rows[at < 0 ? 0 : Math.min(rows.length - 1, Math.max(0, at + by))]!;
+    this.select(next.pull.id);
+  }
 
   protected show(shown: Shown) {
     this.shown.set(shown);

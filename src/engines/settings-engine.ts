@@ -142,6 +142,7 @@ const OPTIONAL: Readonly<Record<string, unknown>> = {
   pullRoot: "pulls",
   pullPrefix: "PR",
   requiredApprovals: 1,
+  todosBlockMerge: true,
   hiddenColumns: [],
   types: DEFAULT_TYPES.map((type) => type.name),
   fields: [],
@@ -165,6 +166,7 @@ export class SettingsEngine {
       pullRoot: "pulls",
       pullPrefix: "PR",
       requiredApprovals: 1,
+      todosBlockMerge: true,
       unused: [],
     };
   }
@@ -192,6 +194,7 @@ export class SettingsEngine {
     const requiredApprovals = value.requiredApprovals;
     if (!Number.isInteger(requiredApprovals) || requiredApprovals < 0 || requiredApprovals > 20)
       throw new Error("Required approvals is a whole number from 0 to 20.");
+    if (typeof value.todosBlockMerge !== "boolean") throw new Error("Whether open to-dos block a merge is true or false.");
     const unused = validParts(value.unused, "the parts the project doesn't use");
     const taskPrefix = text(value.taskPrefix, "Task prefix", 12).toUpperCase();
     if (!/^[A-Z][A-Z0-9]*$/.test(taskPrefix)) throw new Error("The task prefix uses letters and digits, starting with a letter.");
@@ -251,6 +254,7 @@ export class SettingsEngine {
       pullRoot,
       pullPrefix,
       requiredApprovals,
+      todosBlockMerge: value.todosBlockMerge,
       unused,
     };
   }

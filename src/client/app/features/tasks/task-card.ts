@@ -18,6 +18,10 @@ import { displayId, titleCase } from "./task-model";
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-card", "[class.is-selected]": "selected()" },
   styles: `
+    .task-critical {
+      display: inline-flex;
+      color: var(--red);
+    }
     .task-in-review {
       display: inline-flex;
       color: var(--green);
@@ -32,6 +36,11 @@ import { displayId, titleCase } from "./task-model";
       @if (parts.isShown("planning") && blockedBy(); as blockers) {
         <span class="task-blocked" [title]="'Blocked by ' + blockers" aria-label="Blocked"
           ><svg gd-icon name="lock" [size]="12"></svg
+        ></span>
+      }
+      @if (critical()) {
+        <span class="task-critical" title="On the critical path: a day late here is a day late for the end" aria-label="Critical"
+          ><svg gd-icon name="zap" [size]="12"></svg
         ></span>
       }
       @if (inReview()) {
@@ -89,5 +98,8 @@ export class TaskCard {
   private readonly pulls = inject(PullLinks);
   protected readonly parts = inject(Parts);
   protected readonly inReview = computed(() => this.parts.isShown("pulls") && this.pulls.hasOpen(this.task().id));
+  protected readonly critical = computed(
+    () => this.parts.isShown("planning") && !!this.planning.scheduled().get(this.task().id.toUpperCase())?.critical,
+  );
   protected readonly hasDates = computed(() => dueDatesOf(this.task(), this.session.snapshot()!.settings, today()).length > 0);
 }

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
-import { durationOf, effortOf, formatDays, formatEffort, formatVariance, timeLogOf } from "../../../../utilities/planning";
+import { effortOf, formatDays, formatEffort, formatVariance, timeLogOf } from "../../../../utilities/planning";
 import { Parts } from "../../core/parts";
 import { Session } from "../../core/session";
 import { MarkdownView } from "../../markdown/markdown-view";
@@ -159,11 +159,7 @@ export class TaskPlan {
   protected readonly days = formatDays;
   protected readonly from = (days: number) => (days === 0 ? "today" : `in ${formatDays(days)}`);
   /** Where the task stands on the critical path: unfinished tasks that wait for or block another, or have a duration. */
-  protected readonly scheduled = computed(() => {
-    const task = this.planning.schedule().tasks.find((candidate) => candidate.id.toUpperCase() === this.id());
-    const related = this.dependencies().waitsFor.has(this.id()) || this.dependencies().blocks.has(this.id());
-    return task && (related || durationOf(this.task()) !== null) ? task : null;
-  });
+  protected readonly scheduled = computed(() => this.planning.scheduled().get(this.id()) ?? null);
   private readonly id = computed(() => this.task().id.toUpperCase());
   /** What the task waits for and blocks, as references showing each task's state. */
   protected readonly relations = computed(() => {

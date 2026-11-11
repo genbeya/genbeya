@@ -508,6 +508,8 @@ export interface GateInput {
   /** How many approvals the project asks for. */
   readonly required: number;
   readonly openTodos: number;
+  /** Whether open to-dos keep it from being ready, as the project decides. */
+  readonly todosBlock?: boolean;
   /** Whether merging conflicts; null when it can't be checked. */
   readonly conflicts: boolean | null;
   /** Changed files in the checkout, which merging here would meet; null when the checkout is on neither branch. */
@@ -518,7 +520,7 @@ export interface GateInput {
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
 /** What stands between a pull request and its merge, condition by condition. */
-export function gatesOf({ approvals, required, openTodos, conflicts, uncommitted, target }: GateInput): PullGate[] {
+export function gatesOf({ approvals, required, openTodos, todosBlock = true, conflicts, uncommitted, target }: GateInput): PullGate[] {
   const stale = approvals.stale ? ` (${approvals.stale} stale: code changed since)` : "";
   const gates: PullGate[] = [
     {
@@ -529,7 +531,15 @@ export function gatesOf({ approvals, required, openTodos, conflicts, uncommitted
     approvals.changesRequested.length
       ? { key: "changes", state: "failed", text: `Changes requested by ${approvals.changesRequested.join(", ")}` }
       : { key: "changes", state: "passed", text: "No changes requested" },
-    { key: "todos", state: openTodos ? "failed" : "passed", text: openTodos ? `${plural(openTodos, "open to-do")}` : "No open to-dos" },
+    {
+      key: "todos",
+      state: openTodos && todosBlock ? "failed" : "passed",
+      text: !openTodos
+        ? "No open to-dos"
+        : todosBlock
+          ? plural(openTodos, "open to-do")
+          : `${plural(openTodos, "open to-do")}, which don't block here`,
+    },
     conflicts === null
       ? { key: "conflicts", state: "unknown", text: "Conflicts can't be checked (needs Git 2.38 or later, and both branches)" }
       : {

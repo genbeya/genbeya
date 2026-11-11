@@ -11,6 +11,7 @@ import type { Git } from "../access/git/git";
 import { grepFiles, grepLines, type GrepLine } from "../access/git/git-grep";
 import { SEARCH_LIMITS, type SearchEngine, type SearchQuery } from "../engines/search-engine";
 import { contentAreaOf } from "../engines/settings-engine";
+import type { PullEngine } from "../engines/pull-engine";
 import type { TaskEngine } from "../engines/task-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { baseName } from "../utilities/repository-path";
@@ -20,9 +21,10 @@ export interface SearchEngines {
   readonly search: SearchEngine;
   readonly tasks: TaskEngine;
   readonly wiki: WikiEngine;
+  readonly pulls: PullEngine;
 }
 
-const AREAS: readonly SearchArea[] = ["wiki", "tasks", "code"];
+const AREAS: readonly SearchArea[] = ["wiki", "tasks", "code", "pulls"];
 
 /** A working tree to search, and the content areas it holds; "code" is everything else. */
 interface Source {
@@ -69,9 +71,30 @@ export async function searchContent(workspace: Workspace, engines: SearchEngines
       const scope = contentAreaOf(path, settings) ? "content" : "repo";
       return [{ path, scope, title, matches: found.slice(0, SEARCH_LIMITS.matchesPerFile) }];
     });
-  const [wiki, tasks, code] = [hits("wiki"), hits("tasks"), hits("code")];
+  const [wiki, tasks, code, pulls] = [hits("wiki"), hits("tasks"), hits("code"), hits("pulls")];
   const taskFiles = (await workspace.content.locate("tasks")).files;
-  return { wiki, tasks: await describeTasks(taskFiles, engines.tasks, settings, tasks), code, truncated };
+  const pullFiles = (await workspace.content.locate("pulls")).files;
+  return {
+    wiki,
+    tasks: await describeTasks(taskFiles, engines.tasks, settings, tasks),
+    code,
+    pulls: await describePulls(pullFiles, engines.pulls, pulls),
+    truncated,
+  };
+}
+
+/** Pull request hits titled with their ID and title; a file that does not parse keeps its name. */
+async function describePulls(files: FileStore, engine: PullEngine, hits: readonly SearchHit[]): Promise<SearchHit[]> {
+  const contents = await files.readMany(hits.map((hit) => hit.path));
+  return hits.map((hit, i) => {
+    const file = contents[i];
+    try {
+      const pull = file && !(file instanceof Error) ? engine.parse(hit.path, file.content, file.hash) : null;
+      return pull ? { ...hit, title: `${pull.id} ${pull.title}`.trim() } : hit;
+    } catch {
+      return hit;
+    }
+  });
 }
 
 /** The matching lines of one file, each with the lines around it, shortened as they are shown. */

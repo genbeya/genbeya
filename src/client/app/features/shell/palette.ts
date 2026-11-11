@@ -209,6 +209,7 @@ export class Palette {
     newPage: () => void this.wiki.createPage(),
     newTask: () => void this.router.navigate(["/tasks"], { queryParams: { create: this.session.snapshot()!.settings.statuses[0] } }),
     newPull: () => void this.pulls.create(),
+    openPull: (pull) => void this.router.navigate(["/pulls"], { queryParams: { pull } }),
     switchBranch: (name) => void this.repository.switchBranch(name),
     createBranch: (name) => void this.repository.createBranch(name),
     showBranches: () => void this.ui.openPalette("branches"),
@@ -243,6 +244,7 @@ export class Palette {
   private readonly found: SearchCommands = {
     openPage: (page, line) => void this.router.navigate(["/wiki"], { queryParams: { page, line } }),
     openTask: (task) => this.commands.openTask(task),
+    openPull: (pull) => this.commands.openPull(pull),
     openFile: (file, line, scope) =>
       void (scope === "content"
         ? this.contentFiles.explain(file, file.split("/").at(-1)!)
@@ -264,6 +266,7 @@ export class Palette {
           wiki: shown.has("wiki") ? found.wiki : [],
           tasks: shown.has("tasks") ? found.tasks : [],
           code: shown.has("code") ? found.code : [],
+          pulls: shown.has("pulls") ? found.pulls : [],
         }
       );
     }),

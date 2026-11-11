@@ -250,5 +250,15 @@ describe("gatesOf", () => {
     expect(gates.map((gate) => gate.state)).toEqual(["passed", "failed", "passed", "unknown", "failed"]);
     expect(gates[1]!.text).toBe("Changes requested by Alex");
     expect(gates[4]!.text).toBe("3 uncommitted changes in the checkout");
+    const advisory = gatesOf({
+      approvals,
+      required: 1,
+      openTodos: 2,
+      todosBlock: false,
+      conflicts: false,
+      uncommitted: null,
+      target: "main",
+    });
+    expect(advisory[2]).toMatchObject({ state: "passed", text: "2 open to-dos, which don't block here" });
   });
 });

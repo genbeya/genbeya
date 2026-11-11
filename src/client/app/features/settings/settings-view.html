@@ -123,6 +123,22 @@
           </div>
         </div>
         <div class="setting-row">
+          <div class="setting-label">
+            <label for="setting-todos-block">Open to-dos block a merge</label
+            ><small>Unticked to-dos in a pull request keep it from counting as ready to merge.</small>
+          </div>
+          <div class="setting-control">
+            <input
+              #todosBlock
+              id="setting-todos-block"
+              type="checkbox"
+              class="switch"
+              [checked]="form().todosBlockMerge"
+              (change)="setTodosBlock(todosBlock.checked)"
+            />
+          </div>
+        </div>
+        <div class="setting-row">
           <div class="setting-label"><span>Workflow</span><small>Board columns, in order. The last state counts as done.</small></div>
           <div class="setting-control">
             <gd-status-editor

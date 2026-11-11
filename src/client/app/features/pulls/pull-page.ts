@@ -385,6 +385,7 @@ export class PullPage {
       approvals: this.approvals(),
       required: settings.requiredApprovals,
       openTodos: this.open().todos.length,
+      todosBlock: settings.todosBlockMerge,
       conflicts: this.comparison()?.conflicts ?? null,
       uncommitted: here ? changes.length : null,
       target: pull.target,

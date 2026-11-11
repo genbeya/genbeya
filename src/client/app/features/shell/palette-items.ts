@@ -70,6 +70,7 @@ export interface PaletteCommands {
   newPage(): void;
   newTask(): void;
   newPull(): void;
+  openPull(id: string): void;
   switchBranch(name: string): void;
   createBranch(name: string): void;
   showBranches(): void;
@@ -355,6 +356,15 @@ export function allItems(
     keywords: page.path,
     run: () => commands.openPage(page.path),
   }));
+  const pullItems = snapshot.pulls.map((pull): PaletteItem => ({
+    id: `pull:${pull.id}`,
+    group: "Pull requests",
+    label: pull.title || pull.id,
+    detail: `${pull.id} · ${pull.source} → ${pull.target}`,
+    icon: "pulls",
+    keywords: `${pull.id} ${pull.status} ${pull.author}`,
+    run: () => commands.openPull(pull.id),
+  }));
   const taskItems = tasks.map((task): PaletteItem => ({
     id: `task:${task.path}`,
     group: "Tasks",
@@ -379,7 +389,7 @@ export function allItems(
       keywords: path,
       run: () => commands.openFile(path),
     }));
-  const all = [...go, ...actions, ...repository, ...preferences, ...help, ...pages, ...taskItems, ...fileItems];
+  const all = [...go, ...actions, ...repository, ...preferences, ...help, ...pages, ...taskItems, ...pullItems, ...fileItems];
   return all.filter((item) => {
     const part = partOfItem(item.id);
     return !part || shown.has(part);
@@ -387,7 +397,7 @@ export function allItems(
 }
 
 const ACTION_PARTS: Readonly<Record<string, Part>> = { "new-page": "wiki", "new-task": "tasks", "new-pull": "pulls", terminal: "terminal" };
-const PREFIX_PARTS: Readonly<Record<string, Part>> = { page: "wiki", task: "tasks", file: "code" };
+const PREFIX_PARTS: Readonly<Record<string, Part>> = { page: "wiki", task: "tasks", pull: "pulls", file: "code" };
 
 /** The part of the app an item belongs to, if any: a view, a command, or a page, task or file to open. */
 function partOfItem(id: string): Part | null {

@@ -100,6 +100,8 @@ export interface Settings {
   readonly pullPrefix: string;
   /** Effective approvals a pull request needs to be ready to merge; 0 for none. */
   readonly requiredApprovals: number;
+  /** Whether open to-dos keep a pull request from being ready to merge. */
+  readonly todosBlockMerge: boolean;
   /** Parts of the app the project doesn't use: nobody sees them. */
   readonly unused: readonly Part[];
 }
@@ -830,6 +832,8 @@ export interface SearchResults {
   readonly wiki: readonly SearchHit[];
   readonly tasks: readonly TaskSearchHit[];
   readonly code: readonly SearchHit[];
+  /** Pull request files; their title is the ID and title. */
+  readonly pulls: readonly SearchHit[];
   /** More files or matches matched than are listed. */
   readonly truncated: boolean;
 }

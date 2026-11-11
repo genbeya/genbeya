@@ -40,6 +40,7 @@ export const SETTINGS: Settings = {
   pullRoot: "pulls",
   pullPrefix: "PR",
   requiredApprovals: 1,
+  todosBlockMerge: true,
   unused: [],
 };
 

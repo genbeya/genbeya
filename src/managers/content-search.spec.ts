@@ -34,6 +34,7 @@ const paths = (results: SearchResults) => ({
   wiki: results.wiki.map((hit) => hit.path),
   tasks: results.tasks.map((hit) => hit.path),
   code: results.code.map((hit) => hit.path),
+  pulls: results.pulls.map((hit) => hit.path),
 });
 
 describe("ContentManager.search", () => {
@@ -69,8 +70,23 @@ describe("ContentManager.search", () => {
     await managers.content.createPage(id, "docs/Gadgets.md");
     await repository.write("dist/bundle.js", "gadget\n");
     await repository.write("logo.png", new Uint8Array([0x89, 0x50, 0, 0, ...new TextEncoder().encode("gadget")]));
-    expect(paths(await search("gadgets"))).toEqual({ wiki: ["docs/Gadgets.md"], tasks: [], code: [] });
+    expect(paths(await search("gadgets"))).toEqual({ wiki: ["docs/Gadgets.md"], tasks: [], code: [], pulls: [] });
     expect(paths(await search("gadget")).code).toEqual(["src/gadget.ts"]);
+  });
+
+  it("lists pull requests by their ID and title", async () => {
+    const { managers, id, search } = await opened();
+    await managers.content.createPull(id, {
+      title: "Gadget polish",
+      status: "open",
+      source: "f",
+      target: "main",
+      reviewers: [],
+      body: "Polish it.\n",
+    });
+    const results = await search("polish");
+    expect(results.pulls.map((hit) => [hit.path, hit.title])).toEqual([["pulls/PR-1.md", "PR-1 Gadget polish"]]);
+    expect(results.code).toEqual([]);
   });
 
   it("searches literally, ignoring case, unless asked otherwise", async () => {
@@ -96,7 +112,12 @@ describe("ContentManager.search", () => {
     // The checkout keeps its stale copy, which must not show up as well.
     expect(await repository.read("docs/Home.md")).toContain("Install the Gadget");
     const results = await search("gadget");
-    expect(paths(results)).toEqual({ wiki: ["docs/Home.md"], tasks: ["tasks/TP-1.md", "tasks/broken.md"], code: ["src/gadget.ts"] });
+    expect(paths(results)).toEqual({
+      wiki: ["docs/Home.md"],
+      tasks: ["tasks/TP-1.md", "tasks/broken.md"],
+      code: ["src/gadget.ts"],
+      pulls: [],
+    });
     expect(results.wiki[0]!.matches.map((match) => match.text)).toEqual(["The gadget moved here."]);
   });
 
@@ -109,7 +130,12 @@ describe("ContentManager.search", () => {
     // The checkout's stale tasks must not show up as well.
     expect(await repository.read("tasks/TP-1.md")).toContain("Build the gadget.");
     const results = await search("gadget");
-    expect(paths(results)).toEqual({ wiki: ["docs/Home.md"], tasks: ["tasks/TP-1.md", "tasks/broken.md"], code: ["src/gadget.ts"] });
+    expect(paths(results)).toEqual({
+      wiki: ["docs/Home.md"],
+      tasks: ["tasks/TP-1.md", "tasks/broken.md"],
+      code: ["src/gadget.ts"],
+      pulls: [],
+    });
     expect(results.wiki[0]!.matches.map((match) => match.text)).toEqual(["The gadget stays here."]);
     expect(results.tasks[0]!.matches.map((match) => match.line)).toEqual([3]);
   });
@@ -200,7 +226,12 @@ describe("ContentManager.search on WSL", async () => {
       await run(`rm -rf ${dir}`);
     });
     const { id } = await backend.workspace.open({ kind: "wsl", distro: "Ubuntu", path: dir });
-    expect(paths(await backend.content.search(id, "GADGET"))).toEqual({ wiki: ["docs/Home.md"], tasks: [], code: ["src/new.ts"] });
+    expect(paths(await backend.content.search(id, "GADGET"))).toEqual({
+      wiki: ["docs/Home.md"],
+      tasks: [],
+      code: ["src/new.ts"],
+      pulls: [],
+    });
     expect((await backend.content.search(id, "-e")).code[0]!.matches[0]).toMatchObject({ line: 1, text: "gadget -e" });
   });
 });

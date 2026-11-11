@@ -18,6 +18,7 @@ const RESULTS: SearchResults = {
   wiki: [{ path: "docs/Home.md", scope: "content", title: "Home", matches: [match(7, "Install the gadget", 12, 18)] }],
   tasks: [{ path: "tasks/TP-1.md", scope: "content", title: "Ship it", id: "TP-1", status: "todo", matches: [match(3, "gadget", 0, 6)] }],
   code: [{ path: "src/gadget.ts", scope: "repo", title: "gadget.ts", matches: [match(2, "const gadget = 1;", 6, 12)] }],
+  pulls: [],
   truncated: false,
 };
 
@@ -111,7 +112,7 @@ describe("Palette full-text search", () => {
   it("explains a found file on the content branch, which the code view cannot show", async () => {
     const { fixture, navigate, search, dialogs } = await setup();
     const template = { path: "tasks/.templates/bug.md", scope: "content", title: "bug.md", matches: [match(1, "gadget", 0, 6)] } as const;
-    search.mockResolvedValue({ wiki: [], tasks: [], code: [template], truncated: false });
+    search.mockResolvedValue({ wiki: [], tasks: [], code: [template], pulls: [], truncated: false });
     await type(fixture, "/gadget");
     await press(fixture, "Enter");
     expect(dialogs.confirm).toHaveBeenCalledWith(
@@ -155,7 +156,7 @@ describe("Palette full-text search", () => {
 
   it("says when nothing matched or the search failed", async () => {
     const { fixture, search } = await setup("search");
-    search.mockResolvedValueOnce({ wiki: [], tasks: [], code: [], truncated: false });
+    search.mockResolvedValueOnce({ wiki: [], tasks: [], code: [], pulls: [], truncated: false });
     await type(fixture, "/absent");
     expect(texts(fixture, ".palette-empty")).toEqual(["No matches"]);
     search.mockRejectedValueOnce(new Error("Invalid regular expression."));

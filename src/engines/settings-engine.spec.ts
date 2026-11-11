@@ -36,6 +36,7 @@ describe("SettingsEngine", () => {
       pullRoot: "pulls",
       pullPrefix: "PR",
       requiredApprovals: 1,
+      todosBlockMerge: true,
       unused: [],
     });
   });

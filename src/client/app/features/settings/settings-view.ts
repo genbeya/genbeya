@@ -135,6 +135,10 @@ export class SettingsView {
     this.form.update((form) => ({ ...form, types }));
   }
 
+  protected setTodosBlock(block: boolean) {
+    this.form.update((form) => ({ ...form, todosBlockMerge: block }));
+  }
+
   /** Turns a part on or off for the project; on again, it brings what it needs along. */
   protected setUsed(part: Part, used: boolean) {
     this.form.update((form) => {

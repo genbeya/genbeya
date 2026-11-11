@@ -29,6 +29,14 @@ const GROUPS: readonly (readonly [string, readonly (readonly [readonly string[],
   ],
   ["Changes", [[[`${MOD_KEY} Enter`], "Commit"]]],
   [
+    "Pull requests",
+    [
+      [["N"], "New pull request"],
+      [["J", "K"], "Next / previous pull request"],
+      [[`${MOD_KEY} Enter`], "Reply"],
+    ],
+  ],
+  [
     "Editor",
     [
       [[`${MOD_KEY} F`], "Find"],

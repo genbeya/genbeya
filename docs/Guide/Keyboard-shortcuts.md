@@ -24,6 +24,14 @@ On macOS, use `⌘` where this page says `Ctrl`, except for `` Ctrl+` ``: macOS 
 | `Ctrl+Enter` | Commit (in Changes), save a task, add a comment |
 | Context-menu key, `Shift+F10` | Open the menu of the focused page, task, file or commit, as a right-click does |
 
+## In Pull requests
+
+| Keys | Action |
+| --- | --- |
+| `N` | New pull request |
+| `J` / `K` | Open the next / previous pull request of the list |
+| `Ctrl+Enter` | Send the reply |
+
 While a terminal has focus, every key except `` Ctrl+` `` goes to the shell.
 
 ## In Changes

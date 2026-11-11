@@ -16,6 +16,7 @@ import {
   type People,
   type PullRequest,
   type Scope,
+  type SearchArea,
   type SearchHit,
   type SearchMatch,
   type SearchResults,
@@ -424,7 +425,7 @@ export class DemoContentManager implements ContentManagerContract {
       const { settings } = await workspace.settings();
       const { search, wiki, tasks: taskEngine } = this.engines;
       let truncated = false;
-      const results: { wiki: SearchHit[]; tasks: SearchHit[]; code: SearchHit[] } = { wiki: [], tasks: [], code: [] };
+      const results: Record<SearchArea, SearchHit[]> = { wiki: [], tasks: [], code: [], pulls: [] };
       for (const path of workspace.repository.files()) {
         const content = workspace.repository.worktree.get(path)!;
         if (content.includes("\0")) continue;
@@ -454,7 +455,16 @@ export class DemoContentManager implements ContentManagerContract {
         const taskId = task?.id ?? baseName(hit.path).replace(/\.md$/i, "");
         return { ...hit, id: taskId, title: task?.title ?? taskId, status: task?.status ?? "" };
       });
-      return { wiki: results.wiki, tasks: taskHits, code: results.code, truncated };
+      const pullHits = results.pulls.map((hit) => {
+        try {
+          const content = workspace.repository.worktree.get(hit.path)!;
+          const pull = this.engines.pulls.parse(hit.path, content, sha256(content));
+          return { ...hit, title: `${pull.id} ${pull.title}`.trim() };
+        } catch {
+          return hit;
+        }
+      });
+      return { wiki: results.wiki, tasks: taskHits, code: results.code, pulls: pullHits, truncated };
     });
   }
 
