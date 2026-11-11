@@ -14,6 +14,7 @@ import {
   FIELD_TYPES,
   PARTS,
   TASK_KEYS,
+  WEEKDAYS,
   taskType,
   TONES,
   type ContentArea,
@@ -124,6 +125,35 @@ function validPerson(entry: unknown): PersonEntry {
   };
 }
 
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isDate = (value: unknown): value is string => typeof value === "string" && DATE.test(value) && !Number.isNaN(Date.parse(value));
+
+/** The working days, days off and milestones plans count with. */
+function validCalendar(value: Settings): Pick<Settings, "workdays" | "holidays" | "milestones"> {
+  const { workdays, holidays, milestones } = value;
+  if (!Array.isArray(workdays) || !workdays.length || workdays.some((day) => !(WEEKDAYS as readonly unknown[]).includes(day)))
+    throw new Error(`List the working days as ${WEEKDAYS.join(", ")}: at least one.`);
+  if (!Array.isArray(holidays) || holidays.length > 500 || !holidays.every(isDate))
+    throw new Error("List the holidays as dates, written 2026-12-25 (up to 500).");
+  if (!Array.isArray(milestones) || milestones.length > 100) throw new Error("List the milestones (up to 100).");
+  const valid = milestones.map((milestone: unknown) => {
+    const { name, due } = isRecord(milestone) ? milestone : {};
+    const text = trimmed(name);
+    if (!text || text.length > 60) throw new Error("Give each milestone a name of up to 60 characters.");
+    if (!isDate(due)) throw new Error(`Give the milestone ${text} a date, written 2026-12-01.`);
+    return { name: text, due };
+  });
+  unique(
+    valid.map((milestone) => milestone.name),
+    "Milestone names must be unique.",
+  );
+  return {
+    workdays: WEEKDAYS.filter((day) => workdays.includes(day)),
+    holidays: [...new Set(holidays)].sort(),
+    milestones: valid,
+  };
+}
+
 /** Parts of the app, as the settings or preferences list them, once each and in the app's order. */
 export function validParts(value: unknown, what: string): Part[] {
   if (!Array.isArray(value) || value.some((part) => !(PARTS as readonly unknown[]).includes(part)))
@@ -139,6 +169,9 @@ function unique(names: readonly string[], message: string) {
 /** Keys that stay out of the file while they hold these values. */
 const OPTIONAL: Readonly<Record<string, unknown>> = {
   unused: [],
+  workdays: ["mon", "tue", "wed", "thu", "fri"],
+  holidays: [],
+  milestones: [],
   pullRoot: "pulls",
   pullPrefix: "PR",
   requiredApprovals: 1,
@@ -168,6 +201,9 @@ export class SettingsEngine {
       requiredApprovals: 1,
       todosBlockMerge: true,
       unused: [],
+      workdays: ["mon", "tue", "wed", "thu", "fri"],
+      holidays: [],
+      milestones: [],
     };
   }
 
@@ -195,6 +231,7 @@ export class SettingsEngine {
     if (!Number.isInteger(requiredApprovals) || requiredApprovals < 0 || requiredApprovals > 20)
       throw new Error("Required approvals is a whole number from 0 to 20.");
     if (typeof value.todosBlockMerge !== "boolean") throw new Error("Whether open to-dos block a merge is true or false.");
+    const { workdays, holidays, milestones } = validCalendar(value);
     const unused = validParts(value.unused, "the parts the project doesn't use");
     const taskPrefix = text(value.taskPrefix, "Task prefix", 12).toUpperCase();
     if (!/^[A-Z][A-Z0-9]*$/.test(taskPrefix)) throw new Error("The task prefix uses letters and digits, starting with a letter.");
@@ -256,6 +293,9 @@ export class SettingsEngine {
       requiredApprovals,
       todosBlockMerge: value.todosBlockMerge,
       unused,
+      workdays,
+      holidays,
+      milestones,
     };
   }
 

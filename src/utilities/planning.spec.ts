@@ -15,6 +15,9 @@ import {
   parseFilter,
   timeLogOf,
   timeline,
+  milestoneProblem,
+  workdayDate,
+  DEFAULT_CALENDAR,
   type PlanTask,
 } from "./planning";
 
@@ -313,5 +316,34 @@ describe("the schedule", () => {
     ]);
     expect(lines.at(-1)).toMatch(/^ {2}linkStyle [\d,]+ stroke:#dc2626/);
     expect(arrowChart(scheduleOf([], dependencies, statuses), tasks, dependencies)).toBeNull();
+  });
+});
+
+describe("the calendar", () => {
+  const calendar = { ...DEFAULT_CALENDAR, holidays: ["2026-11-13"], milestones: [{ name: "MVP", due: "2026-11-20" }] };
+
+  it("counts working days, skipping weekends and holidays", () => {
+    // Wednesday 2026-11-11: Thursday, then past the holiday Friday and the weekend.
+    expect(workdayDate("2026-11-11", 0, calendar)).toBe("2026-11-11");
+    expect(workdayDate("2026-11-11", 1, calendar)).toBe("2026-11-12");
+    expect(workdayDate("2026-11-11", 2.5, calendar)).toBe("2026-11-16");
+    // A plan starting on a Saturday starts on Monday.
+    expect(workdayDate("2026-11-14", 0, calendar)).toBe("2026-11-16");
+    expect(workdayDate("2026-11-14", 1, { ...calendar, workdays: ["sat", "sun"] })).toBe("2026-11-15");
+  });
+
+  it("flags tasks due after their milestone, and draws milestones and days off on the timeline", () => {
+    const late = task("TP-1", { milestone: "mvp", due: "2026-11-25" });
+    expect(milestoneProblem(late, calendar)).toBe("is due after its milestone MVP (2026-11-20)");
+    expect(milestoneProblem(task("TP-2", { milestone: "MVP", due: "2026-11-19" }), calendar)).toBeNull();
+    expect(milestoneProblem(task("TP-3", { milestone: "Later", due: "2027-01-01" }), calendar)).toBeNull();
+    const tasks = [late];
+    const dependencies = dependenciesOf(tasks, statuses);
+    const result = timeline(tasks, tasks, dependencies, scheduleOf(tasks, dependencies, statuses), statuses, "2026-11-11", calendar);
+    expect(result.conflicts).toEqual(["TP-1"]);
+    expect(result.chart).toContain("2026-11-13 is closed");
+    expect(result.chart).toContain("saturday are closed");
+    expect(result.chart).toContain("[Milestone MVP] happens 2026-11-20");
+    expect(result.chart).toContain("[t0] is colored in #fed7aa/#ea580c");
   });
 });

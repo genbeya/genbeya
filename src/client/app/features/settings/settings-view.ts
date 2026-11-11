@@ -28,6 +28,7 @@ import { Onboarding } from "../onboarding/onboarding";
 import { titleCase } from "../tasks/task-model";
 import { AgentFiles } from "./agent-files";
 import { AREA_NAMES } from "./content-areas";
+import { CalendarEditor } from "./calendar-editor";
 import { FieldEditor } from "./field-editor";
 import { PartSwitches } from "./part-switches";
 import { StatusEditor } from "./status-editor";
@@ -46,7 +47,7 @@ const EDITOR_FONT_NAMES: Readonly<Record<EditorFont, string>> = {
 
 @Component({
   selector: "gd-settings-view",
-  imports: [AgentFiles, FieldEditor, Icon, PartSwitches, StatusEditor, TypeEditor],
+  imports: [AgentFiles, CalendarEditor, FieldEditor, Icon, PartSwitches, StatusEditor, TypeEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./settings.css",
@@ -135,6 +136,10 @@ export class SettingsView {
 
   protected setTypes(types: TaskType[]) {
     this.form.update((form) => ({ ...form, types }));
+  }
+
+  protected setCalendar({ workdays, holidays, milestones }: Pick<Settings, "workdays" | "holidays" | "milestones">) {
+    this.form.update((form) => ({ ...form, workdays, holidays, milestones }));
   }
 
   protected setTodosBlock(block: boolean) {

@@ -1,7 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
-import { effortOf, formatDays, formatEffort, formatVariance, timeLogOf } from "../../../../utilities/planning";
+import {
+  milestoneProblem,
+  workdayDate,
+  effortOf,
+  formatDays,
+  formatEffort,
+  formatVariance,
+  timeLogOf,
+} from "../../../../utilities/planning";
 import { Parts } from "../../core/parts";
+import { today } from "../../ui/calendar-date";
 import { Session } from "../../core/session";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { Icon } from "../../ui/icon";
@@ -157,7 +166,11 @@ export class TaskPlan {
   private readonly planning = inject(TaskPlanning);
   private readonly dependencies = this.planning.dependencies;
   protected readonly days = formatDays;
-  protected readonly from = (days: number) => (days === 0 ? "today" : `in ${formatDays(days)}`);
+  /** A day of the plan as a date on the project's calendar, with how far that is. */
+  protected readonly from = (days: number) => {
+    const date = workdayDate(today(), days, this.planning.calendar());
+    return days === 0 && date === today() ? "today" : `on ${date} (in ${formatDays(days)})`;
+  };
   /** Where the task stands on the critical path: unfinished tasks that wait for or block another, or have a duration. */
   protected readonly scheduled = computed(() => this.planning.scheduled().get(this.id()) ?? null);
   private readonly id = computed(() => this.task().id.toUpperCase());
@@ -172,7 +185,10 @@ export class TaskPlan {
       .filter(Boolean)
       .join("\n\n");
   });
-  protected readonly problems = computed(() => this.dependencies().problems.get(this.id()) ?? []);
+  protected readonly problems = computed(() => {
+    const milestone = milestoneProblem(this.task(), this.planning.calendar());
+    return [...(this.dependencies().problems.get(this.id()) ?? []), ...(milestone ? [milestone] : [])];
+  });
   protected readonly shown = computed(
     () => this.parts.isShown("planning") && (this.planned() || !!this.scheduled() || !!this.relations() || this.problems().length > 0),
   );

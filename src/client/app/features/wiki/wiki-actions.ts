@@ -45,7 +45,9 @@ export class WikiActions {
           files: filePaths(snapshot?.files ?? []),
         },
         people: this.directory.list(),
-        plan: this.parts.isShown("planning") ? { tasks: this.planning.tasks(), statuses: this.planning.statuses(), today: today() } : null,
+        plan: this.parts.isShown("planning")
+          ? { tasks: this.planning.tasks(), statuses: this.planning.statuses(), today: today(), calendar: this.planning.calendar() }
+          : null,
       };
     },
     { equal: sameJson },

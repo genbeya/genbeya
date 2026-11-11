@@ -167,6 +167,17 @@
           </div>
           <div class="setting-control"><gd-field-editor [value]="form().fields" (changed)="setFields($event)" /></div>
         </div>
+        @if (parts.isShown("planning")) {
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Calendar</span
+              ><small>Working days, holidays and milestones with their dates, for the timeline and the critical path.</small>
+            </div>
+            <div class="setting-control">
+              <gd-calendar-editor [value]="form()" (changed)="setCalendar($event)" />
+            </div>
+          </div>
+        }
         <div class="setting-row">
           <div class="setting-label">
             <span>Parts of the app</span

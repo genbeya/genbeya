@@ -43,6 +43,9 @@ export const SETTINGS: Settings = {
   requiredApprovals: 1,
   todosBlockMerge: true,
   unused: [],
+  workdays: ["mon", "tue", "wed", "thu", "fri"],
+  holidays: [],
+  milestones: [],
 };
 
 /** A user who has seen the tour and the news of this version. */

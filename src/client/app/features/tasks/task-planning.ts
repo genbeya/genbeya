@@ -1,5 +1,13 @@
 import { computed, inject, Injectable } from "@angular/core";
-import { dependenciesOf, durationOf, planTasks, scheduleOf, type ScheduledTask } from "../../../../utilities/planning";
+import {
+  DEFAULT_CALENDAR,
+  dependenciesOf,
+  durationOf,
+  planTasks,
+  scheduleOf,
+  type PlanCalendar,
+  type ScheduledTask,
+} from "../../../../utilities/planning";
 import { Session } from "../../core/session";
 
 /** The open repository's tasks as planning sees them, their dependencies and the schedule, worked out once per snapshot. */
@@ -7,6 +15,11 @@ import { Session } from "../../core/session";
 export class TaskPlanning {
   private readonly session = inject(Session);
   readonly statuses = computed(() => this.session.snapshot()?.settings.statuses ?? []);
+  /** The project's working days, days off and milestones. */
+  readonly calendar = computed((): PlanCalendar => {
+    const settings = this.session.snapshot()?.settings;
+    return settings ? { workdays: settings.workdays, holidays: settings.holidays, milestones: settings.milestones } : DEFAULT_CALENDAR;
+  });
   readonly tasks = computed(() => planTasks(this.session.snapshot()?.tasks ?? []));
   readonly dependencies = computed(() => dependenciesOf(this.tasks(), this.statuses()));
   /** The critical path over all unfinished tasks. */

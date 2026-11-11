@@ -38,6 +38,9 @@ describe("SettingsEngine", () => {
       requiredApprovals: 1,
       todosBlockMerge: true,
       unused: [],
+      workdays: ["mon", "tue", "wed", "thu", "fri"],
+      holidays: [],
+      milestones: [],
     });
   });
 
@@ -215,6 +218,19 @@ describe("SettingsEngine", () => {
     expect(engine.parse("name: Atlas\ntaskPrefix: at\n", defaults, false)).toEqual({ ...defaults, name: "Atlas", taskPrefix: "AT" });
   });
 
+  it("reads the calendar: working days in week order, holidays sorted, milestones with dates", () => {
+    const parsed = engine.parse(
+      "workdays: [fri, mon]\nholidays: [2026-12-26, 2026-12-25]\nmilestones:\n  - name: MVP\n    due: 2026-12-01\n",
+      defaults,
+      false,
+    );
+    expect(parsed).toMatchObject({
+      workdays: ["mon", "fri"],
+      holidays: ["2026-12-25", "2026-12-26"],
+      milestones: [{ name: "MVP", due: "2026-12-01" }],
+    });
+  });
+
   it("reads the parts the project doesn't use, as written, in the app's order", () => {
     expect(engine.parse("unused: [timelog, wiki]\n", defaults, false).unused).toEqual(["wiki", "timelog"]);
   });
@@ -245,6 +261,11 @@ describe("SettingsEngine", () => {
     ["requiredApprovals: 1.5\n", "Required approvals"],
     ["requiredApprovals: 21\n", "Required approvals"],
     ["unused: [board]\n", "parts the project doesn't use"],
+    ["workdays: []\n", "working days"],
+    ["workdays: [monday]\n", "working days"],
+    ["holidays: [christmas]\n", "holidays"],
+    ["milestones: [{ name: MVP }]\n", "milestone MVP a date"],
+    ["milestones: [{ name: A, due: 2026-12-01 }, { name: a, due: 2026-12-02 }]\n", "unique"],
     ["unused: wiki\n", "parts the project doesn't use"],
   ])("rejects %j", (content, message) => {
     expect(() => engine.parse(content, defaults, false)).toThrow(message);

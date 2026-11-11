@@ -11,7 +11,10 @@ import {
   parseFilter,
   timeline,
   arrowChart,
+  DEFAULT_CALENDAR,
   formatDays,
+  type PlanCalendar,
+  workdayDate,
   scheduleOf,
   type PlanTask,
 } from "../../../utilities/planning";
@@ -41,6 +44,8 @@ export interface GenbeyaOptions extends MentionOptions, DateOptions {
     readonly statuses: readonly string[];
     /** `YYYY-MM-DD` on this computer's calendar, for the timeline. */
     readonly today: string;
+    /** Working days, days off and milestones; weekdays only, and no milestones, without. */
+    readonly calendar?: PlanCalendar;
   } | null;
 }
 
@@ -138,7 +143,11 @@ const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? on
  * path as an arrow diagram, `[FLOAT]` as a table with each task's float. What is missing is said,
  * rather than shown as if it were complete.
  */
-function plan(kind: string, filterText: string, { tasks, statuses, today }: NonNullable<GenbeyaOptions["plan"]>): RootContent[] {
+function plan(
+  kind: string,
+  filterText: string,
+  { tasks, statuses, today, calendar = DEFAULT_CALENDAR }: NonNullable<GenbeyaOptions["plan"]>,
+): RootContent[] {
   const filter = parseFilter(filterText);
   const shown = tasks.filter((task) => matchesFilter(task, filter));
   if (!shown.length) return [placeholder("No tasks match this plan.")];
@@ -155,6 +164,8 @@ function plan(kind: string, filterText: string, { tasks, statuses, today }: NonN
   if (kind === "ARROWS" || kind === "FLOAT") {
     const schedule = scheduleOf(shown, dependencies, statuses);
     if (!schedule.tasks.length) return [placeholder("Every one of these tasks is finished.")];
+    // A finish at day 3 is the end of day 2: the last day worked on.
+    const on = (days: number, finish = false) => workdayDate(today, finish && days > 0 ? Math.ceil(days - 1e-9) - 1 : days, calendar);
     if (schedule.undetermined.length)
       notes.push(
         schedule.undetermined.length === 1
@@ -182,10 +193,10 @@ function plan(kind: string, filterText: string, { tasks, statuses, today }: NonN
           row([
             `[[${task.id}]]`,
             formatDays(task.duration),
-            formatDays(task.earlyStart),
-            formatDays(task.earlyFinish),
-            formatDays(task.lateStart),
-            formatDays(task.lateFinish),
+            on(task.earlyStart),
+            on(task.earlyFinish, true),
+            on(task.lateStart),
+            on(task.lateFinish, true),
             task.critical ? "0d, critical" : formatDays(task.float),
             formatDays(task.freeFloat),
           ]),
@@ -194,18 +205,21 @@ function plan(kind: string, filterText: string, { tasks, statuses, today }: NonN
     };
     return [
       table,
-      placeholder(`Days from today; finished tasks are left out. All of it takes ${formatDays(schedule.length)}.`),
+      placeholder(
+        `Working days from today (${today}); finished tasks are left out. All of it takes ${formatDays(schedule.length)}, until ${on(schedule.length, true)}.`,
+      ),
       ...notes.map(placeholder),
     ];
   }
   if (kind === "GANTT") {
-    const result = timeline(shown, tasks, dependencies, scheduleOf(shown, dependencies, statuses), statuses, today);
+    const only = filter["milestone"] ?? null;
+    const result = timeline(shown, tasks, dependencies, scheduleOf(shown, dependencies, statuses), statuses, today, calendar, only);
     if (!result.chart) return [placeholder("None of these tasks has dates or a duration.")];
     if (result.undated)
       notes.push(`${count(result.undated, "task")} without dates or a duration ${result.undated === 1 ? "is" : "are"} left out.`);
     if (result.conflicts.length)
       notes.push(
-        `${result.conflicts.join(", ")} ${result.conflicts.length === 1 ? "starts" : "start"} before a task it waits for is due (orange).`,
+        `${result.conflicts.join(", ")} ${result.conflicts.length === 1 ? "starts before a task it waits for is due, or ends after its milestone" : "start before a task they wait for is due, or end after their milestone"} (orange).`,
       );
     return [plantuml(result.chart), ...notes.map(placeholder)];
   }

@@ -104,6 +104,21 @@ export interface Settings {
   readonly todosBlockMerge: boolean;
   /** Parts of the app the project doesn't use: nobody sees them. */
   readonly unused: readonly Part[];
+  /** The days of the week the project works on, for plans in days. */
+  readonly workdays: readonly Weekday[];
+  /** Days off, `YYYY-MM-DD`, closed on timelines and skipped by plans. */
+  readonly holidays: readonly string[];
+  /** Milestones with their dates; tasks name them in their `milestone` field. */
+  readonly milestones: readonly Milestone[];
+}
+
+export const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+export type Weekday = (typeof WEEKDAYS)[number];
+
+export interface Milestone {
+  readonly name: string;
+  /** `YYYY-MM-DD`. */
+  readonly due: string;
 }
 
 /** The parts of the app that can be turned off, for a project or for a person; see `docs/Design/Optional-parts.md`. */

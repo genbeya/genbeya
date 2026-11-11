@@ -6,7 +6,7 @@
  * mean their planning meaning by name: `estimate`, `remaining`, `duration`,
  * `start`, `due`, `milestone` and `depends_on`.
  */
-import type { FieldValue, Task } from "../contracts/model";
+import { WEEKDAYS, type FieldValue, type Milestone, type Settings, type Task, type Weekday } from "../contracts/model";
 
 /** Days of effort count as this many hours. */
 export const HOURS_PER_DAY = 8;
@@ -531,12 +531,58 @@ export function dependencyChart(
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+// The calendar.
+
+/** The working days, days off and milestones of a project, as its settings say. */
+export type PlanCalendar = Pick<Settings, "workdays" | "holidays" | "milestones">;
+
+export const DEFAULT_CALENDAR: PlanCalendar = { workdays: ["mon", "tue", "wed", "thu", "fri"], holidays: [], milestones: [] };
+
+/** The weekday of a `YYYY-MM-DD` date. */
+const weekdayOf = (date: string): Weekday => WEEKDAYS[(new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7]!;
+const nextDay = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+/** Whether people work on `date`. */
+export const isWorkday = (date: string, calendar: PlanCalendar): boolean =>
+  calendar.workdays.includes(weekdayOf(date)) && !calendar.holidays.includes(date);
+
+/**
+ * The date of working day `days` counted from `today` (day 0 is the first
+ * working day from today on; fractions count as the day they fall in).
+ */
+export function workdayDate(today: string, days: number, calendar: PlanCalendar): string {
+  if (!calendar.workdays.length) return today;
+  let date = today;
+  while (!isWorkday(date, calendar)) date = nextDay(date);
+  for (let left = Math.floor(Math.max(0, Math.min(days, 10_000) + 1e-9)); left > 0;) {
+    date = nextDay(date);
+    if (isWorkday(date, calendar)) left--;
+  }
+  return date;
+}
+
+/** The milestone of a task's `milestone` field, when the settings give it a date. */
+export const milestoneDue = (task: Pick<Task, "fields">, calendar: PlanCalendar): Milestone | null => {
+  const name = milestoneOf(task).toLowerCase();
+  return (name && calendar.milestones.find((milestone) => milestone.name.toLowerCase() === name)) || null;
+};
+
+/** What is wrong with a task's dates against its milestone: due, or starting, after the milestone. */
+export function milestoneProblem(task: Pick<Task, "fields">, calendar: PlanCalendar): string | null {
+  const milestone = milestoneDue(task, calendar);
+  if (!milestone) return null;
+  const dates = [PLANNING_FIELDS.due, PLANNING_FIELDS.start]
+    .map((field) => String(task.fields[field] ?? ""))
+    .filter((date) => DATE.test(date));
+  return dates.some((date) => date > milestone.due) ? `is due after its milestone ${milestone.name} (${milestone.due})` : null;
+}
+
 export interface Timeline {
   /** A PlantUML Gantt chart; null when no task can be placed on it. */
   readonly chart: string | null;
   /** Tasks left out: without dates, and without a duration to place them by. */
   readonly undated: number;
-  /** Tasks that start before a task they wait for is due. */
+  /** Tasks that start before a task they wait for is due, or end after their milestone. */
   readonly conflicts: readonly string[];
 }
 
@@ -572,6 +618,9 @@ export function timeline(
   schedule: Schedule,
   statuses: readonly string[],
   today: string,
+  calendar: PlanCalendar = DEFAULT_CALENDAR,
+  /** The milestone a filter asks for; all milestones of the shown tasks otherwise. */
+  only: string | null = null,
 ): Timeline {
   const byId = new Map(all.map((task) => [task.id.toUpperCase(), task]));
   const dateOf = (task: PlanTask | undefined, field: string) => {
@@ -608,24 +657,42 @@ export function timeline(
       const before = dateOf(byId.get(other), PLANNING_FIELDS.due);
       return start !== null && before !== null && before >= start;
     });
-    if (late.length) conflicts.push(task.id);
+    const pastMilestone = milestoneProblem(task, calendar) !== null;
+    if (late.length || pastMilestone) conflicts.push(task.id);
     for (const other of waits) if (!late.includes(other)) constraints.push(`[${alias.get(other)}] -> [${alias.get(id)}]`);
     const effort = effortOf(task, done(task));
     const progress = done(task) ? 100 : effort.logged > 0 && effort.forecast ? Math.round((100 * effort.logged) / effort.forecast) : 0;
     if (progress) constraints.push(`[${alias.get(id)}] is ${progress}% completed`);
-    if (late.length) constraints.push(`[${alias.get(id)}] is colored in #fed7aa/#ea580c`);
+    if (late.length || pastMilestone) constraints.push(`[${alias.get(id)}] is colored in #fed7aa/#ea580c`);
     else if (critical.has(id)) constraints.push(`[${alias.get(id)}] is colored in #fecaca/#dc2626`);
     const section = task.epic || "No epic";
     declarations.set(section, [...(declarations.get(section) ?? []), line]);
   }
+  // Milestones with dates, as points in time: those of the shown tasks, or the one the filter names.
+  const names = new Set(placed.map((task) => milestoneOf(task).toLowerCase()).filter(Boolean));
+  const milestones = calendar.milestones.filter((milestone) =>
+    only ? milestone.name.toLowerCase() === only.toLowerCase() : names.has(milestone.name.toLowerCase()),
+  );
+  dates.push(...milestones.map((milestone) => milestone.due));
+  const DAY_NAMES: Readonly<Record<Weekday, string>> = {
+    mon: "monday",
+    tue: "tuesday",
+    wed: "wednesday",
+    thu: "thursday",
+    fri: "friday",
+    sat: "saturday",
+    sun: "sunday",
+  };
   const lines = [
     "@startgantt",
     `Project starts ${dates.sort()[0]}`,
-    "saturday are closed",
-    "sunday are closed",
+    ...WEEKDAYS.filter((day) => !calendar.workdays.includes(day)).map((day) => `${DAY_NAMES[day]} are closed`),
+    ...calendar.holidays.filter((date) => date >= dates[0]!).map((date) => `${date} is closed`),
     `today is ${today} and is colored in #fef3c7`,
   ];
   for (const [section, entries] of declarations) lines.push(`-- ${ganttName(section)} --`, ...entries);
+  if (milestones.length)
+    lines.push("-- Milestones --", ...milestones.map((milestone) => `[Milestone ${ganttName(milestone.name)}] happens ${milestone.due}`));
   lines.push(...constraints, "@endgantt");
   return { chart: lines.join("\n"), undated: tasks.length - placed.length, conflicts };
 }
