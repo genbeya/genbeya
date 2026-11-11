@@ -21,7 +21,7 @@ How to work with Genbeya day to day, one area per page.
 
 ## The window
 
-The sidebar on the left switches between the six views of the open repository — **Wiki**, **Tasks**, **Code**, **Changes**, **History** and **Pull requests** (`Ctrl+1` … `Ctrl+6`). Each view returns to what you left open there, such as a page, a task or a file, for as long as the app runs. Above them, the repository menu opens, clones and switches repositories; below them sit the current branch, the **Terminal** and **Settings**.
+The sidebar on the left switches between the six views of the open repository — **Wiki**, **Tasks**, **Code**, **Changes**, **History** and **Pull requests** (`Ctrl+1` … `Ctrl+6`). Each view returns to what you left open there, such as a page, a task or a file, for as long as the app runs. Above them, the repository menu opens, clones and switches repositories; below them sit the current branch, the **Terminal** and **Settings**. Parts you don't use can be turned off, for the project or for yourself: see [Turning parts off](Guide/Settings.md#turning-parts-off).
 
 ## Moving around
 

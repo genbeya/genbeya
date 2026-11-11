@@ -151,6 +151,15 @@
           </div>
           <div class="setting-control"><gd-field-editor [value]="form().fields" (changed)="setFields($event)" /></div>
         </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>Parts of the app</span
+            ><small>What the project uses. Nobody sees the others, and the agent files leave them out; their files stay.</small>
+          </div>
+          <div class="setting-control">
+            <gd-part-switches aria-label="Parts the project uses" [off]="form().unused" (toggled)="setUsed($event.part, $event.on)" />
+          </div>
+        </div>
       </div>
     </section>
 
@@ -290,6 +299,39 @@
                 </button>
               }
             </div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span id="parts-label">Show</span><small>The parts of the app you see. Hiding one changes nothing for others.</small>
+          </div>
+          <div class="setting-control parts-control">
+            <div class="segmented" role="radiogroup" aria-label="Where these choices apply">
+              <button
+                type="button"
+                role="radio"
+                [attr.aria-checked]="parts.ownChoice()"
+                [class.is-active]="parts.ownChoice()"
+                (click)="parts.setOwnChoice(true)"
+              >
+                This repository
+              </button>
+              <button
+                type="button"
+                role="radio"
+                [attr.aria-checked]="!parts.ownChoice()"
+                [class.is-active]="!parts.ownChoice()"
+                (click)="parts.setOwnChoice(false)"
+              >
+                Every repository
+              </button>
+            </div>
+            <gd-part-switches
+              aria-labelledby="parts-label"
+              [off]="parts.hidden()"
+              [omit]="parts.unused()"
+              (toggled)="parts.setHidden($event.part, !$event.on, !parts.ownChoice())"
+            />
           </div>
         </div>
         <div class="setting-row">

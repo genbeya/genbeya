@@ -15,6 +15,7 @@ import { Router } from "@angular/router";
 import type { SearchOptions } from "../../../../contracts/model";
 import { CTRL_KEY, isMac, MOD_KEY, SHIFT_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
+import { Parts } from "../../core/parts";
 import { People } from "../../core/people";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
@@ -184,6 +185,7 @@ export class Palette {
   private readonly people = inject(People);
   private readonly contentFiles = inject(ContentFiles);
   private readonly pulls = inject(PullActions);
+  private readonly parts = inject(Parts);
   protected readonly label =
     this.mode === "branches"
       ? "Switch branch"
@@ -249,7 +251,23 @@ export class Palette {
 
   /** The text after "/", which searches inside files; null for the other modes. */
   protected readonly fullText = computed(() => (this.mode === "all" || this.mode === "search" ? searchText(this.query()) : null));
-  protected readonly text = textSearch(this.fullText);
+  private readonly textSearch = textSearch(this.fullText);
+  /** The search's results, without those of hidden parts. */
+  protected readonly text = {
+    ...this.textSearch,
+    results: computed(() => {
+      const found = this.textSearch.results();
+      const shown = this.parts.shown();
+      return (
+        found && {
+          ...found,
+          wiki: shown.has("wiki") ? found.wiki : [],
+          tasks: shown.has("tasks") ? found.tasks : [],
+          code: shown.has("code") ? found.code : [],
+        }
+      );
+    }),
+  };
 
   private readonly items = computed(() => {
     const snapshot = this.session.snapshot()!;
@@ -263,6 +281,7 @@ export class Palette {
         this.session.preferences().theme,
         { mod: MOD_KEY, ctrl: CTRL_KEY, shift: SHIFT_KEY },
         this.commands,
+        this.parts.shown(),
       ),
       ...mentionItems(this.people.me(), this.commands),
     ];

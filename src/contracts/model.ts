@@ -100,6 +100,40 @@ export interface Settings {
   readonly pullPrefix: string;
   /** Effective approvals a pull request needs to be ready to merge; 0 for none. */
   readonly requiredApprovals: number;
+  /** Parts of the app the project doesn't use: nobody sees them. */
+  readonly unused: readonly Part[];
+}
+
+/** The parts of the app that can be turned off, for a project or for a person; see `docs/Design/Optional-parts.md`. */
+export const PARTS = ["wiki", "tasks", "planning", "timelog", "code", "changes", "history", "pulls", "terminal"] as const;
+export type Part = (typeof PARTS)[number];
+
+/** The part each part needs: turning that one off turns this one off too. */
+export const PART_NEEDS: Readonly<Partial<Record<Part, Part>>> = { planning: "tasks", timelog: "planning" };
+
+/** The parts that go with `part` when it is turned off: those that need it, directly or through another. */
+export function dependentParts(part: Part): Part[] {
+  const found: Part[] = [];
+  for (const candidate of PARTS) {
+    let need = PART_NEEDS[candidate];
+    while (need && need !== part) need = PART_NEEDS[need];
+    if (need === part) found.push(candidate);
+  }
+  return found;
+}
+
+/** Which parts the hidden ones leave: all but those, and those that need one of them. */
+export function shownParts(hidden: Iterable<Part>): ReadonlySet<Part> {
+  const off = new Set<Part>();
+  for (const part of hidden) for (const gone of [part, ...dependentParts(part)]) off.add(gone);
+  return new Set(PARTS.filter((part) => !off.has(part)));
+}
+
+/** The parts a person hides: in every repository, and per repository, which overrides that. */
+export interface HiddenParts {
+  readonly all: readonly Part[];
+  /** By {@link repositoryKey}. */
+  readonly repositories: Readonly<Record<string, readonly Part[]>>;
 }
 
 /** A person listed in the settings: the handle `@mentions` use, with the name and email shown for it. */
@@ -744,6 +778,8 @@ export interface Preferences {
   readonly tourSeen: boolean;
   /** The repositories that offered the tour, so each offers it once; see {@link repositoryKey}. */
   readonly tourOffered: readonly string[];
+  /** Parts of the app the user doesn't want to see. */
+  readonly hiddenParts: HiddenParts;
 }
 
 /** What a terminal printed since the last read (possibly nothing yet), or its exit code once it ended and everything was read. */

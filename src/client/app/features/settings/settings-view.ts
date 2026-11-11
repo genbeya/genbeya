@@ -2,10 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { Router } from "@angular/router";
 import {
   EDITOR_FONTS,
+  PART_NEEDS,
+  PARTS,
   syncsContentBranch,
   type EditorFont,
   type ContentArea,
   type FieldDefinition,
+  type Part,
   type Settings,
   type StorageMode,
   type TaskType,
@@ -15,6 +18,7 @@ import { APP_VERSION } from "../../core/app-version";
 import { Demo } from "../../core/demo";
 import { Dialogs } from "../../core/dialogs";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
+import { Parts } from "../../core/parts";
 import { Session } from "../../core/session";
 import { trackUnsaved } from "../../core/unsaved-changes";
 import { WorkspaceApi } from "../../core/workspace-api";
@@ -25,6 +29,7 @@ import { titleCase } from "../tasks/task-model";
 import { AgentFiles } from "./agent-files";
 import { AREA_NAMES } from "./content-areas";
 import { FieldEditor } from "./field-editor";
+import { PartSwitches } from "./part-switches";
 import { StatusEditor } from "./status-editor";
 import { TypeEditor } from "./type-editor";
 
@@ -41,7 +46,7 @@ const EDITOR_FONT_NAMES: Readonly<Record<EditorFont, string>> = {
 
 @Component({
   selector: "gd-settings-view",
-  imports: [AgentFiles, FieldEditor, Icon, StatusEditor, TypeEditor],
+  imports: [AgentFiles, FieldEditor, Icon, PartSwitches, StatusEditor, TypeEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: "./settings.css",
@@ -50,6 +55,7 @@ const EDITOR_FONT_NAMES: Readonly<Record<EditorFont, string>> = {
 })
 export class SettingsView {
   protected readonly session = inject(Session);
+  protected readonly parts = inject(Parts);
   protected readonly editorFonts = EDITOR_FONTS.map((id) => ({ id, name: EDITOR_FONT_NAMES[id] }));
   protected readonly onboarding = inject(Onboarding);
   protected readonly demo = inject(Demo);
@@ -127,6 +133,16 @@ export class SettingsView {
 
   protected setTypes(types: TaskType[]) {
     this.form.update((form) => ({ ...form, types }));
+  }
+
+  /** Turns a part on or off for the project; on again, it brings what it needs along. */
+  protected setUsed(part: Part, used: boolean) {
+    this.form.update((form) => {
+      const unused = new Set(form.unused);
+      if (used) for (let need: Part | undefined = part; need; need = PART_NEEDS[need]) unused.delete(need);
+      else unused.add(part);
+      return { ...form, unused: PARTS.filter((candidate) => unused.has(candidate)) };
+    });
   }
 
   protected setFields(fields: FieldDefinition[]) {

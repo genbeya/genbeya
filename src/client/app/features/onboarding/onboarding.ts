@@ -12,6 +12,7 @@ import { Dialogs } from "../../core/dialogs";
 import { ExternalLinks } from "../../core/external-links";
 import { CTRL_KEY, MOD_KEY } from "../../core/hotkeys";
 import { Notifications } from "../../core/notifications";
+import { Parts } from "../../core/parts";
 import { Repositories } from "../../core/repositories";
 import { Session } from "../../core/session";
 import { Tour } from "../../ui/tour/tour";
@@ -41,6 +42,7 @@ export class Onboarding {
   private readonly session = inject(Session);
   private readonly dialogs = inject(Dialogs);
   private readonly tour = inject(Tour);
+  private readonly parts = inject(Parts);
   private readonly links = inject(ExternalLinks);
   private readonly repositories = inject(Repositories);
   private readonly notifications = inject(Notifications);
@@ -68,7 +70,7 @@ export class Onboarding {
   async startTour(): Promise<void> {
     this.offered.set(false);
     const { appTour } = await import("./tour-steps");
-    await this.tour.start(appTour({ mod: MOD_KEY, ctrl: CTRL_KEY }));
+    await this.tour.start(appTour({ mod: MOD_KEY, ctrl: CTRL_KEY }, this.parts.shown(), this.parts.home()));
     await this.session.setPreferences({ tourSeen: true });
   }
 

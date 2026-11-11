@@ -156,6 +156,24 @@ test("reviews the Fahrenheit pull request: comments on a line, approves, and see
   await expect(page.getByLabel("Reviewers")).toContainText("You");
 });
 
+test("turns parts of the app off for the project and for the user", async ({ page }) => {
+  const views = page.getByRole("navigation", { name: "Views" });
+  await page.getByRole("link", { name: "Settings" }).click();
+  // For the user alone: gone from the sidebar at once.
+  const mine = page.getByRole("group", { name: "Show" });
+  await mine.getByRole("checkbox", { name: "Pull requests", exact: true }).uncheck();
+  await expect(views.getByRole("link", { name: "Pull requests" })).toHaveCount(0);
+
+  // For the project: saved to .genbeya.yml, and what needs the part goes with it.
+  const project = page.getByRole("group", { name: "Parts the project uses" });
+  await project.getByRole("checkbox", { name: "Tasks", exact: true }).uncheck();
+  await expect(project.getByRole("checkbox", { name: /^Planning/ })).toBeDisabled();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(views.getByRole("link", { name: "Tasks" })).toHaveCount(0);
+  await expect(mine.getByRole("checkbox", { name: "Tasks", exact: true })).toHaveCount(0);
+  await expect(views.getByRole("link", { name: "Wiki" })).toBeVisible();
+});
+
 test("starts over when the demo is reset", async ({ page }) => {
   await show(page, "tasks");
   await expect(page.getByRole("region", { name: "Todo" })).toBeVisible();

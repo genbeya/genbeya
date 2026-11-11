@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
 import { People } from "../../core/people";
+import { Parts } from "../../core/parts";
 import { Session } from "../../core/session";
 import { today } from "../../ui/calendar-date";
 import { Avatar } from "../../ui/avatar";
@@ -28,7 +29,7 @@ import { displayId, titleCase } from "./task-model";
         <gd-type-icon [type]="task().type" [size]="13" />
       }
       <span class="task-id mono">{{ displayId(task().id) }}</span>
-      @if (blockedBy(); as blockers) {
+      @if (parts.isShown("planning") && blockedBy(); as blockers) {
         <span class="task-blocked" [title]="'Blocked by ' + blockers" aria-label="Blocked"
           ><svg gd-icon name="lock" [size]="12"></svg
         ></span>
@@ -86,6 +87,7 @@ export class TaskCard {
     return unfinished.join(", ");
   });
   private readonly pulls = inject(PullLinks);
-  protected readonly inReview = computed(() => this.pulls.hasOpen(this.task().id));
+  protected readonly parts = inject(Parts);
+  protected readonly inReview = computed(() => this.parts.isShown("pulls") && this.pulls.hasOpen(this.task().id));
   protected readonly hasDates = computed(() => dueDatesOf(this.task(), this.session.snapshot()!.settings, today()).length > 0);
 }

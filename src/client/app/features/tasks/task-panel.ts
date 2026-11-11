@@ -21,6 +21,7 @@ import { Dialogs } from "../../core/dialogs";
 import { Clipboard } from "../../core/clipboard";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Notifications } from "../../core/notifications";
+import { Parts } from "../../core/parts";
 import { Session } from "../../core/session";
 import { ShareLinks } from "../../core/share-links";
 import { trackUnsaved } from "../../core/unsaved-changes";
@@ -160,7 +161,9 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
       <gd-task-fields [value]="shown()" (changed)="setField($event)" />
       @if (task() && !editing()) {
         <gd-task-plan [task]="current()!" (logTime)="logTime()" />
-        <gd-task-pulls [task]="current()!" />
+        @if (parts.isShown("pulls")) {
+          <gd-task-pulls [task]="current()!" />
+        }
       }
       @if (task() && !editing() && branches().length) {
         <div class="task-branches" role="group" aria-label="Branches of this task">
@@ -290,6 +293,7 @@ export class TaskPanel {
   protected readonly wiki = inject(WikiActions);
   protected readonly links = inject(ShareLinks);
   private readonly session = inject(Session);
+  protected readonly parts = inject(Parts);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
   private readonly clipboard = inject(Clipboard);

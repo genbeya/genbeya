@@ -32,13 +32,16 @@ export interface GenbeyaOptions extends MentionOptions, DateOptions {
   subpages?: PageRef[];
   /** Tasks, pages and files that `[[references]]` and task IDs in text point to. */
   references?: ReferenceSources;
-  /** The tasks that plan macros (`[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`) show, and the workflow, whose last state is done. */
+  /**
+   * The tasks that plan macros (`[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`) show, and the workflow, whose last state is done;
+   * null while planning is turned off.
+   */
   plan?: {
     readonly tasks: readonly PlanTask[];
     readonly statuses: readonly string[];
     /** `YYYY-MM-DD` on this computer's calendar, for the timeline. */
     readonly today: string;
-  };
+  } | null;
 }
 
 const NO_REFERENCES: ReferenceSources = { wikiRoot: "docs", pages: [], tasks: [], statuses: [], files: [] };
@@ -315,7 +318,9 @@ export function remarkGenbeya(options: GenbeyaOptions = {}) {
       let replacement: List | Paragraph | null = null;
       const macro = PLAN.exec(text);
       if (macro) {
-        const blocks = options.plan ? plan(macro[1]!, macro[2] ?? "", options.plan) : [placeholder("No tasks to plan here.")];
+        const blocks = options.plan
+          ? plan(macro[1]!, macro[2] ?? "", options.plan)
+          : [placeholder(options.plan === null ? "Planning is turned off." : "No tasks to plan here.")];
         parent.children.splice(index, 1, ...(blocks as typeof parent.children));
         return [SKIP, index + blocks.length];
       }

@@ -12,11 +12,13 @@
 import YAML from "yaml";
 import {
   FIELD_TYPES,
+  PARTS,
   TASK_KEYS,
   taskType,
   TONES,
   type ContentArea,
   type FieldDefinition,
+  type Part,
   type PersonEntry,
   type Settings,
   type TaskType,
@@ -122,6 +124,13 @@ function validPerson(entry: unknown): PersonEntry {
   };
 }
 
+/** Parts of the app, as the settings or preferences list them, once each and in the app's order. */
+export function validParts(value: unknown, what: string): Part[] {
+  if (!Array.isArray(value) || value.some((part) => !(PARTS as readonly unknown[]).includes(part)))
+    throw new Error(`List ${what} by their names: ${PARTS.join(", ")}.`);
+  return PARTS.filter((part) => value.includes(part));
+}
+
 /** Throws unless the names are unique, ignoring case. */
 function unique(names: readonly string[], message: string) {
   if (new Set(names.map((name) => name.toLowerCase())).size !== names.length) throw new Error(message);
@@ -129,6 +138,7 @@ function unique(names: readonly string[], message: string) {
 
 /** Keys that stay out of the file while they hold these values. */
 const OPTIONAL: Readonly<Record<string, unknown>> = {
+  unused: [],
   pullRoot: "pulls",
   pullPrefix: "PR",
   requiredApprovals: 1,
@@ -155,6 +165,7 @@ export class SettingsEngine {
       pullRoot: "pulls",
       pullPrefix: "PR",
       requiredApprovals: 1,
+      unused: [],
     };
   }
 
@@ -181,6 +192,7 @@ export class SettingsEngine {
     const requiredApprovals = value.requiredApprovals;
     if (!Number.isInteger(requiredApprovals) || requiredApprovals < 0 || requiredApprovals > 20)
       throw new Error("Required approvals is a whole number from 0 to 20.");
+    const unused = validParts(value.unused, "the parts the project doesn't use");
     const taskPrefix = text(value.taskPrefix, "Task prefix", 12).toUpperCase();
     if (!/^[A-Z][A-Z0-9]*$/.test(taskPrefix)) throw new Error("The task prefix uses letters and digits, starting with a letter.");
     const statuses = Array.isArray(value.statuses) ? value.statuses.map(trimmed) : [];
@@ -239,6 +251,7 @@ export class SettingsEngine {
       pullRoot,
       pullPrefix,
       requiredApprovals,
+      unused,
     };
   }
 

@@ -40,6 +40,7 @@ export const SETTINGS: Settings = {
   pullRoot: "pulls",
   pullPrefix: "PR",
   requiredApprovals: 1,
+  unused: [],
 };
 
 /** A user who has seen the tour and the news of this version. */
@@ -53,6 +54,7 @@ export const PREFERENCES: Preferences = {
   lastSeenVersion: APP_VERSION,
   tourSeen: true,
   tourOffered: [],
+  hiddenParts: { all: [], repositories: {} },
 };
 
 export function task(id: string, change: Partial<Task> = {}): Task {

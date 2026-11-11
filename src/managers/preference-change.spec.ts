@@ -16,4 +16,13 @@ describe("changePreferences", () => {
   it("starts with JetBrains Mono and ligatures", () => {
     expect(DEFAULT_PREFERENCES).toMatchObject({ editorFont: "jetbrains-mono", ligatures: true });
   });
+
+  it("keeps the parts a user hides, everywhere and per repository, by their names", () => {
+    const next = changePreferences(DEFAULT_PREFERENCES, {
+      hiddenParts: { all: ["terminal", "wiki", "wiki"], repositories: { "local:/a": ["planning"] } },
+    });
+    expect(next.hiddenParts).toEqual({ all: ["wiki", "terminal"], repositories: { "local:/a": ["planning"] } });
+    expect(() => changePreferences(DEFAULT_PREFERENCES, { hiddenParts: { all: ["board"], repositories: {} } })).toThrow(/parts to hide/);
+    expect(() => changePreferences(DEFAULT_PREFERENCES, { hiddenParts: { all: [] } })).toThrow(/hiddenParts/);
+  });
 });

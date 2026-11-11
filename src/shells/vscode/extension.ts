@@ -80,6 +80,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
     void webviews.refresh();
     language.refresh();
     showContentBranch();
+    showUsedParts();
+  };
+  /** The project's unused parts leave the views; VS Code lets everyone hide views of their own. */
+  const showUsedParts = () => {
+    const unused = repository?.snapshot.settings.unused ?? [];
+    void vscode.commands.executeCommand("setContext", "genbeya.unusedWiki", unused.includes("wiki"));
+    void vscode.commands.executeCommand("setContext", "genbeya.unusedTasks", unused.includes("tasks"));
   };
   /** The content branch, and how far it is ahead of and behind its remote, in the views' titles. */
   const showContentBranch = () => {

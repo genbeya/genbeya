@@ -1,12 +1,15 @@
+import { inject } from "@angular/core";
 import type { Routes } from "@angular/router";
+import { Parts } from "./core/parts";
 import { guardedBy } from "./core/unsaved-changes";
 
 /**
  * Views take their state from query parameters, so every view is a back/forward stop.
- * Views with editors ask before a navigation discards unsaved edits.
+ * Views with editors ask before a navigation discards unsaved edits. Hidden views
+ * stay reachable, through references and links; the start goes to the first shown one.
  */
 export const routes: Routes = [
-  { path: "", pathMatch: "full", redirectTo: "wiki" },
+  { path: "", pathMatch: "full", redirectTo: () => inject(Parts).home() },
   { path: "wiki", loadComponent: () => import("./features/wiki/wiki-view").then((m) => m.WikiView), ...guardedBy("page", "folder") },
   { path: "tasks", loadComponent: () => import("./features/tasks/tasks-view").then((m) => m.TasksView), ...guardedBy("task", "create") },
   { path: "code", loadComponent: () => import("./features/code/code-view").then((m) => m.CodeView), ...guardedBy("file") },
@@ -18,5 +21,5 @@ export const routes: Routes = [
   { path: "history", loadComponent: () => import("./features/history/history-view").then((m) => m.HistoryView) },
   { path: "pulls", loadComponent: () => import("./features/pulls/pulls-view").then((m) => m.PullsView) },
   { path: "settings", loadComponent: () => import("./features/settings/settings-view").then((m) => m.SettingsView), ...guardedBy() },
-  { path: "**", redirectTo: "wiki" },
+  { path: "**", redirectTo: () => inject(Parts).home() },
 ];

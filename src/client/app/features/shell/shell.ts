@@ -13,6 +13,7 @@ import {
 import { Router, RouterOutlet } from "@angular/router";
 import { hotkey } from "../../core/hotkeys";
 import { messageOf, Notifications } from "../../core/notifications";
+import { Parts } from "../../core/parts";
 import { Session } from "../../core/session";
 import { Terminals, TOGGLE_TERMINAL } from "../../core/terminals";
 import { ShellUi } from "./shell-ui";
@@ -65,8 +66,9 @@ export class Shell {
     const destroyRef = inject(DestroyRef);
     // Listens from the first navigation on.
     const views = inject(ViewMemory);
-    // Every repository starts on its wiki.
-    void router.navigate(["/wiki"]);
+    const parts = inject(Parts);
+    // Every repository starts on its first view, the wiki unless that is hidden.
+    void router.navigate([`/${parts.home()}`]);
 
     hotkey(["mod+k", "mod+p"], () => void ui.openPalette());
     hotkey("mod+shift+f", () => void ui.openPalette("search"));
@@ -74,12 +76,18 @@ export class Shell {
     hotkey("?", () => void ui.showHelp());
     hotkey("alt+arrowleft", () => history.back());
     hotkey("alt+arrowright", () => history.forward());
+    // Hidden views keep their numbers, so the others keep theirs too; their keys do nothing.
     hotkey(
       VIEWS.map((_, i) => `mod+${i + 1}`),
-      (event) => void views.open(VIEWS[Number(event.key) - 1]!),
+      (event) => {
+        const view = VIEWS[Number(event.key) - 1]!;
+        if (parts.isShown(view)) void views.open(view);
+      },
     );
     hotkey("mod+,", () => void router.navigate(["/settings"]));
-    hotkey(TOGGLE_TERMINAL, () => void this.terminals.toggle());
+    hotkey(TOGGLE_TERMINAL, () => {
+      if (parts.isShown("terminal")) void this.terminals.toggle();
+    });
     // The panel, with xterm.js, loads when a terminal is first wanted; then it stays, shown or hidden, for every view.
     // A failed load (an updated app without the old chunk, say) is reported, and the next toggle tries again.
     let loading = false;

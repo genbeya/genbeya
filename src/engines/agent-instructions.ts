@@ -10,28 +10,52 @@ import type { Settings } from "../contracts/model";
 
 export const SKILL_NAME = "genbeya";
 
-type Values = Pick<Settings, "wikiRoot" | "wikiHome" | "taskRoot" | "taskPrefix">;
+type Values = Pick<Settings, "wikiRoot" | "wikiHome" | "taskRoot" | "taskPrefix"> & Partial<Pick<Settings, "unused">>;
+
+/** What the project uses of the wiki and the tasks, and how the text names that. */
+function usedAreas(unused: Settings["unused"] = []) {
+  const wiki = !unused.includes("wiki");
+  const tasks = !unused.includes("tasks");
+  return { wiki, tasks, name: wiki && tasks ? "tasks and wiki" : tasks ? "tasks" : wiki ? "wiki" : "references" };
+}
+
+/** `text` when `condition` holds, else nothing. */
+const when = (condition: boolean, text: string) => (condition ? text : "");
 
 /** A YAML scalar for the frontmatter; quoted only when the text would not parse as a plain one. */
 const yamlScalar = (text: string): string => (/: | #|^[^A-Za-z]/.test(text) ? JSON.stringify(text) : text);
 
-export function skill({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix }: Values): string {
+export function skill({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix, unused }: Values): string {
+  const { wiki, tasks, name } = usedAreas(unused);
   const description =
-    `Plan, track and document work in this repository with Genbeya tasks and wiki pages. ` +
-    `Use when planning or breaking down work, when starting, updating or finishing a task, when looking up or recording project knowledge, ` +
-    `and when referencing tasks such as ${prefix}-12 in commits, pull requests or documentation. ` +
-    `Tasks live in ${taskRoot}/, the wiki in ${wikiRoot}/.`;
+    tasks && wiki
+      ? `Plan, track and document work in this repository with Genbeya tasks and wiki pages. ` +
+        `Use when planning or breaking down work, when starting, updating or finishing a task, when looking up or recording project knowledge, ` +
+        `and when referencing tasks such as ${prefix}-12 in commits, pull requests or documentation. ` +
+        `Tasks live in ${taskRoot}/, the wiki in ${wikiRoot}/.`
+      : tasks
+        ? `Plan and track work in this repository with Genbeya tasks. ` +
+          `Use when planning or breaking down work, when starting, updating or finishing a task, ` +
+          `and when referencing tasks such as ${prefix}-12 in commits, pull requests or documentation. Tasks live in ${taskRoot}/.`
+        : wiki
+          ? `Document this repository in a Genbeya wiki. Use when looking up or recording project knowledge. The wiki lives in ${wikiRoot}/.`
+          : `Reference files of this repository the way Genbeya shows them. Use when writing [[…]] references in Markdown.`;
   return `---
 name: ${SKILL_NAME}
 description: ${yamlScalar(description)}
 ---
 
-# Genbeya tasks and wiki
+# Genbeya ${name}
 
-This repository keeps its task board and its wiki as plain files, managed with Genbeya. People follow your work on the board and read what you document in the wiki, so:
-
-- **Use tasks instead of your internal todo list.** Plan work as tasks, keep their status current while you work, and tick their checklists as steps get done.
-- **Use the wiki instead of private memory files.** Record durable project knowledge (architecture, decisions and their reasons, conventions, how-tos, pitfalls) as wiki pages, not in agent-private notes such as CLAUDE.md memories or \`.cursor\` notes. Read the relevant pages before you change an unfamiliar area.
+${
+  tasks && wiki
+    ? "This repository keeps its task board and its wiki as plain files, managed with Genbeya. People follow your work on the board and read what you document in the wiki, so:"
+    : tasks
+      ? "This repository keeps its task board as plain files, managed with Genbeya. People follow your work on the board, so:"
+      : wiki
+        ? "This repository keeps its wiki as plain files, managed with Genbeya. People read what you document in the wiki, so:"
+        : "This repository is managed with Genbeya, which shows references between its files."
+}${when(tasks || wiki, "\n")}${when(tasks, "\n- **Use tasks instead of your internal todo list.** Plan work as tasks, keep their status current while you work, and tick their checklists as steps get done.")}${when(wiki, "\n- **Use the wiki instead of private memory files.** Record durable project knowledge (architecture, decisions and their reasons, conventions, how-tos, pitfalls) as wiki pages, not in agent-private notes such as CLAUDE.md memories or `.cursor` notes. Read the relevant pages before you change an unfamiliar area.")}
 
 Edit the files directly; Genbeya picks up changes on its own.
 
@@ -40,13 +64,17 @@ Edit the files directly; Genbeya picks up changes on its own.
 1. Run \`git worktree list\`. A worktree inside \`.git/genbeya/\` holds Genbeya's _content branch_ (\`genbeya\`, or the branch \`git config genbeya.branch\` names). Its \`.genbeya-content\` file says where each area lives: \`wiki\`, \`tasks\` and \`settings\` (\`.genbeya.yml\`) set to \`branch\` live in that worktree, those set to \`checkout\` in the checkout; a content branch without that file holds all three. Without such a worktree, everything lives in the checkout.
    - Read and edit each area where it lives. Commit edits on the content branch right away, in that worktree (\`git -C <worktree> add …\` and \`git -C <worktree> commit -m …\`); Genbeya pushes them when someone syncs. Never copy files between the content branch and the checkout: the copy in the other place is out of date.
 2. Read \`.genbeya.yml\` where the settings live. When it disagrees with the values below, the file wins:
-   - \`wikiRoot\` is the wiki folder (here \`${wikiRoot}\`), \`wikiHome\` its home page relative to that folder (here \`${wikiHome}\`).
-   - \`taskRoot\` is the task folder (here \`${taskRoot}\`), \`taskPrefix\` the prefix of task IDs (here \`${prefix}\`).
+${when(wiki, `   - \`wikiRoot\` is the wiki folder (here \`${wikiRoot}\`), \`wikiHome\` its home page relative to that folder (here \`${wikiHome}\`).\n`)}${when(
+    tasks,
+    `   - \`taskRoot\` is the task folder (here \`${taskRoot}\`), \`taskPrefix\` the prefix of task IDs (here \`${prefix}\`).
    - \`statuses\` are the workflow states in board order: the first is where new ideas wait, the last means done. An entry is a state's name, or a mapping whose \`name\` is the state.
    - \`hiddenColumns\` are states the board leaves out; tasks may still be in them.
    - \`types\` lists the task types: names, or mappings whose \`name\` is the type (with an \`icon\` and a colour \`tone\` for Genbeya). Without \`types\`, the types are \`bug\`, \`feature\`, \`improvement\` and \`chore\`; \`types: []\` means none.
    - If present, \`fields\` lists custom task fields: each has a \`name\`, which is the frontmatter key, and a \`type\`: \`text\` (the default), \`number\`, \`date\` (written \`2026-05-01\`) or \`choice\`, whose value is one of its \`options\`.
-
+`,
+  )}${when(!!unused?.length, "   - `unused` lists the parts of Genbeya the project doesn't use; leave them alone.\n")}${when(
+    tasks,
+    `
 ## Tasks
 
 Each task is one Markdown file named after its ID, in the task folder or in an epic folder below it: \`${taskRoot}/${prefix}-12.md\`, \`${taskRoot}/Login rework/${prefix}-14.md\`.
@@ -92,19 +120,26 @@ Keep the board true while you work. Use the configured states by their meaning, 
 - Change only the fields you mean to change. Keep other frontmatter fields, their order, YAML comments and the file's line endings; do not reformat the frontmatter. Never change a task's \`id\` or file name.
 - Move a task to another epic by moving its file (\`git mv\`) into that epic's folder.
 - Do not delete tasks: move abandoned ones to the last state and say why.
-
+`,
+  )}
 ## References
 
-In wiki pages and task descriptions, \`[[…]]\` links anything in the repository, and Genbeya shows what it points to:
+In ${tasks && wiki ? "wiki pages and task descriptions" : tasks ? "task descriptions" : wiki ? "wiki pages" : "Markdown files"}, \`[[…]]\` links anything in the repository, and Genbeya shows what it points to:
 
-- \`[[${prefix}-12]]\` is a task, shown with its title and state.
-- \`[[Getting started]]\` or \`[[Guide/Wiki]]\` is a wiki page, by title or by its path below the wiki folder without \`.md\`.
-- \`[[src/app.ts]]\` or \`[[src/app.ts#L10-L20]]\` is a file, or lines of it.
-- \`[[${prefix}-12|the login bug]]\` is any reference with your own text.
+${when(tasks, `- \`[[${prefix}-12]]\` is a task, shown with its title and state.\n`)}${when(
+    wiki,
+    "- `[[Getting started]]` or `[[Guide/Wiki]]` is a wiki page, by title or by its path below the wiki folder without `.md`.\n",
+  )}- \`[[src/app.ts]]\` or \`[[src/app.ts#L10-L20]]\` is a file, or lines of it.
+- \`[[${tasks ? `${prefix}-12|the login bug` : "src/app.ts|the app"}]]\` is any reference with your own text.
 - \`![[src/app.ts#L10-L20]]\` on a line of its own embeds those lines, always in their current version.
-
+${when(
+  tasks,
+  `
 Task IDs written plainly (\`${prefix}-12\`) link to the task as well. Name the task you worked on in commit messages and pull request descriptions (\`${prefix}-12: Virtualize the file tree\`), so the history leads back to it.
-
+`,
+)}${when(
+    wiki,
+    `
 ## Wiki
 
 - Every page is a Markdown file below the wiki folder; the home page is \`${wikiRoot}/${wikiHome}\`.
@@ -116,28 +151,44 @@ Task IDs written plainly (\`${prefix}-12\`) link to the task as well. Name the t
 - Draw architecture, flows and sequences as diagrams: fenced code blocks in the language \`mermaid\` or \`plantuml\` render as diagrams.
 - \`[TOC]\` inserts a table of contents and \`[SUBPAGES]\` lists the pages below; \`> [!NOTE]\`, \`[!TIP]\`, \`[!IMPORTANT]\`, \`[!WARNING]\` and \`[!CAUTION]\` start callouts.
 - Write for the team: current facts, decisions with their reasons, how-tos. Keep session logs and scratch notes out of the wiki.
-
+`,
+  )}
 ## Ground rules
 
 - Edit \`.genbeya.yml\` only when asked to.
-- Keep task files and pages in their format: people and other tools read them too.
-- In the checkout, commit task and wiki edits like code, together with the work they describe.
+- Keep ${tasks && wiki ? "task files and pages" : tasks ? "task files" : wiki ? "pages" : "Genbeya's files"} in their format: people and other tools read them too.
+- In the checkout, commit ${tasks && wiki ? "task and wiki" : tasks ? "task" : wiki ? "wiki" : "Genbeya's"} edits like code, together with the work they describe.
 `;
 }
 
 /** The section for AGENTS.md and other instruction files; `skillPath` is where the details are, if anywhere. */
-export function section({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix }: Values, skillPath: string | null): string {
+export function section({ wikiRoot, wikiHome, taskRoot, taskPrefix: prefix, unused }: Values, skillPath: string | null): string {
+  const { wiki, tasks, name } = usedAreas(unused);
   const details = skillPath
     ? `\n- The \`${SKILL_NAME}\` skill (\`${skillPath}\`) describes the file formats and the workflow in detail.`
     : "";
-  return `## Tasks and wiki (Genbeya)
+  const heading = name[0]!.toUpperCase() + name.slice(1);
+  const intro =
+    tasks && wiki
+      ? "This project plans its work as Genbeya tasks and documents itself in a Genbeya wiki, both plain Markdown files in this repository."
+      : tasks
+        ? "This project plans its work as Genbeya tasks, plain Markdown files in this repository."
+        : wiki
+          ? "This project documents itself in a Genbeya wiki, plain Markdown files in this repository."
+          : "This project is managed with Genbeya, which shows references between its files.";
+  return `## ${heading} (Genbeya)
 
-This project plans its work as Genbeya tasks and documents itself in a Genbeya wiki, both plain Markdown files in this repository.
-
-- Use tasks instead of an internal todo list. Tasks are files in \`${taskRoot}/\` named after their ID (\`${prefix}-12.md\`). Create one for work you plan, keep its \`status\` current as you go, and tick its checklist.
-- Use the wiki instead of private memory files. Pages are Markdown files in \`${wikiRoot}/\`, starting at \`${wikiRoot}/${wikiHome}\`. Read the relevant pages before you change an area, and record durable project knowledge there.
+${intro}
+${when(tasks, `\n- Use tasks instead of an internal todo list. Tasks are files in \`${taskRoot}/\` named after their ID (\`${prefix}-12.md\`). Create one for work you plan, keep its \`status\` current as you go, and tick its checklist.`)}${when(
+    wiki,
+    `\n- Use the wiki instead of private memory files. Pages are Markdown files in \`${wikiRoot}/\`, starting at \`${wikiRoot}/${wikiHome}\`. Read the relevant pages before you change an area, and record durable project knowledge there.`,
+  )}
 - \`.genbeya.yml\` holds the workflow states, the task prefix and the folders. If \`git worktree list\` shows a worktree inside \`.git/genbeya/\`, its \`.genbeya-content\` file says which areas (\`wiki\`, \`tasks\`, \`settings\`) live there (\`branch\`) and which in the checkout (\`checkout\`); without that file all three live there. Edit and commit an area on the content branch in that worktree.
-- Reference tasks, pages and files as \`[[${prefix}-12]]\`, \`[[Page title]]\` or \`[[src/file.ts#L10-L20]]\`, and name the task in commit messages and pull requests.${details}`;
+${
+  tasks
+    ? `- Reference ${wiki ? `tasks, pages and files as \`[[${prefix}-12]]\`, \`[[Page title]]\`` : `tasks and files as \`[[${prefix}-12]]\``} or \`[[src/file.ts#L10-L20]]\`, and name the task in commit messages and pull requests.`
+    : `- Reference ${wiki ? "pages and files as `[[Page title]]` or" : "files as"} \`[[src/file.ts#L10-L20]]\`.`
+}${details}`;
 }
 
 /** The section for CLAUDE.md when AGENTS.md has it: Claude Code imports files named with `@`. */

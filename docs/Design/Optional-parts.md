@@ -1,13 +1,33 @@
 # Optional parts
 
 > [!NOTE]
-> Proposal, not built yet. Tasks: [[GENBEYA-39]], [[GENBEYA-40]], [[GENBEYA-41]].
+> A first prototype is built ([[GENBEYA-39]], [[GENBEYA-40]]); see [The prototype](#the-prototype) for what it does and what is left. How to use it: [Turning parts off](../Guide/Settings.md#turning-parts-off). Loading only what is shown ([[GENBEYA-41]]) is still open.
 
 Not every project wants a wiki, a task board or planning, and not every person wants to see all of them. Each part of the app can be turned off, and the interface leaves it out.
 
 **Decided:** every user can turn parts of the app on and off, and this comes before new features such as [Planning](Planning.md) and [Pull requests](Pull-requests.md), so they are built switchable from the start. Being removable keeps a feature behind a clean boundary instead of leaking into the rest of the app.
 
 [TOC]
+
+## The prototype
+
+What the first version answers, to try out before deciding for good:
+
+- **The key** is `unused: [wiki, planning]` in `.genbeya.yml`: listing what is off, so a missing key means everything is on and nothing changes for existing projects.
+- **The parts** are `wiki`, `tasks`, `planning`, `timelog`, `code`, `changes`, `history`, `pulls` and `terminal`. Planning needs tasks and the time log needs planning; turning one off takes those along, and turning one on brings back what it needs.
+- **The user layer** is `hiddenParts` in the personal preferences: a list for every repository, and lists for single repositories, which win. **Settings → App → Show** switches between **This repository** and **Every repository**.
+- **Hidden parts** leave the sidebar, the palette (views, commands, pages, tasks, files), full-text search results and the tour. `Ctrl+1` … `Ctrl+6` keep their numbers. A repository opens in the first view that shows.
+- **References** into a hidden part still open it: hidden is out of the way, not locked.
+- **Agent files** leave an unused wiki or task board out, and say what `unused` means; with nothing unused, they are byte for byte what they were.
+- **VS Code** hides the wiki and task views of a project that doesn't use them.
+- **Where it lives:** the parts and their needs are in `src/contracts/model.ts`, the client's view of them in `src/client/app/core/parts.ts`.
+
+Left for later:
+
+- Parts switching themselves on when the project clearly uses them, for new users.
+- A read-only preview for references into a hidden part, if a hidden part should be harder to reach.
+- Onboarding beyond the tour, and plan macros in VS Code's preview.
+- Loading only what is shown ([[GENBEYA-41]]).
 
 ## Two layers
 
@@ -65,6 +85,6 @@ Hiding is a matter of the client. The backend still builds a snapshot of everyth
 
 ## Open questions
 
-- Is listing unused parts (`unused:`) clearer than listing used ones?
-- Do the personal switches apply per repository by default, or for all repositories unless a repository overrides them?
-- Is a hidden part reachable through a reference or a shared link, read-only, or not at all?
+- Is listing unused parts (`unused:`) clearer than listing used ones? The prototype lists unused ones.
+- Do the personal switches apply per repository by default, or for all repositories unless a repository overrides them? The prototype applies them to every repository unless the repository has a choice of its own.
+- Is a hidden part reachable through a reference or a shared link, read-only, or not at all? The prototype keeps it reachable.

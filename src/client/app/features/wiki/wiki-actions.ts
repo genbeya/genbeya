@@ -3,6 +3,7 @@ import { computed, Injectable, inject } from "@angular/core";
 import { Router } from "@angular/router";
 import { Dialogs } from "../../core/dialogs";
 import { ExternalLinks } from "../../core/external-links";
+import { Parts } from "../../core/parts";
 import { People } from "../../core/people";
 import { Session } from "../../core/session";
 import { sameJson } from "../../core/signals";
@@ -27,6 +28,7 @@ export class WikiActions {
   private readonly external = inject(ExternalLinks);
   private readonly directory = inject(People);
   private readonly planning = inject(TaskPlanning);
+  private readonly parts = inject(Parts);
   private readonly root = computed(() => this.session.snapshot()?.settings.wikiRoot ?? "docs");
 
   /** Tasks, pages and files that Markdown can reference by ID, title or path, the people it can mention, and the tasks plans show. */
@@ -42,7 +44,7 @@ export class WikiActions {
           files: filePaths(snapshot?.files ?? []),
         },
         people: this.directory.list(),
-        plan: { tasks: this.planning.tasks(), statuses: this.planning.statuses(), today: today() },
+        plan: this.parts.isShown("planning") ? { tasks: this.planning.tasks(), statuses: this.planning.statuses(), today: today() } : null,
       };
     },
     { equal: sameJson },

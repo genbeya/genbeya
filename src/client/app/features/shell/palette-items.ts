@@ -1,7 +1,7 @@
 /** What the command palette offers, and how a query ranks it. */
 import type { GenbeyaLink } from "../../../../contracts/genbeya-link";
 import type { Person, RecentEntry, Snapshot, Theme } from "../../../../contracts/model";
-import { sameLocation, syncsContentBranch } from "../../../../contracts/model";
+import { sameLocation, shownParts, syncsContentBranch, type Part } from "../../../../contracts/model";
 import { describeLinkItem, parseGenbeyaLink } from "../../../../utilities/genbeya-link";
 import { parseRemote } from "../../../../utilities/remote-url";
 import { filePaths } from "../../../../utilities/file-tree";
@@ -184,6 +184,8 @@ export function allItems(
   /** How the platform names the modifiers ("⌘", "⌃" and "⇧" on macOS). */
   keys: { readonly mod: string; readonly ctrl: string; readonly shift?: string },
   commands: PaletteCommands,
+  /** The parts of the app that show; items of the others are left out. */
+  shown: ReadonlySet<Part> = shownParts([]),
 ): PaletteItem[] {
   const { head, remotes, storage, wiki, tasks, files, settings, operation } = snapshot;
   const { mod, ctrl, shift = "Shift" } = keys;
@@ -377,7 +379,22 @@ export function allItems(
       keywords: path,
       run: () => commands.openFile(path),
     }));
-  return [...go, ...actions, ...repository, ...preferences, ...help, ...pages, ...taskItems, ...fileItems];
+  const all = [...go, ...actions, ...repository, ...preferences, ...help, ...pages, ...taskItems, ...fileItems];
+  return all.filter((item) => {
+    const part = partOfItem(item.id);
+    return !part || shown.has(part);
+  });
+}
+
+const ACTION_PARTS: Readonly<Record<string, Part>> = { "new-page": "wiki", "new-task": "tasks", "new-pull": "pulls", terminal: "terminal" };
+const PREFIX_PARTS: Readonly<Record<string, Part>> = { page: "wiki", task: "tasks", file: "code" };
+
+/** The part of the app an item belongs to, if any: a view, a command, or a page, task or file to open. */
+function partOfItem(id: string): Part | null {
+  const colon = id.indexOf(":");
+  const prefix = colon < 0 ? "" : id.slice(0, colon);
+  if (prefix === "go") return id.slice(colon + 1) as Part;
+  return ACTION_PARTS[id] ?? PREFIX_PARTS[prefix] ?? null;
 }
 
 /** "Open link" when the query is a Genbeya link, as pasted from a coworker; it replaces every other result. */

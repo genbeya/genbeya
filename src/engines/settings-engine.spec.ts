@@ -36,6 +36,7 @@ describe("SettingsEngine", () => {
       pullRoot: "pulls",
       pullPrefix: "PR",
       requiredApprovals: 1,
+      unused: [],
     });
   });
 
@@ -213,6 +214,10 @@ describe("SettingsEngine", () => {
     expect(engine.parse("name: Atlas\ntaskPrefix: at\n", defaults, false)).toEqual({ ...defaults, name: "Atlas", taskPrefix: "AT" });
   });
 
+  it("reads the parts the project doesn't use, as written, in the app's order", () => {
+    expect(engine.parse("unused: [timelog, wiki]\n", defaults, false).unused).toEqual(["wiki", "timelog"]);
+  });
+
   it("reads where pull requests live and how many approvals they need", () => {
     expect(engine.parse("pullRoot: reviews\npullPrefix: mr\nrequiredApprovals: 2\n", defaults, false)).toEqual({
       ...defaults,
@@ -238,6 +243,8 @@ describe("SettingsEngine", () => {
     ["pullPrefix: 7A\n", "pull request prefix"],
     ["requiredApprovals: 1.5\n", "Required approvals"],
     ["requiredApprovals: 21\n", "Required approvals"],
+    ["unused: [board]\n", "parts the project doesn't use"],
+    ["unused: wiki\n", "parts the project doesn't use"],
   ])("rejects %j", (content, message) => {
     expect(() => engine.parse(content, defaults, false)).toThrow(message);
   });

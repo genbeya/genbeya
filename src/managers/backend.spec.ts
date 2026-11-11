@@ -142,6 +142,7 @@ describe("WorkspaceManager", () => {
       lastSeenVersion: null,
       tourSeen: false,
       tourOffered: [],
+      hiddenParts: { all: [], repositories: {} },
     });
     await expect(managers.workspace.setPreferences({ theme: "neon" } as never)).rejects.toThrow("theme");
     await expect(managers.workspace.setPreferences({ reopenLast: "yes" } as never)).rejects.toThrow("reopenLast");

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from "@angular/core";
 import type { Task } from "../../../../contracts/model";
 import { durationOf, effortOf, formatDays, formatEffort, formatVariance, timeLogOf } from "../../../../utilities/planning";
+import { Parts } from "../../core/parts";
 import { Session } from "../../core/session";
 import { MarkdownView } from "../../markdown/markdown-view";
 import { Icon } from "../../ui/icon";
@@ -28,9 +29,11 @@ import { TaskPlanning } from "./task-planning";
           </span>
         }
         <span class="grow"></span>
-        <button type="button" class="btn btn-default btn-s" (click)="logTime.emit()">
-          <svg gd-icon name="clock" [size]="13"></svg><span>Log time</span>
-        </button>
+        @if (parts.isShown("timelog")) {
+          <button type="button" class="btn btn-default btn-s" (click)="logTime.emit()">
+            <svg gd-icon name="clock" [size]="13"></svg><span>Log time</span>
+          </button>
+        }
       </div>
       @if (unreadable(); as count) {
         <p class="task-plan-problem">
@@ -122,6 +125,7 @@ export class TaskPlan {
 
   protected readonly wiki = inject(WikiActions);
   private readonly session = inject(Session);
+  protected readonly parts = inject(Parts);
   private readonly settings = computed(() => this.session.snapshot()!.settings);
   private readonly log = computed(() => timeLogOf(this.task().body));
   /** Effort is shown once the project has an effort field, or the task logs time. */
@@ -173,5 +177,7 @@ export class TaskPlan {
       .join("\n\n");
   });
   protected readonly problems = computed(() => this.dependencies().problems.get(this.id()) ?? []);
-  protected readonly shown = computed(() => this.planned() || !!this.scheduled() || !!this.relations() || this.problems().length > 0);
+  protected readonly shown = computed(
+    () => this.parts.isShown("planning") && (this.planned() || !!this.scheduled() || !!this.relations() || this.problems().length > 0),
+  );
 }

@@ -23,6 +23,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   lastSeenVersion: null,
   tourSeen: false,
   tourOffered: [],
+  hiddenParts: { all: [], repositories: {} },
 };
 
 interface Open {

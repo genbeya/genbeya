@@ -8,11 +8,11 @@
 
 | Section | What it holds | Shared with |
 | --- | --- | --- |
-| **Project** | Name, task ID prefix, wiki folder and home page, task folder, pull request folder and ID prefix, **Approvals needed**, **Workflow**, **Task types**, **Custom fields** | Everyone: saved to `.genbeya.yml` |
+| **Project** | Name, task ID prefix, wiki folder and home page, task folder, pull request folder and ID prefix, **Approvals needed**, **Workflow**, **Task types**, **Custom fields**, **Parts of the app** | Everyone: saved to `.genbeya.yml` |
 | **Where content lives** | Whether the wiki, the tasks, the settings and the pull requests live in the checkout or on the [Content branch](../Architecture/Content-branch.md), and **Sync automatically** | Everyone, through the content branch |
 | **AI agents** | Files that teach coding agents to use the tasks and the wiki — see [AI agents](AI-agents.md) | Everyone, once committed |
 | **Remotes** | Add, edit and remove Git remotes | This clone |
-| **App** | Theme, **Reopen last repository** on start, **Show minimap** in the editor, **Editor font** and **Ligatures** | This computer |
+| **App** | Theme, **Show** (the parts of the app you see), **Reopen last repository** on start, **Show minimap** in the editor, **Editor font** and **Ligatures** | This computer |
 | **Help** | The version, **Start the tour**, **Show what's new**, **Open the documentation** | — |
 
 Changes to **Project** wait for **Save** (`Ctrl+S`) or **Discard**; everything else applies right away. Saving writes `.genbeya.yml`, an ordinary change to commit in **Changes** — unless the settings live on the content branch, where the save is committed right away.
@@ -156,6 +156,41 @@ The key is left out while no one is listed; **Settings** keeps it as written.
 
 Any other name shows a generic icon.
 
+### unused
+
+The parts of the app the project doesn't use. Nobody sees them, and the [agent files](AI-agents.md) leave them out. The key is left out while the project uses everything.
+
+```yaml
+unused: [wiki, planning]
+```
+
+| Part | Is |
+| --- | --- |
+| `wiki` | The **Wiki** view |
+| `tasks` | The **Tasks** view, a branch's task in the sidebar, and a task's pull requests |
+| `planning` | Effort, dependencies, the critical path, blocked marks and plan macros; needs `tasks` |
+| `timelog` | **Log time** on a task; needs `planning` |
+| `code`, `changes`, `history` | Those views |
+| `pulls` | The **Pull requests** view, and pull requests on tasks and cards |
+| `terminal` | The terminal |
+
+A part that another needs takes that one along: without `tasks` there is no planning and no time log. See [Turning parts off](#turning-parts-off).
+
+## Turning parts off
+
+Not every project uses a wiki, a board or planning, and not everyone wants to see all of them. There are two switches for each part:
+
+- **Settings → Project → Parts of the app**: what the project uses, saved to `.genbeya.yml` (`unused`) for everyone. The generated agent instructions leave unused parts out, and VS Code hides an unused wiki or task view.
+- **Settings → App → Show**: what you see, only for you. Choose **This repository** to keep a choice for the open repository alone, or **Every repository** for every repository without one of its own.
+
+A part shows when the project uses it and you show it. When it doesn't:
+
+- Its view leaves the sidebar and the `Ctrl+K` palette, along with its commands (**New page**, **New task**, **New pull request**, the terminal) and the pages, tasks or files it would list. Full-text search leaves its results out.
+- `Ctrl+1` … `Ctrl+6` keep their views: the key of a hidden view does nothing. A repository opens in the first view that shows.
+- The tour skips it.
+- References into it still work: `[[A page]]` in a task stays a link and opens the page.
+- Files are never touched. Turning the wiki off doesn't change `docs/`, and turning it on again shows everything as before.
+
 ## .genbeya-content
 
 When a [Content branch](../Architecture/Content-branch.md) exists, the file `.genbeya-content` at its root says where each area lives. Genbeya writes it whenever an area moves in **Settings → Where content lives**; there is no need to edit it.
@@ -187,6 +222,6 @@ git config genbeya.branch team-content
 
 ## Personal preferences
 
-Theme, **Reopen last repository**, **Show minimap**, the editor font, ligatures, recent repositories and what the onboarding has shown you are stored per variant in the app's data folder (`state.json`), not in the repository.
+Theme, the parts you hide, **Reopen last repository**, **Show minimap**, the editor font, ligatures, recent repositories and what the onboarding has shown you are stored per variant in the app's data folder (`state.json`), not in the repository.
 
 **Editor font** picks the font of the editors and of code in pages: JetBrains Mono (the default), Fira Code, Cascadia Code or Roboto Mono, all shipped with Genbeya. **Ligatures** lets the font join characters into one glyph, such as `->` into an arrow or `<=` into ≤; Roboto Mono has none.
