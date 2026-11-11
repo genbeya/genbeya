@@ -1,5 +1,5 @@
 ---
-id: GENBEYA-43
+id: GENBEYA-61
 title: Privacy review of Genbeya on forges
 type: chore
 status: in-progress
@@ -7,7 +7,7 @@ priority: high
 labels: [privacy, github]
 ---
 
-Before genbeya.fyi serves [[GENBEYA-39]], [[GENBEYA-40]] and [[GENBEYA-42]]: have people who know (a privacy-first platform's CISO, contacts at the CCC) review the data flows, the notice and the storage choice. The flows, the wording and the reasoning are in [[Architecture/Forges#privacy]]; the brief for the reviewers, with the repository, the branch, how to run it and our questions, is [[Architecture/Forges/Privacy-review]].
+Before genbeya.fyi serves [[GENBEYA-57]], [[GENBEYA-58]] and [[GENBEYA-60]]: have people who know (a privacy-first platform's CISO, contacts at the CCC) review the data flows, the notice and the storage choice. The flows, the wording and the reasoning are in [[Architecture/Forges#privacy]]; the brief for the reviewers, with the repository, the branch, how to run it and our questions, is [[Architecture/Forges/Privacy-review]].
 
 - [x] Brief for the reviewers: summary, repository and branch, how to build and run it, questions
 - [ ] Brief sent to the reviewers

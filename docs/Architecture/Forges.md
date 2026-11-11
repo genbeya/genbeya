@@ -3,7 +3,7 @@
 **Genbeya on your forge** opens a repository on GitHub, GitLab, Bitbucket, Codeberg, Gitea or Forgejo in a browser tab, with its wiki, its task board and the code they refer to, without cloning it. The address is the forge's own with `genbeya.fyi/<forge>` in front: `github.com/acme/rockets` opens as `genbeya.fyi/github/acme/rockets`, `gitlab.com/acme/space/rockets` as `genbeya.fyi/gitlab/acme/space/rockets`. References render exactly as in the app, because it is the app's client, engines and the [Demo](Demo.md)'s managers.
 
 > [!NOTE]
-> This is the proof of concept of [[GENBEYA-39]], [[GENBEYA-40]] and [[GENBEYA-42]]: nothing is written back to the forge, public repositories open without signing in, private ones with a token, and a repository is kept in the browser only when the visitor chooses so. It is not yet served by genbeya.fyi; see [Hosting](#hosting) and [Next steps](#next-steps).
+> This is the proof of concept of [[GENBEYA-57]], [[GENBEYA-58]] and [[GENBEYA-60]]: nothing is written back to the forge, public repositories open without signing in, private ones with a token, and a repository is kept in the browser only when the visitor chooses so. It is not yet served by genbeya.fyi; see [Hosting](#hosting) and [Next steps](#next-steps).
 
 [TOC]
 
@@ -101,7 +101,7 @@ Git's own protocol endpoints answer no other origin, so Git in the page (compile
 
 ## Privacy
 
-Genbeya's promise is privacy first: nothing is collected or sold, and everything that leaves the device or stays on it is the visitor's choice. Genbeya on your forge keeps that promise by design, not by policy alone: [[GENBEYA-43]] is the outside review of what follows, with the brief for reviewers in [Privacy review](Forges/Privacy-review.md).
+Genbeya's promise is privacy first: nothing is collected or sold, and everything that leaves the device or stays on it is the visitor's choice. Genbeya on your forge keeps that promise by design, not by policy alone: [[GENBEYA-61]] is the outside review of what follows, with the brief for reviewers in [Privacy review](Forges/Privacy-review.md).
 
 ### The notice
 
@@ -151,13 +151,13 @@ Kept repositories are told apart by forge, host, owner, name and branch, so the 
 Deleting is as easy as keeping: **Delete kept copy** on the notice, **Delete the kept copy** in the badge's menu (the repository stays open in the tab), and **Delete everything kept** at the foot of the notice and the start page, which also says how much the browser keeps.
 
 > [!NOTE]
-> OPFS belongs to the origin, here every page of genbeya.fyi. Serving Genbeya on your forge from an origin of its own keeps what it stores apart from the rest of the site ([[GENBEYA-41]]).
+> OPFS belongs to the origin, here every page of genbeya.fyi. Serving Genbeya on your forge from an origin of its own keeps what it stores apart from the rest of the site ([[GENBEYA-59]]).
 
 ## Hosting
 
 The page's files use relative addresses, and its policy forbids `<base>`. Since the page is served at addresses of any depth (`/gitlab/acme/space/rockets/-/tree/feature/x`), the files live in one folder and the page's own references are made absolute: `scripts/serve-forge.mjs` serves the build below `/_app/` and the page at `/` and every forge address, with the policy for that address as a header. PlantUML's wasm is resolved next to the scripts (`new URL("rockuml.wasm", import.meta.url)`), so it is found at any depth too.
 
-genbeya.fyi will do the same ([[GENBEYA-41]]) with a Worker, on an origin of its own such as `open.genbeya.fyi`, with `genbeya.fyi/<forge>/…` redirecting there. Browser storage and the content security policy belong to an origin: on its own origin, what Genbeya on your forge keeps can't be read by the rest of the site, and genbeya.fyi's promise (no request to another origin, nothing stored) stays literally true for every other page. The Worker must send the policy header: without it, the page's own policy allows any https host.
+genbeya.fyi will do the same ([[GENBEYA-59]]) with a Worker, on an origin of its own such as `open.genbeya.fyi`, with `genbeya.fyi/<forge>/…` redirecting there. Browser storage and the content security policy belong to an origin: on its own origin, what Genbeya on your forge keeps can't be read by the rest of the site, and genbeya.fyi's promise (no request to another origin, nothing stored) stays literally true for every other page. The Worker must send the policy header: without it, the page's own policy allows any https host.
 
 ### The badge
 
@@ -190,7 +190,7 @@ GitHub shows README images through its own image proxy, so readers' addresses do
 ## Next steps
 
 - Sign in instead of pasting a token (a GitHub App, GitLab's OAuth). GitHub's token endpoints refuse web pages, so the code exchange needs a small stateless relay; the website already runs as a Cloudflare Worker.
-- Serve it from genbeya.fyi, on an origin of its own, with the badge ([[GENBEYA-41]]), after the privacy review ([[GENBEYA-43]]).
+- Serve it from genbeya.fyi, on an origin of its own, with the badge ([[GENBEYA-59]]), after the privacy review ([[GENBEYA-61]]).
 - Fetch into a kept copy: what changed on the forge since, merged with the visitor's changes, which the in-memory repository can already merge.
 - Write back: commit edits through the API (one commit per save, or a branch and a pull or merge request).
 - History and task activity from the forges' commits; the content branch; reading many files per request; reading other files when they are opened.

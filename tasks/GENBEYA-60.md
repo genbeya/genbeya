@@ -1,5 +1,5 @@
 ---
-id: GENBEYA-42
+id: GENBEYA-60
 title: Open repositories on GitLab, Bitbucket, Gitea and Forgejo, also self-hosted
 type: feature
 status: review
@@ -7,7 +7,7 @@ priority: low
 labels: [integrations, web]
 ---
 
-Everything of [[GENBEYA-39]] above the reader is forge-neutral. A reader per forge behind one interface (list a branch, read files) opens `/gitlab/<owner>/<repo>`, `/bitbucket/…`, `/gitea/…`, and self-hosted instances with `?host=`. Design and findings in [[Architecture/Forges]].
+Everything of [[GENBEYA-57]] above the reader is forge-neutral. A reader per forge behind one interface (list a branch, read files) opens `/gitlab/<owner>/<repo>`, `/bitbucket/…`, `/gitea/…`, and self-hosted instances with `?host=`. Design and findings in [[Architecture/Forges]].
 
 - [x] A forge reader interface; GitHub's reader behind it
 - [x] GitLab (the API's tree comes in pages; raw files through the API, `/-/raw/` refuses other origins)

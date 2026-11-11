@@ -1,6 +1,6 @@
 # Privacy review
 
-The brief for the outside review of [Forges](../Forges.md) ([[GENBEYA-43]]): what Genbeya in the browser does with data, where to find it, how to run it, and the questions we want answered. Nothing of it is public yet: genbeya.fyi serves it only after this review ([[GENBEYA-41]]).
+The brief for the outside review of [Forges](../Forges.md) ([[GENBEYA-61]]): what Genbeya in the browser does with data, where to find it, how to run it, and the questions we want answered. Nothing of it is public yet: genbeya.fyi serves it only after this review ([[GENBEYA-59]]).
 
 [TOC]
 
@@ -20,7 +20,7 @@ Genbeya keeps a project's wiki and task board as Markdown files in its Git repos
 | Repository | <https://github.com/genbeya/genbeya> (public) |
 | Branch | `feature/GENBEYA-39-github-integration-poc` |
 | Design | `docs/Architecture/Forges.md`, the page above this one; its [Privacy](../Forges.md#privacy) section is the core of the review |
-| Tasks | `tasks/GENBEYA-39.md` (reading GitHub), `GENBEYA-40` (keeping), `GENBEYA-42` (other forges), `GENBEYA-43` (this review), `GENBEYA-41` (hosting, after the review) |
+| Tasks | `tasks/GENBEYA-57.md` (reading GitHub), `GENBEYA-58` (keeping), `GENBEYA-60` (other forges), `GENBEYA-61` (this review), `GENBEYA-59` (hosting, after the review) |
 
 The code a review should look at:
 
