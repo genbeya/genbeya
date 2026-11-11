@@ -190,7 +190,7 @@ export interface FileRevision {
 export const FILE_LOG_FORMAT = "%x00%H%x00%an%x00%aI%x00%s";
 
 /** A C-quoted path as git writes names with special characters ("tasks/\303\251.md"). */
-function unquotePath(text: string): string {
+export function unquotePath(text: string): string {
   if (!text.startsWith('"') || !text.endsWith('"')) return text;
   const escapes: Readonly<Record<string, number>> = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13 };
   const bytes: number[] = [];

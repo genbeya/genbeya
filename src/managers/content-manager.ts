@@ -1,5 +1,8 @@
 /** Everything that edits files: repository files, wiki pages, tasks, settings and the files that teach coding agents to use them. */
 import type { ContentManagerContract } from "../contracts/manager-contracts";
+import { filesAt, folderHistory } from "../access/git/folder-history";
+import { PLAN_HISTORY_LIMIT, planVersions } from "./plan-history";
+import { revision } from "./version-control-arguments";
 import {
   AGENT_TARGETS,
   CONTENT_AREAS,
@@ -12,6 +15,7 @@ import {
   type LinkUpdate,
   type PageMove,
   type People,
+  type PlanHistory,
   type PullRequest,
   type Scope,
   type SearchResults,
@@ -311,6 +315,33 @@ export class ContentManager implements ContentManagerContract {
       if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
       const wanted = lineList(lines);
       return lineAuthors(await workspace.content.history("pulls", relative, ACTIVITY_LIMIT, true), wanted);
+    });
+  }
+
+  planHistory(id: unknown, baseline?: unknown): Promise<PlanHistory> {
+    return this.on(id, async (workspace) => {
+      const { settings } = await workspace.settings();
+      const asked = baseline === undefined || baseline === null || baseline === "" ? null : revision(baseline);
+      const { git } = await workspace.content.locate("tasks");
+      const history = await folderHistory(git, settings.taskRoot, PLAN_HISTORY_LIMIT);
+      const commits = history
+        .map((commit) => ({
+          commit: commit.hash,
+          author: commit.author,
+          date: commit.date,
+          subject: commit.subject,
+          tasks: planVersions(commit.files, this.engines.tasks, settings.taskRoot),
+        }))
+        .filter((commit) => commit.tasks.length);
+      let base: PlanHistory["baseline"] = null;
+      if (asked) {
+        const at = await filesAt(git, asked, settings.taskRoot);
+        const tasks = planVersions(at.files, this.engines.tasks, settings.taskRoot).flatMap((version) =>
+          version.task ? [version.task] : [],
+        );
+        base = { revision: asked, commit: at.commit, tasks };
+      }
+      return { commits, truncated: history.length === PLAN_HISTORY_LIMIT, baseline: base };
     });
   }
 

@@ -6,7 +6,7 @@
  * mean their planning meaning by name: `estimate`, `remaining`, `duration`,
  * `start`, `due`, `milestone` and `depends_on`.
  */
-import { WEEKDAYS, type FieldValue, type Milestone, type Settings, type Task, type Weekday } from "../contracts/model";
+import { WEEKDAYS, type FieldValue, type Milestone, type PlanVersion, type Settings, type Task, type Weekday } from "../contracts/model";
 
 /** Days of effort count as this many hours. */
 export const HOURS_PER_DAY = 8;
@@ -23,21 +23,7 @@ export const PLANNING_FIELDS = {
 } as const;
 
 /** A task as planning sees it: its properties, and the hours its time log adds up to. */
-export interface PlanTask {
-  readonly id: string;
-  readonly path: string;
-  readonly title: string;
-  readonly status: string;
-  readonly epic: string;
-  readonly assignee: string;
-  readonly labels: readonly string[];
-  readonly type: string;
-  readonly fields: Readonly<Record<string, FieldValue>>;
-  /** Hours logged in the task's time log. */
-  readonly logged: number;
-  /** Lines of the time log that are no entry. */
-  readonly unreadable: number;
-}
+export type PlanTask = PlanVersion;
 
 /** Tasks as planning sees them, their time logs added up. */
 export const planTasks = (tasks: readonly Task[]): PlanTask[] =>

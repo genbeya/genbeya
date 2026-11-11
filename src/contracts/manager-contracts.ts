@@ -57,6 +57,7 @@ import type {
   TaskInput,
   TaskTemplate,
   TerminalOutput,
+  PlanHistory,
 } from "./model";
 
 /** Opening, closing and observing repositories; the user's recent list and preferences. */
@@ -114,6 +115,8 @@ export interface ContentManagerContract {
   taskActivity(workspace: string, path: string): Promise<readonly TaskActivity[]>;
   /** For each of `lines` of a pull request file, who committed it first; null while no commit has it. */
   lineAuthors(workspace: string, path: string, lines: readonly string[]): Promise<readonly (string | null)[]>;
+  /** The committed history of the tasks, and the tasks at `baseline` (a tag, branch or commit) when given. */
+  planHistory(workspace: string, baseline?: string | null): Promise<PlanHistory>;
   /** A pull request file in the pull request folder, with the next free ID, by the user (Git's user name). */
   createPull(workspace: string, input: PullInput): Promise<PullRequest>;
   /** `expectedHash` is the version the edit is based on; fields `input` leaves out stay as written. */
@@ -326,6 +329,7 @@ export const MANAGER_METHODS = {
     "ensureTaskTemplate",
     "taskActivity",
     "lineAuthors",
+    "planHistory",
     "createPull",
     "updatePull",
     "commentAuthor",

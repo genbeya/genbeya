@@ -178,6 +178,20 @@ describe("the demo backend", () => {
       expect(await vc.compare(id, "gone", "main", [], null)).toMatchObject({ head: null, change: null });
     });
 
+    it("reads the history of the plan, and the tasks at the tag v0.1", async () => {
+      const { content, id } = await demo();
+      const history = await content.planHistory(id, "v0.1");
+      expect(history.commits.at(-1)).toMatchObject({ subject: "Plan the first release" });
+      expect(
+        history.commits
+          .at(-1)!
+          .tasks.map((version) => version.task?.id)
+          .sort(),
+      ).toEqual(["PW-1", "PW-2", "PW-3", "PW-4", "PW-5", "PW-6"]);
+      expect(history.baseline!.tasks).toHaveLength(6);
+      expect((await content.planHistory(id, "nope")).baseline).toMatchObject({ commit: null, tasks: [] });
+    });
+
     it("opens pull requests with the next ID", async () => {
       const { content, id, snapshot } = await demo();
       const input = { title: "Storms", status: "draft" as const, source: "main", target: "fahrenheit", reviewers: [], body: "" };

@@ -5,6 +5,8 @@
  * there is refused with a note, and nothing is committed on its own.
  */
 import type { ContentManagerContract } from "../../contracts/manager-contracts";
+import { PLAN_HISTORY_LIMIT, planVersions } from "../plan-history";
+import { revision } from "../version-control-arguments";
 import {
   AGENT_TARGETS,
   type AgentFile,
@@ -14,6 +16,7 @@ import {
   type LinkUpdate,
   type PageMove,
   type People,
+  type PlanHistory,
   type PullRequest,
   type Scope,
   type SearchArea,
@@ -268,6 +271,55 @@ export class DemoContentManager implements ContentManagerContract {
       const { settings } = await workspace.settings();
       if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
       return lineAuthors(workspace.repository.fileHistory(relative, ACTIVITY_LIMIT), lineList(lines));
+    });
+  }
+
+  planHistory(id: unknown, baseline?: unknown): Promise<PlanHistory> {
+    return this.on(id, async (workspace) => {
+      const { settings } = await workspace.settings();
+      const asked = baseline === undefined || baseline === null || baseline === "" ? null : revision(baseline);
+      const repository = workspace.repository;
+      const head = repository.headCommit();
+      const inFolder = (path: string) => this.engines.tasks.isTaskFile(path, settings.taskRoot);
+      const commits: PlanHistory["commits"][number][] = [];
+      for (const commit of head ? repository.commits.topological([head]) : []) {
+        if (commits.length === PLAN_HISTORY_LIMIT) break;
+        if (commit.parents.length > 1) continue;
+        const before = repository.treeOf(commit.parents[0] ?? null);
+        const paths = [...new Set([...before.keys(), ...commit.tree.keys()])].filter(
+          (path) => inFolder(path) && before.get(path) !== commit.tree.get(path),
+        );
+        const tasks = planVersions(
+          paths.map((path) => ({ path, content: commit.tree.get(path) ?? null })),
+          this.engines.tasks,
+          settings.taskRoot,
+        );
+        if (tasks.length)
+          commits.push({
+            commit: commit.hash,
+            author: commit.author.name,
+            date: commit.author.date,
+            subject: commit.message.split("\n")[0]!,
+            tasks,
+          });
+      }
+      let base: PlanHistory["baseline"] = null;
+      if (asked) {
+        let commit: string | null = null;
+        try {
+          commit = repository.resolve(asked);
+        } catch {
+          // A revision the repository doesn't have: no baseline tasks.
+        }
+        const tree = repository.treeOf(commit);
+        const versions = planVersions(
+          [...tree].filter(([path]) => inFolder(path)).map(([path, content]) => ({ path, content })),
+          this.engines.tasks,
+          settings.taskRoot,
+        );
+        base = { revision: asked, commit, tasks: versions.flatMap((version) => (version.task ? [version.task] : [])) };
+      }
+      return { commits, truncated: commits.length === PLAN_HISTORY_LIMIT, baseline: base };
     });
   }
 

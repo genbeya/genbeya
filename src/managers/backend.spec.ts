@@ -512,6 +512,24 @@ describe("ContentManager", () => {
     ]);
   });
 
+  it("reads the history of the plan from the commits, and the tasks at a baseline", async () => {
+    const { content, id, repository } = await opened();
+    const task = await content.createTask(id, { ...input, fields: { remaining: "8h" } });
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Plan it");
+    await repository.git("tag", "baseline");
+    await repository.write(task.path, (await repository.read(task.path)).replace("remaining: 8h", "remaining: 3h"));
+    await repository.git("-c", "user.name=Sam", "commit", "-qam", "Less to do");
+    const history = await content.planHistory(id, "baseline");
+    expect(history.commits.map((commit) => [commit.subject, commit.author, commit.tasks[0]!.task!.fields["remaining"]])).toEqual([
+      ["Less to do", "Sam", "3h"],
+      ["Plan it", "Test", "8h"],
+    ]);
+    expect(history.baseline).toMatchObject({ revision: "baseline", tasks: [{ id: "TP-1", fields: { remaining: "8h" } }] });
+    expect((await content.planHistory(id, "nope")).baseline).toMatchObject({ commit: null, tasks: [] });
+    await expect(content.planHistory(id, "-x")).rejects.toThrow();
+  });
+
   it("tells who committed each line of a pull request", async () => {
     const { content, id, repository } = await opened();
     const pull = await content.createPull(id, {

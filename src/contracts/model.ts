@@ -890,3 +890,40 @@ export const describeLocation = (location: Location): string =>
 
 /** Names a repository in preferences: "local:C:\code\app", "wsl:Ubuntu:/home/me/app". */
 export const repositoryKey = (location: Location): string => `${location.kind}:${describeLocation(location)}`;
+
+/** A task as plans see it: its properties, and the hours its time log adds up to. */
+export interface PlanVersion {
+  readonly id: string;
+  readonly path: string;
+  readonly title: string;
+  readonly status: string;
+  readonly epic: string;
+  readonly assignee: string;
+  readonly labels: readonly string[];
+  readonly type: string;
+  readonly fields: Readonly<Record<string, FieldValue>>;
+  /** Hours logged in the task's time log. */
+  readonly logged: number;
+  /** Lines of the time log that are no entry. */
+  readonly unreadable: number;
+}
+
+/** A commit that changed tasks, with the tasks as they were after it. */
+export interface PlanCommit {
+  readonly commit: string;
+  readonly author: string;
+  /** ISO 8601. */
+  readonly date: string;
+  readonly subject: string;
+  /** Tasks the commit changed, by path; null where it removed one. */
+  readonly tasks: readonly { readonly path: string; readonly task: PlanVersion | null }[];
+}
+
+/** The committed history of the tasks, for burn charts and comparisons with a baseline. */
+export interface PlanHistory {
+  /** Newest first, at most so many; `truncated` when there are more. */
+  readonly commits: readonly PlanCommit[];
+  readonly truncated: boolean;
+  /** The tasks at the baseline asked for; null without one. */
+  readonly baseline: { readonly revision: string; readonly commit: string | null; readonly tasks: readonly PlanVersion[] } | null;
+}
