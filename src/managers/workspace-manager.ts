@@ -7,6 +7,7 @@ import {
   type FolderListing,
   type OpenedWorkspace,
   type Preferences,
+  type SkippedArea,
   type Snapshot,
   type Storage,
 } from "../contracts/model";
@@ -23,7 +24,7 @@ import { buildFileTree } from "../utilities/file-tree";
 import { requestedLink, requestedLocation } from "../utilities/launch-request";
 import { namesRemoteHelper } from "../utilities/remote-url";
 import { changePreferences } from "./preference-change";
-import { Workspace, type Engines, type WorkspaceRegistry } from "./workspace";
+import { skippedAreas, taskIndexOf, Workspace, type Engines, type WorkspaceRegistry } from "./workspace";
 
 const CLONE_TIMEOUT = 15 * 60_000;
 
@@ -146,10 +147,11 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     if (typeof id === "string") void this.registry.close(id);
   }
 
-  async snapshot(id: unknown, since?: unknown, base?: unknown): Promise<Snapshot | null> {
+  async snapshot(id: unknown, since?: unknown, base?: unknown, skip?: unknown): Promise<Snapshot | null> {
     const workspace = this.registry.get(id);
     if (base !== undefined && base !== null && !CHANGE_BASES.includes(base as ChangeBase)) throw new Error("Invalid comparison base.");
-    const snapshot = await workspace.exclusive(() => this.compose(workspace, (base as ChangeBase | null | undefined) ?? "head"));
+    const skipped = skippedAreas(skip);
+    const snapshot = await workspace.exclusive(() => this.compose(workspace, (base as ChangeBase | null | undefined) ?? "head", skipped));
     if (snapshot.version === since) return null;
     this.preferencesStore.rememberRemotes(workspace.location, remoteUrls(snapshot));
     return snapshot;
@@ -182,9 +184,9 @@ export class WorkspaceManager implements WorkspaceManagerContract {
   }
 
   /** Everything the client shows, stamped with a version of its content; staged changes are compared with `base`. */
-  private async compose(workspace: Workspace, base: ChangeBase = "head"): Promise<Snapshot> {
+  private async compose(workspace: Workspace, base: ChangeBase = "head", skipped: readonly SkippedArea[] = []): Promise<Snapshot> {
     const { areas, branch: content } = await workspace.content.layout();
-    const readsBranch = content && (areas.wiki === "branch" || areas.tasks === "branch");
+    const readsBranch = content && (areas.wiki === "branch" || areas.tasks === "branch" || areas.pulls === "branch");
     const [repository, branchFiles, contentBranch, loaded] = await Promise.all([
       workspace.repository.state(base),
       readsBranch ? content.git.files() : null,
@@ -196,7 +198,9 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     const warnings = problem ? [problem] : [];
     if (workspace.content.commitFailure && content)
       warnings.push(`Saved, but not committed to the ${content.branch} branch: ${workspace.content.commitFailure}`);
-    const tasks = await workspace.tasks(filesOf("tasks"), settings, warnings);
+    // Areas nobody shows are not read: tasks leave only their IDs, from the file names, for references.
+    const tasks = skipped.includes("tasks") ? [] : await workspace.tasks(filesOf("tasks"), settings, warnings);
+    const pulls = skipped.includes("pulls") ? [] : await workspace.pulls(filesOf("pulls"), settings, warnings);
     if (contentBranch?.uncommitted)
       warnings.push(
         `${contentBranch.uncommitted} file(s) on the ${contentBranch.branch} branch are not committed. Commit them in ${content!.root}.`,
@@ -227,6 +231,9 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       files: buildFileTree(repository.files),
       wiki: this.engines.wiki.tree(filesOf("wiki"), settings),
       tasks,
+      pulls,
+      ...(skipped.length ? { skipped } : {}),
+      ...(skipped.includes("tasks") ? { taskIndex: taskIndexOf(filesOf("tasks"), settings.taskRoot, this.engines.tasks) } : {}),
       warnings,
     };
     return { version: sha256(JSON.stringify(body)), ...body };

@@ -33,7 +33,7 @@ describe("SearchEngine.validate", () => {
 });
 
 describe("SearchEngine.areaOf", () => {
-  const settings = { wikiRoot: "docs", taskRoot: "tasks" };
+  const settings = { wikiRoot: "docs", taskRoot: "tasks", pullRoot: "pulls" };
 
   it("puts Markdown below the task and wiki folders in their areas, and everything else in code", () => {
     expect(engine.areaOf("tasks/Auth/TP-1.md", settings)).toBe("tasks");
@@ -41,7 +41,9 @@ describe("SearchEngine.areaOf", () => {
     expect(engine.areaOf("docs/Guide/Setup.MD", settings)).toBe("wiki");
     expect(engine.areaOf("docs/diagram.svg", settings)).toBe("code");
     expect(engine.areaOf("README.md", settings)).toBe("code");
-    expect(engine.areaOf("docs/tasks/TP-2.md", { wikiRoot: "docs", taskRoot: "docs/tasks" })).toBe("tasks");
+    expect(engine.areaOf("docs/tasks/TP-2.md", { ...settings, taskRoot: "docs/tasks" })).toBe("tasks");
+    expect(engine.areaOf("pulls/PR-1.md", settings)).toBe("pulls");
+    expect(engine.areaOf("pulls/old/notes.md", settings)).toBe("code");
   });
 });
 

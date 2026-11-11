@@ -62,6 +62,23 @@ A folder without a matching page still shows up and lists its children. **New su
 | ` ```plantuml ` | A PlantUML diagram |
 | ` ```ts ` (any language) | Syntax highlighting |
 | `- [ ]` and `- [x]` | A checklist; its boxes can be ticked as the page reads, which saves the page |
+| `[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`, `[ARROWS]`, `[FLOAT]` | A plan of the tasks; see [Plans](#plans) |
+
+### Plans
+
+A plan block, alone on its line, shows the tasks as they are now. Nothing is stored in the page, so it never goes stale:
+
+| Write | Get |
+| --- | --- |
+| `[EFFORT]` | A table of estimate, logged, remaining, forecast and variance per task, with totals, and how many tasks lack an estimate or a remaining effort |
+| `[DEPENDENCIES]` | A diagram of what waits for what: a blue border is ready, an orange dashed one blocked, a green one done |
+| `[GANTT]` | The tasks on a PlantUML timeline, one section per epic, the days off of the [calendar](Tasks.md#planning) closed and today marked. Dates are shown as written; a task without dates is placed after what it waits for (or from today) for its duration. Arrows join tasks to what they wait for, a task that starts before that is due is orange, the critical path is red, and the bars fill with the logged share of the forecast. A due date without a duration is a milestone; milestones dated in **Settings** show as points in time, and a task due after its milestone is orange |
+| `[ARROWS]` | The critical path as an arrow diagram: circles are events with their earliest / latest day, arrows are tasks with their duration and float, dashed arrows join tasks that wait for the same tasks, and the critical path is red |
+| `[FLOAT]` | The schedule as a table: duration, earliest and latest start and finish dates on the project's working days, float and free float of each unfinished task |
+| `[BURNDOWN]` | Remaining effort as bars and logged effort as a line, day by day, read from the tasks' history in Git (the newest 300 commits that changed tasks). Remaining counts the tasks with a `remaining` field |
+| `[BASELINE v1.0]` | What changed since a tag or commit, with who changed each task last: tasks added and removed, estimates, dates, milestones and dependencies, and how the estimate and forecast moved |
+
+Click a task in a diagram to open it. Narrow a plan to some tasks with `epic`, `milestone`, `assignee`, `label`, `type` or `status`, all of which must match; quote values with spaces: `[EFFORT epic="Release 1.0" label=cli]`. An epic includes the epics inside it. The fields behind the numbers are described in [Planning](Tasks.md#planning).
 
 [Writing pages](Writing.md) has more: math, code blocks with titles, line numbers and highlighted lines, foldable callouts, footnotes, keys and collapsible sections.
 

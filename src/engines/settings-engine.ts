@@ -12,11 +12,14 @@
 import YAML from "yaml";
 import {
   FIELD_TYPES,
+  PARTS,
   TASK_KEYS,
+  WEEKDAYS,
   taskType,
   TONES,
   type ContentArea,
   type FieldDefinition,
+  type Part,
   type PersonEntry,
   type Settings,
   type TaskType,
@@ -41,9 +44,10 @@ const FIELD_NAME = /^[A-Za-z][\w-]{0,39}$/;
  * with its templates, or the wiki folder with everything pages link to
  * there, such as images; null for code.
  */
-export function contentAreaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot">): ContentArea | null {
+export function contentAreaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot" | "pullRoot">): ContentArea | null {
   if (path === SETTINGS_FILE) return "settings";
   if (within(path, settings.taskRoot)) return "tasks";
+  if (within(path, settings.pullRoot)) return "pulls";
   return within(path, settings.wikiRoot) ? "wiki" : null;
 }
 
@@ -81,7 +85,8 @@ function validField(entry: unknown): FieldDefinition {
   if (!FIELD_NAME.test(fieldName))
     throw new Error(`"${fieldName}" is not a valid field name: start with a letter, then use letters, digits, - and _.`);
   if ((TASK_KEYS as readonly string[]).includes(fieldName.toLowerCase())) throw new Error(`${fieldName} is a built-in task property.`);
-  if (!(FIELD_TYPES as readonly unknown[]).includes(type)) throw new Error(`The field ${fieldName} must be text, number, date or choice.`);
+  if (!(FIELD_TYPES as readonly unknown[]).includes(type))
+    throw new Error(`The field ${fieldName} must be text, number, date, choice, effort or tasks.`);
   if (type !== "choice") return { name: fieldName, type: type as FieldDefinition["type"] };
   const values = Array.isArray(options) ? options.map((option) => (typeof option === "number" ? String(option) : trimmed(option))) : [];
   if (
@@ -120,6 +125,42 @@ function validPerson(entry: unknown): PersonEntry {
   };
 }
 
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isDate = (value: unknown): value is string => typeof value === "string" && DATE.test(value) && !Number.isNaN(Date.parse(value));
+
+/** The working days, days off and milestones plans count with. */
+function validCalendar(value: Settings): Pick<Settings, "workdays" | "holidays" | "milestones"> {
+  const { workdays, holidays, milestones } = value;
+  if (!Array.isArray(workdays) || !workdays.length || workdays.some((day) => !(WEEKDAYS as readonly unknown[]).includes(day)))
+    throw new Error(`List the working days as ${WEEKDAYS.join(", ")}: at least one.`);
+  if (!Array.isArray(holidays) || holidays.length > 500 || !holidays.every(isDate))
+    throw new Error("List the holidays as dates, written 2026-12-25 (up to 500).");
+  if (!Array.isArray(milestones) || milestones.length > 100) throw new Error("List the milestones (up to 100).");
+  const valid = milestones.map((milestone: unknown) => {
+    const { name, due } = isRecord(milestone) ? milestone : {};
+    const text = trimmed(name);
+    if (!text || text.length > 60) throw new Error("Give each milestone a name of up to 60 characters.");
+    if (!isDate(due)) throw new Error(`Give the milestone ${text} a date, written 2026-12-01.`);
+    return { name: text, due };
+  });
+  unique(
+    valid.map((milestone) => milestone.name),
+    "Milestone names must be unique.",
+  );
+  return {
+    workdays: WEEKDAYS.filter((day) => workdays.includes(day)),
+    holidays: [...new Set(holidays)].sort(),
+    milestones: valid,
+  };
+}
+
+/** Parts of the app, as the settings or preferences list them, once each and in the app's order. */
+export function validParts(value: unknown, what: string): Part[] {
+  if (!Array.isArray(value) || value.some((part) => !(PARTS as readonly unknown[]).includes(part)))
+    throw new Error(`List ${what} by their names: ${PARTS.join(", ")}.`);
+  return PARTS.filter((part) => value.includes(part));
+}
+
 /** Throws unless the names are unique, ignoring case. */
 function unique(names: readonly string[], message: string) {
   if (new Set(names.map((name) => name.toLowerCase())).size !== names.length) throw new Error(message);
@@ -127,6 +168,14 @@ function unique(names: readonly string[], message: string) {
 
 /** Keys that stay out of the file while they hold these values. */
 const OPTIONAL: Readonly<Record<string, unknown>> = {
+  unused: [],
+  workdays: ["mon", "tue", "wed", "thu", "fri"],
+  holidays: [],
+  milestones: [],
+  pullRoot: "pulls",
+  pullPrefix: "PR",
+  requiredApprovals: 1,
+  todosBlockMerge: true,
   hiddenColumns: [],
   types: DEFAULT_TYPES.map((type) => type.name),
   fields: [],
@@ -147,6 +196,14 @@ export class SettingsEngine {
       types: DEFAULT_TYPES,
       fields: [],
       people: [],
+      pullRoot: "pulls",
+      pullPrefix: "PR",
+      requiredApprovals: 1,
+      todosBlockMerge: true,
+      unused: [],
+      workdays: ["mon", "tue", "wed", "thu", "fri"],
+      holidays: [],
+      milestones: [],
     };
   }
 
@@ -165,6 +222,17 @@ export class SettingsEngine {
     if (!wikiHome.endsWith(".md")) throw new Error("The wiki home must be a Markdown file.");
     if (wikiRoot === taskRoot || within(wikiRoot, taskRoot) || within(taskRoot, wikiRoot))
       throw new Error("Wiki and task folders must not contain each other.");
+    const pullRoot = folder(value.pullRoot, "Pull request folder");
+    if ([wikiRoot, taskRoot].some((other) => other === pullRoot || within(pullRoot, other) || within(other, pullRoot)))
+      throw new Error("The pull request folder must not contain the wiki or task folder, nor be inside them.");
+    const pullPrefix = text(value.pullPrefix, "Pull request prefix", 12).toUpperCase();
+    if (!/^[A-Z][A-Z0-9]*$/.test(pullPrefix)) throw new Error("The pull request prefix uses letters and digits, starting with a letter.");
+    const requiredApprovals = value.requiredApprovals;
+    if (!Number.isInteger(requiredApprovals) || requiredApprovals < 0 || requiredApprovals > 20)
+      throw new Error("Required approvals is a whole number from 0 to 20.");
+    if (typeof value.todosBlockMerge !== "boolean") throw new Error("Whether open to-dos block a merge is true or false.");
+    const { workdays, holidays, milestones } = validCalendar(value);
+    const unused = validParts(value.unused, "the parts the project doesn't use");
     const taskPrefix = text(value.taskPrefix, "Task prefix", 12).toUpperCase();
     if (!/^[A-Z][A-Z0-9]*$/.test(taskPrefix)) throw new Error("The task prefix uses letters and digits, starting with a letter.");
     const statuses = Array.isArray(value.statuses) ? value.statuses.map(trimmed) : [];
@@ -208,7 +276,27 @@ export class SettingsEngine {
         const other = handles.get(alias.toLowerCase());
         if (other && other !== person) throw new Error(`An alias of @${person.handle} is another person's handle: ${alias}.`);
       }
-    return { name, wikiRoot, wikiHome, taskRoot, taskPrefix, statuses, statusIcons, hiddenColumns, types, fields, people };
+    return {
+      name,
+      wikiRoot,
+      wikiHome,
+      taskRoot,
+      taskPrefix,
+      statuses,
+      statusIcons,
+      hiddenColumns,
+      types,
+      fields,
+      people,
+      pullRoot,
+      pullPrefix,
+      requiredApprovals,
+      todosBlockMerge: value.todosBlockMerge,
+      unused,
+      workdays,
+      holidays,
+      milestones,
+    };
   }
 
   /** Reads a settings file over `fallback`; unknown keys are ignored here and kept by {@link serialize}. */

@@ -1,7 +1,7 @@
 # Pull requests
 
 > [!NOTE]
-> Proposal, not built yet. Tasks: [[GENBEYA-50]] to [[GENBEYA-56]].
+> A first prototype is built ([[GENBEYA-50]] to [[GENBEYA-56]]); see [The prototype](#the-prototype) for what it does and what is left. How to use it: [Pull requests](../Guide/Pull-requests.md).
 
 Code review inside the repository: a pull request is one Markdown file that holds everything about one unit of work: its description, the branches, the suggested changes grouped by issue, the discussion, its to-dos and the reviewers' verdicts. Before the merge, what is still open is resolved, dismissed, or turned into tasks and wiki pages, so the merged file is a short record and the knowledge lands where people look for it.
 
@@ -12,6 +12,28 @@ Code review inside the repository: a pull request is one Markdown file that hold
 - Where pull request files live is the project's choice, as for the wiki and the tasks: in the checkout or on the [Content branch](../Architecture/Content-branch.md).
 
 [TOC]
+
+## The prototype
+
+What the first version answers, to try out before deciding for good:
+
+- **IDs** have their own counter and prefix, `PR-7` (`pullPrefix`), in their own folder (`pullRoot`), a fourth content area.
+- **Line grammar:** replies and verdicts are written as below, the time as in task comments (local time to the minute, with the offset). Lines that start like a reply but can't be read are listed, never dropped.
+- **Policy:** `requiredApprovals` (1 by default) and `todosBlockMerge` (true by default).
+- **The change ID** is a SHA-256 of `git diff` from the merge base without hunk headers and blob IDs, not `git patch-id`, which needs input on stdin that Genbeya's hosts don't give processes. Only Markdown files directly in the pull request folder are left out.
+- **Merging** always makes a merge commit named after the pull request, with the merges Genbeya has; a merge that stops for conflicts is finished in **Changes** and then marked merged. **Decided** for squash and rebase merges done elsewhere: Genbeya doesn't offer them, and **Mark merged** records the target's commit once the target has every commit of the source; approvals are judged before the merge, on the change ID, which a squash or rebase of the same code keeps.
+- **Cleanup** resolves, dismisses with a reason, promotes to a new task or a section of a wiki page, or shortens a topic to its outcome.
+- **In the checkout**, the list also shows the pull requests whose files are on other local branches, read-only until their branch is checked out.
+- **Recorded, not verified:** a verdict whose committer isn't the person it names is marked, with who committed it.
+- **The view** puts threads below their lines in the diff, searches pull requests (`Ctrl+K`, and `/` inside them), has `J`, `K` and `N`, and is an [optional part](Optional-parts.md) that shows once the repository has a pull request file. The agent skill teaches the format to projects that have them.
+- **Tasks** show the pull requests that name them (branch, title or description), and board cards mark open ones.
+- **Where it lives:** the body's rules are pure functions in `src/utilities/pull-requests.ts`; the backend reads and writes frontmatter (`content.createPull`, `content.updatePull`) and compares branches (`versionControl.compare`). The web demo has the same, and a pull request for its `fahrenheit` branch.
+
+Left for later:
+
+- Comments on unchanged lines (the diff selects changed ones), outdated code ranges by their lines rather than their revision, applying a suggestion.
+- Pull requests in VS Code.
+- Verified verdicts, through signed commits or a forge.
 
 ## Who it is for
 
@@ -77,7 +99,7 @@ handling. Implements [[GENBEYA-17]], follows [[ADR-008]].
 | --- | --- |
 | Frontmatter | `id`, `title`, `status` (`draft`, `open`, `merged`, `closed`: only what a person decides), `author`, `source` and `target` branches, requested `reviewers`, and after the merge `merge_commit` |
 | Description | What the change does and why, with references to its tasks and pages |
-| `## Review` | One `###` topic per issue, with its shared remarks; one `####` per code range under it, as a [pinned reference](Pinned-references.md), with its own suggestion, to-dos and replies |
+| `## Review` | One `###` topic per issue, with its shared remarks; one `####` per code range under it, as a [pinned reference](../Guide/References.md#pinned-to-a-revision), with its own suggestion, to-dos and replies |
 | `## Discussion` | Remarks about the pull request as a whole, and the verdicts |
 
 - **Suggestions** are ordinary `diff` code blocks. They read well anywhere and render today. Applying one is optional and checks first that the lines still match.
@@ -184,11 +206,11 @@ The one large new piece: a **Pull requests** view, an [optional part](Optional-p
 
 ## Open questions
 
-- **Line grammar:** the exact form of replies and verdicts, time zones included, documented once with the time log's.
-- **IDs:** `PR-7` with its own counter, or the task prefix?
-- **Policy defaults:** how many approvals, and whether open to-dos block a merge by default.
+- **Line grammar:** the prototype's form of replies and verdicts, documented once with the time log's.
+- **IDs:** the prototype has `PR-7` with its own counter; or the task prefix?
+- **Policy defaults:** one approval in the prototype; whether open to-dos block a merge by default.
 - **Squash and rebase merges:** how the merge check compares a squashed or rebased result with the approved change.
 - **Trust:** what "verified" means offline and with a forge.
-- **Reference grammar:** paths with `@`, full commit IDs, references into other repositories ([Pinned references](Pinned-references.md)).
+- **References into other repositories:** a code range in a submodule or a sibling repository can't be pinned yet ([pinned references](../Guide/References.md#pinned-to-a-revision) name files of this repository).
 
 The test for the format: can someone without Genbeya open the file, understand the discussion, find the cited code with Git, suggest a change, and see the outcome?

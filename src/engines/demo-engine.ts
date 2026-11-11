@@ -3,8 +3,8 @@
  * The history the web demo gives the sample repository, so that every view
  * has something to try: teammates' commits, a tag, a branch whose merge
  * into main conflicts in one line of the README, an icon drawn twice,
- * everything pushed to a simulated remote, and a commit there that a fetch
- * brings in.
+ * a pull request asking for a review of that branch, everything pushed to
+ * a simulated remote, and a commit there that a fetch brings in.
  */
 import { fromBase64 } from "../utilities/bytes";
 
@@ -63,6 +63,47 @@ const ICON =
 /** The icon again, smaller, with a cloud in front of the sun. */
 const ICON_CLOUD =
   "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAEeElEQVR42u1cQWsTQRTuT8hP6HGP8SoIuXvJwauwFy+ecvPao7fiJYIKq1ttKa3G6rZKLbsqWCjYLiJFRUvIpYKVRkQUchl5YSdM090km+zuzOx8Hzwo3ezM7vfNvPfmzSRzcwAAAAAgGT3fYqKBEQgAAQAIAAEACAABAAigJGFOz7ds1QWgZ6RnLRv5oUCWraoAEfm8zbBMI58Nma2aAEPkc3PKIEDci80sQpYC5PWMpRYhcmtBZCHI1/BFjSFfxRc2jnyVXtxY8lUgwHjyxxBhT3hvtedbtZ5vNSKjv6t591t2Eewxn633fKvV861uwghm0TX6TD2rfk0RwR5xnUZ3ewTpSUb31KbtF7Uj36okrKLTGrVRAaPpyQ8zIH9Q14EI8siHCBkU77IyBwyPJr+WI/ncamA6WYB2AQK0wXRyns8KsjoYPy9Aq0ABWmD8vADdvIn/s3OBfd28wnafNv41XS9oul7YdD02ZGF0baHpevWm61VMIL+aJ/FE+ubaTRZD9qTWIjFUJS91Pl5U9kPELy0vnSFzeeM1e7N3yD587rBvnR/s56+/Z4z+R9foM/RZ8V5qi9pU6jjMFMQEMW00siT+9NVF1lq9NSDuwfoO2z34wjrHp+cIH2d0D91LbfD2qG3qAwLE2KF3ld17uNYn6u7KS/b+41Fq0pOM2qI2qW3qg/qCCxLs7ZMbg1G6sb3Hvp/8zox8btQmtS24pkUEYd9iO48XBqRkOepHzQZBhFKcH+rOOvLJPXw6Os6dfG7UF3dJ2s+EaRdi5If5SCySfFEEYSbYOgtQnybb4QG3CLczgTvqNl1v3phiHE81KSjKIp+bEJgDI8rRtCDifj+PbGea7EiIB3WdRXCG3czBs2v9UoK4uCoy45nCFbV1FqC/JUnBdXXlzsgaDa1OVSGfm7Bi1nMWNF2vdtt93uEk07TeCvb7o0tGlpPWqGzBC3i6EV+hBY04ulVyL2lqR8IsrejgcuyT7UvXeW2eRjyNIt2IF02oolIZ21ZWCCKfNkm4r6cHjysR62ZUyo6JWY5Sa4Q48lVIJ7NKSSle0Uxe33o3LMSi9BnBD8fyAlqZyE+KC5RIDG17VqWS33lxeZDllMHtTGL0nkJ86BYugngsnG8V6h5wZ9xPKE4EkXxewVRxISWhdhTmHhOGv5XCA6+OeX6WM0FwR4uFkU+1He77TSVfjAlCYJ7PS4AzxTUqrFGHlBWYLgCZkB05ec6CwXn/R8v39013P1JKF/znaqJjf1oU1ooyYbGW/5YmVxvEx1ZQHQggwYSN/QACSEpJOS8QQJIVKQCCsGQBWkhD5bqgBhZicoPwPEoREtPQSIQQbkjSQiwSwDa9HC39FAWdHjNxQ0ZKMS7pAJZpW5JSytFjRHBM2JSXuiEzwWm40EQRCt2STCNC2d2RtE35SUUow9FEZY+lmHA4V/mDWRNmR21dj6drcTQxxWItnOEHNlQzR8sv8EW1o0ZURQ00IjyISLeN+MkbAAAAAAAAAAAAAAAAAAAAAAAyw3/VOEE9+sCrqgAAAABJRU5ErkJggg==";
+
+/** A pull request for the Fahrenheit branch, waiting for Alex's review: the file sits on main, where the demo opens. */
+const PULL_REQUEST = text(
+  "---",
+  "id: PR-1",
+  "title: Show temperatures in Fahrenheit",
+  "status: open",
+  "author: Sam Rivera",
+  "source: fahrenheit",
+  "target: main",
+  "reviewers: [Alex Chen]",
+  "---",
+  "",
+  "Adds the conversion for [[PW-2]], with its test, and mentions `--fahrenheit` in the README.",
+  "The flag itself comes next.",
+  "",
+  "- [ ] Read the flag in [[src/forecast.ts]]",
+  "",
+  "## Review",
+  "",
+  "### How to convert",
+  "",
+  "**Alex Chen — 2026-09-17 10:05+02:00:** Reads well. One thought on the formula.",
+  "",
+  "#### [[src/units.ts#L2]]",
+  "",
+  "```diff",
+  "-export const toFahrenheit = (celsius: number): number => Math.round((celsius * 9) / 5 + 32);",
+  "+export const toFahrenheit = (celsius: number): number => Math.round(celsius * 1.8 + 32);",
+  "```",
+  "",
+  "**Alex Chen — 2026-09-17 10:07+02:00:** `1.8` might be easier to recognise.",
+  "",
+  "**Sam Rivera — 2026-09-17 11:20+02:00:** Same result. I'd keep the fraction, since it is exact.",
+  "",
+  "- [ ] Decide on the formula",
+  "",
+  "## Discussion",
+  "",
+  "**Sam Rivera — 2026-09-17 09:30+02:00 — requested review:** Ready for a look, Alex.",
+);
 
 const FORECAST_SOURCE_UNITS = "| `high`, `low` | Temperatures in °C, or °F with `--fahrenheit` |";
 
@@ -124,6 +165,13 @@ export class DemoEngine {
         author: ALEX,
         hoursAgo: 26,
         files: [{ path: "README.md", content: readme + USAGE("Run `npx tsx src/forecast.ts Zurich` for a three-day report.") }],
+      },
+      {
+        kind: "commit",
+        message: "Ask for a review of the Fahrenheit branch",
+        author: SAM,
+        hoursAgo: 25,
+        files: [{ path: "pulls/PR-1.md", content: PULL_REQUEST }],
       },
       { kind: "push", branch: "main" },
       {

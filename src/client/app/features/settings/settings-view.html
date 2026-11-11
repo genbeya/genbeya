@@ -76,6 +76,69 @@
           </div>
         </div>
         <div class="setting-row">
+          <div class="setting-label"><label for="setting-pulls">Pull request folder</label></div>
+          <div class="setting-control">
+            <input
+              #pullRoot
+              id="setting-pulls"
+              class="input mono"
+              spellcheck="false"
+              [value]="form().pullRoot"
+              (input)="set('pullRoot', pullRoot.value)"
+            />
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <label for="setting-pull-prefix">Pull request ID prefix</label
+            ><small>New pull requests are numbered {{ pullPrefix() }}-1, …</small>
+          </div>
+          <div class="setting-control">
+            <input
+              #pullPrefixField
+              id="setting-pull-prefix"
+              class="input mono short"
+              spellcheck="false"
+              [value]="form().pullPrefix"
+              (input)="set('pullPrefix', pullPrefixField.value)"
+            />
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <label for="setting-approvals">Approvals needed</label
+            ><small>Before a pull request counts as ready to merge. Genbeya advises; it can't enforce.</small>
+          </div>
+          <div class="setting-control">
+            <input
+              #approvals
+              id="setting-approvals"
+              class="input mono short"
+              type="number"
+              min="0"
+              max="20"
+              [value]="form().requiredApprovals"
+              (input)="setApprovals(approvals.valueAsNumber)"
+            />
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <label for="setting-todos-block">Open to-dos block a merge</label
+            ><small>Unticked to-dos in a pull request keep it from counting as ready to merge.</small>
+          </div>
+          <div class="setting-control">
+            <input
+              #todosBlock
+              id="setting-todos-block"
+              type="checkbox"
+              class="switch"
+              [checked]="form().todosBlockMerge"
+              (change)="setTodosBlock(todosBlock.checked)"
+            />
+          </div>
+        </div>
+        <div class="setting-row">
           <div class="setting-label"><span>Workflow</span><small>Board columns, in order. The last state counts as done.</small></div>
           <div class="setting-control">
             <gd-status-editor
@@ -103,6 +166,26 @@
             <span>Custom fields</span><small>Shown and edited under a task's properties, and stored in its frontmatter.</small>
           </div>
           <div class="setting-control"><gd-field-editor [value]="form().fields" (changed)="setFields($event)" /></div>
+        </div>
+        @if (parts.isShown("planning")) {
+          <div class="setting-row">
+            <div class="setting-label">
+              <span>Calendar</span
+              ><small>Working days, holidays and milestones with their dates, for the timeline and the critical path.</small>
+            </div>
+            <div class="setting-control">
+              <gd-calendar-editor [value]="form()" (changed)="setCalendar($event)" />
+            </div>
+          </div>
+        }
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>Parts of the app</span
+            ><small>What the project uses. Nobody sees the others, and the agent files leave them out; their files stay.</small>
+          </div>
+          <div class="setting-control">
+            <gd-part-switches aria-label="Parts the project uses" [off]="form().unused" (toggled)="setUsed($event.part, $event.on)" />
+          </div>
         </div>
       </div>
     </section>
@@ -243,6 +326,40 @@
                 </button>
               }
             </div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span id="parts-label">Show</span><small>The parts of the app you see. Hiding one changes nothing for others.</small>
+          </div>
+          <div class="setting-control parts-control">
+            <div class="segmented" role="radiogroup" aria-label="Where these choices apply">
+              <button
+                type="button"
+                role="radio"
+                [attr.aria-checked]="parts.ownChoice()"
+                [class.is-active]="parts.ownChoice()"
+                (click)="parts.setOwnChoice(true)"
+              >
+                This repository
+              </button>
+              <button
+                type="button"
+                role="radio"
+                [attr.aria-checked]="!parts.ownChoice()"
+                [class.is-active]="!parts.ownChoice()"
+                (click)="parts.setOwnChoice(false)"
+              >
+                Every repository
+              </button>
+            </div>
+            <gd-part-switches
+              aria-labelledby="parts-label"
+              [off]="parts.hidden()"
+              [omit]="parts.unused()"
+              [automatic]="automaticParts()"
+              (toggled)="parts.setShown($event.part, $event.on, !parts.ownChoice())"
+            />
           </div>
         </div>
         <div class="setting-row">

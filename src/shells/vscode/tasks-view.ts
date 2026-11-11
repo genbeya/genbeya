@@ -4,6 +4,7 @@
  * them there. A task opens in its preview; its Edit action opens the file.
  */
 import * as vscode from "vscode";
+import { dependenciesOf, planTasks } from "../../utilities/planning";
 import { epicName, lanesOf, titleCase } from "../../client/app/features/tasks/task-model";
 import type { Task } from "../../contracts/model";
 import type { Repository } from "./repository";
@@ -66,6 +67,27 @@ export class TasksView implements vscode.TreeDataProvider<TaskElement>, vscode.T
     }
   }
 
+  private blocked: { version: string; tasks: Map<string, string[]> } | null = null;
+
+  /** The unfinished tasks each blocked task waits for, by upper-case ID, worked out once per snapshot. */
+  private blockedBy(): Map<string, string[]> {
+    const snapshot = this.repository()?.snapshot;
+    if (!snapshot || snapshot.settings.unused.includes("planning")) return new Map();
+    if (this.blocked?.version !== snapshot.version) {
+      const plan = planTasks(snapshot.tasks);
+      const { statuses } = snapshot.settings;
+      const dependencies = dependenciesOf(plan, statuses);
+      const done = new Set(plan.filter((task) => task.status === statuses.at(-1)).map((task) => task.id.toUpperCase()));
+      const tasks = new Map(
+        [...dependencies.states]
+          .filter(([, state]) => state === "blocked")
+          .map(([id]) => [id, (dependencies.waitsFor.get(id) ?? []).filter((other) => !done.has(other))] as [string, string[]]),
+      );
+      this.blocked = { version: snapshot.version, tasks };
+    }
+    return this.blocked.tasks;
+  }
+
   getTreeItem(element: TaskElement): vscode.TreeItem {
     if (element.kind === "epic") {
       const item = new vscode.TreeItem(epicName(element.epic), vscode.TreeItemCollapsibleState.Expanded);
@@ -90,10 +112,12 @@ export class TasksView implements vscode.TreeDataProvider<TaskElement>, vscode.T
     const item = new vscode.TreeItem(task.title, vscode.TreeItemCollapsibleState.None);
     item.id = `task:${task.path}`;
     // Grouped by epic, the epic is the task's folder above it.
-    item.description = [task.id, task.assignee, element.epic === null && task.epic].filter(Boolean).join(" · ");
+    const blockers = this.blockedBy().get(task.id.toUpperCase());
+    item.description = [task.id, task.assignee, element.epic === null && task.epic, blockers && "blocked"].filter(Boolean).join(" · ");
     item.iconPath = new vscode.ThemeIcon(TYPE_ICONS[task.type] ?? "circle-outline");
     item.contextValue = "task";
     item.tooltip = tooltip(task);
+    if (blockers) item.tooltip.appendMarkdown(`\n\nBlocked: waits for ${blockers.join(", ")}`);
     const repository = this.repository();
     if (repository) {
       item.resourceUri = repository.uri("tasks", task.path);

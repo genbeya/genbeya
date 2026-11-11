@@ -1,13 +1,33 @@
 # Optional parts
 
 > [!NOTE]
-> Proposal, not built yet. Tasks: [[GENBEYA-39]], [[GENBEYA-40]], [[GENBEYA-41]].
+> A first prototype is built ([[GENBEYA-39]], [[GENBEYA-40]], [[GENBEYA-41]]); see [The prototype](#the-prototype) for what it does and what is left. How to use it: [Turning parts off](../Guide/Settings.md#turning-parts-off).
 
 Not every project wants a wiki, a task board or planning, and not every person wants to see all of them. Each part of the app can be turned off, and the interface leaves it out.
 
 **Decided:** every user can turn parts of the app on and off, and this comes before new features such as [Planning](Planning.md) and [Pull requests](Pull-requests.md), so they are built switchable from the start. Being removable keeps a feature behind a clean boundary instead of leaking into the rest of the app.
 
 [TOC]
+
+## The prototype
+
+What the first version answers, to try out before deciding for good:
+
+- **The key** is `unused: [wiki, planning]` in `.genbeya.yml`: listing what is off, so a missing key means everything is on and nothing changes for existing projects.
+- **The parts** are `wiki`, `tasks`, `planning`, `timelog`, `code`, `changes`, `history`, `pulls` and `terminal`. Planning needs tasks and the time log needs planning; turning one off takes those along, and turning one on brings back what it needs.
+- **The user layer** is `parts` in the personal preferences: a choice per part (shown or hidden) for every repository, and choices for single repositories, which win. **Settings → App → Show** switches between **This repository** and **Every repository**.
+- **Decided:** the wiki, the tasks and the other views never hide themselves, even without their folder: only planning, the time log and pull requests are automatic.
+- **Automatic parts:** planning, the time log and pull requests show once the project uses them (a planning field or a time log; a time log; a pull request file) until the user chooses. Existing users keep seeing everything they saw; the time log is off until someone logs time, as the planning design asks. **New pull request** stays in the palette meanwhile.
+- **Hidden parts** leave the sidebar, the palette (views, commands, pages, tasks, files), full-text search results and the tour. `Ctrl+1` … `Ctrl+6` keep their numbers. A repository opens in the first view that shows.
+- **References** into a hidden part open a read-only preview of the page, task or file: hidden is out of the way, not locked.
+- **Loading only what is shown:** tasks and pull requests turned off (by the user or the project) aren't read; the snapshot carries the task IDs from the file names, so references still reach the tasks. On 3,000 tasks a snapshot took 260 ms instead of 900 ms.
+- **Agent files** leave an unused wiki or task board out, and say what `unused` means; with nothing unused, they are byte for byte what they were.
+- **VS Code** hides the wiki and task views of a project that doesn't use them.
+- **Where it lives:** the parts and their needs are in `src/contracts/model.ts`, the client's view of them in `src/client/app/core/parts.ts`.
+
+Left for later:
+
+- Plan macros in VS Code's preview follow the project layer only.
 
 ## Two layers
 
@@ -47,7 +67,7 @@ A settings page of forty switches would be bloat of its own, so the list stays t
 
 ## What turning a part off does
 
-- **Sidebar, palette and shortcuts:** the view disappears from the sidebar and the `Ctrl+K` palette. `Ctrl+1` … `Ctrl+5` keep their views and skip hidden ones, so muscle memory survives.
+- **Sidebar, palette and shortcuts:** the view disappears from the sidebar and the `Ctrl+K` palette. `Ctrl+1` … `Ctrl+6` keep their views and skip hidden ones, so muscle memory survives.
 - **Search** leaves hidden parts out.
 - **References into a hidden part** still resolve and show their title: `[[A page]]` in a task stays a link and opens a read-only preview, not a broken link.
 - **Files are never touched.** Turning the wiki off doesn't delete `docs/`, and turning it on again shows everything as before.
@@ -61,10 +81,10 @@ A settings page of forty switches would be bloat of its own, so the list stays t
 
 ## Loading only what is shown
 
-Hiding is a matter of the client. The backend still builds a snapshot of everything (pages, tasks, settings) when a repository opens. Loading each area only when it is shown would make turning parts off save memory and time too, which matters for large repositories over SSH. That is a refactor of its own ([[GENBEYA-41]]) and can follow the switches.
+Hiding is a matter of the client, but what nobody shows needn't be read: snapshots leave out tasks and pull requests that are turned off ([[GENBEYA-41]]), which matters for large repositories over SSH. The wiki stays, since its tree comes from file names alone.
 
 ## Open questions
 
-- Is listing unused parts (`unused:`) clearer than listing used ones?
-- Do the personal switches apply per repository by default, or for all repositories unless a repository overrides them?
-- Is a hidden part reachable through a reference or a shared link, read-only, or not at all?
+- Is listing unused parts (`unused:`) clearer than listing used ones? The prototype lists unused ones.
+- Do the personal switches apply per repository by default, or for all repositories unless a repository overrides them? The prototype applies them to every repository unless the repository has a choice of its own.
+- Is a hidden part reachable through a reference or a shared link, read-only, or not at all? The prototype keeps it reachable.

@@ -11,6 +11,7 @@ import { syncsContentBranch, type Snapshot, type WikiNode } from "../../contract
 import { createBackend, type Backend } from "../../managers/backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { CONTENT_SCHEME, ContentFiles } from "./content-files";
+import { REVISION_SCHEME, RevisionFiles } from "./revision-files";
 import { MarkdownLanguage } from "./markdown-language";
 import { Repository } from "./repository";
 import { TaskActions } from "./task-actions";
@@ -79,6 +80,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
     void webviews.refresh();
     language.refresh();
     showContentBranch();
+    showUsedParts();
+  };
+  /** The project's unused parts leave the views; VS Code lets everyone hide views of their own. */
+  const showUsedParts = () => {
+    const unused = repository?.snapshot.settings.unused ?? [];
+    void vscode.commands.executeCommand("setContext", "genbeya.unusedWiki", unused.includes("wiki"));
+    void vscode.commands.executeCommand("setContext", "genbeya.unusedTasks", unused.includes("tasks"));
   };
   /** The content branch, and how far it is ahead of and behind its remote, in the views' titles. */
   const showContentBranch = () => {
@@ -143,6 +151,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
     wikiTree,
     tasksTree,
     vscode.workspace.registerFileSystemProvider(CONTENT_SCHEME, files, { isCaseSensitive: true }),
+    vscode.workspace.registerTextDocumentContentProvider(REVISION_SCHEME, new RevisionFiles(current)),
     vscode.workspace.onDidChangeWorkspaceFolders(() => void open()),
     webviews,
     language,

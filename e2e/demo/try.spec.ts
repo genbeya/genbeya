@@ -3,7 +3,7 @@ import { expect, test as base, type Page } from "@playwright/test";
 
 const MOD = process.platform === "darwin" ? "Meta" : "Control";
 /** The views by their links: browsers keep Ctrl+1 to Ctrl+9 for their tabs. */
-const VIEWS = { tasks: "Tasks", changes: "Changes", history: "History" } as const;
+const VIEWS = { tasks: "Tasks", changes: "Changes", history: "History", pulls: "Pull requests" } as const;
 const show = (page: Page, view: keyof typeof VIEWS) =>
   page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: VIEWS[view] }).click();
 
@@ -129,6 +129,77 @@ test("merges a branch, resolving its conflict", async ({ page }) => {
   await expect(banner).toBeHidden();
   await show(page, "history");
   await expect(page.locator(".history-row").first()).toContainText("Merge branch 'fahrenheit'");
+});
+
+test("reviews the Fahrenheit pull request: comments on a line, approves, and sees what blocks the merge", async ({ page }) => {
+  await show(page, "pulls");
+  await page.locator(".pull-row", { hasText: "Show temperatures in Fahrenheit" }).click();
+  const gates = page.getByRole("list", { name: "Ready to merge?" });
+  await expect(gates).toContainText("0 of 1 approval");
+  await expect(gates).toContainText("Conflicts with main");
+  await expect(gates).toContainText("2 open to-dos");
+
+  await page.getByRole("tab", { name: /Files/ }).click();
+  await page.locator(".pull-file", { hasText: "src/units.ts" }).click();
+  await expect(page.locator(".pull-thread")).toContainText("How to convert");
+  await page.locator(".cm-hunkBar").first().getByRole("button", { name: "Comment on hunk" }).click();
+  const dialog = page.getByRole("dialog", { name: /Comment on src\/units.ts/ });
+  await dialog.getByRole("combobox", { name: "Topic" }).selectOption({ label: "New topic" });
+  await dialog.getByRole("textbox", { name: "Topic title" }).fill("Naming");
+  await dialog.getByRole("textbox", { name: "Comment" }).fill("Maybe celsiusToFahrenheit?");
+  await dialog.getByRole("button", { name: "Comment" }).click();
+  await expect(page.locator(".pull-thread", { hasText: "Naming" })).toContainText("Maybe celsiusToFahrenheit?");
+  // Threads show beside their lines in the diff too.
+  await expect(page.locator(".cm-diff-note", { hasText: "Naming" })).toContainText("Maybe celsiusToFahrenheit?");
+
+  await page.getByRole("tab", { name: "Conversation" }).click();
+  await page.getByRole("button", { name: "Approve" }).click();
+  await expect(gates).toContainText("1 of 1 approval");
+  await expect(page.getByLabel("Reviewers")).toContainText("You");
+});
+
+test("turns parts of the app off for the project and for the user", async ({ page }) => {
+  const views = page.getByRole("navigation", { name: "Views" });
+  await page.getByRole("link", { name: "Settings" }).click();
+  // For the user alone: gone from the sidebar at once.
+  const mine = page.getByRole("group", { name: "Show" });
+  await mine.getByRole("checkbox", { name: /^Pull requests/ }).uncheck();
+  await expect(views.getByRole("link", { name: "Pull requests" })).toHaveCount(0);
+
+  // For the project: saved to .genbeya.yml, and what needs the part goes with it.
+  const project = page.getByRole("group", { name: "Parts the project uses" });
+  await project.getByRole("checkbox", { name: "Tasks", exact: true }).uncheck();
+  await expect(project.getByRole("checkbox", { name: /^Planning/ })).toBeDisabled();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(views.getByRole("link", { name: "Tasks" })).toHaveCount(0);
+  await expect(mine.getByRole("checkbox", { name: "Tasks", exact: true })).toHaveCount(0);
+  await expect(views.getByRole("link", { name: "Wiki" })).toBeVisible();
+});
+
+test("plans the release live from the tasks, and opens a task from the diagram", async ({ page }) => {
+  await page.getByRole("link", { name: "Release plan" }).first().click();
+  const article = page.locator(".document-article");
+  await expect(article.getByRole("heading", { level: 1, name: "Release plan" })).toBeVisible();
+  // [EFFORT] adds up estimate, logged and remaining effort.
+  await expect(article.locator("table").first()).toContainText("PW-2");
+  await expect(article.locator("table").first()).toContainText("Total");
+  // [BURNDOWN] reads the tasks' history from Git.
+  await expect(article.locator(".md-plan-history img")).toBeVisible();
+  // [DEPENDENCIES] draws what waits for what; a task's label opens the task.
+  const diagram = article.locator(".md-diagram img[alt='Mermaid diagram']").first();
+  await expect(diagram).toBeVisible();
+  // Over a task's label, the diagram offers to open the task.
+  await diagram.scrollIntoViewIfNeeded();
+  const box = (await diagram.boundingBox())!;
+  let point: { x: number; y: number } | null = null;
+  for (let y = 4; y < box.height && !point; y += 6)
+    for (let x = 4; x < box.width && !point; x += 12) {
+      await page.mouse.move(box.x + x, box.y + y);
+      if ((await diagram.getAttribute("title")) === "Open PW-6") point = { x, y };
+    }
+  expect(point).not.toBeNull();
+  await diagram.click({ position: point! });
+  await expect(page.getByRole("heading", { level: 1, name: "Publish the first release" })).toBeVisible();
 });
 
 test("starts over when the demo is reset", async ({ page }) => {

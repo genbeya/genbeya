@@ -51,7 +51,27 @@ A diff of a binary file has no lines; `diff` says `binary` and gives the `sizes`
 
 `diffImages(path, source, oldPath, base)` takes the arguments of `diff` and returns the two versions of an image as data URLs, `null` for a side without the file: the index and the working tree, HEAD (or the amended commit's parent) and the index, or a commit and its first parent. Each side's media type comes from its own name, so a renamed image keeps its old type on the old side. It serves what `content.image` serves — PNG, JPEG, GIF, WebP, SVG and AVIF (`src/utilities/image-types.ts`) — and refuses sides over 10 MB. The client asks for it only when `diff`'s version changed, or has none.
 
+## Files at a revision
+
+`fileAt(revision, path)` reads a text file as committed in a revision, for [pinned references](../Guide/References.md#pinned-to-a-revision). The revision is anything Git resolves: a commit ID, a tag, a branch, or `HEAD~2`; `isRevision` in `src/utilities/references.ts` refuses whatever Git could read as an option, a path (`:`), a range (`..`) or reflog syntax (`@`). It returns the full commit ID and the text, with `commit: null` when Git knows no such commit and `content: null` when the commit has no such file (a folder counts as none). Binary files and files over 2 MB are refused, as `content.read` refuses them. The client compares the text with the checkout to mark references whose lines read differently now; nothing is cached on the backend.
+
 Which files the client compares as images, and which it previews in **Code**, the preview registry decides (`src/client/app/features/preview/file-previews.ts`): one renderer per kind of file — Markdown, Mermaid, PlantUML, SVG and raster images — each saying whether the file is text to edit and how its diff compares it. A new kind, such as PDF, audio or video, is another renderer there.
+
+## Pull requests
+
+`content.createPull(input)` writes a new [pull request](../Guide/Pull-requests.md) file with the next free ID and the Git user name as its author; `content.updatePull(path, input, expectedHash)` rewrites its frontmatter fields (keeping others) and its body, refused once the file changed. The pull engine (`src/engines/pull-engine.ts`) reads and writes the frontmatter; the body's review, replies, verdicts and to-dos, and which approvals still count, are pure functions in `src/utilities/pull-requests.ts`, which the client uses to edit the body.
+
+`versionControl.compare(source, target, revisions, exclude)` says what merging the branch `source` into `target` brings (`src/access/git/pull-access.ts`): both commits, their merge base, how far the source is ahead and behind (`git rev-list --left-right --count`), the files it changes from the merge base (`git diff --name-status -M`), whether the merge conflicts (`git merge-tree --write-tree`, without touching the checkout; null before Git 2.38 or for unrelated histories), and a **change ID**: a SHA-256 of `git diff` from the merge base with hunk headers and blob IDs left out, so a rebase that keeps the code keeps it. Markdown files directly in the folder `exclude` (the pull request folder) don't count, so review commits on the source branch leave it alone. For each of `revisions` (the commits verdicts name) it returns the commit and its change ID against the target, which is how the client tells effective approvals from stale ones. A branch that doesn't exist gives a null head and no change. `diff` takes `{ from, to }` for the diff between two commits, as the pull request's files show it.
+
+In the checkout, the snapshot's pull requests include those whose files are only on other local branches (the 50 most recently committed), read with `git ls-tree` and `git cat-file` and kept per branch until the branch moves; they carry `branch` and are read-only in the client. `content.lineAuthors(path, lines)` says who committed each line of a pull request file first, from the file's history, so the client can tell a verdict recorded for one person but committed by another.
+
+## Plan history
+
+`content.planHistory(baseline)` reads the committed history of every task at once (`src/access/git/folder-history.ts`): one `git log --patch` over the task folder with whole-file patches, newest first, at most 300 commits, each with the tasks it changed as they were after it. With a baseline (a tag, branch or commit), it also returns the tasks at that revision (`git ls-tree` and `git cat-file`) and when it was made. The burn chart and the comparison with a baseline are pure functions over this in `src/utilities/plan-history.ts`; `[BURNDOWN]` and `[BASELINE]` placeholders in rendered Markdown are filled once the history is read, cached per repository state.
+
+## Areas nobody shows
+
+`workspace.snapshot(workspace, since, base, skip)` leaves out the areas `skip` names, `tasks` and `pulls`, when the user turned them off or the project doesn't use them: their files aren't read, and for tasks the snapshot carries `taskIndex`, each task file's ID from its name, so references still reach them. On a repository with 3,000 tasks and 1,500 pages, reading the tasks was about 650 ms of a 900 ms snapshot; without tasks and pull requests the snapshot took about 260 ms. The wiki stays: its tree comes from file names, which references need anyway. Automatic parts that are off only until the project uses them are still read, to notice that.
 
 ## .gitignore
 
@@ -166,7 +186,7 @@ Structured files change only where they must. A task update rewrites the fields 
 
 ## Content areas
 
-The wiki, tasks and settings each live in the checkout or on the [Content branch](Content-branch.md). File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.genbeya.yml` belongs to the settings, the task folder to the tasks, and everything else, such as pages and their images, to the wiki. Page, task, comment and settings calls use their own area, and edits are committed right away only when that area is on the content branch. A task's activity is the history of its file where the tasks live. `content.setStorage(workspace, area, mode)` moves one area.
+The wiki, tasks, settings and pull requests each live in the checkout or on the [Content branch](Content-branch.md). File calls name a scope: `repo` is the checkout; `content` is wherever the path's area lives: `.genbeya.yml` belongs to the settings, the task folder to the tasks, the pull request folder to the pull requests, and everything else, such as pages and their images, to the wiki. Page, task, pull request, comment and settings calls use their own area, and edits are committed right away only when that area is on the content branch. A task's activity is the history of its file where the tasks live. `content.setStorage(workspace, area, mode)` moves one area.
 
 Inside the backend, `workspace.locateContent(path)` names the location of a content path (its root, files, Git and branch), for reading a file's history wherever it lives.
 

@@ -31,7 +31,7 @@ async function backend(dataFolder?: string): Promise<Managers> {
 }
 
 async function shareEverything(content: Managers["content"], id: string) {
-  for (const area of ["wiki", "tasks", "settings"] as const) await content.setStorage(id, area, "branch");
+  for (const area of ["wiki", "tasks", "settings", "pulls"] as const) await content.setStorage(id, area, "branch");
 }
 
 async function opened(files?: Record<string, string>, commit?: boolean) {
@@ -142,6 +142,7 @@ describe("WorkspaceManager", () => {
       lastSeenVersion: null,
       tourSeen: false,
       tourOffered: [],
+      parts: { all: {}, repositories: {} },
     });
     await expect(managers.workspace.setPreferences({ theme: "neon" } as never)).rejects.toThrow("theme");
     await expect(managers.workspace.setPreferences({ reopenLast: "yes" } as never)).rejects.toThrow("reopenLast");
@@ -472,6 +473,113 @@ describe("ContentManager", () => {
     await expect(content.updateTask(id, "docs/Home.md", input, "x")).rejects.toThrow("inside tasks/");
   });
 
+  it("opens pull requests with sequential IDs and updates them in place", async () => {
+    const { content, id, latest, repository } = await opened();
+    const pull = { title: "Add it", status: "open" as const, source: "feature", target: "main", reviewers: ["Alex"], body: "Why.\n" };
+    const first = await content.createPull(id, pull);
+    expect(first).toMatchObject({ id: "PR-1", path: "pulls/PR-1.md", author: "Test", reviewers: ["Alex"], mergeCommit: null });
+    expect((await content.createPull(id, { ...pull, title: "Second" })).id).toBe("PR-2");
+    const raw = await content.read(id, "content", first.path);
+    await content.write(id, "content", first.path, raw.content.replace("title:", "# keep me\ntitle:"), raw.hash);
+    const current = (await latest()).pulls.find((candidate) => candidate.id === "PR-1")!;
+    const merged = "c".repeat(40);
+    const updated = await content.updatePull(id, first.path, { ...pull, status: "merged", mergeCommit: merged }, current.hash);
+    expect(updated).toMatchObject({ status: "merged", mergeCommit: merged, body: "Why.\n" });
+    expect(await repository.read(first.path)).toMatch(/# keep me[\s\S]*merge_commit: c{40}/);
+    await expect(content.updatePull(id, first.path, pull, current.hash)).rejects.toThrow("changed on disk");
+    await expect(content.updatePull(id, "docs/Home.md", pull, "x")).rejects.toThrow("is not a pull request");
+    await expect(content.createPull(id, { ...pull, source: "-x" })).rejects.toThrow("not a branch name");
+    expect((await latest()).pulls.map((candidate) => candidate.id)).toEqual(["PR-1", "PR-2"]);
+  });
+
+  it("lists pull requests whose files are on other branches, read-only, in the checkout", async () => {
+    const { content, id, latest, repository } = await opened();
+    await repository.git("switch", "-q", "-c", "feature");
+    await content.createPull(id, { title: "On feature", status: "open", source: "feature", target: "main", reviewers: [], body: "" });
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Open PR-1");
+    await repository.git("switch", "-q", "main");
+    expect((await latest()).pulls.map((pull) => [pull.id, pull.branch ?? null])).toEqual([["PR-1", "feature"]]);
+    // New pull requests take the next ID across branches.
+    expect(
+      (await content.createPull(id, { title: "On main", status: "open", source: "x", target: "main", reviewers: [], body: "" })).id,
+    ).toBe("PR-2");
+    // PR-2 isn't committed, so it comes along, as uncommitted files do.
+    await repository.git("switch", "-q", "feature");
+    expect((await latest()).pulls.map((pull) => [pull.id, pull.branch ?? null])).toEqual([
+      ["PR-1", null],
+      ["PR-2", null],
+    ]);
+  });
+
+  it("reads the history of the plan from the commits, and the tasks at a baseline", async () => {
+    const { content, id, repository } = await opened();
+    const task = await content.createTask(id, { ...input, fields: { remaining: "8h" } });
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Plan it");
+    await repository.git("tag", "baseline");
+    await repository.write(task.path, (await repository.read(task.path)).replace("remaining: 8h", "remaining: 3h"));
+    await repository.git("-c", "user.name=Sam", "commit", "-qam", "Less to do");
+    const history = await content.planHistory(id, "baseline");
+    expect(history.commits.map((commit) => [commit.subject, commit.author, commit.tasks[0]!.task!.fields["remaining"]])).toEqual([
+      ["Less to do", "Sam", "3h"],
+      ["Plan it", "Test", "8h"],
+    ]);
+    expect(history.baseline).toMatchObject({ revision: "baseline", tasks: [{ id: "TP-1", fields: { remaining: "8h" } }] });
+    expect((await content.planHistory(id, "nope")).baseline).toMatchObject({ commit: null, tasks: [] });
+    await expect(content.planHistory(id, "-x")).rejects.toThrow();
+  });
+
+  it("leaves tasks and pull requests out of snapshots when asked, with the IDs of the task files", async () => {
+    const { content, id, workspace } = await opened();
+    const task = await content.createTask(id, input);
+    await content.createPull(id, { title: "P", status: "open", source: "f", target: "main", reviewers: [], body: "" });
+    const skipped = (await workspace.snapshot(id, undefined, "head", ["tasks", "pulls"]))!;
+    expect(skipped).toMatchObject({ tasks: [], pulls: [], skipped: ["tasks", "pulls"], taskIndex: [{ id: "TP-1", path: task.path }] });
+    const full = (await workspace.snapshot(id))!;
+    expect([full.tasks.length, full.pulls.length, full.skipped, full.taskIndex]).toEqual([1, 1, undefined, undefined]);
+    await expect(workspace.snapshot(id, undefined, "head", ["wiki"] as never)).rejects.toThrow("Invalid areas to skip.");
+  });
+
+  it("tells who committed each line of a pull request", async () => {
+    const { content, id, repository } = await opened();
+    const pull = await content.createPull(id, {
+      title: "Add it",
+      status: "open",
+      source: "f",
+      target: "main",
+      reviewers: [],
+      body: "Why.\n",
+    });
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Open PR-1");
+    const verdict = "**Frank — 2026-10-24 11:00+02:00 — approved `abc1234`:** Looks good.";
+    await repository.write(pull.path, `${await repository.read(pull.path)}\n## Discussion\n\n${verdict}\n`);
+    expect(await content.lineAuthors(id, pull.path, [verdict, "Why."])).toEqual([null, "Test"]);
+    await repository.git("add", ".");
+    await repository.git("-c", "user.name=Sam", "commit", "-qm", "Approve as Frank");
+    expect(await content.lineAuthors(id, pull.path, [verdict])).toEqual(["Sam"]);
+    await expect(content.lineAuthors(id, "docs/Home.md", [])).rejects.toThrow("is not a pull request");
+  });
+
+  it("keeps pull requests on the content branch, committing every change", async () => {
+    const { content, id, latest, repository } = await opened();
+    await content.setStorage(id, "pulls", "branch");
+    const pull = await content.createPull(id, { title: "Add it", status: "draft", source: "f", target: "main", reviewers: [], body: "" });
+    await content.updatePull(
+      id,
+      pull.path,
+      { title: "Add it", status: "open", source: "f", target: "main", reviewers: [], body: "Ready.\n" },
+      pull.hash,
+    );
+    expect(await repository.exists(pull.path)).toBe(false);
+    expect((await latest()).pulls.map((candidate) => [candidate.id, candidate.status])).toEqual([["PR-1", "open"]]);
+    expect((await repository.git("log", "--format=%s", "genbeya")).split("\n").slice(0, 2)).toEqual([
+      "Update PR-1: Add it",
+      "Open PR-1: Add it",
+    ]);
+  });
+
   it("starts tasks of a type from its template, which is not a task itself", async () => {
     const { content, id, latest, repository } = await opened({
       ".genbeya.yml": "name: T\ntaskPrefix: TP\n",
@@ -739,10 +847,13 @@ describe("ContentManager", () => {
 
   it("keeps every area on the content branch when asked", async () => {
     const { content, id, latest, repository } = await opened();
-    expect((await latest()).storage).toEqual({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null });
-    for (const area of ["wiki", "tasks", "settings"] as const) await content.setStorage(id, area, "branch");
     expect((await latest()).storage).toEqual({
-      areas: { wiki: "branch", tasks: "branch", settings: "branch" },
+      areas: { wiki: "checkout", tasks: "checkout", settings: "checkout", pulls: "checkout" },
+      branch: null,
+    });
+    for (const area of ["wiki", "tasks", "settings", "pulls"] as const) await content.setStorage(id, area, "branch");
+    expect((await latest()).storage).toEqual({
+      areas: { wiki: "branch", tasks: "branch", settings: "branch", pulls: "branch" },
       branch: { name: "genbeya", remote: null, ahead: 0, behind: 0 },
     });
     const task = await content.createTask(id, input);
@@ -758,8 +869,10 @@ describe("ContentManager", () => {
     ]);
     await expect(content.setStorage(id, "wiki", "cloud" as never)).rejects.toThrow("Invalid storage mode.");
     await expect(content.setStorage(id, "code" as never, "branch")).rejects.toThrow("Invalid content area.");
-    for (const area of ["wiki", "tasks", "settings"] as const) await content.setStorage(id, area, "checkout");
-    expect((await latest()).storage).toMatchObject({ areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" } });
+    for (const area of ["wiki", "tasks", "settings", "pulls"] as const) await content.setStorage(id, area, "checkout");
+    expect((await latest()).storage).toMatchObject({
+      areas: { wiki: "checkout", tasks: "checkout", settings: "checkout", pulls: "checkout" },
+    });
     expect(await repository.exists(task.path)).toBe(true);
   });
 
@@ -773,7 +886,7 @@ describe("ContentManager", () => {
     await content.createPage(id, "docs/Notes.md");
 
     const snapshot = await latest();
-    expect(snapshot.storage.areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout" });
+    expect(snapshot.storage.areas).toEqual({ wiki: "checkout", tasks: "branch", settings: "checkout", pulls: "checkout" });
     expect(snapshot.tasks.map((t) => t.id)).toEqual(["TP-1"]);
     expect(snapshot.wiki.map((node) => node.title)).toContain("Notes");
     expect(snapshot.changes.map((change) => change.path)).toEqual(["docs/Notes.md"]);
@@ -946,6 +1059,28 @@ describe("VersionControlManager", () => {
     expect((await versionControl.diffImages(id, "logo.webp", "index", "logo.png")).modified).toMatch(/^data:image\/webp;base64,/);
   });
 
+  it("reads a file as committed in a revision", async () => {
+    const { versionControl, id, repository } = await opened();
+    const [first] = await versionControl.log(id, 0, 1);
+    await repository.write("src/code.ts", "export const value = 2;\n");
+    await repository.write("bin.dat", new Uint8Array([0, 1, 2]));
+    await repository.git("add", ".");
+    await repository.git("commit", "-q", "-m", "Change value");
+    await repository.git("tag", "v1");
+    const old = { commit: first!.hash, content: "export const value = 1;\n" };
+    expect(await versionControl.fileAt(id, first!.hash, "src/code.ts")).toEqual(old);
+    expect(await versionControl.fileAt(id, first!.hash.slice(0, 7), "src/code.ts")).toEqual(old);
+    expect(await versionControl.fileAt(id, "HEAD~1", "src/code.ts")).toEqual(old);
+    const tagged = await versionControl.fileAt(id, "v1", "src/code.ts");
+    expect(tagged).toEqual({ commit: expect.stringMatching(/^[0-9a-f]{40}$/), content: "export const value = 2;\n" });
+    // A folder, a file the commit doesn't have, a revision Git doesn't know.
+    expect(await versionControl.fileAt(id, "v1", "src")).toEqual({ commit: tagged.commit, content: null });
+    expect(await versionControl.fileAt(id, first!.hash, "bin.dat")).toEqual({ commit: first!.hash, content: null });
+    expect(await versionControl.fileAt(id, "v2", "src/code.ts")).toEqual({ commit: null, content: null });
+    await expect(versionControl.fileAt(id, "v1", "bin.dat")).rejects.toThrow("bin.dat is a binary file.");
+    await expect(versionControl.fileAt(id, "v1", "../outside")).rejects.toThrow();
+  });
+
   it("refuses images it can't show", async () => {
     const { versionControl, id, repository } = await opened();
     await expect(versionControl.diffImages(id, "src/code.ts", "worktree")).rejects.toThrow("src/code.ts is not a supported image.");
@@ -978,6 +1113,8 @@ describe("VersionControlManager", () => {
   it.each([
     ["diff source", (m: Managers, id: string) => m.versionControl.diff(id, "a", { commit: "HEAD" }), "Invalid diff source."],
     ["commit ID", (m: Managers, id: string) => m.versionControl.commitDetail(id, "HEAD~1"), "Invalid commit ID."],
+    ["revision", (m: Managers, id: string) => m.versionControl.fileAt(id, "--output=x", "a"), "Invalid revision."],
+    ["revision range", (m: Managers, id: string) => m.versionControl.fileAt(id, "HEAD..main", "a"), "Invalid revision."],
     ["history range", (m: Managers, id: string) => m.versionControl.log(id, -1, 10), "Invalid history range."],
     ["empty message", (m: Managers, id: string) => m.versionControl.commit(id, "  ", false), "Write a commit message first."],
     ["empty selection", (m: Managers, id: string) => m.versionControl.stage(id, []), "Select files first."],
@@ -1086,6 +1223,56 @@ describe("VersionControlManager", () => {
     expect(await versionControl.continueOperation(id)).toBe("done");
     expect(await latest()).toMatchObject({ operation: null, changes: [] });
     expect(await repository.read("src/code.ts")).toBe("feature\n");
+  });
+
+  it("compares branches for a pull request: commits, files, conflicts and a change ID that survives rebases", async () => {
+    const { versionControl, id, repository } = await opened();
+    const commitId = async (revision = "HEAD") => (await repository.git("rev-parse", revision)).trim();
+    await repository.git("switch", "-q", "-c", "feature");
+    await repository.write("src/feature.ts", "feature\n");
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Feature");
+    const approved = await commitId();
+
+    const first = await versionControl.compare(id, "feature", "main", [approved, "nope"], "pulls");
+    expect(first).toMatchObject({ head: approved, target: await commitId("main"), base: await commitId("main"), ahead: 1, behind: 0 });
+    expect(first.files).toEqual([{ path: "src/feature.ts", status: "A" }]);
+    expect(first.revisions).toEqual([
+      { revision: approved, commit: approved, change: first.change },
+      { revision: "nope", commit: null, change: null },
+    ]);
+
+    // Review files don't change the change; code does, and anything else in their folder.
+    await repository.write("pulls/PR-1.md", "---\nid: PR-1\n---\n");
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Review");
+    expect((await versionControl.compare(id, "feature", "main", [], "pulls")).change).toBe(first.change);
+    await repository.write("pulls/hidden/script.sh", "echo\n");
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Hide");
+    expect((await versionControl.compare(id, "feature", "main", [], "pulls")).change).not.toBe(first.change);
+    await repository.git("reset", "-q", "--hard", "HEAD~1");
+
+    // A rebase onto a moved main keeps it.
+    await repository.git("switch", "-q", "main");
+    await repository.write("src/other.ts", "other\n");
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Other");
+    expect(await versionControl.compare(id, "feature", "main", [], "pulls")).toMatchObject({ ahead: 2, behind: 1, change: first.change });
+    await repository.git("switch", "-q", "feature");
+    await repository.git("rebase", "-q", "main");
+    const rebased = await versionControl.compare(id, "feature", "main", [approved], "pulls");
+    expect(rebased).toMatchObject({ ahead: 2, behind: 0, change: first.change, revisions: [{ change: first.change }] });
+    expect(rebased.conflicts).not.toBe(true);
+
+    await repository.write("src/other.ts", "feature's\n");
+    await repository.git("commit", "-qam", "Edit other");
+    await repository.git("switch", "-q", "main");
+    await repository.write("src/other.ts", "main's\n");
+    await repository.git("commit", "-qam", "Edit other on main");
+    expect([null, true]).toContain((await versionControl.compare(id, "feature", "main", [], null)).conflicts);
+    expect(await versionControl.compare(id, "gone", "main", [], null)).toMatchObject({ head: null, change: null, files: [] });
+    await expect(versionControl.compare(id, "-x", "main", [], null)).rejects.toThrow();
   });
 
   it("starts no merge, rebase, pick, revert or stash apply while another operation is unfinished", async () => {

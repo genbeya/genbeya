@@ -49,11 +49,13 @@
       "genbeya": [
         {
           "id": "genbeya.wiki",
-          "name": "Wiki"
+          "name": "Wiki",
+          "when": "!genbeya.unusedWiki"
         },
         {
           "id": "genbeya.tasks",
-          "name": "Tasks"
+          "name": "Tasks",
+          "when": "!genbeya.unusedTasks"
         }
       ]
     },

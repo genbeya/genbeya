@@ -1,7 +1,7 @@
 /** What the command palette offers, and how a query ranks it. */
 import type { GenbeyaLink } from "../../../../contracts/genbeya-link";
 import type { Person, RecentEntry, Snapshot, Theme } from "../../../../contracts/model";
-import { sameLocation, syncsContentBranch } from "../../../../contracts/model";
+import { sameLocation, shownParts, syncsContentBranch, type Part } from "../../../../contracts/model";
 import { describeLinkItem, parseGenbeyaLink } from "../../../../utilities/genbeya-link";
 import { parseRemote } from "../../../../utilities/remote-url";
 import { filePaths } from "../../../../utilities/file-tree";
@@ -10,6 +10,7 @@ import { fuzzyScore } from "./fuzzy";
 
 export type PaletteIcon =
   | "page"
+  | "pulls"
   | "task"
   | "file"
   | "branch"
@@ -62,12 +63,14 @@ export interface PaletteItem {
 
 /** The callbacks items run; the palette closes before any of them. */
 export interface PaletteCommands {
-  go(view: "wiki" | "tasks" | "code" | "changes" | "history"): void;
+  go(view: "wiki" | "tasks" | "code" | "changes" | "history" | "pulls"): void;
   openPage(path: string): void;
   openTask(id: string): void;
   openFile(path: string): void;
   newPage(): void;
   newTask(): void;
+  newPull(): void;
+  openPull(id: string): void;
   switchBranch(name: string): void;
   createBranch(name: string): void;
   showBranches(): void;
@@ -182,6 +185,8 @@ export function allItems(
   /** How the platform names the modifiers ("⌘", "⌃" and "⇧" on macOS). */
   keys: { readonly mod: string; readonly ctrl: string; readonly shift?: string },
   commands: PaletteCommands,
+  /** The parts of the app that show; items of the others are left out. */
+  shown: ReadonlySet<Part> = shownParts([]),
 ): PaletteItem[] {
   const { head, remotes, storage, wiki, tasks, files, settings, operation } = snapshot;
   const { mod, ctrl, shift = "Shift" } = keys;
@@ -192,6 +197,7 @@ export function allItems(
     ["code", "Code"],
     ["changes", "Changes"],
     ["history", "History"],
+    ["pulls", "Pull requests"],
   ] as const;
   const go = views.map(([view, label], i): PaletteItem => ({
     id: `go:${view}`,
@@ -204,6 +210,7 @@ export function allItems(
   const actions: PaletteItem[] = [
     { id: "new-page", group: "Actions", label: "New page…", icon: "add", hint: "N", run: () => commands.newPage() },
     { id: "new-task", group: "Actions", label: "New task", icon: "add", hint: "C", run: () => commands.newTask() },
+    { id: "new-pull", group: "Actions", label: "New pull request…", icon: "add", keywords: "review merge", run: () => commands.newPull() },
     {
       id: "search-text",
       group: "Actions",
@@ -349,6 +356,15 @@ export function allItems(
     keywords: page.path,
     run: () => commands.openPage(page.path),
   }));
+  const pullItems = snapshot.pulls.map((pull): PaletteItem => ({
+    id: `pull:${pull.id}`,
+    group: "Pull requests",
+    label: pull.title || pull.id,
+    detail: `${pull.id} · ${pull.source} → ${pull.target}`,
+    icon: "pulls",
+    keywords: `${pull.id} ${pull.status} ${pull.author}`,
+    run: () => commands.openPull(pull.id),
+  }));
   const taskItems = tasks.map((task): PaletteItem => ({
     id: `task:${task.path}`,
     group: "Tasks",
@@ -373,7 +389,22 @@ export function allItems(
       keywords: path,
       run: () => commands.openFile(path),
     }));
-  return [...go, ...actions, ...repository, ...preferences, ...help, ...pages, ...taskItems, ...fileItems];
+  const all = [...go, ...actions, ...repository, ...preferences, ...help, ...pages, ...taskItems, ...pullItems, ...fileItems];
+  return all.filter((item) => {
+    const part = partOfItem(item.id);
+    return !part || shown.has(part);
+  });
+}
+
+const ACTION_PARTS: Readonly<Record<string, Part>> = { "new-page": "wiki", "new-task": "tasks", "new-pull": "pulls", terminal: "terminal" };
+const PREFIX_PARTS: Readonly<Record<string, Part>> = { page: "wiki", task: "tasks", pull: "pulls", file: "code" };
+
+/** The part of the app an item belongs to, if any: a view, a command, or a page, task or file to open. */
+function partOfItem(id: string): Part | null {
+  const colon = id.indexOf(":");
+  const prefix = colon < 0 ? "" : id.slice(0, colon);
+  if (prefix === "go") return id.slice(colon + 1) as Part;
+  return ACTION_PARTS[id] ?? PREFIX_PARTS[prefix] ?? null;
 }
 
 /** "Open link" when the query is a Genbeya link, as pasted from a coworker; it replaces every other result. */

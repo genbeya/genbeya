@@ -5,6 +5,8 @@
  * there is refused with a note, and nothing is committed on its own.
  */
 import type { ContentManagerContract } from "../../contracts/manager-contracts";
+import { PLAN_HISTORY_LIMIT, planVersions } from "../plan-history";
+import { revision } from "../version-control-arguments";
 import {
   AGENT_TARGETS,
   type AgentFile,
@@ -14,7 +16,10 @@ import {
   type LinkUpdate,
   type PageMove,
   type People,
+  type PlanHistory,
+  type PullRequest,
   type Scope,
+  type SearchArea,
   type SearchHit,
   type SearchMatch,
   type SearchResults,
@@ -27,9 +32,11 @@ import {
 } from "../../contracts/model";
 import { IMAGE_LIMIT, type VersionedFile } from "../../access/files/file-store";
 import { isMissing } from "../../access/hosts/host";
+import { lineAuthors, lineList } from "../../engines/line-origins";
 import type { AgentEngine } from "../../engines/agent-engine";
 import type { LinkEngine } from "../../engines/link-engine";
 import type { PeopleEngine } from "../../engines/people-engine";
+import type { PullEngine } from "../../engines/pull-engine";
 import { SEARCH_LIMITS, type SearchEngine, type SearchQuery } from "../../engines/search-engine";
 import { contentAreaOf, SETTINGS_FILE, type SettingsEngine } from "../../engines/settings-engine";
 import type { TaskEngine, TaskVersion } from "../../engines/task-engine";
@@ -54,6 +61,7 @@ const sameText = (a: string | null, b: string) => a !== null && a.replace(/\r\n/
 export interface DemoContentEngines {
   readonly settings: SettingsEngine;
   readonly tasks: TaskEngine;
+  readonly pulls: PullEngine;
   readonly wiki: WikiEngine;
   readonly agents: AgentEngine;
   readonly links: LinkEngine;
@@ -257,6 +265,99 @@ export class DemoContentManager implements ContentManagerContract {
     });
   }
 
+  lineAuthors(id: unknown, path: unknown, lines: unknown): Promise<readonly (string | null)[]> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { settings } = await workspace.settings();
+      if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
+      return lineAuthors(workspace.repository.fileHistory(relative, ACTIVITY_LIMIT), lineList(lines));
+    });
+  }
+
+  planHistory(id: unknown, baseline?: unknown): Promise<PlanHistory> {
+    return this.on(id, async (workspace) => {
+      const { settings } = await workspace.settings();
+      const asked = baseline === undefined || baseline === null || baseline === "" ? null : revision(baseline);
+      const repository = workspace.repository;
+      const head = repository.headCommit();
+      const inFolder = (path: string) => this.engines.tasks.isTaskFile(path, settings.taskRoot);
+      const commits: PlanHistory["commits"][number][] = [];
+      for (const commit of head ? repository.commits.topological([head]) : []) {
+        if (commits.length === PLAN_HISTORY_LIMIT) break;
+        if (commit.parents.length > 1) continue;
+        const before = repository.treeOf(commit.parents[0] ?? null);
+        const paths = [...new Set([...before.keys(), ...commit.tree.keys()])].filter(
+          (path) => inFolder(path) && before.get(path) !== commit.tree.get(path),
+        );
+        const tasks = planVersions(
+          paths.map((path) => ({ path, content: commit.tree.get(path) ?? null })),
+          this.engines.tasks,
+          settings.taskRoot,
+        );
+        if (tasks.length)
+          commits.push({
+            commit: commit.hash,
+            author: commit.author.name,
+            date: commit.author.date,
+            subject: commit.message.split("\n")[0]!,
+            tasks,
+          });
+      }
+      let base: PlanHistory["baseline"] = null;
+      if (asked) {
+        let commit: string | null = null;
+        try {
+          commit = repository.resolve(asked);
+        } catch {
+          // A revision the repository doesn't have: no baseline tasks.
+        }
+        const tree = repository.treeOf(commit);
+        const versions = planVersions(
+          [...tree].filter(([path]) => inFolder(path)).map(([path, content]) => ({ path, content })),
+          this.engines.tasks,
+          settings.taskRoot,
+        );
+        base = {
+          revision: asked,
+          commit,
+          date: commit ? repository.commits.get(commit).author.date : null,
+          tasks: versions.flatMap((version) => (version.task ? [version.task] : [])),
+        };
+      }
+      return { commits, truncated: commits.length === PLAN_HISTORY_LIMIT, baseline: base };
+    });
+  }
+
+  createPull(id: unknown, input: unknown): Promise<PullRequest> {
+    return this.on(id, async (workspace) => {
+      const { settings } = await workspace.settings();
+      const valid = this.engines.pulls.validate(input);
+      const files = workspace.repository.files();
+      const existing = await workspace.pulls(files, settings, []);
+      const pullId = this.engines.pulls.nextId(
+        settings.pullPrefix,
+        existing.map((pull) => pull.id),
+        (candidate) => files.includes(this.engines.pulls.pathOf(settings.pullRoot, candidate)),
+      );
+      const path = workspace.path(this.engines.pulls.pathOf(settings.pullRoot, pullId));
+      const file = await workspace.files.write(path, this.engines.pulls.serializeNew(pullId, valid, this.author(workspace)), null);
+      return this.engines.pulls.parse(path, file.content, file.hash);
+    });
+  }
+
+  updatePull(id: unknown, path: unknown, input: unknown, expectedHash: unknown): Promise<PullRequest> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { settings } = await workspace.settings();
+      if (!this.engines.pulls.isPullFile(relative, settings.pullRoot)) throw new Error(`${relative} is not a pull request.`);
+      const valid = this.engines.pulls.validate(input);
+      const original = await workspace.files.read(relative);
+      if (original.hash !== expectedHash) throw new Error("This pull request changed on disk. Reopen it to see the latest version.");
+      const file = await workspace.files.write(relative, this.engines.pulls.serializeUpdate(original.content, valid), original.hash);
+      return this.engines.pulls.parse(relative, file.content, file.hash);
+    });
+  }
+
   commentAuthor(id: unknown): Promise<string> {
     return this.on(id, async (workspace) => this.author(workspace));
   }
@@ -372,8 +473,9 @@ export class DemoContentManager implements ContentManagerContract {
     if (!Array.isArray(targets) || targets.some((target) => !AGENT_TARGETS.includes(target as AgentTarget)))
       throw new Error("Unknown agent file.");
     const { settings } = await workspace.settings();
+    const pulls = workspace.repository.files().some((path) => this.engines.pulls.isPullFile(path, settings.pullRoot));
     return Promise.all(
-      this.engines.agents.files(settings, targets as AgentTarget[]).map(async (file) => ({
+      this.engines.agents.files(settings, targets as AgentTarget[], pulls).map(async (file) => ({
         file,
         existing: await workspace.files.read(file.path).catch((error: unknown) => {
           if (isMissing(error)) return null;
@@ -391,7 +493,7 @@ export class DemoContentManager implements ContentManagerContract {
       const { settings } = await workspace.settings();
       const { search, wiki, tasks: taskEngine } = this.engines;
       let truncated = false;
-      const results: { wiki: SearchHit[]; tasks: SearchHit[]; code: SearchHit[] } = { wiki: [], tasks: [], code: [] };
+      const results: Record<SearchArea, SearchHit[]> = { wiki: [], tasks: [], code: [], pulls: [] };
       for (const path of workspace.repository.files()) {
         const content = workspace.repository.worktree.get(path)!;
         if (content.includes("\0")) continue;
@@ -421,7 +523,16 @@ export class DemoContentManager implements ContentManagerContract {
         const taskId = task?.id ?? baseName(hit.path).replace(/\.md$/i, "");
         return { ...hit, id: taskId, title: task?.title ?? taskId, status: task?.status ?? "" };
       });
-      return { wiki: results.wiki, tasks: taskHits, code: results.code, truncated };
+      const pullHits = results.pulls.map((hit) => {
+        try {
+          const content = workspace.repository.worktree.get(hit.path)!;
+          const pull = this.engines.pulls.parse(hit.path, content, sha256(content));
+          return { ...hit, title: `${pull.id} ${pull.title}`.trim() };
+        } catch {
+          return hit;
+        }
+      });
+      return { wiki: results.wiki, tasks: taskHits, code: results.code, pulls: pullHits, truncated };
     });
   }
 

@@ -123,6 +123,8 @@ export class LinkEngine {
     const found = findReference(target, before);
     const prefix = /^\/*/.exec(name)![0];
     if (found.kind === "file") {
+      // A pinned reference names the file as it was in its revision, where it never moved.
+      if (found.revision) return null;
       const path = movedPath(found.path, moves, before.files);
       return path && prefix + path;
     }

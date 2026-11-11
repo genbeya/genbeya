@@ -12,15 +12,16 @@ Proposals for features that are not built yet: what they would add, how they fit
 | Page | Adds | Tasks |
 | --- | --- | --- |
 | [Optional parts](Design/Optional-parts.md) | Turning areas of the app on and off, for a project and for each user | [[GENBEYA-39]], [[GENBEYA-40]], [[GENBEYA-41]] |
-| [Pinned references](Design/Pinned-references.md) | `[[…]]` references to lines of a file at a revision | [[GENBEYA-42]] |
-| [Planning](Design/Planning.md) | Estimates, remaining and logged effort, dependencies, and plans as live wiki macros | [[GENBEYA-43]] to [[GENBEYA-49]] |
+| [Planning](Design/Planning.md) | Estimates, remaining and logged effort, dependencies, and plans as live wiki macros; a first prototype is built | [[GENBEYA-43]] to [[GENBEYA-49]] |
 | [Pull requests](Design/Pull-requests.md) | Code review in one Markdown file per pull request, with suggestions, verdicts and a cleanup into tasks and pages | [[GENBEYA-50]] to [[GENBEYA-56]] |
 
-Suggested order: optional parts first, so every new feature is born switchable; then pinned references, which pull requests need and which are useful on their own; then planning; then pull requests.
+Suggested order: optional parts first, so every new feature is born switchable; then planning; then pull requests.
+
+Built so far: references pinned to a revision ([[GENBEYA-42]]), which pull requests need; see [References](Guide/References.md#pinned-to-a-revision).
 
 ## Keeping Genbeya lean
 
-Every proposal is measured against the same test. Genbeya keeps three kinds of content (pages, tasks, settings) and five views; what makes a feature expensive is:
+Every proposal is measured against the same test. Genbeya keeps four kinds of content (pages, tasks, settings, pull requests) and six views; what makes a feature expensive is:
 
 - **A new kind of content.** It needs its own folder, a place in [[Content branch|where content lives]], search, the agent skill and the VS Code tree.
 - **A new view.**

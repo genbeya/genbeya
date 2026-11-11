@@ -16,6 +16,7 @@ import { Router } from "@angular/router";
 import { PRIORITIES, type Task } from "../../../../contracts/model";
 import { hotkey } from "../../core/hotkeys";
 import { People } from "../../core/people";
+import { Parts } from "../../core/parts";
 import { Session } from "../../core/session";
 import { WorkspaceApi } from "../../core/workspace-api";
 import { Avatar } from "../../ui/avatar";
@@ -32,6 +33,7 @@ import {
   epicsOf,
   inputOf,
   labelsOf,
+  milestonesOf,
   shownLanesOf,
   NO_FILTERS,
   peopleOf,
@@ -45,7 +47,7 @@ import {
 import { TaskPanel } from "./task-panel";
 
 type Layout = "board" | "list";
-type FilterKey = "assignee" | "priority" | "label" | "epic" | "type";
+type FilterKey = "assignee" | "priority" | "label" | "epic" | "type" | "milestone";
 const LAYOUT_KEY = "tasks:layout";
 const LANES_KEY = "tasks:lanes";
 
@@ -73,6 +75,7 @@ export class TasksView {
   readonly assignee = input<string>();
 
   private readonly session = inject(Session);
+  private readonly parts = inject(Parts);
   private readonly memory = inject(Remembered);
   private readonly api = inject(WorkspaceApi);
   private readonly router = inject(Router);
@@ -106,15 +109,18 @@ export class TasksView {
   /** Assignees once per person, by handle where they are one of the repository's people. */
   protected readonly people = computed(() => peopleOf(this.snapshot().tasks, this.directory.identify));
   protected readonly labels = computed(() => labelsOf(this.snapshot().tasks));
+  /** Milestones to filter by, while planning shows. */
+  protected readonly milestones = computed(() => (this.parts.isShown("planning") ? milestonesOf(this.snapshot().tasks) : []));
   protected readonly selected = computed(() => {
     const id = this.task();
     return id ? this.snapshot().tasks.find((task) => task.id === id) : undefined;
   });
   protected readonly chips = computed(() => {
-    const { assignee, priority, label, epic, type } = this.filters();
+    const { assignee, priority, label, epic, type, milestone } = this.filters();
     return [
       ...(type !== null ? [{ key: "type" as const, text: type ? titleCase(type) : "No type" }] : []),
       ...(epic !== null ? [{ key: "epic" as const, text: epicName(epic) }] : []),
+      ...(milestone !== null ? [{ key: "milestone" as const, text: milestone || "No milestone" }] : []),
       ...(assignee ? [{ key: "assignee" as const, text: assignee === UNASSIGNED ? "Unassigned" : this.directory.nameOf(assignee) }] : []),
       ...(priority ? [{ key: "priority" as const, text: titleCase(priority) }] : []),
       ...(label ? [{ key: "label" as const, text: label }] : []),

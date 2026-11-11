@@ -1,5 +1,6 @@
 import { renderMarkdownTree } from "./markdown-dom";
 import { parseMarkdown, type GenbeyaOptions } from "./markdown-pipeline";
+import type { PlanTask } from "../../../utilities/planning";
 import type { ReferenceSources } from "./references";
 
 const references: ReferenceSources = {
@@ -85,11 +86,26 @@ describe("wiki extensions", () => {
     ]);
   });
 
+  it("shows references pinned to a revision with the revision, and never as gone before it is read", () => {
+    const id = "3f9c0e1d2b7a4c58e6f1a9b0d3c7e2f4a8b6c1d0";
+    const { container } = render(`[[src/app.ts#L3-L9@${id}]], [[src/gone.ts#@v1.0]] and [[src/app.ts#@v1.0|then]]`, { references });
+    const files = [...container.querySelectorAll("a.md-ref-file")];
+    expect(files.map((link) => [link.getAttribute("href"), link.textContent, link.className, link.getAttribute("title")])).toEqual([
+      [`/src/app.ts#L3-L9@${id}`, "src/app.ts:3–93f9c0e1", "md-ref md-ref-file md-ref-pinned", `src/app.ts:3–9 as of ${id}`],
+      ["/src/gone.ts#@v1.0", "src/gone.tsv1.0", "md-ref md-ref-file md-ref-pinned", "src/gone.ts as of v1.0"],
+      ["/src/app.ts#@v1.0", "then", "md-ref md-ref-file md-ref-pinned", "src/app.ts as of v1.0"],
+    ]);
+    expect(files[0]!.querySelector(".md-ref-rev")?.textContent).toBe("3f9c0e1");
+  });
+
   it("embeds lines of a file given alone in a paragraph, and links anything else", () => {
-    const { embeds, container } = render("![[src/app.ts#L3-L9]]\n\n![[src/app.ts]]\n\n![[GENBEYA-3]]", { references });
-    expect(embeds.map(({ path, lines }) => [path, lines])).toEqual([
-      ["src/app.ts", "3-9"],
-      ["src/app.ts", null],
+    const { embeds, container } = render("![[src/app.ts#L3-L9]]\n\n![[src/app.ts]]\n\n![[GENBEYA-3]]\n\n![[src/app.ts#L2@v1.0]]", {
+      references,
+    });
+    expect(embeds.map(({ path, lines, revision }) => [path, lines, revision])).toEqual([
+      ["src/app.ts", "3-9", null],
+      ["src/app.ts", null, null],
+      ["src/app.ts", "2-2", "v1.0"],
     ]);
     expect(embeds[0]!.element.className).toBe("md-embed");
     expect(container.querySelector("a.md-ref-task")).not.toBeNull();
@@ -99,6 +115,87 @@ describe("wiki extensions", () => {
     const { html } = render("> [!WARNING]\n> Careful here.");
     expect(html).toContain('<blockquote data-callout="warning" class="callout callout-warning">');
     expect(html).not.toContain("[!WARNING]");
+  });
+});
+
+describe("plan macros", () => {
+  const planned = (id: string, status: string, fields: PlanTask["fields"], logged = 0, epic = "Auth"): PlanTask => ({
+    id,
+    path: `tasks/${id}.md`,
+    title: `Task ${id}`,
+    status,
+    epic,
+    assignee: "",
+    labels: [],
+    type: "",
+    fields,
+    logged,
+    unreadable: 0,
+  });
+  const plan = {
+    statuses: ["todo", "in-progress", "done"],
+    today: "2026-10-26",
+    tasks: [
+      planned("TP-1", "done", { estimate: "8h", start: "2026-11-02", due: "2026-11-04" }, 10),
+      planned("TP-2", "in-progress", { estimate: "2d", remaining: "6h", depends_on: ["TP-1"], start: "2026-11-03", due: "2026-11-06" }, 4),
+      planned("TP-3", "todo", { depends_on: "TP-2" }, 0, "Billing"),
+    ],
+  };
+
+  it("tables the effort of the matching tasks, with totals, and says what is missing", () => {
+    const { container } = render("[EFFORT epic=Auth]\n\n[EFFORT]", { plan, references });
+    const [auth, all] = [...container.querySelectorAll("table")];
+    const rows = (table: Element) => [...table.querySelectorAll("tr")].map((row) => [...row.children].map((cell) => cell.textContent));
+    expect(rows(auth!)).toEqual([
+      ["Task", "Status", "Estimate", "Logged", "Remaining", "Forecast", "Variance"],
+      ["TP-1", "done", "8h", "10h", "0h", "10h", "+2h"],
+      ["TP-2", "in-progress", "16h", "4h", "6h", "10h", "−6h"],
+      ["Total, 2 tasks", "", "24h", "14h", "6h", "20h", "−4h"],
+    ]);
+    expect(rows(all!).at(-1)).toEqual(["Total, 3 tasks", "", "24h", "14h", "6h", "20h", "−4h"]);
+    expect(container.querySelector(".md-placeholder")?.textContent).toBe(
+      "Totals leave out 1 task without an estimate; 1 unfinished task without a remaining effort.",
+    );
+  });
+
+  it("draws dependencies with Mermaid, and the timeline with PlantUML", () => {
+    const { diagrams, container } = render("[DEPENDENCIES]\n\n[GANTT epic=Auth]\n\n[GANTT epic=Billing]", { plan });
+    expect(diagrams.map(({ language, source }) => [language, source.split("\n")[0]])).toEqual([
+      ["mermaid", "flowchart LR"],
+      ["plantuml", "@startgantt"],
+    ]);
+    expect(diagrams[1]!.source).toContain("[TP-2 Task TP-2] as [t1] starts 2026-11-03 and ends 2026-11-06");
+    expect(diagrams[1]!.source).toContain("[t1] is colored in #fed7aa/#ea580c");
+    expect([...container.querySelectorAll(".md-placeholder")].map((note) => note.textContent)).toEqual([
+      "TP-2 starts before a task it waits for is due, or ends after its milestone (orange).",
+      "None of these tasks has dates or a duration.",
+    ]);
+  });
+
+  it("tables the schedule of the unfinished tasks, with their float, and says what counts as taking no time", () => {
+    const { container } = render("[FLOAT]", { plan });
+    const rows = [...container.querySelectorAll("tr")].map((row) => [...row.children].map((cell) => cell.textContent));
+    expect(rows).toEqual([
+      ["Task", "Duration", "Earliest start", "Earliest finish", "Latest start", "Latest finish", "Float", "Free float"],
+      // Dates show as dates do in pages.
+      ["TP-2", "4d", "Oct 26, 2026", "Oct 29, 2026", "Oct 26, 2026", "Oct 29, 2026", "0d, critical", "0d"],
+      ["TP-3", "0d", "Oct 30, 2026", "Oct 30, 2026", "Oct 30, 2026", "Oct 30, 2026", "0d, critical", "0d"],
+    ]);
+    expect([...container.querySelectorAll(".md-placeholder")].map((note) => note.textContent)).toEqual([
+      "Working days from today (Oct 26, 2026); finished tasks are left out. All of it takes 4d, until Oct 29, 2026.",
+      "TP-3 has no duration, dates or effort, so it counts as taking no time.",
+    ]);
+  });
+
+  it("draws the critical path as an arrow diagram", () => {
+    const { diagrams } = render("[ARROWS epic=Auth]\n\n[ARROWS status=done]", { plan });
+    expect(diagrams).toHaveLength(1);
+    expect(diagrams[0]!.source).toContain('e0 -->|"TP-2 Task TP-2<br/>4d · critical"| e1');
+  });
+
+  it("says when no task matches, and stays text without tasks to plan", () => {
+    expect(render('[EFFORT milestone="Later"]', { plan }).container.textContent).toBe("No tasks match this plan.");
+    expect(render("[EFFORT]").container.textContent).toBe("No tasks to plan here.");
   });
 });
 

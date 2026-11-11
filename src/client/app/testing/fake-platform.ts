@@ -7,6 +7,7 @@ import {
   type ContentArea,
   type ContentBranch,
   type Preferences,
+  type PullRequest,
   type Settings,
   type Snapshot,
   type Storage,
@@ -20,7 +21,7 @@ import { MANAGERS, SHELL } from "../platform/platform";
 export function contentBranch(areas: readonly ContentArea[], branch: Partial<ContentBranch> = {}): Storage {
   const mode = (area: ContentArea) => (areas.includes(area) ? "branch" : "checkout");
   return {
-    areas: { wiki: mode("wiki"), tasks: mode("tasks"), settings: mode("settings") },
+    areas: { wiki: mode("wiki"), tasks: mode("tasks"), settings: mode("settings"), pulls: mode("pulls") },
     branch: { name: "genbeya", remote: "origin", ahead: 0, behind: 0, ...branch },
   };
 }
@@ -37,6 +38,14 @@ export const SETTINGS: Settings = {
   types: [taskType("bug"), taskType("feature")],
   fields: [],
   people: [],
+  pullRoot: "pulls",
+  pullPrefix: "PR",
+  requiredApprovals: 1,
+  todosBlockMerge: true,
+  unused: [],
+  workdays: ["mon", "tue", "wed", "thu", "fri"],
+  holidays: [],
+  milestones: [],
 };
 
 /** A user who has seen the tour and the news of this version. */
@@ -50,7 +59,25 @@ export const PREFERENCES: Preferences = {
   lastSeenVersion: APP_VERSION,
   tourSeen: true,
   tourOffered: [],
+  parts: { all: {}, repositories: {} },
 };
+
+export function pull(id: string, change: Partial<PullRequest> = {}): PullRequest {
+  return {
+    id,
+    path: `pulls/${id}.md`,
+    title: `Pull ${id}`,
+    status: "open",
+    author: "Ada",
+    source: "feature",
+    target: "main",
+    reviewers: [],
+    mergeCommit: null,
+    body: "",
+    hash: `hash-${id}`,
+    ...change,
+  };
+}
 
 export function task(id: string, change: Partial<Task> = {}): Task {
   return {
@@ -77,7 +104,7 @@ export function snapshot(change: Partial<Snapshot> = {}): Snapshot {
     location: { kind: "local", path: "/repo" },
     settings: SETTINGS,
     settingsHash: "settings-hash",
-    storage: { areas: { wiki: "checkout", tasks: "checkout", settings: "checkout" }, branch: null },
+    storage: { areas: { wiki: "checkout", tasks: "checkout", settings: "checkout", pulls: "checkout" }, branch: null },
     head: { branch: "main", commit: "abc1234", upstream: null, ahead: 0, behind: 0 },
     branches: ["main"],
     remoteBranches: [],
@@ -89,6 +116,7 @@ export function snapshot(change: Partial<Snapshot> = {}): Snapshot {
     files: [{ name: "docs", path: "docs", children: [{ name: "Home.md", path: "docs/Home.md" }] }],
     wiki: [{ title: "Home", path: "docs/Home.md", folder: null, children: [] }],
     tasks: [],
+    pulls: [],
     warnings: [],
     ...change,
   };
