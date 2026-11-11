@@ -588,6 +588,12 @@ export interface PullRequest {
   readonly reviewers: readonly string[];
   /** The commit that merged it, once merged. */
   readonly mergeCommit: string | null;
+  /**
+   * The local branch the file was read from, when it isn't in the checkout:
+   * pull request files in the checkout live on their branches. Read-only
+   * until that branch is checked out. Null for files where pull requests live.
+   */
+  readonly branch?: string | null;
   /** The description, the review and the discussion: everything after the frontmatter. */
   readonly body: string;
   /** Version of the file; updates must name it. */

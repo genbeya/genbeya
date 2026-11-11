@@ -492,6 +492,26 @@ describe("ContentManager", () => {
     expect((await latest()).pulls.map((candidate) => candidate.id)).toEqual(["PR-1", "PR-2"]);
   });
 
+  it("lists pull requests whose files are on other branches, read-only, in the checkout", async () => {
+    const { content, id, latest, repository } = await opened();
+    await repository.git("switch", "-q", "-c", "feature");
+    await content.createPull(id, { title: "On feature", status: "open", source: "feature", target: "main", reviewers: [], body: "" });
+    await repository.git("add", ".");
+    await repository.git("commit", "-qm", "Open PR-1");
+    await repository.git("switch", "-q", "main");
+    expect((await latest()).pulls.map((pull) => [pull.id, pull.branch ?? null])).toEqual([["PR-1", "feature"]]);
+    // New pull requests take the next ID across branches.
+    expect(
+      (await content.createPull(id, { title: "On main", status: "open", source: "x", target: "main", reviewers: [], body: "" })).id,
+    ).toBe("PR-2");
+    // PR-2 isn't committed, so it comes along, as uncommitted files do.
+    await repository.git("switch", "-q", "feature");
+    expect((await latest()).pulls.map((pull) => [pull.id, pull.branch ?? null])).toEqual([
+      ["PR-1", null],
+      ["PR-2", null],
+    ]);
+  });
+
   it("tells who committed each line of a pull request", async () => {
     const { content, id, repository } = await opened();
     const pull = await content.createPull(id, {

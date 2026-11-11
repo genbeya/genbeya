@@ -4,7 +4,7 @@
  * merge would conflict, worked out without touching the working tree.
  */
 import type { ComparedRevision, PullComparison } from "../../contracts/model";
-import { sha256 } from "../../utilities/bytes";
+import { decodeLenient, sha256 } from "../../utilities/bytes";
 import type { Git } from "./git";
 import { parseNameStatus } from "./git-parsers";
 
@@ -74,4 +74,53 @@ async function conflictsOf(git: Git, target: string, head: string): Promise<bool
   const result = await git.run(["merge-tree", "--write-tree", "--no-messages", target, head]);
   // 0 merges cleanly, 1 conflicts; anything else is an error, such as unrelated histories.
   return result.code === 0 ? false : result.code === 1 ? true : null;
+}
+
+/** A pull request file as committed on a branch. */
+export interface BranchPullFile {
+  readonly branch: string;
+  readonly path: string;
+  readonly content: string;
+  readonly hash: string;
+}
+
+/** Branches read at most, and files per branch: a repository of stale branches stays quick to open. */
+const BRANCH_LIMIT = 50;
+const FILE_LIMIT = 200;
+
+/**
+ * The local branches with their commits: what {@link pullFilesOn} reads,
+ * and what tells when a branch moved.
+ */
+export async function localBranches(git: Git): Promise<Map<string, string>> {
+  const output = await git.attempt(["for-each-ref", "--format=%(objectname) %(refname:short)", `--count=${BRANCH_LIMIT}`, "--sort=-committerdate", "refs/heads"]);
+  return new Map(
+    (output ?? "")
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => [line.slice(line.indexOf(" ") + 1), line.slice(0, line.indexOf(" "))] as const),
+  );
+}
+
+/** The Markdown files directly in `folder` at `commit`, with their text. */
+export async function pullFilesOn(git: Git, branch: string, commit: string, folder: string): Promise<BranchPullFile[]> {
+  const listing = await git.attempt(["ls-tree", "-z", commit, "--", `${folder}/`]);
+  const entries = (listing ?? "")
+    .split("\0")
+    .filter(Boolean)
+    .map((entry) => {
+      const [info, path] = [entry.slice(0, entry.indexOf("\t")), entry.slice(entry.indexOf("\t") + 1)];
+      const [, type, id] = info.split(" ");
+      return { type, id: id!, path };
+    })
+    .filter((entry) => entry.type === "blob" && entry.path.toLowerCase().endsWith(".md") && !entry.path.slice(folder.length + 1).includes("/"))
+    .slice(0, FILE_LIMIT);
+  return Promise.all(
+    entries.map(async (entry) => ({
+      branch,
+      path: entry.path,
+      content: decodeLenient(await git.bytes(["cat-file", "blob", entry.id])),
+      hash: entry.id,
+    })),
+  );
 }

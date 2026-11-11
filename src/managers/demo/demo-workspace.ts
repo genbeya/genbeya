@@ -5,6 +5,7 @@
  * the app's managers.
  */
 import type { Location, PullRequest, Settings, Task } from "../../contracts/model";
+import { sha256 } from "../../utilities/bytes";
 import { FileStore } from "../../access/files/file-store";
 import { MemoryHost } from "../../access/memory/memory-host";
 import type { MemoryRepository } from "../../access/memory/memory-repository";
@@ -77,8 +78,23 @@ export class DemoWorkspace {
     return readTasks(this.files, files, settings, this.engines.tasks, warnings);
   }
 
-  pulls(files: readonly string[], settings: Settings, warnings: string[]): Promise<PullRequest[]> {
-    return readPulls(this.files, files, settings, this.engines.pulls, warnings);
+  async pulls(files: readonly string[], settings: Settings, warnings: string[]): Promise<PullRequest[]> {
+    const present = await readPulls(this.files, files, settings, this.engines.pulls, warnings);
+    // The demo keeps every area in the checkout, where each pull request file lives on its branch.
+    const current = this.repository.currentBranch();
+    const onBranches = [...this.repository.branches].flatMap(([branch, commit]) =>
+      branch === current
+        ? []
+        : [...this.repository.treeOf(commit)].flatMap(([path, content]) => {
+            if (!this.engines.pulls.isPullFile(path, settings.pullRoot)) return [];
+            try {
+              return [{ ...this.engines.pulls.parse(path, content, sha256(content)), branch }];
+            } catch {
+              return [];
+            }
+          }),
+    );
+    return this.engines.pulls.withBranches(present, onBranches);
   }
 
   close(): void {

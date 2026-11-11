@@ -4,6 +4,7 @@
  * to end with it or with the client using it (terminals).
  */
 import type { ContentArea, Location, PullRequest, Scope, Settings, Task } from "../contracts/model";
+import { localBranches, pullFilesOn } from "../access/git/pull-access";
 import { ContentStore, type ContentLocation } from "../access/content/content-store";
 import { FileStore } from "../access/files/file-store";
 import type { RepositoryAccess } from "../access/git/repository-access";
@@ -122,6 +123,8 @@ export class Workspace {
   readonly checkout: FileStore;
   readonly content: ContentStore;
   private readonly queue = new SerialQueue();
+  /** Pull requests read from other branches, by branch, with the commit they were read at. */
+  private pullsByBranch = new Map<string, { commit: string; folder: string; pulls: PullRequest[] }>();
   private loadedSettings: LoadedSettings | null = null;
   private closed = false;
   private readonly releaseListeners = new Set<() => void>();
@@ -208,7 +211,37 @@ export class Workspace {
 
   /** Reads every pull request file in the pull request folder; problems become `warnings`. */
   async pulls(files: readonly string[], settings: Settings, warnings: string[]): Promise<PullRequest[]> {
-    return readPulls((await this.content.locate("pulls")).files, files, settings, this.engines.pulls, warnings);
+    const present = await readPulls((await this.content.locate("pulls")).files, files, settings, this.engines.pulls, warnings);
+    // On the content branch every pull request is there; in the checkout, each file lives on its branch.
+    if ((await this.content.layout()).areas.pulls !== "checkout") return present;
+    return this.engines.pulls.withBranches(present, await this.branchPulls(settings.pullRoot));
+  }
+
+  /** Pull requests on the local branches but the checked-out one, read again only for branches that moved. */
+  private async branchPulls(folder: string): Promise<PullRequest[]> {
+    const git = this.repository.git;
+    const [branches, current] = await Promise.all([localBranches(git), git.attempt(["symbolic-ref", "--quiet", "--short", "HEAD"])]);
+    const read = new Map<string, { commit: string; folder: string; pulls: PullRequest[] }>();
+    for (const [branch, commit] of branches) {
+      if (branch === current?.trim()) continue;
+      const known = this.pullsByBranch.get(branch);
+      if (known?.commit === commit && known.folder === folder) {
+        read.set(branch, known);
+        continue;
+      }
+      const files = await pullFilesOn(git, branch, commit, folder);
+      const pulls = files.flatMap((file) => {
+        try {
+          return [{ ...this.engines.pulls.parse(file.path, file.content, file.hash), branch }];
+        } catch {
+          // A file that doesn't parse there is that branch's to fix.
+          return [];
+        }
+      });
+      read.set(branch, { commit, folder, pulls });
+    }
+    this.pullsByBranch = read;
+    return [...read.values()].flatMap((entry) => entry.pulls);
   }
 
   /**

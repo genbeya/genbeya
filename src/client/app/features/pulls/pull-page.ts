@@ -27,6 +27,7 @@ import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
 import type { DiffNote } from "../../editor/diff-notes";
 import { DiffPane, type DiffAction, type DiffActionHandler } from "../diff/diff-pane";
+import { RepositoryActions } from "../shell/repository-actions";
 import { WikiActions } from "../wiki/wiki-actions";
 import type { CommentRequest, CommentResult } from "./comment-dialog";
 import { PullActions, pullInputOf } from "./pull-actions";
@@ -61,10 +62,18 @@ const linesText = ({ from, to }: LineRange) => (from === to ? `L${from}` : `L${f
           {{ pull().title }} <span class="faint">{{ pull().id }}</span>
         </h2>
         <span class="grow"></span>
-        <button type="button" class="icon-btn" aria-label="Edit" title="Edit title, branches and reviewers" (click)="actions.edit(pull())">
-          <svg gd-icon name="pencil" [size]="15"></svg>
-        </button>
-        @if (inCheckout()) {
+        @if (!pull().branch) {
+          <button
+            type="button"
+            class="icon-btn"
+            aria-label="Edit"
+            title="Edit title, branches and reviewers"
+            (click)="actions.edit(pull())"
+          >
+            <svg gd-icon name="pencil" [size]="15"></svg>
+          </button>
+        }
+        @if (inCheckout() && !pull().branch) {
           <button type="button" class="icon-btn" aria-label="Open the file" title="Open the file" (click)="openFile()">
             <svg gd-icon name="file-code-2" [size]="15"></svg>
           </button>
@@ -125,42 +134,51 @@ const linesText = ({ from, to }: LineRange) => (from === to ? `L${from}` : `L${f
           </button>
         </div>
         <span class="grow"></span>
-        @switch (pull().status) {
-          @case ("draft") {
-            <button type="button" class="btn btn-default btn-s" (click)="ready()">Ready for review</button>
-            <button type="button" class="btn btn-ghost btn-s" (click)="actions.setStatus(pull(), 'closed', 'Closed ' + pull().id)">
-              Close
-            </button>
-          }
-          @case ("open") {
-            @if (open().todos.length || open().topics.length) {
-              <button type="button" class="btn btn-ghost btn-s" (click)="cleanUp()">Clean up…</button>
-            }
-            <button type="button" class="btn btn-ghost btn-s" (click)="actions.setStatus(pull(), 'closed', 'Closed ' + pull().id)">
-              Close
-            </button>
-            @if (comparison()?.head && comparison()!.ahead === 0) {
-              <button
-                type="button"
-                class="btn btn-default btn-s"
-                title="The target has every commit of the source"
-                (click)="actions.markMerged(pull().id)"
-              >
-                Mark merged
-              </button>
-            } @else {
-              <button type="button" class="btn btn-primary btn-s" [disabled]="!comparison()?.head" (click)="actions.merge(pull())">
-                <svg gd-icon name="git-merge" [size]="13"></svg><span>Merge</span>
+        @if (!pull().branch) {
+          @switch (pull().status) {
+            @case ("draft") {
+              <button type="button" class="btn btn-default btn-s" (click)="ready()">Ready for review</button>
+              <button type="button" class="btn btn-ghost btn-s" (click)="actions.setStatus(pull(), 'closed', 'Closed ' + pull().id)">
+                Close
               </button>
             }
-          }
-          @case ("closed") {
-            <button type="button" class="btn btn-default btn-s" (click)="actions.setStatus(pull(), 'open', 'Reopened ' + pull().id)">
-              Reopen
-            </button>
+            @case ("open") {
+              @if (open().todos.length || open().topics.length) {
+                <button type="button" class="btn btn-ghost btn-s" (click)="cleanUp()">Clean up…</button>
+              }
+              <button type="button" class="btn btn-ghost btn-s" (click)="actions.setStatus(pull(), 'closed', 'Closed ' + pull().id)">
+                Close
+              </button>
+              @if (comparison()?.head && comparison()!.ahead === 0) {
+                <button
+                  type="button"
+                  class="btn btn-default btn-s"
+                  title="The target has every commit of the source"
+                  (click)="actions.markMerged(pull().id)"
+                >
+                  Mark merged
+                </button>
+              } @else {
+                <button type="button" class="btn btn-primary btn-s" [disabled]="!comparison()?.head" (click)="actions.merge(pull())">
+                  <svg gd-icon name="git-merge" [size]="13"></svg><span>Merge</span>
+                </button>
+              }
+            }
+            @case ("closed") {
+              <button type="button" class="btn btn-default btn-s" (click)="actions.setStatus(pull(), 'open', 'Reopened ' + pull().id)">
+                Reopen
+              </button>
+            }
           }
         }
       </div>
+      @if (pull().branch; as branch) {
+        <p class="pull-problem pull-elsewhere">
+          The file of this pull request is on the branch <code>{{ branch }}</code
+          >. Switch to it to reply, review or change it.
+          <button type="button" class="btn btn-default btn-s" (click)="switchTo(branch)">Switch to {{ branch }}</button>
+        </p>
+      }
     </header>
 
     @if (tab() === "conversation") {
@@ -212,75 +230,77 @@ const linesText = ({ from, to }: LineRange) => (from === to ? `L${from}` : `L${f
             [source]="pull().body || '*No description.*'"
             [path]="pull().path"
             [links]="wiki.linkTargets()"
-            [checkboxes]="true"
+            [checkboxes]="!pull().branch"
             (linkClicked)="wiki.followLink($event)"
             (checkboxToggled)="toggleCheckbox($event)"
           />
-          <div class="pull-composer">
-            <label class="field">
-              Reply to
-              <select #targetField class="select" (change)="replyTo.set(+targetField.value)">
-                <option value="-1" [selected]="replyTo() === -1">The discussion</option>
-                @for (place of places(); track place.line) {
-                  <option [value]="place.line" [selected]="replyTo() === place.line">{{ place.label }}</option>
+          @if (!pull().branch) {
+            <div class="pull-composer">
+              <label class="field">
+                Reply to
+                <select #targetField class="select" (change)="replyTo.set(+targetField.value)">
+                  <option value="-1" [selected]="replyTo() === -1">The discussion</option>
+                  @for (place of places(); track place.line) {
+                    <option [value]="place.line" [selected]="replyTo() === place.line">{{ place.label }}</option>
+                  }
+                </select>
+              </label>
+              <textarea
+                #composer
+                class="textarea"
+                aria-label="Reply"
+                placeholder="Reply… Markdown and [[references]] work."
+                [gdTextCompletion]="wiki.people()"
+                [value]="draft()"
+                (input)="draft.set(composer.value)"
+                (keydown)="composeKey($event)"
+              ></textarea>
+              <div class="pull-composer-actions">
+                @if (mine() && pull().status !== "merged") {
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-s"
+                    [disabled]="sending()"
+                    (click)="verdict({ kind: 'requested review', revision: null })"
+                  >
+                    Request review
+                  </button>
                 }
-              </select>
-            </label>
-            <textarea
-              #composer
-              class="textarea"
-              aria-label="Reply"
-              placeholder="Reply… Markdown and [[references]] work."
-              [gdTextCompletion]="wiki.people()"
-              [value]="draft()"
-              (input)="draft.set(composer.value)"
-              (keydown)="composeKey($event)"
-            ></textarea>
-            <div class="pull-composer-actions">
-              @if (mine() && pull().status !== "merged") {
+                <span class="grow"></span>
+                @if (myApproval()) {
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-s"
+                    [disabled]="sending()"
+                    (click)="verdict({ kind: 'withdrew approval', revision: null })"
+                  >
+                    Withdraw approval
+                  </button>
+                }
                 <button
                   type="button"
-                  class="btn btn-ghost btn-s"
-                  [disabled]="sending()"
-                  (click)="verdict({ kind: 'requested review', revision: null })"
+                  class="btn btn-default btn-s"
+                  [disabled]="sending() || !comparison()?.head"
+                  [title]="'Request changes at ' + short(comparison()?.head)"
+                  (click)="verdict({ kind: 'requested changes', revision: comparison()!.head })"
                 >
-                  Request review
+                  Request changes
                 </button>
-              }
-              <span class="grow"></span>
-              @if (myApproval()) {
                 <button
                   type="button"
-                  class="btn btn-ghost btn-s"
-                  [disabled]="sending()"
-                  (click)="verdict({ kind: 'withdrew approval', revision: null })"
+                  class="btn btn-default btn-s"
+                  [disabled]="sending() || !comparison()?.head"
+                  [title]="'Approve ' + short(comparison()?.head)"
+                  (click)="verdict({ kind: 'approved', revision: comparison()!.head })"
                 >
-                  Withdraw approval
+                  <svg gd-icon name="thumbs-up" [size]="13"></svg><span>Approve</span>
                 </button>
-              }
-              <button
-                type="button"
-                class="btn btn-default btn-s"
-                [disabled]="sending() || !comparison()?.head"
-                [title]="'Request changes at ' + short(comparison()?.head)"
-                (click)="verdict({ kind: 'requested changes', revision: comparison()!.head })"
-              >
-                Request changes
-              </button>
-              <button
-                type="button"
-                class="btn btn-default btn-s"
-                [disabled]="sending() || !comparison()?.head"
-                [title]="'Approve ' + short(comparison()?.head)"
-                (click)="verdict({ kind: 'approved', revision: comparison()!.head })"
-              >
-                <svg gd-icon name="thumbs-up" [size]="13"></svg><span>Approve</span>
-              </button>
-              <button type="button" class="btn btn-primary btn-s" [disabled]="!draft().trim() || sending()" (click)="send()">
-                <span>Reply</span><kbd class="kbd">{{ mod }} ↵</kbd>
-              </button>
+                <button type="button" class="btn btn-primary btn-s" [disabled]="!draft().trim() || sending()" (click)="send()">
+                  <span>Reply</span><kbd class="kbd">{{ mod }} ↵</kbd>
+                </button>
+              </div>
             </div>
-          </div>
+          }
         </div>
       </div>
     } @else {
@@ -341,7 +361,7 @@ const linesText = ({ from, to }: LineRange) => (from === to ? `L${from}` : `L${f
                 [path]="changed.path"
                 [load]="loadDiff()"
                 [loadImages]="loadImages()"
-                [actions]="comment"
+                [actions]="pull().branch ? [] : comment"
                 [staging]="false"
                 [apply]="commentOn"
                 [badge]="short(comparison()!.base) + '…' + short(comparison()!.head)"
@@ -360,6 +380,7 @@ export class PullPage {
   readonly file = input<string>();
 
   protected readonly actions = inject(PullActions);
+  private readonly repository = inject(RepositoryActions);
   protected readonly wiki = inject(WikiActions);
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
@@ -553,6 +574,10 @@ export class PullPage {
 
   protected selectFile(file: string) {
     void this.router.navigate(["/pulls"], { queryParams: { pull: this.pull().id, tab: "files", file }, replaceUrl: true });
+  }
+
+  protected switchTo(branch: string) {
+    void this.repository.switchBranch(branch);
   }
 
   protected openFile() {

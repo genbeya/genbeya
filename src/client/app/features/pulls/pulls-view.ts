@@ -92,8 +92,8 @@ const isShown = (pull: PullRequest, shown: Shown) =>
               <span class="pull-row-text">
                 <span class="pull-row-title ellipsis">{{ item.pull.title || item.pull.id }}</span>
                 <span class="pull-row-meta ellipsis"
-                  >{{ item.pull.id }} · {{ item.pull.source }} → {{ item.pull.target
-                  }}{{ item.pull.author ? " · " + item.pull.author : "" }}</span
+                  >{{ item.pull.id }} · {{ item.pull.source }} → {{ item.pull.target }}{{ item.pull.author ? " · " + item.pull.author : ""
+                  }}{{ item.pull.branch ? " · file on " + item.pull.branch : "" }}</span
                 >
               </span>
               @if (item.todos) {

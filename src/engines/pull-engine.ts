@@ -115,6 +115,24 @@ export class PullEngine {
     return applyTextStyle(compose(yamlText(document), input.body), textStyleOf(original));
   }
 
+  /**
+   * The pull requests of the checkout, with those whose files are only on
+   * other branches (`onBranches`, newest branch first). A pull request on
+   * several branches is read from its source branch where that has it.
+   */
+  withBranches(present: readonly PullRequest[], onBranches: readonly PullRequest[]): PullRequest[] {
+    const ids = new Set(present.map((pull) => pull.id.toUpperCase()));
+    const chosen = new Map<string, PullRequest>();
+    for (const pull of onBranches) {
+      const id = pull.id.toUpperCase();
+      if (ids.has(id)) continue;
+      const other = chosen.get(id);
+      if (!other || (pull.branch === pull.source && other.branch !== other.source)) chosen.set(id, pull);
+    }
+    const number = (id: string) => Number(/(\d+)$/.exec(id)?.[1] ?? 0);
+    return [...present, ...chosen.values()].sort((a, b) => number(a.id) - number(b.id));
+  }
+
   /** The next free ID, after the highest of `ids` with the prefix. */
   nextId(prefix: string, ids: Iterable<string>, taken: (id: string) => boolean = () => false): string {
     const pattern = new RegExp(`^${prefix}-(\\d+)$`, "i");

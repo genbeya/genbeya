@@ -61,4 +61,20 @@ describe("PullEngine", () => {
     expect(engine.nextId("PR", ["PR-2", "pr-7", "TP-9"])).toBe("PR-8");
     expect(engine.nextId("PR", [], (id) => id === "PR-1")).toBe("PR-2");
   });
+
+  it("adds the pull requests of other branches, from their source branch where several have them", () => {
+    const pull = (id: string, branch: string | null, source = "f") => ({
+      ...engine.parse(`pulls/${id}.md`, `---\nid: ${id}\nsource: ${source}\n---\n`, "h"),
+      branch,
+    });
+    const merged = engine.withBranches(
+      [pull("PR-2", null)],
+      [pull("PR-2", "old"), pull("PR-1", "main", "fix"), pull("PR-1", "fix", "fix"), pull("PR-3", "a")],
+    );
+    expect(merged.map((item) => [item.id, item.branch])).toEqual([
+      ["PR-1", "fix"],
+      ["PR-2", null],
+      ["PR-3", "a"],
+    ]);
+  });
 });
