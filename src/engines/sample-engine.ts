@@ -191,6 +191,14 @@ const RELEASE_PLAN = text(
   "[ARROWS]",
   "",
   "[FLOAT]",
+  "",
+  "## Over time",
+  "",
+  "Remaining and logged effort day by day, read from the tasks' history in Git:",
+  "",
+  "[BURNDOWN]",
+  "",
+  "`[BASELINE v1.0]` lists what changed since a tag or commit, such as raised estimates or moved dates, and who changed it.",
 );
 
 const WHERE_FILES_LIVE = text(

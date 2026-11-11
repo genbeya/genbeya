@@ -24,10 +24,19 @@ import { WorkspaceApi } from "../core/workspace-api";
 import { Theme } from "../core/theme";
 import { boxAt, mentionsTasks, taskBoxes, type TaskBox } from "./diagram-links";
 import { Diagrams } from "./diagrams";
+import { PlanHistories } from "./plan-histories";
 import { resolveHref, type LinkTarget } from "./link-target";
 import { checkPinned, fillEmbed, type EmbeddedFiles } from "./file-embeds";
 import { footnotePreview } from "./footnotes";
-import { icon, renderMarkdownTree, type Diagram, type Formula, type RenderedMarkdown, type RepositoryImage } from "./markdown-dom";
+import {
+  icon,
+  renderMarkdownTree,
+  type Diagram,
+  type Formula,
+  type PlanHistoryBlock,
+  type RenderedMarkdown,
+  type RepositoryImage,
+} from "./markdown-dom";
 import { parseMarkdown, type GenbeyaOptions } from "./markdown-pipeline";
 import { Typesetter } from "./typesetter";
 
@@ -96,6 +105,7 @@ export class MarkdownView {
   private readonly clipboard = inject(Clipboard);
   private readonly dialogs = inject(Dialogs);
   private readonly diagrams = inject(Diagrams);
+  private readonly planHistories = inject(PlanHistories);
   private readonly typesetter = inject(Typesetter);
   private readonly theme = inject(Theme);
   private readonly injector = inject(Injector);
@@ -148,7 +158,7 @@ export class MarkdownView {
     });
   }
 
-  private show({ fragment, images, diagrams, formulas, embeds }: RenderedMarkdown) {
+  private show({ fragment, images, diagrams, formulas, embeds, histories }: RenderedMarkdown) {
     const generation = ++this.generation;
     this.revoke();
     this.preview = this.previewed = null;
@@ -166,6 +176,7 @@ export class MarkdownView {
     for (const formula of formulas) void this.typeset(formula, generation);
     const current = () => generation === this.generation;
     for (const embed of embeds) void fillEmbed(embed, this.embedded, current);
+    for (const history of histories) void this.fillHistory(history, generation);
     for (const link of this.host.querySelectorAll<HTMLAnchorElement>("a.md-ref-pinned"))
       void checkPinned(link, this.path(), this.embedded, current);
   }
@@ -244,6 +255,24 @@ export class MarkdownView {
       failure.append(title, message, code);
       element.replaceWith(failure);
     }
+  }
+
+  /** Draws a plan over time once its history is read, as Markdown of its own. */
+  private async fillHistory({ element, kind, args }: PlanHistoryBlock, generation: number) {
+    const plan = this.links().plan;
+    let markdown: string;
+    try {
+      markdown = plan ? await this.planHistories.markdown(kind, args, plan) : "*No tasks to plan here.*";
+    } catch (error) {
+      markdown = `*Can't read the plan's history: ${error instanceof Error ? error.message : String(error)}*`;
+    }
+    if (generation !== this.generation) return;
+    const rendered = renderMarkdownTree(parseMarkdown(markdown, this.links()), document, {
+      path: this.path(),
+      interactiveCheckboxes: false,
+    });
+    element.replaceChildren(rendered.fragment);
+    for (const diagram of rendered.diagrams) void this.draw(diagram, generation);
   }
 
   private async typeset({ element, source, display }: Formula, generation: number) {

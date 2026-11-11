@@ -925,5 +925,11 @@ export interface PlanHistory {
   readonly commits: readonly PlanCommit[];
   readonly truncated: boolean;
   /** The tasks at the baseline asked for; null without one. */
-  readonly baseline: { readonly revision: string; readonly commit: string | null; readonly tasks: readonly PlanVersion[] } | null;
+  readonly baseline: {
+    readonly revision: string;
+    readonly commit: string | null;
+    /** When the baseline commit was made, ISO 8601; null without one. */
+    readonly date: string | null;
+    readonly tasks: readonly PlanVersion[];
+  } | null;
 }

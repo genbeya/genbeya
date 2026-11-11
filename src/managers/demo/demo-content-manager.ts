@@ -317,7 +317,12 @@ export class DemoContentManager implements ContentManagerContract {
           this.engines.tasks,
           settings.taskRoot,
         );
-        base = { revision: asked, commit, tasks: versions.flatMap((version) => (version.task ? [version.task] : [])) };
+        base = {
+          revision: asked,
+          commit,
+          date: commit ? repository.commits.get(commit).author.date : null,
+          tasks: versions.flatMap((version) => (version.task ? [version.task] : [])),
+        };
       }
       return { commits, truncated: commits.length === PLAN_HISTORY_LIMIT, baseline: base };
     });

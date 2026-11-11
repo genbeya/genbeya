@@ -339,7 +339,8 @@ export class ContentManager implements ContentManagerContract {
         const tasks = planVersions(at.files, this.engines.tasks, settings.taskRoot).flatMap((version) =>
           version.task ? [version.task] : [],
         );
-        base = { revision: asked, commit: at.commit, tasks };
+        const date = at.commit ? (await git.attempt(["show", "-s", "--format=%aI", at.commit]))?.trim() || null : null;
+        base = { revision: asked, commit: at.commit, date, tasks };
       }
       return { commits, truncated: history.length === PLAN_HISTORY_LIMIT, baseline: base };
     });

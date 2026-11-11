@@ -62,6 +62,8 @@ const TOC = /^\[(?:TOC|\[_?TOC_?\])\]$/i;
 const SUBPAGES = /^\[(?:SUBPAGES|\[_?TOSP_?\])\]$/i;
 /** `[EFFORT milestone=MVP]` alone in a paragraph: a plan of the matching tasks; see {@link plan}. */
 const PLAN = /^\[(EFFORT|DEPENDENCIES|GANTT|ARROWS|FLOAT)(?:\s+([^\]]*))?\]$/;
+/** `[BURNDOWN milestone=MVP]` and `[BASELINE v1.0 epic=Auth]`: plans over time, read from Git once the page shows. */
+const PLAN_HISTORY = /^\[(BURNDOWN|BASELINE)(?:\s+([^\]]*))?\]$/;
 /** `![[path#L1-L9]]` alone in a paragraph embeds those lines of a file. */
 const EMBED = /^!\[\[([^\]|\n]+)\]\]$/;
 const TASK_ID = /\b[A-Z][A-Z0-9]*-\d+\b/g;
@@ -330,6 +332,22 @@ export function remarkGenbeya(options: GenbeyaOptions = {}) {
       if (!parent || index === undefined || node.children.some((c) => c.type !== "text" && c.type !== "emphasis")) return;
       const text = toString(node).trim();
       let replacement: List | Paragraph | null = null;
+      const history = PLAN_HISTORY.exec(text);
+      if (history) {
+        const block: RootContent =
+          options.plan === null
+            ? placeholder("Planning is turned off.")
+            : {
+                type: "paragraph",
+                data: {
+                  hName: "div",
+                  hProperties: { className: ["md-plan-history"], dataPlanHistory: history[1], dataFilter: history[2] ?? "" },
+                },
+                children: [],
+              };
+        parent.children.splice(index, 1, block as (typeof parent.children)[number]);
+        return [SKIP, index + 1];
+      }
       const macro = PLAN.exec(text);
       if (macro) {
         const blocks = options.plan

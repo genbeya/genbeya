@@ -183,6 +183,8 @@ test("plans the release live from the tasks, and opens a task from the diagram",
   // [EFFORT] adds up estimate, logged and remaining effort.
   await expect(article.locator("table").first()).toContainText("PW-2");
   await expect(article.locator("table").first()).toContainText("Total");
+  // [BURNDOWN] reads the tasks' history from Git.
+  await expect(article.locator(".md-plan-history img")).toBeVisible();
   // [DEPENDENCIES] draws what waits for what; a task's label opens the task.
   const diagram = article.locator(".md-diagram img[alt='Mermaid diagram']").first();
   await expect(diagram).toBeVisible();
