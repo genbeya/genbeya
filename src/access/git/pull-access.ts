@@ -93,7 +93,13 @@ const FILE_LIMIT = 200;
  * and what tells when a branch moved.
  */
 export async function localBranches(git: Git): Promise<Map<string, string>> {
-  const output = await git.attempt(["for-each-ref", "--format=%(objectname) %(refname:short)", `--count=${BRANCH_LIMIT}`, "--sort=-committerdate", "refs/heads"]);
+  const output = await git.attempt([
+    "for-each-ref",
+    "--format=%(objectname) %(refname:short)",
+    `--count=${BRANCH_LIMIT}`,
+    "--sort=-committerdate",
+    "refs/heads",
+  ]);
   return new Map(
     (output ?? "")
       .split("\n")
@@ -113,7 +119,9 @@ export async function pullFilesOn(git: Git, branch: string, commit: string, fold
       const [, type, id] = info.split(" ");
       return { type, id: id!, path };
     })
-    .filter((entry) => entry.type === "blob" && entry.path.toLowerCase().endsWith(".md") && !entry.path.slice(folder.length + 1).includes("/"))
+    .filter(
+      (entry) => entry.type === "blob" && entry.path.toLowerCase().endsWith(".md") && !entry.path.slice(folder.length + 1).includes("/"),
+    )
     .slice(0, FILE_LIMIT);
   return Promise.all(
     entries.map(async (entry) => ({

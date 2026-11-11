@@ -255,6 +255,8 @@ export type TaskChange =
   | { readonly kind: "labels"; readonly added: readonly string[]; readonly removed: readonly string[] }
   | { readonly kind: "description" }
   | { readonly kind: "comments"; readonly added: number; readonly edited: number; readonly removed: number }
+  /** Time log entries: the lines added, as written without the list marker, and how many went away. */
+  | { readonly kind: "timelog"; readonly added: readonly string[]; readonly removed: number }
   /** A custom field with a plain value, written as text; "" where the task did not have it. */
   | { readonly kind: "custom"; readonly field: string; readonly from: string; readonly to: string }
   /** Frontmatter fields Genbeya has no words for, such as lists. */

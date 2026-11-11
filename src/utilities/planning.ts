@@ -161,6 +161,17 @@ export function timeLogOf(body: string): TimeLog {
   return { entries, unreadable, total: entries.reduce((sum, entry) => sum + entry.hours, 0) };
 }
 
+/** The time log's list items as written, and the description without the section, for comparing versions of a task. */
+export function splitTimeLog(body: string): { description: string; lines: string[] } {
+  const lines = body.split(/\r?\n/);
+  const section = timeLogSection(lines);
+  if (!section) return { description: body, lines: [] };
+  return {
+    description: [...lines.slice(0, section.start), ...lines.slice(section.end)].join("\n"),
+    lines: section.items.map((index) => lines[index]!.trim()),
+  };
+}
+
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 
 /** An entry as a line of the time log. */

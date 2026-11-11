@@ -12,6 +12,7 @@
  * start with a dot hold no tasks.
  */
 import YAML from "yaml";
+import { splitTimeLog } from "../utilities/planning";
 import { TASK_KEYS, type FieldValue, type Task, type TaskChange, type TaskInput, type TaskTemplate } from "../contracts/model";
 import { validateRepositoryPath, within } from "../utilities/repository-path";
 import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
@@ -380,7 +381,9 @@ export class TaskEngine {
     } catch {
       // Old versions may be broken; their body still counts.
     }
-    const { description, blocks } = splitComments(body.replace(/^\r?\n/, ""));
+    const { description: written, blocks } = splitComments(body.replace(/^\r?\n/, ""));
+    // Logging time changes the time log, not the description.
+    const { description, lines: timeLog } = splitTimeLog(written);
     const text = (key: string, fallback = "") => String(data[key] ?? fallback);
     const fields = extraFields(data);
     return {
@@ -393,6 +396,7 @@ export class TaskEngine {
       labels: toList(data["labels"]),
       description,
       comments: blocks.map((block) => block.comment),
+      timeLog,
       fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, fieldText(value)])),
       other: Object.fromEntries(
         Object.entries(data)

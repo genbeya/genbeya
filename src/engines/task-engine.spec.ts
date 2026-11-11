@@ -415,6 +415,18 @@ describe("TaskEngine.changesBetween", () => {
     ]);
   });
 
+  it("tells time logged apart from edits of the description", () => {
+    const log = (...entries: string[]) => ({
+      path: "tasks/TP-1.md",
+      content: `---\nid: TP-1\ntitle: T\nstatus: todo\n---\n\nText\n\n## Time log\n\n${entries.map((entry) => `- ${entry}\n`).join("")}`,
+    });
+    const first = "2026-10-21 — Ada — 2h — Started";
+    expect(engine.changesBetween(log(first), log(first, "2026-10-22 — Ada — 1h — Tests"), "tasks")).toEqual([
+      { kind: "timelog", added: ["2026-10-22 — Ada — 1h — Tests"], removed: 0 },
+    ]);
+    expect(engine.changesBetween(log(first, first), log(first), "tasks")).toEqual([{ kind: "timelog", added: [], removed: 1 }]);
+  });
+
   it("names a changed type and custom fields with their values, and other fields by name", () => {
     const before = version("tasks/TP-1.md", "type: bug\nestimate: 3\ndepends_on: [TP-2]\nlinks: { a: 1 }\n");
     const after = version("tasks/TP-1.md", "type: feature\nestimate: 5\ndepends_on: [TP-2, TP-3]\nlinks: { a: 2 }\n");
