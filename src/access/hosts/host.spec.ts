@@ -2,18 +2,22 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { nodeMachine } from "../../platforms/node/node-machine";
+import { nodeTerminals } from "../../platforms/node/node-terminals";
 import { findShell } from "../../testing/shell";
 import { temporaryFolder } from "../../testing/temp";
 import { decodeLenient, encodeText } from "../../utilities/bytes";
 import { FileSystemError, type FileSystem } from "../ports";
 import { HostError, type Host } from "./host";
-import { HostFactory, locationOfFolder, validateFolderLocation, validateLocation } from "./host-factory";
+import { HostFactory } from "./host-factory";
+import { LOCAL_ONLY, LocalHosts } from "./local-hosts";
+import { locationOfFolder, validateFolderLocation, validateLocation } from "./locations";
 import { LocalHost } from "./local-host";
 import { printfFormat, ShellHost } from "./shell-host";
-import { quote, ShellSession } from "./shell-session";
+import { ShellSession } from "./shell-session";
+import { quote } from "../../utilities/shell-quote";
 import { localTerminal, sshTerminal, wslTerminal } from "./terminal-commands";
 
-const machine = nodeMachine();
+const machine = nodeMachine(nodeTerminals);
 
 interface HostFixture {
   host: Host;
@@ -352,8 +356,12 @@ describe("terminal commands of hosts", () => {
     expect(local).toEqual(localTerminal(await machine.terminals!.shell(), "/r"));
   });
 
+  it("leave the terminal out where no shell command is given", async () => {
+    await expect(new LocalHost(machine).terminalCommand("/r")).rejects.toThrow("The terminal is not available in this build.");
+  });
+
   it("explain that a runtime without terminals has none", async () => {
-    await expect(new LocalHost({ ...machine, terminals: null }).terminalCommand("/r")).rejects.toThrow(
+    await expect(new LocalHost({ ...machine, terminals: null }, localTerminal).terminalCommand("/r")).rejects.toThrow(
       "The terminal is not available in this build.",
     );
   });
@@ -362,4 +370,22 @@ describe("terminal commands of hosts", () => {
 it("HostError explains each failure", () => {
   expect(new HostError("SYMLINK", "a").message).toBe("a is behind a symbolic link, which Genbeya does not follow.");
   expect(new HostError("FAILED", "a", "detail").message).toBe("detail");
+});
+
+describe("local hosts", () => {
+  const hosts = new LocalHosts(machine);
+
+  it("open repositories on this computer, without a terminal", async () => {
+    const host = hosts.connect({ kind: "local", path: "/r" });
+    onTestFinished(() => host.dispose());
+    expect(host).toBeInstanceOf(LocalHost);
+    await expect(host.terminalCommand("/r")).rejects.toThrow("The terminal is not available in this build.");
+  });
+
+  it("refuse other machines", async () => {
+    expect(() => hosts.connect({ kind: "ssh", host: "me@server", path: "/r" })).toThrow(LOCAL_ONLY);
+    expect(() => hosts.connect({ kind: "wsl", distro: "Ubuntu", path: "/r" })).toThrow(LOCAL_ONLY);
+    await expect(hosts.list()).rejects.toThrow(LOCAL_ONLY);
+    expect(await hosts.distributions()).toEqual([]);
+  });
 });

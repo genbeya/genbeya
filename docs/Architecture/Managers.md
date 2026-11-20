@@ -1,6 +1,13 @@
 # Managers
 
-Four managers implement everything the client can do with a repository. Their contracts are in `src/contracts/manager-contracts.ts`; `src/managers/backend.ts` composes them for a shell.
+Four managers implement everything the client can do with a repository. Their contracts are in `src/contracts/manager-contracts.ts`. `composeBackend` (`src/managers/compose-backend.ts`) builds them from the parts a shell chooses:
+
+| Composition | Shells | Hosts | Launch arguments |
+| --- | --- | --- | --- |
+| `createBackend` (`backend.ts`) | Electron, Deno, Tauri | This computer, WSL and SSH (`HostFactory`), with folder browsing there (`RemoteFolders`) | `--open=` and `genbeya://` links open what they name |
+| `createLocalBackend` (`local-backend.ts`) | VS Code | This computer only (`LocalHosts`) | None |
+
+The terminal manager is the same in both; it opens terminals only when the machine has them. The local composition exists so the VS Code extension carries no code that starts shells on this or another machine, see [VS Code](VS-Code.md#what-the-extension-leaves-out).
 
 | Manager | Use cases |
 | --- | --- |

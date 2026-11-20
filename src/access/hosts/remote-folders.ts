@@ -6,8 +6,10 @@
 import type { Folder, FolderListing, RemoteLocation } from "../../contracts/model";
 import { decodeLenient } from "../../utilities/bytes";
 import { posixPaths } from "../../utilities/native-path";
+import type { FolderBrowser } from "./host";
 import type { HostFactory } from "./host-factory";
-import { ConnectionError, quote, type ShellSession } from "./shell-session";
+import { ConnectionError, type ShellSession } from "./shell-session";
+import { quote } from "../../utilities/shell-quote";
 
 const MAX_FOLDERS = 2000;
 const IDLE_TIMEOUT = 60_000;
@@ -65,7 +67,7 @@ export interface RemoteFoldersOptions {
   readonly idle?: number;
 }
 
-export class RemoteFolders {
+export class RemoteFolders implements FolderBrowser {
   private readonly limit: number;
   private readonly idle: number;
   private cached: { readonly machine: string; readonly session: ShellSession } | null = null;
