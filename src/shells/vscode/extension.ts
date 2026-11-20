@@ -8,7 +8,8 @@
 import * as vscode from "vscode";
 import { pageName, pagePath, pageNameProblem } from "../../client/app/features/wiki/wiki-pages";
 import { syncsContentBranch, type Snapshot, type WikiNode } from "../../contracts/model";
-import { createBackend, type Backend } from "../../managers/backend";
+import type { Backend } from "../../managers/compose-backend";
+import { createLocalBackend } from "../../managers/local-backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { CONTENT_SCHEME, ContentFiles } from "./content-files";
 import { REVISION_SCHEME, RevisionFiles } from "./revision-files";
@@ -103,7 +104,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Genbey
   };
   groupByEpic(context.workspaceState.get<boolean>(GROUPING, false));
 
-  backend = await createBackend(nodeMachine(), context.globalStorageUri.fsPath);
+  backend = await createLocalBackend(nodeMachine(), context.globalStorageUri.fsPath);
   const managers = backend;
 
   /** Shows the first workspace folder that holds a Git repository. */

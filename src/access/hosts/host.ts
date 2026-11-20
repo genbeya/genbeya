@@ -6,6 +6,7 @@
  * File operations take a root plus a validated, slash-separated relative
  * path. Hosts refuse to traverse symbolic links below the root.
  */
+import type { FolderListing, Location, RemoteLocation } from "../../contracts/model";
 import type { RunOptions, RunResult } from "../ports";
 import type { PathStyle } from "../../utilities/native-path";
 import type { TerminalCommand } from "./terminal-commands";
@@ -29,6 +30,20 @@ export interface Host {
   removeEmptyFolder(root: string, relative: string): Promise<boolean>;
   /** How to start the user's shell in `path` on this machine's pseudo-terminal. */
   terminalCommand(path: string): Promise<TerminalCommand>;
+  dispose(): void;
+}
+
+/** Connects to the machines repository locations name. */
+export interface Hosts {
+  /** A host for a validated location; it connects on first use. */
+  connect(location: Location): Host;
+  /** WSL distributions to open repositories on; empty where there are none. */
+  distributions(): Promise<string[]>;
+}
+
+/** Lists folders on WSL distributions and SSH servers, to choose a repository there. */
+export interface FolderBrowser {
+  list(location: RemoteLocation): Promise<FolderListing>;
   dispose(): void;
 }
 

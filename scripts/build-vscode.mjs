@@ -13,6 +13,18 @@ const manifest = JSON.parse(await readFile("src/shells/vscode/manifest.json", "u
 
 await rm(output, { recursive: true, force: true });
 await Promise.all([build(vscodeBundle), build(vscodeWebviewBundle)]);
+
+// The Visual Studio Marketplace scans extensions for code that looks like remote access: shells
+// started hidden, killed process trees, remote logins, payloads from the command line. The
+// extension opens none of these (VS Code has the terminal and the remote machines), so its
+// backend leaves them out (local-backend.ts, GENBEYA-66); this keeps them from coming back.
+const SUSPICIOUS = [/powershell/i, /pwsh/i, /taskkill/i, /node-pty/, /wsl\.exe/i, /BatchMode/, /--open=/, /mktemp/, /exec "\$SHELL"/];
+const extension = await readFile(`${output}/extension.cjs`, "utf8");
+const found = SUSPICIOUS.filter((pattern) => pattern.test(extension));
+if (found.length) {
+  console.error(`dist/vscode/extension.cjs names ${found.join(", ")}: code the extension must not carry. See GENBEYA-66.`);
+  process.exit(1);
+}
 await writeFile(`${output}/package.json`, `${JSON.stringify({ ...manifest, version }, null, 2)}\n`);
 // Source maps help debugging, not users; node-pty is left out, as the extension opens no terminals.
 await writeFile(`${output}/.vscodeignore`, "**/*.map\n");

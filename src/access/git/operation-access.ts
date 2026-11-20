@@ -10,7 +10,7 @@ import type { RebaseTodo, TodoLine } from "../../contracts/rebase-todo";
 import { decodeLenient, encodeText, isBinary } from "../../utilities/bytes";
 import { TEXT_LIMIT } from "../files/file-store";
 import { isMissing, isTooLarge, type Host } from "../hosts/host";
-import { quote } from "../hosts/shell-session";
+import { quote } from "../../utilities/shell-quote";
 import { failure, GitError, type Git } from "./git";
 import { OPERATION_FILES, parseOperation, parseRebaseCommits, REBASE_FORMAT, type OperationFiles } from "./git-parsers";
 

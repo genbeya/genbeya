@@ -17,7 +17,7 @@ flowchart LR
 
 | File | What it does |
 | --- | --- |
-| `extension.ts` | Activation: creates the managers on the Node platform (preferences in the extension's global storage), opens the first workspace folder that holds a Git repository, registers the views and commands |
+| `extension.ts` | Activation: creates the managers for this computer's repositories (`createLocalBackend`) on the Node platform without terminals (preferences in the extension's global storage), opens the first workspace folder that holds a Git repository, registers the views and commands |
 | `repository.ts` | The open repository: its snapshot, polled every four seconds while the window has focus, and on focus and save, like the client polls it |
 | `wiki-view.ts` | The page tree. A click opens the preview; the inline actions are **Preview** and **Edit** |
 | `tasks-view.ts`, `task-groups.ts` | The tasks as a tree, one group per workflow state, or grouped by epic first (a toggle in the title bar), with the same actions; dragging tasks onto a state moves them. The context menu changes status, type, priority, assignee, epic and labels, renames and deletes. The title bar opens the board |
@@ -52,11 +52,17 @@ An area in the checkout opens as the plain file, so VS Code's Git support, searc
 
 The manifest's `extensionKind` is `workspace`, so VS Code runs the extension where the workspace is: in WSL, over SSH or in a dev container, it runs there, and the managers see a local repository. The desktop app's own WSL and SSH hosts are not needed. Genbeya runs Git in the repository, which can run programs the repository configures, so the extension stays off in untrusted workspaces.
 
+## What the extension leaves out
+
+The Visual Studio Marketplace refused the extension within seconds, by an automated check, without naming a rule ([[GENBEYA-25]]). The extension then carried the desktop app's whole backend, and with it code that reads like a remote access tool to a scanner looking for patterns: PowerShell started with hidden windows, `taskkill /f`, node-pty, `ssh -t … exec "$SHELL" -l`, `wsl.exe`, a script that sets up a shell on another machine, and a base64 command-line argument decoded and opened. None of it ran in VS Code.
+
+So the extension builds its managers with `createLocalBackend` ([Managers](Managers.md)) on a Node machine without terminals: no WSL or SSH hosts, no folder browsing there, no launch arguments, no terminals ([[GENBEYA-66]]). What it still starts is `git`. `scripts/build-vscode.mjs` fails when `extension.cjs` names PowerShell, `pwsh`, `taskkill`, node-pty, `wsl.exe`, `BatchMode`, `--open=`, `mktemp` or `exec "$SHELL"`, so a new import can't bring them back unnoticed.
+
 ## Decisions
 
 - **One repository, one version.** The extension lives in this repository and reuses the contracts, engines, managers and the client's Markdown rendering directly. It carries the app's version, so `scripts/version.mjs` needs no new file.
 - **Native where VS Code has it.** Trees for lists, the editor for editing, quick picks for choices. Webviews only where VS Code has nothing to offer: rendered pages and tasks, and the board. They are small, purpose-built pages with VS Code's colours and fonts, not the app's client, which would duplicate VS Code's editor, Git and terminal.
-- **No terminal.** The extension never opens terminals, so node-pty is not packaged.
+- **No terminal, no remote hosts.** VS Code has both, so the extension leaves them out, see below.
 
 ## Not yet
 
