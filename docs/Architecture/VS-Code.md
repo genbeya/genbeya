@@ -54,9 +54,13 @@ The manifest's `extensionKind` is `workspace`, so VS Code runs the extension whe
 
 ## What the extension leaves out
 
-The Visual Studio Marketplace refused the extension within seconds, by an automated check, without naming a rule ([[GENBEYA-25]]). The extension then carried the desktop app's whole backend, and with it code that reads like a remote access tool to a scanner looking for patterns: PowerShell started with hidden windows, `taskkill /f`, node-pty, `ssh -t … exec "$SHELL" -l`, `wsl.exe`, a script that sets up a shell on another machine, and a base64 command-line argument decoded and opened. None of it ran in VS Code.
+The Visual Studio Marketplace refused the extension within seconds, by an automated check: "Your extension has suspicious content. Please fix your extension metadata", naming no rule ([[GENBEYA-25]]).
 
-So the extension builds its managers with `createLocalBackend` ([Managers](Managers.md)) on a Node machine without terminals: no WSL or SSH hosts, no folder browsing there, no launch arguments, no terminals ([[GENBEYA-66]]). What it still starts is `git`. `scripts/build-vscode.mjs` fails when `extension.cjs` names PowerShell, `pwsh`, `taskkill`, node-pty, `wsl.exe`, `BatchMode`, `--open=`, `mktemp` or `exec "$SHELL"`, so a new import can't bring them back unnoticed.
+**Keywords.** Probe uploads, each a new extension with empty code and one piece of Genbeya's metadata, found the cause: the manifest's `keywords`. Every other piece passed, the display name, the README, the licences and the homepage on genbeya.fyi included ([[GENBEYA-66]] has the results). Which keyword it is wasn't tested, so the manifest has none; they can come back one at a time in updates once the extension is listed. The Marketplace blocks uploads for 12 hours after seven or eight new extensions in a row, so probes are best spent sparingly.
+
+**Code nobody runs.** Before the probes, the bundle looked like the likelier cause. The extension carried the desktop app's whole backend, and with it code that reads like a remote access tool to a scanner looking for patterns: PowerShell started with hidden windows, `taskkill /f`, node-pty, `ssh -t … exec "$SHELL" -l`, `wsl.exe`, a script that sets up a shell on another machine, and a base64 command-line argument decoded and opened. None of it ran in VS Code.
+
+The extension builds its managers with `createLocalBackend` ([Managers](Managers.md)) on a Node machine without terminals: no WSL or SSH hosts, no folder browsing there, no launch arguments, no terminals ([[GENBEYA-66]]). What it still starts is `git`. `scripts/build-vscode.mjs` fails when `extension.cjs` names PowerShell, `pwsh`, `taskkill`, node-pty, `wsl.exe`, `BatchMode`, `--open=`, `mktemp` or `exec "$SHELL"`, so a new import can't bring them back unnoticed.
 
 ## Decisions
 
