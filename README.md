@@ -7,4 +7,4 @@ Results so far, each probe being the accepted empty probe plus one piece of Genb
 
 `genbeya-probe-2-rest.vsix` combined the remaining fields: `pricing`, `author`, `bugs`, `galleryBanner` and `extensionKind`. It was accepted. Delete this branch once the extension is uploaded.
 
-`Genbeya-0.1.0-vscode.vsix` is the real extension from fix/vscode-extension-without-terminals (e099cbd), without keywords.
+`Genbeya-0.1.0-vscode.vsix` is the real extension from fix/vscode-extension-without-terminals , without keywords, as "Genbeya for VS Code".
