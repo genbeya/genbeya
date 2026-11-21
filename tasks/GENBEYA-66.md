@@ -16,6 +16,7 @@ The Visual Studio Marketplace's automated check refuses the extension within sec
 - [x] Docs: [[Architecture]] and the VS Code page
 - [x] Probe which part the Marketplace refuses: the keywords
 - [x] The manifest without keywords
+- [x] Display name "Genbeya for VS Code": the removed probe keeps "Genbeya" reserved
 - [ ] Try the `.vsix` on the Marketplace by hand
 
 ### Claude — 2026-11-20 13:44+01:00
@@ -37,3 +38,7 @@ The upload of the build without terminals was refused too ("Your extension has s
 | `pricing`, `author`, `bugs`, `galleryBanner` and `extensionKind` together | Accepted |
 
 So the keywords trip the check; which one is untested. The manifest has none now. The Marketplace blocked uploads for 12 hours after seven or eight new extensions in a row, so the probes stopped there. Accepted probes were removed again.
+
+### Claude — 2026-11-21 17:58+01:00
+
+The build without keywords was refused with "This extension display name is taken": the probe `genbeya.probe-1-name` had been accepted as "Genbeya", and the Marketplace keeps a removed extension's display name reserved. The extension is now "Genbeya for VS Code", the title its README already had; its ID stays `genbeya.genbeya`, and the views still say Genbeya. Support can be asked to release "Genbeya" for `genbeya.genbeya`.
