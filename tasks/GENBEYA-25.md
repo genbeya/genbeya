@@ -2,7 +2,7 @@
 id: GENBEYA-25
 title: Publish the VS Code extension
 type: chore
-status: review
+status: in-progress
 priority: medium
 labels: [vscode, release]
 ---
@@ -32,3 +32,7 @@ The refusal was the manifest's `keywords`, found with probe uploads ([[GENBEYA-6
 ### Claude — 2026-11-22 19:14+01:00
 
 0.1.0 is on the Marketplace, uploaded by hand as "Genbeya for VS Code". The release job publishes there again, now through trusted publishing (`npx @vscode/vsce@4.1.0 publish --oidc`, the job already had `id-token: write` for Open VSX), so the `VSCE_PAT` secret is no longer used and can be deleted. The guide and the release notes point VS Code users to the Marketplace.
+
+### Claude — 2026-11-22 23:12+01:00
+
+0.2.0 went out through the release job to both stores: `vsce publish --oidc` published `genbeya.genbeya` 0.2.0 on the Marketplace, the first time without a token. Still open: the keywords, screenshots in the README, and the verified publisher.
