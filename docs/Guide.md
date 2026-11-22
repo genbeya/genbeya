@@ -4,10 +4,10 @@ How to work with Genbeya day to day, one area per page.
 
 | Page | Covers |
 | --- | --- |
-| [Wiki](Guide/Wiki.md) | Pages and subpages, the editor, links, callouts, diagrams and images |
+| [Wiki](Guide/Wiki.md) | Pages and subpages, the editor, links, callouts, diagrams, images, and live plans from the tasks |
 | [References](Guide/References.md) | `[[…]]` links to tasks, pages and files, line ranges, embeds, and what happens when things move |
 | [Writing pages](Guide/Writing.md) | `@mentions` of people, dates, math, code blocks with titles and line numbers, foldable callouts, footnotes, keys and collapsible sections, and inserting blocks with `/` |
-| [Tasks](Guide/Tasks.md) | The board and the list, the task file, comments, activity, epics, workflow states, types, templates and custom fields |
+| [Tasks](Guide/Tasks.md) | The board and the list, the task file, comments, activity, epics, workflow states, types, templates, custom fields, and planning: effort, the time log, dependencies and the calendar |
 | [Code](Guide/Code.md) | The editor: find and replace, several cursors, folding, the minimap |
 | [Search](Guide/Search.md) | Finding text in pages, tasks and code |
 | [Version control](Guide/Version-control.md) | Changes, stashes, branches, tags, merging, rebasing, cherry-pick, revert, conflicts and history |
@@ -16,7 +16,7 @@ How to work with Genbeya day to day, one area per page.
 | [Sharing](Guide/Sharing.md) | Links that open a page, task, file or commit in a coworker's Genbeya or on the Git host |
 | [AI agents](Guide/AI-agents.md) | Teaching coding agents to plan in tasks and document in the wiki |
 | [Keyboard shortcuts](Guide/Keyboard-shortcuts.md) | Every key, in the app and in the editor |
-| [Settings](Guide/Settings.md) | The Settings view and every key of `.genbeya.yml` |
+| [Settings](Guide/Settings.md) | The Settings view and every key of `.genbeya.yml`, and turning parts of the app off |
 | [VS Code](Guide/VS-Code.md) | The wiki, the tasks and the board in VS Code, and Genbeya's references in its Markdown editor |
 
 ## The window

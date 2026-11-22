@@ -1,6 +1,6 @@
 # Genbeya
 
-Genbeya gives one Git repository a wiki, a task board, a code editor, Git tools and a terminal, in one desktop window. Everything it shows is a plain file in the repository — Markdown pages, one Markdown file per task, `.genbeya.yml` for settings — so it works with any Git host and any other tool, and your project's knowledge travels with its code.
+Genbeya gives one Git repository a wiki, a task board with plans, pull requests, a code editor, Git tools and a terminal, in one desktop window. Everything it shows is a plain file in the repository — Markdown pages, one Markdown file per task, `.genbeya.yml` for settings — so it works with any Git host and any other tool, and your project's knowledge travels with its code.
 
 ![The wiki, showing references to pages, a task and a file, and an embed of a file's lines](images/wiki-references.png)
 
@@ -16,13 +16,15 @@ Genbeya gives one Git repository a wiki, a task board, a code editor, Git tools 
 | Wiki | Write pages with a live preview, diagrams and callouts | Markdown files in `docs/` | [Wiki](Guide/Wiki.md) |
 | References | Link tasks, pages and files with `[[…]]`, shown with live titles and states | Plain text in any page, task or comment | [References](Guide/References.md) |
 | Tasks | Plan on a board or a list, with types, epics, custom fields, comments and activity | One Markdown file per task in `tasks/` | [Tasks](Guide/Tasks.md) |
+| Planning | Estimates, remaining and logged effort, dependencies; timelines, the critical path and burn charts on pages | Task fields, and plan blocks in pages | [Planning](Guide/Tasks.md#planning) |
 | Code | Edit any file of the repository | The repository itself | [Code](Guide/Code.md) |
 | Search | Find text in pages, tasks and code | — | [Search](Guide/Search.md) |
 | Version control | Commit, branch, merge, rebase, stash and resolve conflicts | Git | [Version control](Guide/Version-control.md) |
+| Pull requests | Ask for a review of a branch: comments on lines, suggestions, to-dos, verdicts and the merge | One Markdown file per pull request in `pulls/` | [Pull requests](Guide/Pull-requests.md) |
 | Terminal | A shell in the repository, wherever it lives | — | [Terminal](Guide/Terminal.md) |
 | Sharing | Send a link that opens a page, task, file or commit in a coworker's Genbeya | — | [Sharing](Guide/Sharing.md) |
 | AI agents | Teach coding agents to work with the tasks and the wiki | Skill and instruction files | [AI agents](Guide/AI-agents.md) |
-| Settings | Folders, task prefix, workflow, types, fields | `.genbeya.yml` | [Settings](Guide/Settings.md) |
+| Settings | Folders, task prefix, workflow, types, fields, the calendar, and the parts of the app you use | `.genbeya.yml` | [Settings](Guide/Settings.md) |
 | VS Code | The wiki, the tasks and the board next to your code, with references in VS Code's editor | The same files | [VS Code](Guide/VS-Code.md) |
 
 Repositories can live on this computer, in WSL or on an SSH server; Git always runs where the repository is.
@@ -42,4 +44,4 @@ By default, wiki pages, tasks and settings change with the branch you have check
 - [Keyboard shortcuts](Guide/Keyboard-shortcuts.md) — every key on one page
 - [Architecture](Architecture.md) — how the app is put together, for contributors
 - [Development](Development.md) — build, test and package
-- [Design](Design.md) — proposals for what comes next: optional parts, planning, pull requests
+- [Design](Design.md) — the design behind optional parts, planning and pull requests, and what comes next
