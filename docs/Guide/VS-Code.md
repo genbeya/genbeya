@@ -7,7 +7,7 @@ The Genbeya extension for VS Code shows the wiki and the tasks of the repository
 
 ## Install
 
-In VSCodium, Cursor and other editors that use [Open VSX](https://open-vsx.org/extension/genbeya/genbeya), open the **Extensions** view, search for **Genbeya** and choose **Install**; the editor keeps it up to date. VS Code's own Marketplace doesn't have it yet: download `Genbeya-<version>-vscode.vsix` from the [latest release](https://github.com/genbeya/genbeya/releases/latest) and choose **Extensions → … → Install from VSIX…**, again for each new version.
+Open the **Extensions** view, search for **Genbeya** and choose **Install**; the editor keeps it up to date. VS Code gets it from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=genbeya.genbeya), where it is listed as **Genbeya for VS Code**; VSCodium, Cursor and other editors from [Open VSX](https://open-vsx.org/extension/genbeya/genbeya).
 
 It needs VS Code 1.140 or newer. Each [release](https://github.com/genbeya/genbeya/releases/latest) also has the extension as `Genbeya-<version>-vscode.vsix`, for machines without access to the stores: **…** → **Install from VSIX…** in the Extensions view installs it.
 

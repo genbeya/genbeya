@@ -2,7 +2,7 @@
 id: GENBEYA-66
 title: Leave the terminal and remote hosts out of the VS Code extension
 type: bug
-status: in-progress
+status: review
 priority: high
 labels: [vscode, release]
 ---
@@ -17,7 +17,7 @@ The Visual Studio Marketplace's automated check refuses the extension within sec
 - [x] Probe which part the Marketplace refuses: the keywords
 - [x] The manifest without keywords
 - [x] Display name "Genbeya for VS Code": the removed probe keeps "Genbeya" reserved
-- [ ] Try the `.vsix` on the Marketplace by hand
+- [x] Try the `.vsix` on the Marketplace by hand: accepted as "Genbeya for VS Code"
 
 ### Claude — 2026-11-20 13:44+01:00
 
