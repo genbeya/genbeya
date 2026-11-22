@@ -4,6 +4,7 @@ import { RouterLink, RouterLinkActive } from "@angular/router";
 import { CONTENT_AREAS, describeLocation, sameLocation, syncsContentBranch } from "../../../../contracts/model";
 import { CTRL_KEY, MOD_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
+import { Parts } from "../../core/parts";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
 import { Icon } from "../../ui/icon";
@@ -29,6 +30,7 @@ export { VIEWS, type View } from "./view-memory";
 })
 export class Sidebar {
   protected readonly session = inject(Session);
+  protected readonly parts = inject(Parts);
   protected readonly ui = inject(ShellUi);
   protected readonly actions = inject(RepositoryActions);
   protected readonly terminals = inject(Terminals);
@@ -73,6 +75,7 @@ export class Sidebar {
     const { tasks, settings } = this.snapshot();
     return tasks.filter((task) => task.status !== settings.statuses.at(-1)).length;
   });
+  protected readonly openPulls = computed(() => this.snapshot().pulls.filter((pull) => pull.status === "open").length);
   private readonly recent = inject(Repositories).recent;
   protected readonly others = computed(() =>
     this.recent()

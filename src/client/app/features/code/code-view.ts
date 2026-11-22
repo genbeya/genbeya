@@ -13,11 +13,12 @@ import { Resizable, ResizeHandle } from "../../ui/resizable";
 import { filterTree, Tree, type TreeItem } from "../../ui/tree";
 import { ShareMenu } from "../share/share-menu";
 import { FileEditor } from "./file-editor";
+import { PinnedFile } from "./pinned-file";
 
-/** The repository's files: a tree with change markers, and the open file (`?file=`). */
+/** The repository's files: a tree with change markers, and the open file (`?file=`), or its version in a revision (`&rev=`). */
 @Component({
   selector: "gd-code-view",
-  imports: [EmptyState, FileEditor, Icon, Resizable, ResizeHandle, ShareMenu, Tree],
+  imports: [EmptyState, FileEditor, Icon, PinnedFile, Resizable, ResizeHandle, ShareMenu, Tree],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "view" },
   template: `
@@ -74,8 +75,12 @@ import { FileEditor } from "./file-editor";
       <div [gdResizeHandle]="panel"></div>
       <section class="main-pane">
         @if (file(); as path) {
-          @for (key of [path]; track key) {
-            <gd-file-editor [path]="path" [changed]="status().has(path)" [lines]="range()" />
+          @if (rev(); as revision) {
+            <gd-pinned-file [path]="path" [revision]="revision" [lines]="range()" />
+          } @else {
+            @for (key of [path]; track key) {
+              <gd-file-editor [path]="path" [changed]="status().has(path)" [lines]="range()" />
+            }
           }
         } @else {
           <gd-empty-state title="Open a file">
@@ -97,6 +102,8 @@ export class CodeView {
   /** `?lines=10-20` from a link to lines of the file. */
   readonly lines = input<string>();
   protected readonly range = computed(() => parseLines(this.lines() ? `L${this.lines()}` : undefined));
+  /** `?rev=v1.0` from a reference pinned to a revision: the file as committed there, read-only. */
+  readonly rev = input<string>();
   private readonly session = inject(Session);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);

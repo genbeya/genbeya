@@ -93,6 +93,17 @@
         <svg icon gd-icon name="folder" [size]="13"></svg>No epic
       </button>
     }
+    @if (milestones().length) {
+      <div class="menu-heading">Milestone</div>
+      @for (milestone of milestones(); track milestone) {
+        <button gd-menu-item [checked]="filters().milestone === milestone" (selected)="toggleFilter('milestone', milestone)">
+          <svg icon gd-icon name="flag" [size]="13"></svg>{{ milestone }}
+        </button>
+      }
+      <button gd-menu-item [checked]="filters().milestone === ''" (selected)="toggleFilter('milestone', '')">
+        <svg icon gd-icon name="flag" [size]="13"></svg>No milestone
+      </button>
+    }
     <div class="menu-heading">Assignee</div>
     <button gd-menu-item [checked]="filters().assignee === unassigned" (selected)="toggleFilter('assignee', unassigned)">
       <svg icon gd-icon name="user" [size]="14"></svg>Unassigned

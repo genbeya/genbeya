@@ -13,6 +13,7 @@ import type { Diff, LineRange, LineSelection } from "../../../contracts/model";
 import { languageFor, viewingSetup } from "./editor-setup";
 import { GitChanges } from "./git-changes";
 import { chosenLines, chunkLines, selectedLines, wholeChunk, type ChunkLines } from "./line-selection";
+import { diffNotes, type DiffNote } from "./diff-notes";
 import { lineStaging, type HunkAction } from "./line-staging";
 
 export type { HunkAction } from "./line-staging";
@@ -76,6 +77,8 @@ export class DiffView {
   readonly inline = input(false);
   /** Actions on whole chunks; with any, lines can be selected too. */
   readonly hunkActions = input<readonly HunkAction[]>([]);
+  /** Notes below lines of the new version, such as review threads. */
+  readonly notes = input<readonly DiffNote[]>([]);
   readonly hunk = output<HunkEvent>();
   /** The changed lines selected; null when none are. */
   readonly lines = output<DiffLines | null>();
@@ -93,8 +96,8 @@ export class DiffView {
 
   constructor() {
     effect(() => {
-      const [path, diff, inline, actions] = [this.path(), this.diff(), this.inline(), this.hunkActions()];
-      untracked(() => void this.show(path, diff, inline, actions));
+      const [path, diff, inline, actions, notes] = [this.path(), this.diff(), this.inline(), this.hunkActions(), this.notes()];
+      untracked(() => void this.show(path, diff, inline, actions, notes));
     });
     inject(DestroyRef).onDestroy(() => {
       // A language still loading must not build a view after this.
@@ -109,7 +112,7 @@ export class DiffView {
       if (view && !view.state.selection.main.empty) view.dispatch({ selection: EditorSelection.cursor(view.state.selection.main.head) });
   }
 
-  private async show(path: string, diff: ShownDiff, inline: boolean, actions: readonly HunkAction[]) {
+  private async show(path: string, diff: ShownDiff, inline: boolean, actions: readonly HunkAction[], notes: readonly DiffNote[]) {
     const generation = ++this.generation;
     const language = await languageFor(path);
     if (generation !== this.generation) return;
@@ -154,6 +157,7 @@ export class DiffView {
               ...(git ? { diffConfig: git.config } : {}),
             }),
             staging("b", true, () => null),
+            diffNotes(notes),
           ],
         }),
       });
@@ -163,7 +167,7 @@ export class DiffView {
       const view: MergeView = new MergeView({
         parent: this.host,
         a: { doc: originalDoc, extensions: [...extensions, staging("a", false, () => view.b)] },
-        b: { doc: modified, extensions: [...extensions, staging("b", true, () => view.a)] },
+        b: { doc: modified, extensions: [...extensions, staging("b", true, () => view.a), diffNotes(notes)] },
         collapseUnchanged: { margin: CONTEXT_LINES },
         gutter: true,
         ...(git ? { diffConfig: git.config } : {}),

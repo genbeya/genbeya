@@ -4,23 +4,24 @@ How to work with Genbeya day to day, one area per page.
 
 | Page | Covers |
 | --- | --- |
-| [Wiki](Guide/Wiki.md) | Pages and subpages, the editor, links, callouts, diagrams and images |
+| [Wiki](Guide/Wiki.md) | Pages and subpages, the editor, links, callouts, diagrams, images, and live plans from the tasks |
 | [References](Guide/References.md) | `[[…]]` links to tasks, pages and files, line ranges, embeds, and what happens when things move |
 | [Writing pages](Guide/Writing.md) | `@mentions` of people, dates, math, code blocks with titles and line numbers, foldable callouts, footnotes, keys and collapsible sections, and inserting blocks with `/` |
-| [Tasks](Guide/Tasks.md) | The board and the list, the task file, comments, activity, epics, workflow states, types, templates and custom fields |
+| [Tasks](Guide/Tasks.md) | The board and the list, the task file, comments, activity, epics, workflow states, types, templates, custom fields, and planning: effort, the time log, dependencies and the calendar |
 | [Code](Guide/Code.md) | The editor: find and replace, several cursors, folding, the minimap |
 | [Search](Guide/Search.md) | Finding text in pages, tasks and code |
 | [Version control](Guide/Version-control.md) | Changes, stashes, branches, tags, merging, rebasing, cherry-pick, revert, conflicts and history |
+| [Pull requests](Guide/Pull-requests.md) | Asking for a review of a branch, commenting on lines, approving, cleaning up and merging, all in a Markdown file |
 | [Terminal](Guide/Terminal.md) | A shell in the repository, locally, on WSL or over SSH |
 | [Sharing](Guide/Sharing.md) | Links that open a page, task, file or commit in a coworker's Genbeya or on the Git host |
 | [AI agents](Guide/AI-agents.md) | Teaching coding agents to plan in tasks and document in the wiki |
 | [Keyboard shortcuts](Guide/Keyboard-shortcuts.md) | Every key, in the app and in the editor |
-| [Settings](Guide/Settings.md) | The Settings view and every key of `.genbeya.yml` |
+| [Settings](Guide/Settings.md) | The Settings view and every key of `.genbeya.yml`, and turning parts of the app off |
 | [VS Code](Guide/VS-Code.md) | The wiki, the tasks and the board in VS Code, and Genbeya's references in its Markdown editor |
 
 ## The window
 
-The sidebar on the left switches between the five views of the open repository — **Wiki**, **Tasks**, **Code**, **Changes** and **History** (`Ctrl+1` … `Ctrl+5`). Each view returns to what you left open there, such as a page, a task or a file, for as long as the app runs. Above them, the repository menu opens, clones and switches repositories; below them sit the current branch, the **Terminal** and **Settings**.
+The sidebar on the left switches between the six views of the open repository — **Wiki**, **Tasks**, **Code**, **Changes**, **History** and **Pull requests** (`Ctrl+1` … `Ctrl+6`). Each view returns to what you left open there, such as a page, a task or a file, for as long as the app runs. Above them, the repository menu opens, clones and switches repositories; below them sit the current branch, the **Terminal** and **Settings**. Parts you don't use can be turned off, for the project or for yourself: see [Turning parts off](Guide/Settings.md#turning-parts-off).
 
 ## Moving around
 

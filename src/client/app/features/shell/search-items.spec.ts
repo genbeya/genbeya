@@ -22,6 +22,7 @@ const RESULTS: SearchResults = {
     },
   ],
   code: [{ path: "src/gadget.ts", scope: "repo", title: "gadget.ts", matches: [match(2, "  const gadget = 1;", 8, 14)] }],
+  pulls: [],
   truncated: false,
 };
 
@@ -33,7 +34,7 @@ describe("search items", () => {
   });
 
   it("lists every match under its area and file, and opens it where it is", () => {
-    const commands: SearchCommands = { openPage: vi.fn(), openTask: vi.fn(), openFile: vi.fn() };
+    const commands: SearchCommands = { openPage: vi.fn(), openTask: vi.fn(), openPull: vi.fn(), openFile: vi.fn() };
     const items = searchItems(RESULTS, commands);
     expect(items.map((item) => [item.group, item.match!.file, item.match!.fileDetail, item.match!.line])).toEqual([
       ["Wiki", "Home", "docs/Home.md", 7],
@@ -69,6 +70,6 @@ describe("search items", () => {
   it("counts matches and files, and says when there are more", () => {
     expect(describeResults(RESULTS)).toBe("4 matches in 3 files");
     expect(describeResults({ ...RESULTS, code: [], tasks: [], truncated: true })).toBe("1 match in 1 file, more not shown");
-    expect(describeResults({ wiki: [], tasks: [], code: [], truncated: false })).toBe("No matches");
+    expect(describeResults({ wiki: [], tasks: [], code: [], pulls: [], truncated: false })).toBe("No matches");
   });
 });

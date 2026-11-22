@@ -7,23 +7,22 @@ import {
   type FolderListing,
   type OpenedWorkspace,
   type Preferences,
+  type SkippedArea,
   type Snapshot,
   type Storage,
 } from "../contracts/model";
 import { Git } from "../access/git/git";
 import { RepositoryAccess } from "../access/git/repository-access";
-import type { Host } from "../access/hosts/host";
-import { validateFolderLocation, validateLocation, type HostFactory } from "../access/hosts/host-factory";
-import type { RemoteFolders } from "../access/hosts/remote-folders";
+import type { FolderBrowser, Host, Hosts } from "../access/hosts/host";
+import { validateFolderLocation, validateLocation } from "../access/hosts/locations";
 import type { PreferencesStore } from "../access/preferences/preferences-store";
 import type { SampleEngine } from "../engines/sample-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { encodeText, sha256 } from "../utilities/bytes";
 import { buildFileTree } from "../utilities/file-tree";
-import { requestedLink, requestedLocation } from "../utilities/launch-request";
 import { namesRemoteHelper } from "../utilities/remote-url";
 import { changePreferences } from "./preference-change";
-import { Workspace, type Engines, type WorkspaceRegistry } from "./workspace";
+import { skippedAreas, taskIndexOf, Workspace, type Engines, type WorkspaceRegistry } from "./workspace";
 
 const CLONE_TIMEOUT = 15 * 60_000;
 
@@ -38,13 +37,23 @@ async function freeFolder(host: Host, folder: string, name: string): Promise<str
   throw new Error(`${folder} already has a hundred ${name} folders.`);
 }
 
+/** Reads what a launch asks for (launch-request.ts), in shells that are launched with arguments. */
+export interface LaunchRequests {
+  /** Whether the arguments carry a link; the client opens it. */
+  requestedLink(args: readonly unknown[]): unknown;
+  /** The location the arguments ask to open, unvalidated, or undefined. */
+  requestedLocation(args: readonly unknown[]): unknown;
+}
+
 export class WorkspaceManager implements WorkspaceManagerContract {
   constructor(
     private readonly registry: WorkspaceRegistry,
-    private readonly hosts: HostFactory,
-    private readonly folders: RemoteFolders,
+    private readonly hosts: Hosts,
+    private readonly folders: FolderBrowser,
     private readonly preferencesStore: PreferencesStore,
     private readonly engines: Engines & { readonly wiki: WikiEngine; readonly sample: SampleEngine },
+    /** Null in shells that take no launch arguments. */
+    private readonly launch: LaunchRequests | null = null,
   ) {}
 
   async open(location: unknown): Promise<OpenedWorkspace> {
@@ -76,8 +85,8 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     if (current) return { id: this.registry.activate(current), snapshot: await current.exclusive(() => this.compose(current)) };
     const args = Array.isArray(launchArgs) ? launchArgs : [];
     // The client finds the clone a link names; reopening the last repository first would be wasted.
-    if (requestedLink(args)) return null;
-    const requested = requestedLocation(args);
+    if (this.launch?.requestedLink(args)) return null;
+    const requested = this.launch?.requestedLocation(args);
     if (requested !== undefined) return this.open(requested);
     const last = this.preferencesStore.recent[0];
     if (!this.preferencesStore.preferences.reopenLast || !last) return null;
@@ -146,10 +155,11 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     if (typeof id === "string") void this.registry.close(id);
   }
 
-  async snapshot(id: unknown, since?: unknown, base?: unknown): Promise<Snapshot | null> {
+  async snapshot(id: unknown, since?: unknown, base?: unknown, skip?: unknown): Promise<Snapshot | null> {
     const workspace = this.registry.get(id);
     if (base !== undefined && base !== null && !CHANGE_BASES.includes(base as ChangeBase)) throw new Error("Invalid comparison base.");
-    const snapshot = await workspace.exclusive(() => this.compose(workspace, (base as ChangeBase | null | undefined) ?? "head"));
+    const skipped = skippedAreas(skip);
+    const snapshot = await workspace.exclusive(() => this.compose(workspace, (base as ChangeBase | null | undefined) ?? "head", skipped));
     if (snapshot.version === since) return null;
     this.preferencesStore.rememberRemotes(workspace.location, remoteUrls(snapshot));
     return snapshot;
@@ -182,9 +192,9 @@ export class WorkspaceManager implements WorkspaceManagerContract {
   }
 
   /** Everything the client shows, stamped with a version of its content; staged changes are compared with `base`. */
-  private async compose(workspace: Workspace, base: ChangeBase = "head"): Promise<Snapshot> {
+  private async compose(workspace: Workspace, base: ChangeBase = "head", skipped: readonly SkippedArea[] = []): Promise<Snapshot> {
     const { areas, branch: content } = await workspace.content.layout();
-    const readsBranch = content && (areas.wiki === "branch" || areas.tasks === "branch");
+    const readsBranch = content && (areas.wiki === "branch" || areas.tasks === "branch" || areas.pulls === "branch");
     const [repository, branchFiles, contentBranch, loaded] = await Promise.all([
       workspace.repository.state(base),
       readsBranch ? content.git.files() : null,
@@ -196,7 +206,9 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     const warnings = problem ? [problem] : [];
     if (workspace.content.commitFailure && content)
       warnings.push(`Saved, but not committed to the ${content.branch} branch: ${workspace.content.commitFailure}`);
-    const tasks = await workspace.tasks(filesOf("tasks"), settings, warnings);
+    // Areas nobody shows are not read: tasks leave only their IDs, from the file names, for references.
+    const tasks = skipped.includes("tasks") ? [] : await workspace.tasks(filesOf("tasks"), settings, warnings);
+    const pulls = skipped.includes("pulls") ? [] : await workspace.pulls(filesOf("pulls"), settings, warnings);
     if (contentBranch?.uncommitted)
       warnings.push(
         `${contentBranch.uncommitted} file(s) on the ${contentBranch.branch} branch are not committed. Commit them in ${content!.root}.`,
@@ -227,6 +239,9 @@ export class WorkspaceManager implements WorkspaceManagerContract {
       files: buildFileTree(repository.files),
       wiki: this.engines.wiki.tree(filesOf("wiki"), settings),
       tasks,
+      pulls,
+      ...(skipped.length ? { skipped } : {}),
+      ...(skipped.includes("tasks") ? { taskIndex: taskIndexOf(filesOf("tasks"), settings.taskRoot, this.engines.tasks) } : {}),
       warnings,
     };
     return { version: sha256(JSON.stringify(body)), ...body };

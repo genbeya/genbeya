@@ -35,6 +35,8 @@ Genbeya's own repository has these files as well: [AGENTS.md](../../AGENTS.md) a
 - Write wiki pages: where they go, how file names become titles, subpages, diagrams and callouts.
 - Change only the fields they mean to change, keeping other frontmatter fields, comments and line endings.
 
+A project that doesn't use the wiki or the tasks ([`unused`](Settings.md#unused)) gets files without them: no wiki section for a project without a wiki, no task workflow for one without tasks. After changing that, the files show *Outdated* too.
+
 The workflow states are not written into the files: agents read them from `.genbeya.yml` when they work, so changing the workflow needs no update. The folders and the task prefix are filled in; after changing those, the files show *Outdated* — press **Update** and commit the result.
 
 ## Your own text stays

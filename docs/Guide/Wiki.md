@@ -61,7 +61,24 @@ A folder without a matching page still shows up and lists its children. **New su
 | ` ```mermaid ` | A Mermaid diagram |
 | ` ```plantuml ` | A PlantUML diagram |
 | ` ```ts ` (any language) | Syntax highlighting |
-| `- [ ]` and `- [x]` | A checklist |
+| `- [ ]` and `- [x]` | A checklist; its boxes can be ticked as the page reads, which saves the page |
+| `[EFFORT]`, `[DEPENDENCIES]`, `[GANTT]`, `[ARROWS]`, `[FLOAT]` | A plan of the tasks; see [Plans](#plans) |
+
+### Plans
+
+A plan block, alone on its line, shows the tasks as they are now. Nothing is stored in the page, so it never goes stale:
+
+| Write | Get |
+| --- | --- |
+| `[EFFORT]` | A table of estimate, logged, remaining, forecast and variance per task, with totals, and how many tasks lack an estimate or a remaining effort |
+| `[DEPENDENCIES]` | A diagram of what waits for what: a blue border is ready, an orange dashed one blocked, a green one done |
+| `[GANTT]` | The tasks on a PlantUML timeline, one section per epic, the days off of the [calendar](Tasks.md#planning) closed and today marked. Dates are shown as written; a task without dates is placed after what it waits for (or from today) for its duration. Arrows join tasks to what they wait for, a task that starts before that is due is orange, the critical path is red, and the bars fill with the logged share of the forecast. A due date without a duration is a milestone; milestones dated in **Settings** show as points in time, and a task due after its milestone is orange |
+| `[ARROWS]` | The critical path as an arrow diagram: circles are events with their earliest / latest day, arrows are tasks with their duration and float, dashed arrows join tasks that wait for the same tasks, and the critical path is red |
+| `[FLOAT]` | The schedule as a table: duration, earliest and latest start and finish dates on the project's working days, float and free float of each unfinished task |
+| `[BURNDOWN]` | Remaining effort as bars and logged effort as a line, day by day, read from the tasks' history in Git (the newest 300 commits that changed tasks). Remaining counts the tasks with a `remaining` field |
+| `[BASELINE v1.0]` | What changed since a tag or commit, with who changed each task last: tasks added and removed, estimates, dates, milestones and dependencies, and how the estimate and forecast moved |
+
+Click a task in a diagram to open it. Narrow a plan to some tasks with `epic`, `milestone`, `assignee`, `label`, `type` or `status`, all of which must match; quote values with spaces: `[EFFORT epic="Release 1.0" label=cli]`. An epic includes the epics inside it. The fields behind the numbers are described in [Planning](Tasks.md#planning).
 
 [Writing pages](Writing.md) has more: math, code blocks with titles, line numbers and highlighted lines, foldable callouts, footnotes, keys and collapsible sections.
 
@@ -89,3 +106,16 @@ flowchart LR
 ## Images
 
 Images stored in the repository render inline: `![Board](images/task-board.png)`, relative to the page. They belong to the wiki, so while the wiki lives on the [Content branch](../Architecture/Content-branch.md), Genbeya loads them from there. Remote images are not loaded; they show as a link.
+
+## Zooming images and diagrams
+
+Large diagrams and screenshots are hard to read at the size of the page. Click one to open it over the window, fitted to it. This works wherever Genbeya shows Markdown: wiki pages, task descriptions and comments, and previews in **Code**.
+
+- The wheel or a pinch zooms around the pointer; drag to move the picture.
+- `+` and `-` zoom in and out, `0` fits the picture to the window, `1` shows it at 100 %. The arrow keys move it.
+- `Esc`, the close button or a click beside the popup closes it.
+- Diagrams stay sharp at any zoom. Images such as screenshots go up to 400 %, beyond which they would only blur.
+
+A diagram's popup switches between **Source**, **Split** and **Diagram**, like the previews in **Code**: the source shows read-only in the editor, to read, search (`Ctrl+F`) and copy. It opens on **Diagram**. Images have no source, so their popup shows just the picture.
+
+An image inside a link follows the link when clicked. Point at it for a zoom button in its corner, which opens the popup instead. Every image and diagram has that button for the keyboard too: `Tab` to it and press `Enter`.

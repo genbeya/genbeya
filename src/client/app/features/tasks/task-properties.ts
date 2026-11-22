@@ -8,7 +8,7 @@ import { Avatar } from "../../ui/avatar";
 import { Icon } from "../../ui/icon";
 import { MenuItem } from "../../ui/menu-item";
 import { LabelChip, PriorityIcon, StatusIcon, TypeIcon } from "./task-icons";
-import { epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./task-model";
+import { compareEpics, epicName, epicsOf, labelsOf, peopleOf, titleCase, typesOf } from "./task-model";
 
 /** Status, type, priority, assignee, labels and epic as compact menu buttons. */
 @Component({
@@ -154,7 +154,7 @@ export class TaskProperties {
   protected readonly epicName = epicName;
   /** Epics of other tasks, and this one's even while it is the only task in it. */
   protected readonly epics = computed(() =>
-    [...new Set([...epicsOf(this.session.snapshot()!.tasks), ...(this.value().epic ? [this.value().epic] : [])])].sort(),
+    [...new Set([...epicsOf(this.session.snapshot()!.tasks), ...(this.value().epic ? [this.value().epic] : [])])].sort(compareEpics),
   );
   protected readonly labels = computed(() => [...new Set([...labelsOf(this.session.snapshot()!.tasks), ...this.value().labels])].sort());
 

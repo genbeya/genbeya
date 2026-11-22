@@ -1,5 +1,6 @@
 /** How tasks are ordered, filtered, grouped and labelled on the board and list. */
 import { GENERIC_TYPE_ICON, PRIORITIES, type Task, type TaskInput, type TaskType, type Tone } from "../../../../contracts/model";
+import { milestoneOf } from "../../../../utilities/planning";
 import { statusTone } from "../../ui/status-tone";
 
 export interface TaskFilters {
@@ -12,6 +13,8 @@ export interface TaskFilters {
   readonly epic: string | null;
   /** A task type, "" for tasks without one, or null for all. */
   readonly type: string | null;
+  /** A milestone, "" for tasks without one, or null for all. */
+  readonly milestone: string | null;
 }
 
 /** Where a dragged card goes while its move is saved. */
@@ -20,7 +23,7 @@ export interface Placement {
   readonly epic: string;
 }
 
-export const NO_FILTERS: TaskFilters = { query: "", assignee: null, label: null, priority: null, epic: null, type: null };
+export const NO_FILTERS: TaskFilters = { query: "", assignee: null, label: null, priority: null, epic: null, type: null, milestone: null };
 export const UNASSIGNED = "-";
 
 export const titleCase = (text: string): string => text.replace(/[-_]+/g, " ").replace(/^\w/, (letter) => letter.toUpperCase());
@@ -101,7 +104,8 @@ export function visibleTasks(
         (!filters.label || task.labels.includes(filters.label)) &&
         (!filters.priority || task.priority === filters.priority) &&
         (filters.epic === null || task.epic === filters.epic) &&
-        (filters.type === null || task.type === filters.type),
+        (filters.type === null || task.type === filters.type) &&
+        (filters.milestone === null || milestoneOf(task) === filters.milestone),
     )
     .sort(compareTasks);
 }
@@ -125,9 +129,32 @@ export const peopleOf = (tasks: readonly Task[], identify: Identify = asWritten)
 
 export const labelsOf = (tasks: readonly Task[]): string[] => [...new Set(tasks.flatMap((task) => task.labels))].sort();
 
-/** Epics that hold tasks, sorted; tasks without one are not an epic. */
+/** The milestones tasks count towards, sorted. */
+export const milestonesOf = (tasks: readonly Task[]): string[] => [...new Set(tasks.map(milestoneOf).filter(Boolean))].sort();
+
+/** The phase number an epic's name starts with, as in "10 Launch": digits only, up to the first space. */
+const phaseOf = (epic: string): number | null => {
+  const match = /^(\d+)(?: |$)/.exec(epic);
+  return match ? Number(match[1]) : null;
+};
+
+/**
+ * Orders epics: those that start with a phase number by that number, then
+ * the others; alphabetically among equals, so 2 comes before 10.
+ */
+export const compareEpics = (a: string, b: string): number => {
+  const [phaseA, phaseB] = [phaseOf(a), phaseOf(b)];
+  if (phaseA !== phaseB) {
+    if (phaseA === null) return 1;
+    if (phaseB === null) return -1;
+    return phaseA - phaseB;
+  }
+  return a.localeCompare(b, undefined, { sensitivity: "base" });
+};
+
+/** Epics that hold tasks, in {@link compareEpics} order; tasks without one are not an epic. */
 export const epicsOf = (tasks: readonly Task[]): string[] =>
-  [...new Set(tasks.map((task) => task.epic).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  [...new Set(tasks.map((task) => task.epic).filter(Boolean))].sort(compareEpics);
 
 /** The configured types, then other types that tasks have. */
 export const typesOf = (types: readonly TaskType[], tasks: readonly Pick<Task, "type">[]): TaskType[] => [
@@ -140,3 +167,12 @@ export const typesOf = (types: readonly TaskType[], tasks: readonly Pick<Task, "
 
 /** Swimlanes: every epic, then the tasks without one. */
 export const lanesOf = (tasks: readonly Task[]): string[] => [...epicsOf(tasks), ""];
+
+/**
+ * The swimlanes a board shows for the cards it shows (`tasks`, filtered, in
+ * `columns`): no lane stays empty because of a filter or a hidden column.
+ */
+export const shownLanesOf = (tasks: readonly Task[], columns: readonly string[]): string[] => {
+  const shown = tasks.filter((task) => columns.includes(task.status));
+  return [...epicsOf(shown), ...(shown.some((task) => !task.epic) ? [""] : [])];
+};

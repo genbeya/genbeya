@@ -4,6 +4,7 @@
  * the extension, through the managers, which check it.
  */
 import type { ContentArea, FieldDefinition, FieldValue, Person, Task, TaskType, WikiNode } from "../../../contracts/model";
+import type { PlanTask } from "../../../utilities/planning";
 
 /** What rendered pages and tasks need: reference targets, people, and the settings tasks are shown with. */
 export interface MarkdownContext {
@@ -12,6 +13,10 @@ export interface MarkdownContext {
   readonly wikiRoot: string;
   readonly wiki: readonly WikiNode[];
   readonly tasks: readonly Pick<Task, "id" | "path" | "title" | "status">[];
+  /** The tasks as plan macros show them; none while the project doesn't use planning. */
+  readonly plan: readonly PlanTask[];
+  /** Whether the project uses planning: blocked marks, plan macros. */
+  readonly planning?: boolean;
   readonly statuses: readonly string[];
   readonly hiddenColumns: readonly string[];
   readonly types: readonly TaskType[];
@@ -60,7 +65,12 @@ export type FromWebview =
   | { readonly type: "deleteComment"; readonly path: string; readonly hash: string; readonly index: number }
   | { readonly type: "delete"; readonly path: string }
   | { readonly type: "newTask"; readonly status: string; readonly epic: string }
-  /** Requests answered by a `reply` with the same ID: an image as a data URL, a repository file's text, a task's activity as JSON. */
+  /**
+   * Requests answered by a `reply` with the same ID: an image as a data URL, a
+   * repository file's text (as committed in `revision`, for `fileAt`), a
+   * task's activity as JSON.
+   */
   | { readonly type: "image"; readonly id: number; readonly path: string }
   | { readonly type: "file"; readonly id: number; readonly path: string }
+  | { readonly type: "fileAt"; readonly id: number; readonly path: string; readonly revision: string }
   | { readonly type: "activity"; readonly id: number; readonly path: string };

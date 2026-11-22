@@ -46,11 +46,13 @@ export class SearchEngine {
 
   /**
    * The list a file shows in: tasks and pages are Markdown files below their
-   * folders; everything else, task templates included, is code. Where it is
+   * folders, pull requests those directly in theirs; everything else, task
+   * templates included, is code. Where it is
    * read from depends on its content area (`contentAreaOf`).
    */
-  areaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot">): SearchArea {
+  areaOf(path: string, settings: Pick<Settings, "wikiRoot" | "taskRoot" | "pullRoot">): SearchArea {
     if (isTaskFile(path, settings.taskRoot)) return "tasks";
+    if (isMarkdown(path) && within(path, settings.pullRoot) && !path.slice(settings.pullRoot.length + 1).includes("/")) return "pulls";
     if (isMarkdown(path) && within(path, settings.wikiRoot)) return "wiki";
     return "code";
   }

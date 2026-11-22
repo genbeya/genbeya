@@ -8,9 +8,10 @@ import { pathToFileURL } from "node:url";
 import { SHELL_OPERATIONS, type ShellOperation } from "../../contracts/bridges";
 import type { Theme } from "../../contracts/model";
 import { dispatch } from "../../contracts/rpc";
-import { locationOfFolder } from "../../access/hosts/host-factory";
+import { locationOfFolder } from "../../access/hosts/locations";
 import { createBackend, type Backend } from "../../managers/backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
+import { nodeTerminals } from "../../platforms/node/node-terminals";
 import { withoutLinks } from "../../utilities/launch-request";
 import { updateJumpList } from "./jump-list";
 import { CONTENT_SECURITY_POLICY } from "../content-security-policy";
@@ -182,7 +183,7 @@ if (primary) void app.whenReady().then(start);
 
 async function start() {
   const userData = app.getPath("userData");
-  const [backend, state] = await Promise.all([createBackend(nodeMachine(), userData), WindowState.load(userData)]);
+  const [backend, state] = await Promise.all([createBackend(nodeMachine(nodeTerminals), userData), WindowState.load(userData)]);
   serveClient();
   setMenu();
   const window = createWindow(state);

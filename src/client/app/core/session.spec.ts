@@ -115,7 +115,7 @@ describe("Session", () => {
     const { session, managers } = setup();
     await session.open({ kind: "local", path: "/repo" });
     await session.refresh();
-    expect(managers.workspace.snapshot).toHaveBeenCalledWith("w1", "v1", "head");
+    expect(managers.workspace.snapshot).toHaveBeenCalledWith("w1", "v1", "head", []);
     managers.workspace.snapshot.mockResolvedValue(snapshot({ version: "v2", tasks: [] }));
     await session.refresh();
     expect(session.snapshot()?.version).toBe("v2");
@@ -127,7 +127,7 @@ describe("Session", () => {
     managers.workspace.snapshot.mockResolvedValue(snapshot({ version: "v2" }));
     await session.compareWith("parent");
     expect(session.changeBase()).toBe("parent");
-    expect(managers.workspace.snapshot).toHaveBeenLastCalledWith("w1", "v1", "parent");
+    expect(managers.workspace.snapshot).toHaveBeenLastCalledWith("w1", "v1", "parent", []);
     expect(session.snapshot()?.version).toBe("v2");
     await session.compareWith("parent");
     expect(managers.workspace.snapshot).toHaveBeenCalledTimes(1);

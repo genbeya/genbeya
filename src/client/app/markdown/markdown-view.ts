@@ -1,7 +1,7 @@
 /**
  * Rendered Markdown: Genbeya's wiki syntax, highlighted code, diagrams, math
  * and repository images. Links and checkboxes are reported, not followed;
- * mentions show who they mean.
+ * mentions show who they mean; images and diagrams open zoomed.
  */
 import {
   ChangeDetectionStrategy,
@@ -16,20 +16,24 @@ import {
   untracked,
 } from "@angular/core";
 import type { Scope } from "../../../contracts/model";
+import { pinnedText } from "../../../utilities/references";
 import { Clipboard } from "../core/clipboard";
+import { Dialogs } from "../core/dialogs";
 import { Session } from "../core/session";
 import { WorkspaceApi } from "../core/workspace-api";
 import { Theme } from "../core/theme";
+import { boxAt, mentionsTasks, taskBoxes, type TaskBox } from "./diagram-links";
 import { Diagrams } from "./diagrams";
+import { PlanHistories } from "./plan-histories";
 import { resolveHref, type LinkTarget } from "./link-target";
-import { embedSource } from "./embeds";
+import { checkPinned, fillEmbed, type EmbeddedFiles } from "./file-embeds";
 import { footnotePreview } from "./footnotes";
 import {
   icon,
   renderMarkdownTree,
   type Diagram,
-  type Embed,
   type Formula,
+  type PlanHistoryBlock,
   type RenderedMarkdown,
   type RepositoryImage,
 } from "./markdown-dom";
@@ -38,12 +42,40 @@ import { Typesetter } from "./typesetter";
 
 const COPIED_FEEDBACK = 1200;
 
+/** What a zoomable picture of the page is: a repository image, or a drawn diagram with its source. */
+/** A task as references know it. */
+type ReferenceTask = NonNullable<GenbeyaOptions["references"]>["tasks"][number];
+
+type Picture = { readonly path: string } | { readonly diagram: Diagram; readonly svg: string };
+
+/** A button that opens a picture zoomed: for the keyboard, and for images in links, whose click follows the link. */
+function zoomButton(label: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "md-zoom";
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  button.append(icon(document, "zoomIn", 14));
+  return button;
+}
+
+/** Gives a repository image its zoom button, beside the link it is in rather than inside it. */
+function makeZoomable(image: HTMLImageElement) {
+  const link = image.closest("a");
+  const target = link ?? image;
+  const wrapper = document.createElement("span");
+  wrapper.className = link ? "md-zoomable is-linked" : "md-zoomable";
+  target.replaceWith(wrapper);
+  wrapper.append(target, zoomButton("Zoom image"));
+}
+
 @Component({
   selector: "gd-markdown",
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: "markdown selectable",
     "(click)": "click($event)",
+    "(mousemove)": "pointAtTask($event)",
     "(keydown)": "key($event)",
     "(mouseover)": "hover($event)",
     "(mouseout)": "unhover($event)",
@@ -71,7 +103,9 @@ export class MarkdownView {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly api = inject(WorkspaceApi);
   private readonly clipboard = inject(Clipboard);
+  private readonly dialogs = inject(Dialogs);
   private readonly diagrams = inject(Diagrams);
+  private readonly planHistories = inject(PlanHistories);
   private readonly typesetter = inject(Typesetter);
   private readonly theme = inject(Theme);
   private readonly injector = inject(Injector);
@@ -80,11 +114,22 @@ export class MarkdownView {
   private images = new Map<string, Promise<string>>();
   /** Embedded files by path, like images. */
   private files = new Map<string, Promise<string>>();
+  /** Files at a revision, for pinned references and embeds, by revision and path. */
+  private pinned = new Map<string, Promise<string>>();
+  /** Embeds and pinned references read files through the managers, once per repository version. */
+  private readonly embedded: EmbeddedFiles = {
+    file: (path) => this.file(path),
+    fileAt: (path, revision) => this.fileAt(path, revision),
+  };
   /** Renders count up, so a slow image or diagram never lands in a newer render. */
   private generation = 0;
   /** The footnote reference under the pointer and the preview of its note. */
   private previewed: Element | null = null;
   private preview: HTMLElement | null = null;
+  /** The images and diagrams on the page that open zoomed. */
+  private pictures = new WeakMap<HTMLImageElement, Picture>();
+  /** The task labels of each diagram, measured at the size it had. */
+  private taskLabels = new WeakMap<HTMLImageElement, { readonly size: string; readonly boxes: readonly TaskBox<ReferenceTask>[] }>();
 
   constructor() {
     effect(() => {
@@ -104,6 +149,7 @@ export class MarkdownView {
       void session.snapshot()?.version;
       this.images = new Map();
       this.files = new Map();
+      this.pinned = new Map();
     });
     inject(DestroyRef).onDestroy(() => {
       // Late images and diagrams must not land after this.
@@ -112,48 +158,40 @@ export class MarkdownView {
     });
   }
 
-  private show({ fragment, images, diagrams, formulas, embeds }: RenderedMarkdown) {
+  private show({ fragment, images, diagrams, formulas, embeds, histories }: RenderedMarkdown) {
     const generation = ++this.generation;
     this.revoke();
     this.preview = this.previewed = null;
+    this.pictures = new WeakMap();
+    this.taskLabels = new WeakMap();
+    for (const image of images) {
+      this.pictures.set(image.element, { path: image.path });
+      makeZoomable(image.element);
+    }
     this.host.replaceChildren(fragment);
     this.rendered.emit(this.host);
     for (const image of images) void this.load(image, generation);
     for (const diagram of diagrams) void this.draw(diagram, generation);
     this.typesetter.keep(formulas.length);
     for (const formula of formulas) void this.typeset(formula, generation);
-    for (const embed of embeds) void this.embed(embed, generation);
+    const current = () => generation === this.generation;
+    for (const embed of embeds) void fillEmbed(embed, this.embedded, current);
+    for (const history of histories) void this.fillHistory(history, generation);
+    for (const link of this.host.querySelectorAll<HTMLAnchorElement>("a.md-ref-pinned"))
+      void checkPinned(link, this.path(), this.embedded, current);
   }
 
-  /** Lines of a repository file, highlighted like a code block, under a link to the file. */
-  private async embed({ element, path, lines }: Embed, generation: number) {
-    const title = document.createElement("a");
-    title.className = "md-embed-title";
-    title.append(icon(document, "fileCode", 13), document.createTextNode(path));
-    let body: Node;
-    try {
-      const source = embedSource(path, await this.file(path), lines);
-      if (generation !== this.generation) return;
-      title.setAttribute("href", `/${path}#L${source.from}-L${source.to}`);
-      const range = document.createElement("span");
-      range.className = "md-ref-lines";
-      range.textContent = source.from === source.to ? `:${source.from}` : `:${source.from}–${source.to}`;
-      title.append(range);
-      body = renderMarkdownTree(parseMarkdown(source.markdown), document, { path, interactiveCheckboxes: false }).fragment;
-      if (source.cut) {
-        const note = document.createElement("p");
-        note.className = "md-embed-note";
-        note.textContent = "Cut short; open the file for the rest.";
-        body.appendChild(note);
-      }
-    } catch (error) {
-      if (generation !== this.generation) return;
-      title.setAttribute("href", `/${path}`);
-      element.classList.add("is-error");
-      body = document.createElement("p");
-      body.textContent = error instanceof Error ? error.message : String(error);
+  /** A file as committed in `revision`, read once like files. */
+  private fileAt(path: string, revision: string): Promise<string> {
+    const pinned = this.pinned;
+    const key = `${revision}:${path}`;
+    let content = pinned.get(key);
+    if (!content) {
+      content = this.api.versionControl.fileAt(revision, path).then((file) => pinnedText(file, path, revision));
+      content.catch(() => pinned.delete(key));
+      pinned.set(key, content);
     }
-    element.replaceChildren(title, body);
+    return content;
   }
 
   /** Code lives in the repository, whichever branch holds the wiki. */
@@ -173,7 +211,9 @@ export class MarkdownView {
       const url = await this.image(image.path);
       if (generation === this.generation) image.element.src = url;
     } catch {
-      if (generation === this.generation) image.element.replaceWith(this.missingImage(image));
+      if (generation !== this.generation) return;
+      image.element.closest(".md-zoomable")?.querySelector(":scope > .md-zoom")?.remove();
+      image.element.replaceWith(this.missingImage(image));
     }
   }
 
@@ -188,7 +228,8 @@ export class MarkdownView {
     return url;
   }
 
-  private async draw({ element, language, source }: Diagram, generation: number) {
+  private async draw(diagram: Diagram, generation: number) {
+    const { element, language, source } = diagram;
     try {
       const { svg, isError } = await this.diagrams.draw(language, source);
       if (generation !== this.generation) return;
@@ -197,8 +238,10 @@ export class MarkdownView {
       const image = document.createElement("img");
       image.src = url;
       image.alt = `${language === "mermaid" ? "Mermaid" : "PlantUML"} diagram`;
+      this.pictures.set(image, { diagram, svg });
       element.classList.toggle("is-error", isError);
-      element.replaceChildren(image);
+      element.classList.add("md-zoomable");
+      element.replaceChildren(image, zoomButton("Zoom diagram"));
     } catch (error) {
       if (generation !== this.generation) return;
       const failure = document.createElement("div");
@@ -212,6 +255,24 @@ export class MarkdownView {
       failure.append(title, message, code);
       element.replaceWith(failure);
     }
+  }
+
+  /** Draws a plan over time once its history is read, as Markdown of its own. */
+  private async fillHistory({ element, kind, args }: PlanHistoryBlock, generation: number) {
+    const plan = this.links().plan;
+    let markdown: string;
+    try {
+      markdown = plan ? await this.planHistories.markdown(kind, args, plan) : "*No tasks to plan here.*";
+    } catch (error) {
+      markdown = `*Can't read the plan's history: ${error instanceof Error ? error.message : String(error)}*`;
+    }
+    if (generation !== this.generation) return;
+    const rendered = renderMarkdownTree(parseMarkdown(markdown, this.links()), document, {
+      path: this.path(),
+      interactiveCheckboxes: false,
+    });
+    element.replaceChildren(rendered.fragment);
+    for (const diagram of rendered.diagrams) void this.draw(diagram, generation);
   }
 
   private async typeset({ element, source, display }: Formula, generation: number) {
@@ -246,8 +307,17 @@ export class MarkdownView {
     }
     const checkbox = target.closest<HTMLElement>(".md-check.is-interactive");
     if (checkbox) return this.checkboxToggled.emit(Number(checkbox.dataset["offset"]));
+    const zoom = target.closest<HTMLElement>(".md-zoom");
     const anchor = target.closest("a");
-    if (!anchor || !this.host.contains(anchor)) return;
+    // An image in a link follows the link; its zoom button, beside the link, opens it zoomed.
+    if (zoom || !anchor || !this.host.contains(anchor)) {
+      const image = zoom ? zoom.parentElement?.querySelector<HTMLImageElement>(":scope > img, :scope > a img") : target.closest("img");
+      // A task's label in a diagram opens the task; the rest of the diagram opens zoomed.
+      const task = !zoom && image ? this.taskIn(image, event) : null;
+      if (task) return this.linkClicked.emit({ kind: "file", path: task.path, anchor: undefined });
+      if (image) void this.zoom(image);
+      return;
+    }
     event.preventDefault();
     const href = anchor.getAttribute("href");
     if (!href) return;
@@ -255,6 +325,30 @@ export class MarkdownView {
     if (link.kind === "anchor") this.goTo(link.id);
     else if (link.kind === "person") void this.showPerson(anchor, link.handle);
     else this.linkClicked.emit(link);
+  }
+
+  /** The task whose label in a diagram is under the pointer; the labels are measured once per size of the picture. */
+  private taskIn(image: HTMLImageElement, event: MouseEvent): ReferenceTask | null {
+    const picture = this.pictures.get(image);
+    if (!picture || !("diagram" in picture)) return null;
+    const box = image.getBoundingClientRect();
+    const size = `${box.width}x${box.height}`;
+    let measured = this.taskLabels.get(image);
+    if (measured?.size !== size) {
+      const tasks = new Map((this.links().references?.tasks ?? []).map((task) => [task.id.toUpperCase(), task]));
+      measured = { size, boxes: mentionsTasks(picture.svg, tasks) ? taskBoxes(picture.svg, box.width, box.height, tasks) : [] };
+      this.taskLabels.set(image, measured);
+    }
+    return boxAt(measured.boxes, { x: event.clientX - box.left, y: event.clientY - box.top });
+  }
+
+  /** Over a task's label in a diagram, the pointer says that a click opens it. */
+  protected pointAtTask(event: MouseEvent) {
+    const image = (event.target as Element).closest?.("img");
+    if (!image || !this.pictures.has(image)) return;
+    const task = this.taskIn(image, event);
+    image.style.cursor = task ? "pointer" : "";
+    image.title = task ? `Open ${task.id}` : "";
   }
 
   protected key(event: KeyboardEvent) {
@@ -265,6 +359,28 @@ export class MarkdownView {
     }
     // Escape puts a footnote's preview away, as for one under the pointer.
     if (event.key === "Escape" && this.preview) this.hidePreview();
+  }
+
+  /** Opens an image or diagram of the page over the window, zoomable; diagrams with their source. */
+  private async zoom(image: HTMLImageElement) {
+    const picture = this.pictures.get(image);
+    // An image still loading has nothing to show yet.
+    if (!picture || !image.getAttribute("src")) return;
+    const shown = { width: image.clientWidth || image.naturalWidth || 480, height: image.clientHeight || image.naturalHeight || 320 };
+    const { openImageZoom } = await import("./image-zoom");
+    if ("diagram" in picture)
+      return openImageZoom(this.dialogs, {
+        title: image.alt,
+        image: { svg: picture.svg },
+        shown,
+        source: { language: picture.diagram.language, text: picture.diagram.source },
+      });
+    const name = picture.path.slice(picture.path.lastIndexOf("/") + 1);
+    return openImageZoom(this.dialogs, {
+      title: image.alt || name,
+      image: { url: image.src, vector: /\.svg$/i.test(name) },
+      shown,
+    });
   }
 
   /** Scrolls to the element with `id` and moves the focus there, so the keyboard goes on from it (a footnote's back link). */

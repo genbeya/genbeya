@@ -28,6 +28,15 @@ To act on single lines, select them: click a line number, `Shift`+click another 
 - When the file changed since its diff was shown, Genbeya refuses, shows the new diff, and you choose again. The diff is also shown anew when you come back to Genbeya from another app.
 - Inline, a click next to the removed lines of a change selects the lines that replace them, which brings the removed ones along.
 
+### Images and other binary files
+
+The diff of an image — PNG, JPEG, GIF, WebP or AVIF — shows the version before and the version after instead of lines, each with its size in pixels and its file size:
+
+- **Side by side** shows both next to each other. An added or deleted image shows *Not in this version* on the side that has none.
+- **Swipe** lays the version after over the version before, at the same scale: left of the divider is before, right of it after. Drag the divider, or focus it and use `←` and `→` (`Home` and `End` go to the edges). Swiping needs both versions.
+
+Genbeya remembers your choice. Images are staged, unstaged and discarded as whole files, from the file list. Other binary files show their size before and after, such as *12 KB → 14 KB*; files over 2 MB are not compared at all. SVG images are text: their diff shows the lines that changed.
+
 ### Tree
 
 **Show as tree** (next to **Changes**) shows the staged and unstaged files in their folders; **Show as list** goes back. Genbeya remembers your choice. A folder shows how many changes it holds, and a folder that holds nothing but another folder shares its row, as `src/client/app`. Its buttons and menu stage, unstage or discard everything in it.
@@ -170,7 +179,7 @@ Binary files offer only whole sides. A file one side deleted and the other chang
 
 ## History
 
-**History** shows every branch with a commit graph. Select a commit to see its message and files; merges are compared with their first parent.
+**History** shows every branch with a commit graph. Select a commit to see its message and files; merges are compared with their first parent. Images are compared as in **Changes**, side by side or swiped (see [Images and other binary files](#images-and-other-binary-files)); so are the files of a stash.
 
 > [!NOTE]
 > Genbeya runs its own Git commands without repository hooks. Run Git in the [Terminal](Terminal.md) when a workflow depends on hooks.

@@ -21,6 +21,7 @@ import { Dialogs } from "../../core/dialogs";
 import { Clipboard } from "../../core/clipboard";
 import { hotkey, MOD_KEY } from "../../core/hotkeys";
 import { Notifications } from "../../core/notifications";
+import { Parts } from "../../core/parts";
 import { Session } from "../../core/session";
 import { ShareLinks } from "../../core/share-links";
 import { trackUnsaved } from "../../core/unsaved-changes";
@@ -36,6 +37,11 @@ import { TaskActivity } from "./task-activity";
 import { branchesOfTask, branchNameFor } from "./task-branches";
 import { TaskComments } from "./task-comments";
 import { type FieldChange, TaskFields } from "./task-fields";
+import { TaskPlan } from "./task-plan";
+import { TaskPulls } from "../pulls/task-pulls";
+import { addTimeEntry, parseEffort, PLANNING_FIELDS } from "../../../../utilities/planning";
+import type { LoggedTime, LogTimeRequest } from "./log-time-dialog";
+import { today } from "../../ui/calendar-date";
 import { displayId, inputOf } from "./task-model";
 import { TaskProperties } from "./task-properties";
 
@@ -88,7 +94,20 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
  */
 @Component({
   selector: "gd-task-panel",
-  imports: [CdkMenu, CdkMenuTrigger, CodeEditor, Icon, MarkdownView, MenuItem, TaskActivity, TaskComments, TaskFields, TaskProperties],
+  imports: [
+    CdkMenu,
+    CdkMenuTrigger,
+    CodeEditor,
+    Icon,
+    MarkdownView,
+    MenuItem,
+    TaskActivity,
+    TaskComments,
+    TaskFields,
+    TaskPlan,
+    TaskPulls,
+    TaskProperties,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "task-panel", role: "dialog", tabindex: "-1", "[attr.aria-label]": "task() ? 'Task ' + task()!.id : 'New task'" },
   template: `
@@ -141,6 +160,12 @@ function withoutTemplate(draft: TaskInput, applied: FromTemplate): TaskInput {
       }
       <gd-task-properties [value]="shown()" (changed)="patch($event)" />
       <gd-task-fields [value]="shown()" (changed)="setField($event)" />
+      @if (task() && !editing()) {
+        <gd-task-plan [task]="current()!" (logTime)="logTime()" />
+        @if (parts.isShown("pulls")) {
+          <gd-task-pulls [task]="current()!" />
+        }
+      }
       @if (task() && !editing() && branches().length) {
         <div class="task-branches" role="group" aria-label="Branches of this task">
           @for (branch of branches(); track branch.name) {
@@ -269,6 +294,7 @@ export class TaskPanel {
   protected readonly wiki = inject(WikiActions);
   protected readonly links = inject(ShareLinks);
   private readonly session = inject(Session);
+  protected readonly parts = inject(Parts);
   private readonly api = inject(WorkspaceApi);
   private readonly dialogs = inject(Dialogs);
   private readonly clipboard = inject(Clipboard);
@@ -489,6 +515,25 @@ ${this.task()!.hash}`,
     const next = template ? withTemplate(draft, template) : { draft, applied: {} };
     this.fromTemplate = next.applied;
     this.draft.set(next.draft);
+  }
+
+  /** Asks for the time spent and what for, and adds it last to the task's time log, signed like comments. */
+  protected async logTime() {
+    const task = this.current();
+    if (!task) return;
+    const { LogTimeDialog } = await import("./log-time-dialog");
+    const tracksRemaining = this.session.snapshot()!.settings.fields.some((field) => field.name === PLANNING_FIELDS.remaining);
+    const logged = await this.dialogs.open<LoggedTime, LogTimeRequest>(LogTimeDialog, {
+      remaining: parseEffort(task.fields[PLANNING_FIELDS.remaining]),
+      tracksRemaining,
+    });
+    if (!logged) return;
+    const author = await this.session.run(() => this.api.content.commentAuthor());
+    if (!author) return;
+    await this.enqueue((current) => ({
+      body: addTimeEntry(current.body, { date: today(), author, hours: logged.hours, note: logged.note }),
+      ...(logged.remaining ? { fields: { ...current.fields, [PLANNING_FIELDS.remaining]: logged.remaining } } : {}),
+    }));
   }
 
   protected toggleCheckbox(offset: number) {

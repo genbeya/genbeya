@@ -1,4 +1,5 @@
 /** The guided tour of Genbeya. Its elements carry `data-tour` attributes; the share step finds the page's menu button. */
+import { shownParts, type Part } from "../../../../contracts/model";
 import type { TourStep } from "../../ui/tour/tour";
 
 /** How the platform names the modifiers ("⌘" and "⌃" on macOS). */
@@ -9,14 +10,24 @@ export interface Keys {
 
 const at = (name: string) => `[data-tour="${name}"]`;
 
-export function appTour({ mod, ctrl }: Keys): TourStep[] {
-  return [
+/** The part each step shows, by its route or target; steps of hidden parts are left out. */
+const STEP_PARTS: Readonly<Record<string, Part>> = { terminal: "terminal", "page-header": "wiki" };
+
+const partOf = (step: TourStep): Part | null => {
+  const view = step.route?.slice(1);
+  const name = /data-tour="([^"]+)"/.exec(step.target)?.[1] ?? "";
+  return STEP_PARTS[name] ?? ((view as Part | undefined) || null);
+};
+
+/** The tour of the parts that show; it starts in `home`, the first view that does. */
+export function appTour({ mod, ctrl }: Keys, shown: ReadonlySet<Part> = shownParts([]), home = "wiki"): TourStep[] {
+  const steps: TourStep[] = [
     {
       target: at("views"),
-      route: "/wiki",
+      route: `/${home}`,
       placement: "right",
-      title: "One repository, five views",
-      body: `Wiki, tasks, code, changes and history of the open repository. \`${mod}+1\` to \`${mod}+5\` switch between them.`,
+      title: "One repository, six views",
+      body: `Wiki, tasks, code, changes, history and pull requests of the open repository. \`${mod}+1\` to \`${mod}+6\` switch between them; **Settings** turns off the ones you don't use.`,
     },
     {
       target: at("repositories"),
@@ -115,4 +126,8 @@ export function appTour({ mod, ctrl }: Keys): TourStep[] {
       body: "Copy a link that opens this page in a coworker's Genbeya, or on GitHub, GitLab, Bitbucket or Azure DevOps. Right-click any page, task, file or commit for the same. To see this tour again, run **Start the tour** from the command palette.",
     },
   ];
+  return steps.filter((step) => {
+    const part = partOf(step);
+    return !part || part === home || shown.has(part);
+  });
 }

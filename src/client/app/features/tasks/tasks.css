@@ -199,6 +199,12 @@
   font-size: 11.5px;
 }
 
+/* A task waiting for unfinished tasks it depends on. */
+.task-blocked {
+  display: inline-flex;
+  color: var(--orange);
+}
+
 .task-card-title {
   font-weight: 500;
   line-height: 1.4;

@@ -1,3 +1,4 @@
+import { shownParts } from "../../../../contracts/model";
 import { contentBranch, snapshot, task } from "../../testing/fake-platform";
 import { allItems, branchItems, linkItem, mentionItems, mergeItems, rank, rebaseItems, type PaletteCommands } from "./palette-items";
 
@@ -47,6 +48,18 @@ describe("palette items", () => {
   it("lists the checkout's copy of an area on the content branch as files, and offers to sync it", () => {
     const shared = allItems({ ...repository, storage: contentBranch(["wiki"]) }, [], "dark", { mod: "⌘", ctrl: "⌃" }, commands);
     expect(shared.map((item) => item.id)).toEqual(expect.arrayContaining(["sync-content", "page:docs/Home.md", "file:docs/Home.md"]));
+  });
+
+  it("leaves out the views, commands, pages, tasks and files of hidden parts", () => {
+    const shown = shownParts(["wiki", "code", "terminal"]);
+    const ids = allItems(repository, [], "dark", { mod: "⌘", ctrl: "⌃" }, commands, shown).map((item) => item.id);
+    for (const id of ["go:wiki", "go:code", "new-page", "terminal", "page:docs/Home.md", "file:src/login.ts"])
+      expect(ids).not.toContain(id);
+    expect(ids).toEqual(expect.arrayContaining(["go:tasks", "new-task", "task:tasks/TP-1.md", "fetch"]));
+    // Hidden views keep their numbers.
+    expect(allItems(repository, [], "dark", { mod: "⌘", ctrl: "⌃" }, commands, shown).find((item) => item.id === "go:tasks")?.hint).toBe(
+      "⌘ 2",
+    );
   });
 
   it("ranks matches with pages and tasks first, and leaves files out without a query", () => {

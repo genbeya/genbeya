@@ -16,4 +16,16 @@ describe("changePreferences", () => {
   it("starts with JetBrains Mono and ligatures", () => {
     expect(DEFAULT_PREFERENCES).toMatchObject({ editorFont: "jetbrains-mono", ligatures: true });
   });
+
+  it("keeps the user's choice per part, everywhere and per repository", () => {
+    const next = changePreferences(DEFAULT_PREFERENCES, {
+      parts: { all: { terminal: false, wiki: false, pulls: true }, repositories: { "local:/a": { planning: false } } },
+    });
+    expect(next.parts).toEqual({ all: { wiki: false, pulls: true, terminal: false }, repositories: { "local:/a": { planning: false } } });
+    expect(() => changePreferences(DEFAULT_PREFERENCES, { parts: { all: { board: false }, repositories: {} } })).toThrow(
+      /parts preference/,
+    );
+    expect(() => changePreferences(DEFAULT_PREFERENCES, { parts: { all: { wiki: "no" }, repositories: {} } })).toThrow(/parts preference/);
+    expect(() => changePreferences(DEFAULT_PREFERENCES, { parts: { all: {} } })).toThrow(/parts preference/);
+  });
 });

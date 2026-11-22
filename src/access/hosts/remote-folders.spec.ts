@@ -5,7 +5,8 @@ import { findShell } from "../../testing/shell";
 import { decodeLenient } from "../../utilities/bytes";
 import { HostFactory } from "./host-factory";
 import { RemoteFolders, sshProblem } from "./remote-folders";
-import { quote, ShellSession } from "./shell-session";
+import { ShellSession } from "./shell-session";
+import { quote } from "../../utilities/shell-quote";
 
 const machine = nodeMachine();
 const server: RemoteLocation = { kind: "ssh", host: "me@server", path: "" };

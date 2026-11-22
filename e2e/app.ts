@@ -19,14 +19,14 @@ export const FILES: Readonly<Record<string, string>> = {
 export interface Repository {
   readonly root: string;
   read(relative: string): string | null;
-  write(relative: string, content: string): void;
+  write(relative: string, content: string | Uint8Array): void;
   git(...args: string[]): string;
 }
 
 function createRepository(files: Readonly<Record<string, string>>): Repository {
   const root = mkdtempSync(path.join(tmpdir(), "genbeya-e2e-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
-  const write = (relative: string, content: string) => {
+  const write = (relative: string, content: string | Uint8Array) => {
     mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });
     writeFileSync(path.join(root, relative), content);
   };

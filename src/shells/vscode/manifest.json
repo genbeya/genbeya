@@ -1,6 +1,6 @@
 {
   "name": "genbeya",
-  "displayName": "Genbeya",
+  "displayName": "Genbeya for VS Code",
   "description": "The wiki and the task board of your Git repository, kept as plain Markdown files, in VS Code",
   "preview": true,
   "pricing": "Free",
@@ -21,7 +21,6 @@
     "theme": "dark"
   },
   "categories": ["Other"],
-  "keywords": ["wiki", "tasks", "kanban", "board", "markdown", "git", "documentation", "project management", "todo"],
   "engines": {
     "vscode": "^1.140.0"
   },
@@ -49,11 +48,13 @@
       "genbeya": [
         {
           "id": "genbeya.wiki",
-          "name": "Wiki"
+          "name": "Wiki",
+          "when": "!genbeya.unusedWiki"
         },
         {
           "id": "genbeya.tasks",
-          "name": "Tasks"
+          "name": "Tasks",
+          "when": "!genbeya.unusedTasks"
         }
       ]
     },

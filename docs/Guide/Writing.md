@@ -165,4 +165,4 @@ The tags must be written exactly like this, without attributes (`<details open>`
 
 ## Diagrams
 
-` ```mermaid ` draws [Mermaid](https://mermaid.js.org/intro/) diagrams: flowcharts, sequence, class, state and entity-relationship diagrams, Gantt charts, timelines, mind maps, user journeys, pie and quadrant charts, Git graphs and more. ` ```plantuml ` draws PlantUML diagrams. Graphviz (` ```dot `) is not supported: its engine would add more than a megabyte to Genbeya, and Mermaid's flowcharts cover most of what it is used for.
+Click a diagram to open it zoomed over the window, with its source beside it or instead of it — see [Wiki](Wiki.md#zooming-images-and-diagrams). ` ```mermaid ` draws [Mermaid](https://mermaid.js.org/intro/) diagrams: flowcharts, sequence, class, state and entity-relationship diagrams, Gantt charts, timelines, mind maps, user journeys, pie and quadrant charts, Git graphs and more. ` ```plantuml ` draws PlantUML diagrams. Graphviz (` ```dot `) is not supported: its engine would add more than a megabyte to Genbeya, and Mermaid's flowcharts cover most of what it is used for.

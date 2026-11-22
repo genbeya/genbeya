@@ -1,7 +1,7 @@
 /** The machine Genbeya runs on, through the runtime's file system and processes. */
 import { hasCode, type Machine, type RunOptions } from "../ports";
 import { GIT_ENVIRONMENT, HostError, TERMINALS_UNAVAILABLE, type EntryKind, type Host } from "./host";
-import { localTerminal } from "./terminal-commands";
+import type { TerminalCommand } from "./terminal-commands";
 
 const MOVE_ATTEMPTS = 3;
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -9,7 +9,11 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export class LocalHost implements Host {
   readonly paths;
 
-  constructor(private readonly machine: Machine) {
+  constructor(
+    private readonly machine: Machine,
+    /** How to start the user's shell; without it, as without the machine's terminals, there is no terminal. */
+    private readonly terminal: ((shell: string, path: string) => TerminalCommand) | null = null,
+  ) {
     this.paths = machine.paths;
   }
 
@@ -132,8 +136,8 @@ export class LocalHost implements Host {
   }
 
   async terminalCommand(path: string) {
-    if (!this.machine.terminals) throw new Error(TERMINALS_UNAVAILABLE);
-    return localTerminal(await this.machine.terminals.shell(), path);
+    if (!this.machine.terminals || !this.terminal) throw new Error(TERMINALS_UNAVAILABLE);
+    return this.terminal(await this.machine.terminals.shell(), path);
   }
 
   dispose() {

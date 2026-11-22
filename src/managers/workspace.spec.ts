@@ -3,6 +3,7 @@ import { RepositoryAccess } from "../access/git/repository-access";
 import type { Host } from "../access/hosts/host";
 import { LocalHost } from "../access/hosts/local-host";
 import { SettingsEngine } from "../engines/settings-engine";
+import { PullEngine } from "../engines/pull-engine";
 import { TaskEngine } from "../engines/task-engine";
 import { nodeMachine } from "../platforms/node/node-machine";
 import { createRepository, DEFAULT_FILES } from "../testing/repository";
@@ -15,6 +16,7 @@ function workspace() {
   const opened = new Workspace({ kind: "ssh", host: "server", path: "/repo" }, host, new RepositoryAccess(host, "/repo"), {
     settings: new SettingsEngine(),
     tasks: new TaskEngine(),
+    pulls: new PullEngine(),
   });
   return { host, workspace: opened };
 }
@@ -117,6 +119,7 @@ describe("Workspace", () => {
     const opened = new Workspace({ kind: "local", path: root }, host, new RepositoryAccess(host, root), {
       settings: new SettingsEngine(),
       tasks: new TaskEngine(),
+      pulls: new PullEngine(),
     });
     await opened.content.setStorage("tasks", "branch", "work");
 

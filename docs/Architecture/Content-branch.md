@@ -9,11 +9,13 @@ When many people work on many branches, wiki pages and tasks that change with ev
 | Wiki | The wiki folder (`docs/`), and whatever else pages link to outside the task folder, such as images |
 | Tasks | The task folder (`tasks/`) |
 | Settings | `.genbeya.yml` |
+| Pull requests | The pull request folder (`pulls/`), see [Pull requests](../Guide/Pull-requests.md) |
 
 Each area lives either **in the checkout**, next to the code, or **on the content branch**. Typical layouts:
 
 - **Docs with the code, tasks shared.** Documentation is reviewed and merged with the code it describes; the board is the same on every branch.
-- **Everything shared.** Wiki, tasks and settings never depend on the checked-out branch.
+- **Everything shared.** Wiki, tasks, settings and pull requests never depend on the checked-out branch.
+- **Reviews shared.** Pull requests on the content branch: every pull request shows whatever is checked out, reviewers never commit to the author's branch, and a squash merge keeps the discussion.
 - **Everything in the checkout** (the default). Content is just files in the repository.
 
 ## How it works

@@ -7,7 +7,7 @@ The Genbeya extension for VS Code shows the wiki and the tasks of the repository
 
 ## Install
 
-In VSCodium, Cursor and other editors that use [Open VSX](https://open-vsx.org/extension/genbeya/genbeya), open the **Extensions** view, search for **Genbeya** and choose **Install**; the editor keeps it up to date. VS Code's own Marketplace doesn't have it yet: download `Genbeya-<version>-vscode.vsix` from the [latest release](https://github.com/genbeya/genbeya/releases/latest) and choose **Extensions → … → Install from VSIX…**, again for each new version.
+Open the **Extensions** view, search for **Genbeya** and choose **Install**; the editor keeps it up to date. VS Code gets it from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=genbeya.genbeya), where it is listed as **Genbeya for VS Code**; VSCodium, Cursor and other editors from [Open VSX](https://open-vsx.org/extension/genbeya/genbeya).
 
 It needs VS Code 1.140 or newer. Each [release](https://github.com/genbeya/genbeya/releases/latest) also has the extension as `Genbeya-<version>-vscode.vsix`, for machines without access to the stores: **…** → **Install from VSIX…** in the Extensions view installs it.
 
@@ -24,6 +24,8 @@ The Genbeya icon in the activity bar opens two views.
 - Drag tasks onto another state to move them there, or onto an epic to move them into it.
 - Right-click a task to change its status, type, priority, assignee, epic or labels, to rename it or to delete it. With several tasks selected, **Status…** moves them all.
 - **+** creates a task, of a type from its template if you pick one.
+
+A view of a part the project doesn't use ([`unused`](Settings.md#unused)) stays hidden. To hide a view for yourself, right-click its title, as for any view in VS Code.
 
 When the repository keeps content on a [content branch](../Architecture/Content-branch.md), the views' titles show the branch and how many edits it is ahead (↑) and behind (↓), and the sync button exchanges them with the remote.
 

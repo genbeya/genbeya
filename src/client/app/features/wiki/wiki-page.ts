@@ -22,6 +22,7 @@ import { CodeEditor } from "../../editor/code-editor";
 import { ScrollLink } from "../../editor/scroll-link";
 import { headingAt } from "../../markdown/headings";
 import { MarkdownView } from "../../markdown/markdown-view";
+import { toggleCheckboxAt } from "../../markdown/task-checkbox";
 import { previewTopLine, scrollPreviewToLine } from "../../markdown/source-lines";
 import { EmptyState } from "../../ui/empty-state";
 import { Icon } from "../../ui/icon";
@@ -138,7 +139,9 @@ const frontmatterLines = (text: string): number => text.split("\n").length - str
                   [path]="path()"
                   [links]="links()"
                   [lineOffset]="frontmatterLines(file.content)"
+                  [checkboxes]="true"
                   (linkClicked)="wiki.followLink($event)"
+                  (checkboxToggled)="toggleCheckbox($event)"
                   (rendered)="shown($event)"
                 />
               </article>
@@ -252,6 +255,8 @@ export class WikiPage {
     this.scrolling.moved("editor", () => scrollPreviewToLine(preview, line));
   }
 
+  private ticks: Promise<void> = Promise.resolve();
+
   protected async save(close: boolean) {
     const file = this.resource.file();
     if (!file || this.saving) return;
@@ -268,6 +273,27 @@ export class WikiPage {
       this.session.contentChanged();
     }
     if (close) this.stopEditing();
+  }
+
+  /**
+   * Ticks a task-list box of the page as it reads, and saves that like an edit.
+   * Clicks queue, each on the version the one before saved, so quick clicks all count.
+   */
+  protected toggleCheckbox(offset: number) {
+    this.ticks = this.ticks.then(async () => {
+      const file = this.resource.file();
+      if (!file || this.editing()) return;
+      // Offsets count from the end of the frontmatter, which the page doesn't show.
+      const at = file.content.length - stripFrontmatter(file.content).length + offset;
+      const content = toggleCheckboxAt(file.content, at);
+      if (content === file.content) return;
+      const saved = await this.session.run(async () => {
+        const result = await this.api.content.write("content", this.path(), content, file.hash);
+        this.resource.set(result);
+        return result;
+      });
+      if (saved) this.session.contentChanged();
+    });
   }
 
   protected async cancel() {

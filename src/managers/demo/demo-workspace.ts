@@ -4,21 +4,24 @@
  * the queue that runs operations one at a time, as `Workspace` is for
  * the app's managers.
  */
-import type { Location, Settings, Task } from "../../contracts/model";
+import type { Location, PullRequest, Settings, Task } from "../../contracts/model";
+import { sha256 } from "../../utilities/bytes";
 import { FileStore } from "../../access/files/file-store";
 import { MemoryHost } from "../../access/memory/memory-host";
 import type { MemoryRepository } from "../../access/memory/memory-repository";
 import type { SettingsEngine } from "../../engines/settings-engine";
+import type { PullEngine } from "../../engines/pull-engine";
 import type { TaskEngine } from "../../engines/task-engine";
 import { baseName, validateRepositoryPath } from "../../utilities/repository-path";
 import { SerialQueue } from "../../utilities/serial-queue";
-import { readSettings, readTasks, type LoadedSettings } from "../workspace";
+import { readPulls, readSettings, readTasks, type LoadedSettings } from "../workspace";
 
 const CLOSED = "This repository is no longer open.";
 
 export interface DemoEngines {
   readonly settings: SettingsEngine;
   readonly tasks: TaskEngine;
+  readonly pulls: PullEngine;
 }
 
 export class DemoWorkspace {
@@ -73,6 +76,25 @@ export class DemoWorkspace {
 
   tasks(files: readonly string[], settings: Settings, warnings: string[]): Promise<Task[]> {
     return readTasks(this.files, files, settings, this.engines.tasks, warnings);
+  }
+
+  async pulls(files: readonly string[], settings: Settings, warnings: string[]): Promise<PullRequest[]> {
+    const present = await readPulls(this.files, files, settings, this.engines.pulls, warnings);
+    // The demo keeps every area in the checkout, where each pull request file lives on its branch.
+    const current = this.repository.currentBranch();
+    const onBranches = [...this.repository.branches].flatMap(([branch, commit]) =>
+      branch === current
+        ? []
+        : [...this.repository.treeOf(commit)].flatMap(([path, content]) => {
+            if (!this.engines.pulls.isPullFile(path, settings.pullRoot)) return [];
+            try {
+              return [{ ...this.engines.pulls.parse(path, content, sha256(content)), branch }];
+            } catch {
+              return [];
+            }
+          }),
+    );
+    return this.engines.pulls.withBranches(present, onBranches);
   }
 
   close(): void {

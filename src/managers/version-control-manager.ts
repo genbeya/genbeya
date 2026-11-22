@@ -7,6 +7,7 @@ import type {
   ConflictFile,
   Diff,
   DiffChange,
+  DiffImages,
   ForcePushPlan,
   IgnoreKind,
   LinePatch,
@@ -17,18 +18,22 @@ import type {
   RebasePlan,
   ResetPlan,
   ResetResult,
+  PullComparison,
+  RevisionFile,
   Stash,
   StashDetail,
 } from "../contracts/model";
 import { IGNORE_KINDS, isDefaultBranch } from "../contracts/model";
-import { TEXT_LIMIT } from "../access/files/file-store";
+import { IMAGE_LIMIT, TEXT_LIMIT } from "../access/files/file-store";
 import { isCommitId } from "../access/git/git-parsers";
+import { compareBranches } from "../access/git/pull-access";
 import { DIFF_OPTIONS, type PatchTarget } from "../access/git/staging-access";
 import { isMissing } from "../access/hosts/host";
 import type { FileDiff, PatchEngine } from "../engines/patch-engine";
 import type { RebaseEngine } from "../engines/rebase-engine";
-import { decodeLenient, isBinary, sha256, sha256Bytes, toByteString } from "../utilities/bytes";
+import { decodeLenient, decodeText, isBinary, sha256, sha256Bytes, toByteString } from "../utilities/bytes";
 import { appendIgnoreRule, extensionOf, ignoreFile, ignoreRule } from "../utilities/gitignore";
+import { imageType, imageUrl } from "../utilities/image-types";
 import {
   changeBase,
   commitMessage,
@@ -44,6 +49,8 @@ import {
   remoteDefinition,
   resetMode,
   resetState,
+  revision,
+  revisionList,
   stashOptions,
   syncAction,
   tagMessage,
@@ -91,7 +98,15 @@ export class VersionControlManager implements VersionControlManagerContract {
       for (let attempt = 1; ; attempt++) {
         const sides = await workspace.repository.diffSides(relative, from, old, TEXT_LIMIT, compared);
         // Too large to show is shown like binary: no line-by-line comparison.
-        if (!sides || sides.some(isBinary)) return { path: relative, binary: true, original: "", modified: "", version: versionOf(sides) };
+        if (!sides || sides.some(isBinary))
+          return {
+            path: relative,
+            binary: true,
+            original: "",
+            modified: "",
+            version: versionOf(sides),
+            ...(sides ? { sizes: [sides[0].length, sides[1].length] as const } : {}),
+          };
         const changes =
           from === "worktree" || from === "index" ? await this.changesOf(workspace, relative, old, from, compared, sides) : null;
         // A file written meanwhile: read both again, so the changes are those of the sides shown.
@@ -105,6 +120,40 @@ export class VersionControlManager implements VersionControlManagerContract {
           ...(changes ? { changes } : {}),
         };
       }
+    });
+  }
+
+  diffImages(id: unknown, path: unknown, source: unknown, oldPath?: unknown, base?: unknown): Promise<DiffImages> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const old = oldPath === undefined || oldPath === null ? relative : workspace.path(oldPath);
+      const type = imageType(relative);
+      if (!type) throw new Error(`${relative} is not a supported image.`);
+      const sides = await workspace.repository.diffSides(relative, diffSource(source), old, IMAGE_LIMIT, changeBase(base));
+      if (!sides) throw new Error(`${relative} is too large to show.`);
+      // A renamed image keeps the type of its old name on the old side.
+      const types = [imageType(old) ?? type, type];
+      const [original, modified] = sides.map((side, i) => (side.length ? imageUrl(types[i]!, side) : null)) as [
+        string | null,
+        string | null,
+      ];
+      return { original, modified };
+    });
+  }
+
+  compare(id: unknown, source: unknown, target: unknown, revisions: unknown, exclude?: unknown): Promise<PullComparison> {
+    return this.on(id, async (workspace) => {
+      const asked = revisionList(revisions);
+      const folder = exclude === undefined || exclude === null ? null : workspace.path(exclude);
+      return compareBranches(workspace.repository.git, refName(source, "branch"), refName(target, "branch"), asked, folder);
+    });
+  }
+
+  fileAt(id: unknown, at: unknown, path: unknown): Promise<RevisionFile> {
+    return this.on(id, async (workspace) => {
+      const relative = workspace.path(path);
+      const { commit, bytes } = await workspace.repository.fileAt(revision(at), relative, TEXT_LIMIT);
+      return { commit, content: bytes && decodeText(bytes, relative) };
     });
   }
 

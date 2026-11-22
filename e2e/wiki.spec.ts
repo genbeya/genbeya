@@ -15,6 +15,26 @@ test.describe("wiki", () => {
     await expect(article.getByRole("img", { name: "PlantUML diagram" })).toBeVisible();
   });
 
+  test("opens a diagram zoomed, with its source beside it or instead of it", async ({ window }) => {
+    await window.locator(".document-article").getByRole("img", { name: "PlantUML diagram" }).click();
+    const popup = window.getByRole("dialog", { name: "PlantUML diagram" });
+    await expect(popup.getByRole("radio", { name: "Diagram" })).toHaveAttribute("aria-checked", "true");
+    // The picture has the focus, so the keys zoom it at once.
+    const stage = popup.getByRole("img", { name: "PlantUML diagram" });
+    await expect(stage).toBeFocused();
+    await window.keyboard.press("1");
+    await expect(popup.locator(".zoom-level")).toHaveText("100 %");
+    await window.keyboard.press("+");
+    await expect(popup.locator(".zoom-level")).toHaveText("125 %");
+    await popup.getByRole("radio", { name: "Split" }).click();
+    await expect(popup.getByRole("textbox", { name: "Source of the PlantUML diagram" })).toContainText("Alice -> Bob: hello");
+    await expect(stage).toBeVisible();
+    await popup.getByRole("radio", { name: "Source" }).click();
+    await expect(stage).toBeHidden();
+    await window.keyboard.press("Escape");
+    await expect(popup).toBeHidden();
+  });
+
   test("follows wiki links and goes back with Alt+Left", async ({ window }) => {
     await window.locator(".document-article").getByRole("link", { name: "Guide" }).click();
     await expect(window.locator(".document-article").getByRole("heading", { level: 1, name: "Guide" })).toBeVisible();

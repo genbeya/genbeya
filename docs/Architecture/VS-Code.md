@@ -17,7 +17,7 @@ flowchart LR
 
 | File | What it does |
 | --- | --- |
-| `extension.ts` | Activation: creates the managers on the Node platform (preferences in the extension's global storage), opens the first workspace folder that holds a Git repository, registers the views and commands |
+| `extension.ts` | Activation: creates the managers for this computer's repositories (`createLocalBackend`) on the Node platform without terminals (preferences in the extension's global storage), opens the first workspace folder that holds a Git repository, registers the views and commands |
 | `repository.ts` | The open repository: its snapshot, polled every four seconds while the window has focus, and on focus and save, like the client polls it |
 | `wiki-view.ts` | The page tree. A click opens the preview; the inline actions are **Preview** and **Edit** |
 | `tasks-view.ts`, `task-groups.ts` | The tasks as a tree, one group per workflow state, or grouped by epic first (a toggle in the title bar), with the same actions; dragging tasks onto a state moves them. The context menu changes status, type, priority, assignee, epic and labels, renames and deletes. The title bar opens the board |
@@ -26,18 +26,19 @@ flowchart LR
 | `webviews.ts` | The preview tabs and the board: what they show, and the links, edits, moves, comments and checkbox toggles they report. VS Code reopens them after a restart |
 | `webview/` | The webviews' code, bundled for the browser: the message protocol, the Markdown renderer, the task view, the preview, the board, and styles from the app's tokens over VS Code's theme |
 | `content-files.ts` | The `genbeya-content` file system, for areas on the [Content branch](Content-branch.md) |
+| `revision-files.ts` | Read-only `genbeya-revision:/<path>?<revision>` documents: a file as committed in a revision, which pinned references open |
 | `manifest.json` | The extension's `package.json`; `scripts/build-vscode.mjs` adds the app's version |
 | `test/smoke.ts` | The smoke test, run inside VS Code |
 
 ## Preview and board
 
-Every page and task has a preview tab of its own, so the editor's tabs and Go Back work as for files. Links to pages and tasks open their tabs, links to other files open in the editor (with the lines of `#L10-L20` selected), web links in the browser after VS Code asks. While the document is open in the editor, the preview follows its unsaved text. **Edit** in the preview's title bar opens the file. Ticking a checklist item saves the file; while its editor has unsaved changes, the preview asks to save first. A task that moves to another epic is another file; its tab follows it by ID.
+Every page and task has a preview tab of its own, so the editor's tabs and Go Back work as for files. Links to pages and tasks open their tabs, links to other files open in the editor (with the lines of `#L10-L20` selected), links pinned to a revision (`#L10-L20@v1.0`) as a read-only document of that version, web links in the browser after VS Code asks. While the document is open in the editor, the preview follows its unsaved text. **Edit** in the preview's title bar opens the file. Ticking a checklist item saves the file; while its editor has unsaved changes, the preview asks to save first. A task that moves to another epic is another file; its tab follows it by ID.
 
 A task's preview works like the app's task panel: its title and its properties (status, type, priority, assignee, epic, labels) are buttons that open VS Code's quick picks, custom fields are inputs, comments can be written and the user's own edited and deleted, and the activity shows who changed what. The app's task rules (`features/tasks/task-model.ts`: the people, epics and labels to offer, sorting and filtering) and its activity texts (`task-changes.ts`) are shared, not copied.
 
 The board has a column per workflow state, leaving out the hidden columns, with the app's filters (text, assignee, label, priority, type, epic) and optionally a swimlane per epic; it remembers them across restarts. Cards drag between columns, and between swimlanes, which moves the task into that epic. **+** in a column creates a task there. A click opens the task in a popup, with the same view as its preview tab, **Open in Preview**, **Edit File** and **Delete**.
 
-Both render Markdown with the client's own pipeline (`src/client/app/markdown/`: parsing, the allowlisted DOM builder, references, mentions, dates, embeds) and draw Mermaid, PlantUML (rockuml's WebAssembly) and KaTeX themselves, loaded on first use. Markdown never becomes HTML, as in the app ([Security](Security.md)). Webviews only render and report clicks; they read nothing themselves. Images and embedded files come from the extension, through the managers, which check every path. Their content security policy allows only the extension's own scripts and styles, data and blob images, and WebAssembly.
+Both render Markdown with the client's own pipeline (`src/client/app/markdown/`: parsing, the allowlisted DOM builder, references, mentions, dates, embeds) and draw Mermaid, PlantUML (rockuml's WebAssembly) and KaTeX themselves, loaded on first use. Markdown never becomes HTML, as in the app ([Security](Security.md)). Webviews only render and report clicks; they read nothing themselves. Images and embedded files, also as committed in a revision, come from the extension, through the managers, which check every path. Their content security policy allows only the extension's own scripts and styles, data and blob images, and WebAssembly.
 
 ## In VS Code's editor
 
@@ -51,11 +52,21 @@ An area in the checkout opens as the plain file, so VS Code's Git support, searc
 
 The manifest's `extensionKind` is `workspace`, so VS Code runs the extension where the workspace is: in WSL, over SSH or in a dev container, it runs there, and the managers see a local repository. The desktop app's own WSL and SSH hosts are not needed. Genbeya runs Git in the repository, which can run programs the repository configures, so the extension stays off in untrusted workspaces.
 
+## What the extension leaves out
+
+The Visual Studio Marketplace refused the extension within seconds, by an automated check: "Your extension has suspicious content. Please fix your extension metadata", naming no rule ([[GENBEYA-25]]).
+
+**Keywords.** Probe uploads, each a new extension with empty code and one piece of Genbeya's metadata, found the cause: the manifest's `keywords`. Every other piece passed, the display name, the README, the licences and the homepage on genbeya.fyi included ([[GENBEYA-66]] has the results). Which keyword it is wasn't tested, so the manifest has none; they can come back one at a time in updates once the extension is listed. The Marketplace blocks uploads for 12 hours after seven or eight new extensions in a row, so probes are best spent sparingly. It also keeps the display name of a removed extension reserved: the accepted probe named "Genbeya" still holds that name, so the extension is listed as "Genbeya for VS Code". A probe should never carry a name the real extension needs.
+
+**Code nobody runs.** Before the probes, the bundle looked like the likelier cause. The extension carried the desktop app's whole backend, and with it code that reads like a remote access tool to a scanner looking for patterns: PowerShell started with hidden windows, `taskkill /f`, node-pty, `ssh -t … exec "$SHELL" -l`, `wsl.exe`, a script that sets up a shell on another machine, and a base64 command-line argument decoded and opened. None of it ran in VS Code.
+
+The extension builds its managers with `createLocalBackend` ([Managers](Managers.md)) on a Node machine without terminals: no WSL or SSH hosts, no folder browsing there, no launch arguments, no terminals ([[GENBEYA-66]]). What it still starts is `git`. `scripts/build-vscode.mjs` fails when `extension.cjs` names PowerShell, `pwsh`, `taskkill`, node-pty, `wsl.exe`, `BatchMode`, `--open=`, `mktemp` or `exec "$SHELL"`, so a new import can't bring them back unnoticed.
+
 ## Decisions
 
 - **One repository, one version.** The extension lives in this repository and reuses the contracts, engines, managers and the client's Markdown rendering directly. It carries the app's version, so `scripts/version.mjs` needs no new file.
 - **Native where VS Code has it.** Trees for lists, the editor for editing, quick picks for choices. Webviews only where VS Code has nothing to offer: rendered pages and tasks, and the board. They are small, purpose-built pages with VS Code's colours and fonts, not the app's client, which would duplicate VS Code's editor, Git and terminal.
-- **No terminal.** The extension never opens terminals, so node-pty is not packaged.
+- **No terminal, no remote hosts.** VS Code has both, so the extension leaves them out, see below.
 
 ## Not yet
 

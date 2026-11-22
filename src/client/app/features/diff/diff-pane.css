@@ -37,3 +37,13 @@
 .diff-toolbar .btn.is-danger:hover:not(:disabled) {
   color: var(--red);
 }
+
+.diff-sizes {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.diff-modes {
+  flex: none;
+  white-space: nowrap;
+}

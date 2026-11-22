@@ -4,7 +4,8 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { TOO_MUCH_OUTPUT } from "../../access/ports";
 import { describeMachine } from "../../testing/machine-contract";
 import { temporaryFolder } from "../../testing/temp";
-import { defaultShell, nodeMachine } from "./node-machine";
+import { nodeMachine } from "./node-machine";
+import { defaultShell, nodeTerminals } from "./node-terminals";
 
 const TERMINAL_PROGRAM = `
 const size = () => process.stdout.write("size " + process.stdout.columns + "x" + process.stdout.rows + "\\n");
@@ -15,7 +16,7 @@ process.stdin.on("data", (data) => (String(data) === "q" ? process.exit(7) : pro
 `;
 
 describeMachine("Node", () => ({
-  machine: nodeMachine(),
+  machine: nodeMachine(nodeTerminals),
   folder: () => temporaryFolder("machine-"),
   echo: { command: process.execPath, args: ["-e", "process.stdin.pipe(process.stdout)"] },
   terminalProgram: { command: process.execPath, args: ["-e", TERMINAL_PROGRAM] },
@@ -42,7 +43,7 @@ describe("nodeMachine terminals", () => {
   it("pass arguments with quotes and spaces unchanged, as the SSH terminal command needs", async () => {
     const remote = `cd '/srv/it'\\''s here' && exec "$SHELL" -l`;
     const script = "process.stdout.write(JSON.stringify(process.argv.slice(1)))";
-    const terminal = await nodeMachine().terminals!.open(process.execPath, ["-e", script, "--", "-t", remote], {
+    const terminal = await nodeMachine(nodeTerminals).terminals!.open(process.execPath, ["-e", script, "--", "-t", remote], {
       cwd: await temporaryFolder("terminal-"),
       cols: 300,
       rows: 10,
@@ -60,7 +61,7 @@ describe("nodeMachine terminals", () => {
     onTestFinished(() => fork.mockRestore());
     const script = `const child = require("child_process").spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"]);
       process.stdout.write("pids " + process.pid + " " + child.pid + "\\n"); setInterval(() => {}, 1000);`;
-    const terminal = await nodeMachine().terminals!.open(process.execPath, ["-e", script], {
+    const terminal = await nodeMachine(nodeTerminals).terminals!.open(process.execPath, ["-e", script], {
       cwd: await temporaryFolder("terminal-"),
       cols: 100,
       rows: 10,

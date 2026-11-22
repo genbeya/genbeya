@@ -38,6 +38,8 @@ export function toBase64(data: Uint8Array): string {
   return btoa(binary);
 }
 
+export const fromBase64 = (text: string): Uint8Array => Uint8Array.from(atob(text), (char) => char.charCodeAt(0));
+
 /** Hex SHA-256 of a string's UTF-8 bytes; the version stamp of file contents. */
 export const sha256 = (text: string): string => bytesToHex(sha256Digest(encodeText(text)));
 

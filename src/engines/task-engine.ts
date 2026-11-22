@@ -12,6 +12,7 @@
  * start with a dot hold no tasks.
  */
 import YAML from "yaml";
+import { splitTimeLog } from "../utilities/planning";
 import { TASK_KEYS, type FieldValue, type Task, type TaskChange, type TaskInput, type TaskTemplate } from "../contracts/model";
 import { validateRepositoryPath, within } from "../utilities/repository-path";
 import { applyTextStyle, LF_STYLE, textStyleOf, withoutByteOrderMark } from "../utilities/text-style";
@@ -35,6 +36,8 @@ const LIMITS = {
   fields: 50,
   field: 100,
   value: 2000,
+  /** Items of a list field, such as the tasks a task depends on. */
+  items: 100,
   comment: 64 * 1024,
 } as const;
 /** Keys a field must not have, in lower case: Genbeya's own, and names that would reach object prototypes. */
@@ -51,13 +54,14 @@ export interface TaskVersion {
   readonly content: string | null;
 }
 
-interface Frontmatter {
+export interface Frontmatter {
   readonly document: YAML.Document;
   readonly data: Record<string, unknown>;
   readonly body: string;
 }
 
-function splitFrontmatter(file: string): Frontmatter {
+/** A Markdown file's YAML frontmatter, as a document to edit and as data, and the text after it. */
+export function splitFrontmatter(file: string): Frontmatter {
   const raw = withoutByteOrderMark(file);
   const match = FRONTMATTER.exec(raw);
   const document = YAML.parseDocument(match?.[1] ?? "");
@@ -78,9 +82,15 @@ const toList = (value: unknown): string[] =>
       : [];
 
 const isFieldValue = (value: unknown): value is FieldValue =>
-  typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value));
+  typeof value === "string" ||
+  typeof value === "boolean" ||
+  (typeof value === "number" && Number.isFinite(value)) ||
+  (Array.isArray(value) && value.every((item) => typeof item === "string"));
 
-/** Frontmatter fields other than Genbeya's own that hold a plain value. */
+/** A field's value as text: lists comma-separated. */
+const fieldText = (value: FieldValue): string => (Array.isArray(value) ? value.join(", ") : String(value));
+
+/** Frontmatter fields other than Genbeya's own that hold a plain value or a list of texts. */
 const extraFields = (data: Record<string, unknown>): Record<string, FieldValue> =>
   Object.fromEntries(Object.entries(data).filter((entry): entry is [string, FieldValue] => isFieldKey(entry[0]) && isFieldValue(entry[1])));
 
@@ -98,9 +108,10 @@ const fieldsOf = (input: TaskInput) => ({
 });
 
 /** Flow lists keep the usual spelling, [a, b]. */
-const yamlText = (document: YAML.Document) => document.toString({ flowCollectionPadding: false });
+export const yamlText = (document: YAML.Document) => document.toString({ flowCollectionPadding: false });
 
-const compose = (frontmatter: string, body: string) => {
+/** A Markdown file of frontmatter and a body, the body's surrounding blank lines trimmed. */
+export const compose = (frontmatter: string, body: string) => {
   const text = body.replace(/^\s*\n/, "").trimEnd();
   return `---\n${frontmatter}---\n${text && `\n${text}\n`}`;
 };
@@ -267,7 +278,13 @@ export class TaskEngine {
       throw new Error("Invalid fields.");
     for (const [key, field] of Object.entries(value)) {
       if (!isFieldKey(key)) throw new Error(`Invalid field ${key}.`);
-      if (!isFieldValue(field) || (typeof field === "string" && field.length > LIMITS.value)) throw new Error(`Invalid value of ${key}.`);
+      const tooLong = (text: string) => text.length > LIMITS.value;
+      if (
+        !isFieldValue(field) ||
+        (typeof field === "string" && tooLong(field)) ||
+        (Array.isArray(field) && (field.length > LIMITS.items || field.some(tooLong)))
+      )
+        throw new Error(`Invalid value of ${key}.`);
     }
     return { ...(value as Record<string, FieldValue>) };
   }
@@ -288,9 +305,11 @@ export class TaskEngine {
       if (value === undefined) document.delete(key);
       else document.set(key, value);
     }
+    const written = document.toJS() as Record<string, unknown> | null;
     for (const [key, value] of Object.entries(input.fields ?? {})) {
+      // An unchanged value keeps its spelling, such as a list written [a, b].
       if (value === "") document.delete(key);
-      else if (document.get(key) !== value) document.set(key, value);
+      else if (JSON.stringify(written?.[key]) !== JSON.stringify(value)) document.set(key, value);
     }
     const comments = splitComments(body.replace(/^\r?\n/, "")).blocks.map((block) => block.text);
     return applyTextStyle(compose(yamlText(document), joinComments(input.body, comments)), textStyleOf(original));
@@ -362,7 +381,9 @@ export class TaskEngine {
     } catch {
       // Old versions may be broken; their body still counts.
     }
-    const { description, blocks } = splitComments(body.replace(/^\r?\n/, ""));
+    const { description: written, blocks } = splitComments(body.replace(/^\r?\n/, ""));
+    // Logging time changes the time log, not the description.
+    const { description, lines: timeLog } = splitTimeLog(written);
     const text = (key: string, fallback = "") => String(data[key] ?? fallback);
     const fields = extraFields(data);
     return {
@@ -375,7 +396,8 @@ export class TaskEngine {
       labels: toList(data["labels"]),
       description,
       comments: blocks.map((block) => block.comment),
-      fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, String(value)])),
+      timeLog,
+      fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, fieldText(value)])),
       other: Object.fromEntries(
         Object.entries(data)
           .filter(([key]) => !NOT_FIELDS.includes(key) && !Object.hasOwn(fields, key))

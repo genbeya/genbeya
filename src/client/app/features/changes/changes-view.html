@@ -197,7 +197,14 @@
       }
     } @else if (current() && file()) {
       @for (key of [file()! + showsStaged()]; track key) {
-        <gd-diff-pane [path]="file()!" [badge]="badge()" [load]="loadDiff()" [actions]="diffActions()" [apply]="applyLines" />
+        <gd-diff-pane
+          [path]="file()!"
+          [badge]="badge()"
+          [load]="loadDiff()"
+          [loadImages]="loadImages()"
+          [actions]="diffActions()"
+          [apply]="applyLines"
+        />
       }
     } @else {
       <gd-empty-state title="Working tree clean">

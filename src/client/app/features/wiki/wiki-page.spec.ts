@@ -60,3 +60,41 @@ describe("WikiPage's editor", () => {
     expect(buttons(fixture)).toContain("Done");
   });
 });
+
+describe("WikiPage's checkboxes", () => {
+  const LIST = "---\ntags: [demo]\n---\n# Plan\n\n- [ ] Draft\n- [x] Review\n";
+
+  it("ticks a box as the page reads and saves it, counting the frontmatter", async () => {
+    const harness = await openRepository();
+    harness.managers.content.read.mockResolvedValue({ scope: "content", path: "docs/Plan.md", content: LIST, hash: "h1" });
+    const ticked = LIST.replace("- [ ] Draft", "- [x] Draft");
+    harness.managers.content.write
+      .mockResolvedValueOnce({ scope: "content", path: "docs/Plan.md", content: ticked, hash: "h2" })
+      .mockResolvedValueOnce({
+        scope: "content",
+        path: "docs/Plan.md",
+        content: ticked.replace("- [x] Review", "- [ ] Review"),
+        hash: "h3",
+      });
+    const fixture = TestBed.createComponent(WikiPage);
+    fixture.componentRef.setInput("path", "docs/Plan.md");
+    await settle(fixture);
+    const boxes = () => [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(".md-check.is-interactive")];
+    expect(boxes()).toHaveLength(2);
+
+    // Two quick clicks: the second waits for the first and builds on what it saved.
+    boxes()[0]!.click();
+    boxes()[1]!.click();
+    await settle(fixture);
+    await vi.waitFor(() => expect(harness.managers.content.write).toHaveBeenCalledTimes(2));
+    expect(harness.managers.content.write).toHaveBeenNthCalledWith(1, "w1", "content", "docs/Plan.md", ticked, "h1");
+    expect(harness.managers.content.write).toHaveBeenNthCalledWith(
+      2,
+      "w1",
+      "content",
+      "docs/Plan.md",
+      ticked.replace("- [x] Review", "- [ ] Review"),
+      "h2",
+    );
+  });
+});

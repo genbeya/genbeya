@@ -15,9 +15,11 @@ import { Router } from "@angular/router";
 import type { SearchOptions } from "../../../../contracts/model";
 import { CTRL_KEY, isMac, MOD_KEY, SHIFT_KEY } from "../../core/hotkeys";
 import { Repositories } from "../../core/repositories";
+import { Parts } from "../../core/parts";
 import { People } from "../../core/people";
 import { Session } from "../../core/session";
 import { Terminals } from "../../core/terminals";
+import { PullActions } from "../pulls/pull-actions";
 import { ContentFiles } from "../code/content-files";
 import { ResetActions } from "../history/reset-actions";
 import { Onboarding } from "../onboarding/onboarding";
@@ -182,6 +184,8 @@ export class Palette {
   private readonly onboarding = inject(Onboarding);
   private readonly people = inject(People);
   private readonly contentFiles = inject(ContentFiles);
+  private readonly pulls = inject(PullActions);
+  private readonly parts = inject(Parts);
   protected readonly label =
     this.mode === "branches"
       ? "Switch branch"
@@ -204,6 +208,8 @@ export class Palette {
     openFile: (file) => void this.router.navigate(["/code"], { queryParams: { file } }),
     newPage: () => void this.wiki.createPage(),
     newTask: () => void this.router.navigate(["/tasks"], { queryParams: { create: this.session.snapshot()!.settings.statuses[0] } }),
+    newPull: () => void this.pulls.create(),
+    openPull: (pull) => void this.router.navigate(["/pulls"], { queryParams: { pull } }),
     switchBranch: (name) => void this.repository.switchBranch(name),
     createBranch: (name) => void this.repository.createBranch(name),
     showBranches: () => void this.ui.openPalette("branches"),
@@ -238,6 +244,7 @@ export class Palette {
   private readonly found: SearchCommands = {
     openPage: (page, line) => void this.router.navigate(["/wiki"], { queryParams: { page, line } }),
     openTask: (task) => this.commands.openTask(task),
+    openPull: (pull) => this.commands.openPull(pull),
     openFile: (file, line, scope) =>
       void (scope === "content"
         ? this.contentFiles.explain(file, file.split("/").at(-1)!)
@@ -246,7 +253,24 @@ export class Palette {
 
   /** The text after "/", which searches inside files; null for the other modes. */
   protected readonly fullText = computed(() => (this.mode === "all" || this.mode === "search" ? searchText(this.query()) : null));
-  protected readonly text = textSearch(this.fullText);
+  private readonly textSearch = textSearch(this.fullText);
+  /** The search's results, without those of hidden parts. */
+  protected readonly text = {
+    ...this.textSearch,
+    results: computed(() => {
+      const found = this.textSearch.results();
+      const shown = this.parts.shown();
+      return (
+        found && {
+          ...found,
+          wiki: shown.has("wiki") ? found.wiki : [],
+          tasks: shown.has("tasks") ? found.tasks : [],
+          code: shown.has("code") ? found.code : [],
+          pulls: shown.has("pulls") ? found.pulls : [],
+        }
+      );
+    }),
+  };
 
   private readonly items = computed(() => {
     const snapshot = this.session.snapshot()!;
@@ -260,6 +284,7 @@ export class Palette {
         this.session.preferences().theme,
         { mod: MOD_KEY, ctrl: CTRL_KEY, shift: SHIFT_KEY },
         this.commands,
+        this.parts.offered(),
       ),
       ...mentionItems(this.people.me(), this.commands),
     ];

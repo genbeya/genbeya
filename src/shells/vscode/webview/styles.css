@@ -548,3 +548,11 @@ select {
   background: var(--vscode-editorSuggestWidget-selectedBackground, var(--bg-hover));
   color: var(--vscode-editorSuggestWidget-selectedForeground, inherit);
 }
+
+.gb-blocked {
+  padding: 0 5px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 18%, transparent);
+  color: var(--vscode-editorWarning-foreground);
+  font-size: 11px;
+}

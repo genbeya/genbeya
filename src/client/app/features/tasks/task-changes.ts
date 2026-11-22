@@ -36,6 +36,13 @@ export function describeChange(change: TaskChange): string {
       ]
         .filter(Boolean)
         .join(", ");
+    case "timelog":
+      return [
+        change.added.length && `logged ${change.added.join("; ")}`,
+        change.removed && `removed ${change.removed === 1 ? "an entry" : `${change.removed} entries`} of the time log`,
+      ]
+        .filter(Boolean)
+        .join(", ");
     case "custom":
       return `${change.field} ${change.from || "none"} → ${change.to || "none"}`;
     case "other":

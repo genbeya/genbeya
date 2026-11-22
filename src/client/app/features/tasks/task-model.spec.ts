@@ -1,13 +1,16 @@
 import { task } from "../../testing/fake-platform";
 import {
   columnsOf,
+  compareEpics,
   compareTasks,
   displayId,
   epicName,
   labelsOf,
   lanesOf,
+  milestonesOf,
   NO_FILTERS,
   peopleOf,
+  shownLanesOf,
   statusColor,
   titleCase,
   toneColor,
@@ -44,6 +47,10 @@ describe("task ordering and filters", () => {
   it("filters by type, with tasks without one as their own choice", () => {
     expect(visibleTasks(tasks, { ...NO_FILTERS, type: "bug" }).map((t) => t.id)).toEqual(["TP-5"]);
     expect(visibleTasks(tasks, { ...NO_FILTERS, type: "" }).map((t) => t.id)).toEqual(["TP-2", "TP-3", "TP-1", "TP-4"]);
+    const planned = [task("TP-8", { fields: { milestone: "MVP" } }), task("TP-9")];
+    expect(visibleTasks(planned, { ...NO_FILTERS, milestone: "MVP" }).map((t) => t.id)).toEqual(["TP-8"]);
+    expect(visibleTasks(planned, { ...NO_FILTERS, milestone: "" }).map((t) => t.id)).toEqual(["TP-9"]);
+    expect(milestonesOf(planned)).toEqual(["MVP"]);
   });
 
   it("lists the configured types, then other types tasks have", () => {
@@ -65,6 +72,15 @@ describe("task ordering and filters", () => {
   it("makes a swimlane per epic, then one for tasks without an epic", () => {
     expect(lanesOf(tasks)).toEqual(["auth/Tokens", "Billing", ""]);
     expect(epicName("")).toBe("No epic");
+  });
+
+  it("shows only the swimlanes that have a card in a shown column", () => {
+    const columns = ["todo", "blocked", "done"];
+    expect(shownLanesOf(tasks, columns)).toEqual(["auth/Tokens", "Billing", ""]);
+    // A filter that leaves no task without an epic, and a hidden column that holds Billing's only task.
+    const bugs = visibleTasks(tasks, { ...NO_FILTERS, type: "bug" });
+    expect(shownLanesOf(bugs, columns)).toEqual(["auth/Tokens"]);
+    expect(shownLanesOf(tasks, ["todo", "done"])).toEqual(["auth/Tokens", ""]);
   });
 
   it("adds unknown states as extra columns", () => {
@@ -104,5 +120,30 @@ describe("task labels", () => {
   it("colours types by their tone", () => {
     expect(toneColor("red")).toBe("var(--red)");
     expect(toneColor(undefined)).toBe("var(--text-2)");
+  });
+});
+
+describe("epic order", () => {
+  it("orders epics by a leading phase number, then the others alphabetically", () => {
+    const epics = ["Backlog", "10 Launch", "2 Build", "1 Discovery", "alpha", "2 Beta", "10-Later", "0 Setup"];
+    expect([...epics].sort(compareEpics)).toEqual([
+      "0 Setup",
+      "1 Discovery",
+      "2 Beta",
+      "2 Build",
+      "10 Launch",
+      "10-Later",
+      "alpha",
+      "Backlog",
+    ]);
+  });
+
+  it("reads a number only when it is the whole first word", () => {
+    expect(["v2 Beta", "3 Ship", "2024 Roadmap", "12"].sort(compareEpics)).toEqual(["3 Ship", "12", "2024 Roadmap", "v2 Beta"]);
+  });
+
+  it("puts tasks without an epic in the last swimlane", () => {
+    const tasks = [task("a", { epic: "10 Launch" }), task("b", { epic: "" }), task("c", { epic: "2 Build" })];
+    expect(lanesOf(tasks)).toEqual(["2 Build", "10 Launch", ""]);
   });
 });
