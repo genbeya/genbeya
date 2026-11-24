@@ -2,7 +2,7 @@
 id: GENBEYA-67
 title: Update rockuml to 0.3.0
 type: chore
-status: todo
+status: review
 priority: medium
 labels: [dependencies, diagrams]
 milestone: 0.2.1
@@ -12,7 +12,11 @@ milestone: 0.2.1
 
 `@rockuml/angular` 0.3.0 needs Angular `^22.2.0` (Genbeya has 22.2.2) and `@rockuml/core` `^0.3.0`.
 
-- [ ] Both packages at `^0.3.0` in `package.json`, and the lockfile updated with `npm install`
-- [ ] Check the uses: `src/client/app/app.config.ts`, `src/client/app/markdown/diagrams.ts`, `src/shells/vscode/webview/markdown.ts`, and `scripts/build-vscode.mjs`, which copies `rockuml.wasm` into the extension
-- [ ] Tests: typecheck, client and backend tests, `npm run test:vscode`, and `npm run e2e:demo`, which draws the PlantUML diagrams
-- [ ] What's new for 0.2 and the extension's changelog, if 0.3.0 changes something users see
+- [x] Both packages at `^0.3.0` in `package.json`, and the lockfile updated with `npm install`
+- [x] Check the uses: `src/client/app/app.config.ts`, `src/client/app/markdown/diagrams.ts`, `src/shells/vscode/webview/markdown.ts`, and `scripts/build-vscode.mjs`, which copies `rockuml.wasm` into the extension
+- [x] Tests: typecheck, client and backend tests, `npm run test:vscode`, and `npm run e2e:demo`, which draws the PlantUML diagrams
+- [x] What's new for 0.2 and the extension's changelog, if 0.3.0 changes something users see: nothing does
+
+### Claude — 2026-11-24 07:47+01:00
+
+Neither package's API changed between 0.2.1 and 0.3.0 (`rockuml.d.ts` and the Angular package's types are identical); the difference is in the WebAssembly engine. The lockfile was updated with npm 11, as Node 24 ships it, so it changes only the two packages. `npm run check`, the client tests (731), `npm run test:vscode` and `npm run e2e:demo` (11, the release plan's PlantUML timeline among them) pass.
