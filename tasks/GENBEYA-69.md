@@ -2,7 +2,7 @@
 id: GENBEYA-69
 title: Draw plans on the website, with the app's own plan rendering
 type: feature
-status: in-progress
+status: review
 priority: medium
 labels: [website, planning, docs]
 milestone: 0.2.1
@@ -17,10 +17,10 @@ genbeya.fyi shows the wiki, but plan blocks such as `[EFFORT]` or `[DEPENDENCIES
 
 ### In genbeya/website
 
-- [ ] `sync-docs` bundles that function from the release checkout, computes each plan block of the docs once, and stores the nodes in the generated docs index; no app code runs in the Astro build
-- [ ] The site's remark plugin replaces each block with its stored nodes; tables render as tables and Mermaid as diagrams, through the site's own pipeline
-- [ ] Without the function (releases up to 0.2.0) or when it fails, the page keeps the note
-- [ ] Plans are as of the build date; the `[FLOAT]` table already names it
+- [x] `sync-docs` bundles that function from the release checkout, computes each plan block of the docs once, and stores the nodes in the generated docs index; no app code runs in the Astro build
+- [x] The site's remark plugin replaces each block with its stored nodes; tables render as tables and Mermaid as diagrams, through the site's own pipeline
+- [x] Without the function (releases up to 0.2.0) or when it fails, the page keeps the note
+- [x] Plans are as of the build date; the `[FLOAT]` table already names it
 
 ### Not in this task
 
@@ -31,3 +31,7 @@ genbeya.fyi shows the wiki, but plan blocks such as `[EFFORT]` or `[DEPENDENCIES
 ### Claude — 2026-11-24 08:07+01:00
 
 The function lives in `src/shells/docs/plans.ts`, not next to `plan()`: parsing task files and `.genbeya.yml` needs the engines, which the client may not import. The docs shell may, so it parses with them and calls `plan()` (now exported, with `PLAN`, from the client's remark plugin). `docsPlans(settingsText, taskFiles, today)` returns how many tasks it read and `draw(block)`, the Markdown nodes a block becomes, or null for `[BURNDOWN]`, `[BASELINE]`, other text and projects without planning. `plans.spec.ts` pins it. The website half follows in genbeya/website, and can only use this once a release has it.
+
+### Claude — 2026-11-24 08:13+01:00
+
+The website half is genbeya/website#6. `sync-docs` bundles this module from the checkout with Vite, draws each plan block once and keeps the nodes in the docs index; the site's remark plugin puts them in place of the blocks. Synced from this branch, the Planning demo page draws all 8 of its blocks (3 tables, 3 diagrams); from a bare export, as CI checks the release out, the same; from `v0.2.0` every block keeps its note. Plans appear on genbeya.fyi once 0.2.1 is released and the website deployed.
