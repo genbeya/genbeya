@@ -2,7 +2,7 @@
 id: GENBEYA-69
 title: Draw plans on the website, with the app's own plan rendering
 type: feature
-status: todo
+status: in-progress
 priority: medium
 labels: [website, planning, docs]
 milestone: 0.2.1
@@ -12,8 +12,8 @@ genbeya.fyi shows the wiki, but plan blocks such as `[EFFORT]` or `[DEPENDENCIES
 
 ### In the app
 
-- [ ] Export one function next to `plan()` in `src/client/app/markdown/remark-genbeya.ts`: from the task files, `.genbeya.yml` and a date, the Markdown nodes a plan block becomes, as in the app (tables for `[EFFORT]` and `[FLOAT]`, Mermaid for `[DEPENDENCIES]` and `[ARROWS]`, PlantUML for `[GANTT]`). It parses tasks and settings with the pure engines; `plan()` itself stays where it is
-- [ ] A unit test pins its signature and output, since the website builds against it
+- [x] Export one function next to `plan()` in `src/client/app/markdown/remark-genbeya.ts`: from the task files, `.genbeya.yml` and a date, the Markdown nodes a plan block becomes, as in the app (tables for `[EFFORT]` and `[FLOAT]`, Mermaid for `[DEPENDENCIES]` and `[ARROWS]`, PlantUML for `[GANTT]`). It parses tasks and settings with the pure engines; `plan()` itself stays where it is
+- [x] A unit test pins its signature and output, since the website builds against it
 
 ### In genbeya/website
 
@@ -27,3 +27,7 @@ genbeya.fyi shows the wiki, but plan blocks such as `[EFFORT]` or `[DEPENDENCIES
 - `[GANTT]` is PlantUML, which the site shows as source, as all PlantUML there. Drawing PlantUML with rockuml at build time is a separate improvement to the website.
 - `[BURNDOWN]` and `[BASELINE]` read the tasks' Git history, which the site's build doesn't check out; they keep the note.
 - The kit ([[GENBEYA-68]]) needs nothing from this: it renders through the client's pipeline, and with it `plan()`, as the VS Code webviews do.
+
+### Claude — 2026-11-24 08:07+01:00
+
+The function lives in `src/shells/docs/plans.ts`, not next to `plan()`: parsing task files and `.genbeya.yml` needs the engines, which the client may not import. The docs shell may, so it parses with them and calls `plan()` (now exported, with `PLAN`, from the client's remark plugin). `docsPlans(settingsText, taskFiles, today)` returns how many tasks it read and `draw(block)`, the Markdown nodes a block becomes, or null for `[BURNDOWN]`, `[BASELINE]`, other text and projects without planning. `plans.spec.ts` pins it. The website half follows in genbeya/website, and can only use this once a release has it.
