@@ -14,7 +14,7 @@ Publish the extension once it is ready for users.
 - [x] Release job publishes the `.vsix` to Open VSX and attaches it to the GitHub release
 - [x] Visual Studio Marketplace: accepted as "Genbeya for VS Code" once the keywords were gone ([[GENBEYA-66]]); the release step publishes there with `vsce publish --oidc`
 - [x] Store listing: preview badge, banner, changelog, 128 pixel icon
-- [ ] Keywords: the Marketplace refuses a new extension with them ([[GENBEYA-66]]); add them back one at a time in updates once it is listed
+- [ ] Keywords: the Marketplace refused the new extension with all nine ([[GENBEYA-66]]); 0.2.1 brings back four (wiki, kanban, markdown, git), the rest once the Marketplace takes those
 - [ ] Screenshots in the extension's README
 - [x] genbeya.fyi: link the extension on the download page and in the docs
 - [ ] Verified publisher: a DNS record for genbeya.fyi, once the Marketplace allows it
@@ -36,3 +36,23 @@ The refusal was the manifest's `keywords`, found with probe uploads ([[GENBEYA-6
 ### Claude — 2026-11-22 23:12+01:00
 
 0.2.0 went out through the release job to both stores: `vsce publish --oidc` published `genbeya.genbeya` 0.2.0 on the Marketplace, the first time without a token. Still open: the keywords, screenshots in the README, and the verified publisher.
+
+### Claude — 2026-11-24 08:14+01:00
+
+Before adding keywords back, I searched the Marketplace for each of the nine as a tag (its gallery API, VS Code extensions only). Every one is in use, so none is refused on its own:
+
+| Keyword | Extensions with it |
+| --- | --- |
+| git | 4,163 |
+| markdown | 3,979 |
+| documentation | 1,065 |
+| todo | 497 |
+| tasks | 405 |
+| kanban | 179 |
+| project management | 178 |
+| wiki | 102 |
+| board | 58, mostly colour themes |
+
+So about half come back in 0.2.1, the most relevant and most established: `wiki`, `kanban`, `markdown` and `git`. Left for later: `tasks`, `todo` and `documentation` (generic), `board` (mostly themes) and `project management` (the only one with a space).
+
+The release is the test: its Marketplace step publishes an update with them. If the Marketplace refuses it, that step fails after the GitHub release and Open VSX are done; take the keywords out again and publish the next patch. If it takes them, the next release can bring back the rest.
