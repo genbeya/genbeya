@@ -4,14 +4,17 @@ out-tsc/
 release/
 release-deno/
 release-vscode/
+release-kit/
 .vscode-test/
 out/
 .angular/
 .test-work/
 test-results/
 test-results-demo/
+test-results-kit/
 playwright-report/
 playwright-report-demo/
+playwright-report-kit/
 *.log
 src/shells/tauri/src-tauri/target/
 src/shells/tauri/src-tauri/gen/

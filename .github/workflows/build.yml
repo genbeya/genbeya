@@ -107,6 +107,31 @@ jobs:
           path: release-vscode/*.vsix
           if-no-files-found: error
 
+      # The kit (the renderer and the editor for other hosts' web views) is browser JavaScript, the
+      # same on every system: built, tested in Chromium (installed for the web demo) and packed
+      # once, on Linux. Releases attach its zip.
+      - name: Test the kit
+        if: runner.os == 'Linux'
+        run: npm run e2e:kit
+
+      - name: Pack the kit
+        if: runner.os == 'Linux'
+        run: |
+          npm run package:kit
+          zip=$(ls release-kit/genbeya-kit-*.zip)
+          {
+            echo "### The kit"
+            echo ""
+            echo "\`$(basename "$zip")\`: $(du -h "$zip" | cut -f1); \`kit.js\`, what a host loads first, $(gzip -c dist/kit/kit.js | wc -c | numfmt --to=iec) compressed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: Genbeya-kit
+          path: release-kit/*.zip
+          if-no-files-found: error
+
       # The Tauri shell embeds the client, which the end-to-end tests have built.
       - name: Test the Tauri shell
         run: cargo test --manifest-path src/shells/tauri/src-tauri/Cargo.toml

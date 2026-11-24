@@ -12,7 +12,7 @@ import type { FieldDefinition, FieldValue, Task, TaskActivity } from "../../../c
 import { parseEffort } from "../../../utilities/planning";
 import type { Bridge } from "./bridge";
 import { TextCompletion } from "./completion";
-import type { MarkdownRenderer } from "./markdown";
+import type { MarkdownRenderer } from "../../webview/markdown-renderer";
 import type { MarkdownContext, PickedProperty } from "./protocol";
 
 /** "in-progress" → "In progress", as the app names states. */
@@ -111,7 +111,8 @@ export class TaskView {
     parts.push(heading, this.properties(task, context), ...this.fields(task, context.fields));
 
     const body = element("div", "gb-body");
-    if (task.body.trim()) this.markdown.render(body, task.body, { path: task.path, area: "tasks", checkboxes: true }, context);
+    if (task.body.trim())
+      this.markdown.render(body, task.body, { path: task.path, area: "tasks", checkboxes: true, hash: task.hash }, context);
     else body.append(element("p", "gb-empty", "No description. Edit the file to add one."));
     parts.push(body, this.comments(task, context, draft, editing));
 

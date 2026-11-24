@@ -21,7 +21,8 @@ import {
 } from "../../../client/app/features/tasks/task-model";
 import { PRIORITIES, type Task } from "../../../contracts/model";
 import { Bridge } from "./bridge";
-import { MarkdownRenderer } from "./markdown";
+import { MarkdownRenderer } from "../../webview/markdown-renderer";
+import { rendererHost } from "./renderer-host";
 import type { MarkdownContext } from "./protocol";
 import { avatar, element, labelChip, statusPill, TaskView, typeChip } from "./task";
 
@@ -56,7 +57,7 @@ const bridge = new Bridge((message) => {
 });
 const saved = bridge.state as Partial<BoardState> | undefined;
 let state: BoardState = { lanes: saved?.lanes ?? false, collapsed: saved?.collapsed ?? [], filters: { ...NO_FILTERS, ...saved?.filters } };
-const markdown = new MarkdownRenderer(bridge);
+const markdown = new MarkdownRenderer(rendererHost(bridge));
 const taskView = new TaskView(bridge, markdown);
 markdown.listen(popupBody);
 

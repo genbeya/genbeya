@@ -24,7 +24,7 @@ flowchart LR
 | `markdown-language.ts`, `markdown-references.ts` | Genbeya's Markdown in VS Code's editor: `[[`, `@` and `//` completion, hovers and links on references, warnings for references to nothing, the preview beside the editor |
 | `task-actions.ts` | Changing tasks with quick picks and input boxes, as the app's task panel does with its menus; edits are queued, each applied to the newest version of the task |
 | `webviews.ts` | The preview tabs and the board: what they show, and the links, edits, moves, comments and checkbox toggles they report. VS Code reopens them after a restart |
-| `webview/` | The webviews' code, bundled for the browser: the message protocol, the Markdown renderer, the task view, the preview, the board, and styles from the app's tokens over VS Code's theme |
+| `webview/` | The webviews' code, bundled for the browser: the message protocol, the renderer's host (`renderer-host.ts`), the task view, the preview, the board, and styles from the app's tokens over VS Code's theme |
 | `content-files.ts` | The `genbeya-content` file system, for areas on the [Content branch](Content-branch.md) |
 | `revision-files.ts` | Read-only `genbeya-revision:/<path>?<revision>` documents: a file as committed in a revision, which pinned references open |
 | `manifest.json` | The extension's `package.json`; `scripts/build-vscode.mjs` adds the app's version |
@@ -38,7 +38,7 @@ A task's preview works like the app's task panel: its title and its properties (
 
 The board has a column per workflow state, leaving out the hidden columns, with the app's filters (text, assignee, label, priority, type, epic) and optionally a swimlane per epic; it remembers them across restarts. Cards drag between columns, and between swimlanes, which moves the task into that epic. **+** in a column creates a task there. A click opens the task in a popup, with the same view as its preview tab, **Open in Preview**, **Edit File** and **Delete**.
 
-Both render Markdown with the client's own pipeline (`src/client/app/markdown/`: parsing, the allowlisted DOM builder, references, mentions, dates, embeds) and draw Mermaid, PlantUML (rockuml's WebAssembly) and KaTeX themselves, loaded on first use. Markdown never becomes HTML, as in the app ([Security](Security.md)). Webviews only render and report clicks; they read nothing themselves. Images and embedded files, also as committed in a revision, come from the extension, through the managers, which check every path. Their content security policy allows only the extension's own scripts and styles, data and blob images, and WebAssembly.
+Both render Markdown with the renderer they share with the [Kit](Kit.md) (`src/shells/webview/markdown-renderer.ts`), which uses the client's own pipeline (`src/client/app/markdown/`: parsing, the allowlisted DOM builder, references, mentions, dates, embeds, plans) and draws Mermaid, PlantUML (rockuml's WebAssembly) and KaTeX itself, loaded on first use. `[BURNDOWN]` and `[BASELINE]` ask the extension for the plan's history, and a ticked checkbox names the version it was shown in, so a file that changed meanwhile is left alone. Markdown never becomes HTML, as in the app ([Security](Security.md)). Webviews only render and report clicks; they read nothing themselves. Images and embedded files, also as committed in a revision, come from the extension, through the managers, which check every path. Their content security policy allows only the extension's own scripts and styles, data and blob images, and WebAssembly.
 
 ## In VS Code's editor
 

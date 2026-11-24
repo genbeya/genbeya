@@ -7,6 +7,7 @@
  */
 import { Dialog } from "@angular/cdk/dialog";
 import { DestroyRef, Injectable, inject, type Signal } from "@angular/core";
+import { isMac } from "./platform-keys";
 
 interface Combo {
   readonly key: string;
@@ -22,10 +23,7 @@ interface Registration {
   readonly enabled: () => boolean;
 }
 
-export const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
-export const MOD_KEY = isMac ? "⌘" : "Ctrl";
-export const CTRL_KEY = isMac ? "⌃" : "Ctrl";
-export const SHIFT_KEY = isMac ? "⇧" : "Shift";
+export { CTRL_KEY, isMac, MOD_KEY, SHIFT_KEY } from "./platform-keys";
 
 function parse(text: string): Combo {
   const parts = text.toLowerCase().split("+");
