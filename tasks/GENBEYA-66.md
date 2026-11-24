@@ -2,7 +2,7 @@
 id: GENBEYA-66
 title: Leave the terminal and remote hosts out of the VS Code extension
 type: bug
-status: review
+status: done
 priority: high
 labels: [vscode, release]
 ---
