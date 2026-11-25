@@ -9,7 +9,17 @@ import type { Task } from "../../contracts/model";
 import { markdownOptions, MarkdownRenderer, type RenderContext, type RendererHost } from "../webview/markdown-renderer";
 import { KitBridge } from "./bridge";
 import type { KitEditor } from "./editor";
-import { CONTEXT_PARTS, KIT_PROTOCOL, type ContextParts, type KitDocument, type ToKit, type Versioned } from "./protocol";
+import {
+  CONTEXT_PARTS,
+  KIT_PROTOCOL,
+  OUTLINE_LIMIT,
+  OUTLINE_TEXT,
+  type ContextParts,
+  type KitDocument,
+  type OutlineHeading,
+  type ToKit,
+  type Versioned,
+} from "./protocol";
 
 /** Set by the build: the Genbeya release the kit comes from. */
 declare const GENBEYA_VERSION: string;
@@ -63,6 +73,8 @@ function receive(message: Exclude<ToKit, { type: "reply" }>) {
     case "preview":
       shown = message.document;
       return show();
+    case "reveal":
+      return reveal(message.id);
     case "edit":
       return void edit(message);
     case "editorCommand":
@@ -101,7 +113,29 @@ function show() {
   root.replaceChildren(page);
   if (doc.kind === "task") return showTask(page, doc.task);
   const area = doc.kind === "page" ? "wiki" : doc.area;
-  renderer.render(page, doc.source, { path: doc.path, area, checkboxes: true, hash: doc.hash }, context());
+  // Pages always tick; other Markdown unless the host says its checkboxes don't (a comment).
+  const checkboxes = doc.kind === "page" || doc.checkboxes !== false;
+  renderer.render(page, doc.source, { path: doc.path, area, checkboxes, hash: doc.hash }, context());
+  postOutline(page, doc.path);
+}
+
+/** The headings the renderer gave ids, for the host's "On this page"; also the sign that rendering finished. */
+function postOutline(page: HTMLElement, path: string) {
+  const headings: OutlineHeading[] = [];
+  for (const heading of page.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")) {
+    // Without an id nothing can reveal it; a longer one than `reveal` takes, neither.
+    if (!heading.id || heading.id.length > OUTLINE_TEXT) continue;
+    const text = (heading.textContent ?? "").trim().slice(0, OUTLINE_TEXT);
+    headings.push({ level: Number(heading.tagName[1]), text, id: heading.id });
+    if (headings.length === OUTLINE_LIMIT) break;
+  }
+  bridge.post({ type: "outline", path, headings });
+}
+
+/** Scrolls the preview shown to the element with `id`; nothing while the editor is open or when there is none. */
+function reveal(id: string) {
+  if (editor || !shown) return;
+  root.querySelector<HTMLElement>(`#${CSS.escape(id)}`)?.scrollIntoView({ block: "start" });
 }
 
 /** A task's description, whose checkboxes tick, and its comments; the host shows its title and properties. */

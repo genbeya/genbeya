@@ -51,7 +51,8 @@ Messages are JSON strings, which every web view can carry: Flutter's JavaScript 
 | --- | --- | --- |
 | `context` | `parts`: any of `wiki`, `tasks`, `plan`, `files`, `people`, `settings` (wiki folder, workflow, calendar) and `author`, each as `{ version, value }` | Only parts whose version changed need to be sent: on a repository with 20,000 files, the file list goes once, not with every edit. What is shown follows the new context |
 | `theme` | `mode` (`light` or `dark`) and `tokens`, the app's CSS variables without their `--` | Names are lowercase words with dashes; values can't end the declaration or contain markup |
-| `preview` | `document`: a `page` (path, title, source, hash), a `task` (as the managers return it; the kit shows its description and comments), or `markdown` (area, path, source, hash: a pull request file, a comment) | Rendered against the current context |
+| `preview` | `document`: a `page` (path, title, source, hash), a `task` (as the managers return it; the kit shows its description and comments), or `markdown` (area, path, source, hash: a pull request file, a comment; `checkboxes: false` renders its checkboxes read-only, for a comment) | Rendered against the current context |
+| `reveal` | An `id`, at most 300 characters: an `outline` heading's, or a followed link's anchor | Scrolls the preview to that element; nothing while the editor is open or when no element has the id |
 | `edit` | Area, path, text, its hash, and whether it is read-only; the language follows from the path | Opens the editor in place of the preview |
 | `editorCommand` | `bold`, `italic`, `heading`, `list`, `checkbox`, `link`, `insert` (with `text`), `undo`, `redo`, `find`, `save` | The host's toolbar drives the editor |
 | `reply` | `id`, and `value` or `error` | The answer to a request |
@@ -61,10 +62,11 @@ Messages are JSON strings, which every web view can carry: Flutter's JavaScript 
 | Message | Carries | The host must |
 | --- | --- | --- |
 | `ready` | `protocol`, and the kit's Genbeya version as `genbeya` | Refuse a kit whose protocol it doesn't speak |
-| `follow` | `link`: `external` (url), `missing` (a page's title), `person` (handle), or `file` (path and anchor); a task reference arrives as its task's file | Navigate; open web links only for `http`, `https` and `mailto` |
+| `follow` | `link`: `external` (url), `missing` (a page's title), `person` (handle), or `file` (path and anchor); a task reference arrives as its task's file | Navigate; open web links only for `http`, `https` and `mailto`. A file's `anchor` is the id its heading gets when that page renders: open the page, then `reveal` the anchor once its `outline` arrives |
 | `toggle` | Area, path, the `hash` of the version shown, and the `offset` of the checkbox's list item in the text the kit rendered (a page's source, a task's description) | Check that the file still has that hash and a checkbox at that offset, then write |
 | `image`, `file`, `fileAt` | `id`, a path (and a revision for `fileAt`) | Check the path with Genbeya's path rules and answer read-only: a data URL for images, the text for files, within Genbeya's size limits |
 | `planHistory` | `id`, and a `baseline` or null | Answer as `content.planHistory` does, as JSON, for `[BURNDOWN]` and `[BASELINE]` |
+| `outline` | The document's `path` and its `headings` in document order (at most 500): `level` 1 to 6, `text` and the `id` the renderer gave it, each at most 300 characters | Show "On this page", and `reveal` a heading by its id. Sent after every render of a `page` or `markdown` preview, also when a new `context` or theme re-renders it, so it also says rendering finished; not for tasks |
 | `height` | The rendered height in CSS pixels | Size the web view inside its native screen |
 | `draft` | Path, base hash, text | Keep it outside the repository |
 | `save` | Path, base hash, text | Write it as `content.write` does, refused once the file changed; then send `edit` again with the new hash |
@@ -77,12 +79,12 @@ Everything the kit sends is untrusted input to the host, since the page it rende
 
 ### Versions
 
-`KIT_PROTOCOL` is a whole number, now 1. Adding a message or an optional field keeps it; removing or changing one raises it. A host pins a Genbeya release and checks the kit's `protocol` on `ready`.
+`KIT_PROTOCOL` is a whole number, now 1; `outline`, `reveal` and `checkboxes` were added to it in 0.2.1, before any release had it. Adding a message or an optional field keeps it; removing or changing one raises it. A host pins a Genbeya release and checks the kit's `protocol` on `ready`.
 
 ## Tests
 
 - `src/shells/kit/protocol.spec.ts`: every message of the protocol passes the checks both ways, and malformed ones don't.
-- `npm run e2e:kit` (`e2e/kit/`, `playwright.kit.config.ts`): the built kit, served from its own origin, with a test host in the page. It renders a page with references, math, a Mermaid and a PlantUML diagram, a task with comments and other Markdown; answers checkboxes with `toggle` naming the version shown; asks for images; completes `[[` and runs toolbar commands and `save` in the editor; refuses messages that aren't the protocol's and inline scripts; and requests nothing from another origin. Every message the kit posts is checked with `checkFromKit`.
+- `npm run e2e:kit` (`e2e/kit/`, `playwright.kit.config.ts`): the built kit, served from its own origin, with a test host in the page. It renders a page with references, math, a Mermaid and a PlantUML diagram, a task with comments and other Markdown; answers checkboxes with `toggle` naming the version shown; asks for images; completes `[[` and runs toolbar commands and `save` in the editor; refuses messages that aren't the protocol's and inline scripts; posts each render's outline and reveals a heading; ticks a Markdown preview's checkboxes only when the host lets it; and requests nothing from another origin. Every message the kit posts is checked with `checkFromKit`.
 
 CI builds and tests the kit on Linux, uploads `Genbeya-kit` on every run with its size in the step summary, and a release attaches the zip.
 

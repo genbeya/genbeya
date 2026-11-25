@@ -17,6 +17,9 @@ describe("parseToKit", () => {
     { type: "theme", mode: "light", tokens: { "bg-app": "#ffffff", "font-ui": '"Inter Variable", system-ui' } },
     { type: "preview", document: { kind: "page", path: "docs/Home.md", title: "Home", source: "# Home", hash: "a1" } },
     { type: "preview", document: { kind: "markdown", area: "pulls", path: "pulls/PR-1.md", source: "", hash: "b2" } },
+    { type: "preview", document: { kind: "markdown", area: "pulls", path: "pulls/PR-1.md", source: "", hash: "b2", checkboxes: false } },
+    { type: "preview", document: { kind: "markdown", area: "pulls", path: "pulls/PR-1.md", source: "", hash: "b2", checkboxes: true } },
+    { type: "reveal", id: "use-the-new-verifier" },
     {
       type: "preview",
       document: {
@@ -62,6 +65,13 @@ describe("parseToKit", () => {
     ["an unknown editor command", json({ type: "editorCommand", command: "format" }), "editorCommand.command"],
     ["insert without text", json({ type: "editorCommand", command: "insert" }), "editorCommand.text"],
     ["a reply without an ID", json({ type: "reply", value: "x" }), "reply.id"],
+    ["a reveal of a number", json({ type: "reveal", id: 3 }), "reveal.id"],
+    ["a reveal of a 301-character id", json({ type: "reveal", id: "a".repeat(301) }), "reveal.id"],
+    [
+      "checkboxes that aren't true or false",
+      json({ type: "preview", document: { kind: "markdown", area: "pulls", path: "a.md", source: "", hash: "h", checkboxes: "no" } }),
+      "preview.document.checkboxes",
+    ],
   ])("refuses %s", (_, message, problem) => {
     expect(() => parseToKit(message)).toThrow(ProtocolError);
     expect(() => parseToKit(message)).toThrow(problem);
@@ -82,6 +92,15 @@ describe("checkFromKit", () => {
     { type: "planHistory", id: 4, baseline: null },
     { type: "planHistory", id: 5, baseline: "v1.0" },
     { type: "height", height: 480 },
+    { type: "outline", path: "docs/Home.md", headings: [] },
+    {
+      type: "outline",
+      path: "docs/Home.md",
+      headings: [
+        { level: 1, text: "Home", id: "home" },
+        { level: 3, text: "Ça va?", id: "ça-va" },
+      ],
+    },
     { type: "draft", path: "docs/Home.md", hash: "a1", text: "# Home!" },
     { type: "save", path: "docs/Home.md", hash: "a1", text: "# Home!" },
     { type: "editorState", path: "docs/Home.md", dirty: true, selection: { from: 0, to: 4 }, completing: false },
@@ -100,6 +119,12 @@ describe("checkFromKit", () => {
     ["a link of another kind", { type: "follow", link: { kind: "command", run: "rm" } }],
     ["a height that isn't whole", { type: "height", height: 1.5 }],
     ["an editor state without its selection", { type: "editorState", path: "a", dirty: false, completing: false }],
+    ["an outline heading of level 7", { type: "outline", path: "a.md", headings: [{ level: 7, text: "Deep", id: "deep" }] }],
+    [
+      "an outline of 501 headings",
+      { type: "outline", path: "a.md", headings: Array.from({ length: 501 }, (_, i) => ({ level: 2, text: `H${i}`, id: `h${i}` })) },
+    ],
+    ["an outline without its path", { type: "outline", headings: [] }],
   ])("refuses %s", (_, message) => {
     expect(() => checkFromKit(message)).toThrow(ProtocolError);
   });

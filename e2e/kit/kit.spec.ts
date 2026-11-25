@@ -190,3 +190,50 @@ test("refuses messages that aren't the protocol's, and inline scripts", async ({
   });
   expect(ran).toEqual({ refused: true, ran: false });
 });
+
+const filler = Array.from({ length: 40 }, (_, i) => `Paragraph ${i + 1} of the section, long enough to scroll.`).join("\n\n");
+const OUTLINED = `# Release notes\n\n${filler}\n\n### What's new: Ünïcode & more\n\n${filler}\n\n## Fixes\n\n${filler}\n`;
+
+test("posts the outline of each render, and reveals a heading", async ({ kit }) => {
+  await send(kit, CONTEXT);
+  await send(kit, { type: "preview", document: { kind: "page", path: "docs/Notes.md", title: "Notes", source: OUTLINED, hash: "n1" } });
+  await expect.poll(async () => (await sent(kit, "outline")).length).toBe(1);
+  const [outline] = await sent(kit, "outline");
+  expect(outline!.path).toBe("docs/Notes.md");
+  expect(outline!.headings.map(({ level, text }) => [level, text])).toEqual([
+    [1, "Release notes"],
+    [3, "What's new: Ünïcode & more"],
+    [2, "Fixes"],
+  ]);
+  const ids = outline!.headings.map((heading) => heading.id);
+  expect(new Set(ids).size).toBe(3);
+  // The ids are the renderer's: each names its heading in the page.
+  for (const id of ids) await expect(kit.locator(`[id="${id}"]`)).toHaveCount(1);
+
+  // A new context re-renders the page, and its outline comes again.
+  await send(kit, { type: "context", parts: { tasks: { version: "2", value: [] } } });
+  await expect.poll(async () => (await sent(kit, "outline")).length).toBe(2);
+
+  await send(kit, { type: "reveal", id: ids[1]! });
+  const heading = kit.getByRole("heading", { name: "What's new: Ünïcode & more" });
+  await expect.poll(async () => Math.round((await heading.boundingBox())!.y)).toBeLessThan(40);
+  const scrolled = await kit.evaluate(() => window.scrollY);
+  expect(scrolled).toBeGreaterThan(0);
+
+  await send(kit, { type: "reveal", id: "nowhere" });
+  expect(await kit.evaluate(() => window.scrollY)).toBe(scrolled);
+  expect(await sent(kit, "error")).toEqual([]);
+});
+
+test("ticks the checkboxes of Markdown only when the host lets them", async ({ kit }) => {
+  await send(kit, CONTEXT);
+  const comment = { kind: "markdown", area: "pulls", path: "pulls/PR-1.md", source: "- [ ] Not here\n", hash: "c1" };
+  await send(kit, { type: "preview", document: { ...comment, checkboxes: false } });
+  await expect.poll(async () => (await sent(kit, "outline")).length).toBe(1);
+  await kit.getByText("Not here").click();
+  await kit.locator(".md-check").first().click({ force: true });
+  expect(await sent(kit, "toggle")).toEqual([]);
+  await send(kit, { type: "preview", document: comment });
+  await kit.locator(".md-check.is-interactive").click();
+  await expect.poll(() => sent(kit, "toggle")).toEqual([{ type: "toggle", area: "pulls", path: "pulls/PR-1.md", hash: "c1", offset: 0 }]);
+});
