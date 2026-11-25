@@ -36,9 +36,11 @@ ESLint enforces the table: a layer that imports from a layer it may not use fail
 
 Within the client, features use the core services and the generic building blocks in `ui/` (dialogs, trees, menus, the guided tour); only `core/` talks to the platform connector.
 
-The [VS Code](Architecture/VS-Code.md) extension is a shell without the client: native views and two small webviews (a preview and the board) call the managers directly, and render Markdown with the client's pipeline. Pages shown outside Genbeya, such as the wiki on genbeya.fyi, draw their plan blocks with `src/shells/docs/plans.ts`: `plan()` of the client's Markdown pipeline on a repository's task files and `.genbeya.yml`.
+The [VS Code](Architecture/VS-Code.md) extension is a shell without the client: native views and two small webviews (a preview and the board) call the managers directly, and render Markdown with the client's pipeline.
 
 The [Demo](Architecture/Demo.md) that runs in a browser has no shell and no machine: its connector runs managers of its own (`src/managers/demo/`) in the page, on Git repositories simulated in memory (`src/access/memory/`), with the same engines.
+
+Pages shown outside Genbeya, such as the wiki on genbeya.fyi, draw their plan blocks with `src/shells/docs/plans.ts`: `plan()` of the client's Markdown pipeline on a repository's task files and `.genbeya.yml`.
 
 | Page | Covers |
 | --- | --- |
