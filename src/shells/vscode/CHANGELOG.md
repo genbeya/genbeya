@@ -2,6 +2,13 @@
 
 The extension is versioned with the Genbeya app; versions without a change to the extension are left out.
 
+## 0.2.1
+
+- **Plans over time**: pages draw `[BURNDOWN]` and `[BASELINE v1.0]` from the tasks' Git history, as in the app.
+- Plans count the project's working days, holidays and dated milestones (the calendar in `.genbeya.yml`).
+- Ticking a checkbox in a preview leaves the file alone if it changed since it was shown, and says so.
+- Found on the Marketplace by its keywords: wiki, kanban, markdown, git.
+
 ## 0.2.0
 
 - On the Visual Studio Marketplace, as **Genbeya for VS Code**.
