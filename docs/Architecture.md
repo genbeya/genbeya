@@ -40,6 +40,8 @@ The [VS Code](Architecture/VS-Code.md) extension is a shell without the client: 
 
 The [Demo](Architecture/Demo.md) that runs in a browser has no shell and no machine: its connector runs managers of its own (`src/managers/demo/`) in the page, on Git repositories simulated in memory (`src/access/memory/`), with the same engines.
 
+Pages shown outside Genbeya, such as the wiki on genbeya.fyi, draw their plan blocks with `src/shells/docs/plans.ts`: `plan()` of the client's Markdown pipeline on a repository's task files and `.genbeya.yml`.
+
 | Page | Covers |
 | --- | --- |
 | [Managers](Architecture/Managers.md) | What the backend can do, call by call: snapshots, operations that stop, comments, search, moving pages, writes |
