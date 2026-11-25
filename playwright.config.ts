@@ -4,7 +4,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "e2e",
   // The web demo runs in a browser, with a configuration of its own (playwright.demo.config.ts).
-  testIgnore: "demo/**",
+  testIgnore: ["demo/**", "kit/**"],
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

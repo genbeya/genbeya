@@ -7,7 +7,7 @@ import { MENTION_TRIGGER, mentionSuggestions, mentionText } from "../../../clien
 import { DATE_TRIGGER, dateSuggestions } from "../../../client/app/editor/smart-dates";
 import { referenceCandidates } from "../../../client/app/markdown/references";
 import { formatDate, today } from "../../../client/app/ui/calendar-date";
-import { markdownOptions } from "./markdown";
+import { markdownOptions } from "../../webview/markdown-renderer";
 import type { MarkdownContext } from "./protocol";
 
 interface Suggestion {

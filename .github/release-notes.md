@@ -24,3 +24,5 @@ The builds are unsigned:
 **VS Code**: the extension (the wiki, the tasks and the board next to your code) is on the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=genbeya.genbeya), and on [Open VSX](https://open-vsx.org/extension/genbeya/genbeya) for VSCodium, Cursor and other editors that use it; search for Genbeya in the Extensions view.
 
 `genbeya-web-demo.zip` is not an installer: it holds the in-browser demo that [genbeya.fyi/try](https://genbeya.fyi/try/) serves, as static files.
+
+`genbeya-kit-{{version}}.zip` isn't an installer either: it holds Genbeya's Markdown renderer and editor for other apps to show in a web view, such as Genbeya's mobile app. Its `manifest.json` lists every file with its SHA-256; see [Kit](https://github.com/genbeya/genbeya/blob/main/docs/Architecture/Kit.md).

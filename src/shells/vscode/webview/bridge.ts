@@ -47,7 +47,7 @@ export class Bridge {
     const id = ++this.next;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
-      this.api.postMessage({ ...request, id } as Request);
+      this.api.postMessage({ ...request, id } as unknown as Request);
     });
   }
 }

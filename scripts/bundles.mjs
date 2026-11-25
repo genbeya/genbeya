@@ -60,3 +60,29 @@ export const vscodeWebviewBundle = {
   external: [],
   loader: { ".woff2": "file", ".woff": "file" },
 };
+
+/**
+ * The kit (src/shells/kit, `npm run build:kit`) → dist/kit: the renderer and the editor for other
+ * hosts' web views. Browser ES modules as for the VS Code webviews; Mermaid, KaTeX, rockuml,
+ * CodeMirror's languages and the editor itself are chunks loaded on first use.
+ */
+export const kitBundle = {
+  ...common,
+  entryPoints: [
+    { in: "src/shells/kit/kit.ts", out: "kit" },
+    { in: "src/shells/kit/kit.css", out: "kit" },
+  ],
+  outdir: "dist/kit",
+  platform: "browser",
+  format: "esm",
+  target: "es2022",
+  splitting: true,
+  minify: true,
+  // A host serves these as files; source maps help debugging, not hosts.
+  sourcemap: false,
+  external: [],
+  chunkNames: "chunks/[name]-[hash]",
+  assetNames: "fonts/[name]-[hash]",
+  loader: { ".woff2": "file", ".woff": "file" },
+  metafile: true,
+};
