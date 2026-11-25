@@ -14,6 +14,20 @@ import type { FollowedLink } from "../webview/markdown-renderer";
 
 export const KIT_PROTOCOL = 1;
 
+/** At most this many headings go into an `outline`. */
+export const OUTLINE_LIMIT = 500;
+/** Heading texts and ids, and the ids `reveal` takes, are at most this long. */
+export const OUTLINE_TEXT = 300;
+
+export interface OutlineHeading {
+  /** 1 to 6. */
+  readonly level: number;
+  /** The heading's text, trimmed, at most 300 characters. */
+  readonly text: string;
+  /** The element id the renderer gave the heading, at most 300 characters; `reveal` takes it. */
+  readonly id: string;
+}
+
 /** A part of the context with the version it was sent at; a part is only sent again once its version changed. */
 export interface Versioned<T> {
   readonly version: string;
@@ -47,7 +61,15 @@ export type KitDocument =
   /** The kit shows the task's description and comments; the host its title and properties. */
   | { readonly kind: "task"; readonly task: Task }
   /** Any other Markdown: a pull request file, a comment. */
-  | { readonly kind: "markdown"; readonly area: ContentArea; readonly path: string; readonly source: string; readonly hash: string };
+  | {
+      readonly kind: "markdown";
+      readonly area: ContentArea;
+      readonly path: string;
+      readonly source: string;
+      readonly hash: string;
+      /** Whether its checkboxes tick, answered by `toggle`. Leaving it out keeps them ticking. */
+      readonly checkboxes?: boolean;
+    };
 
 export const EDITOR_COMMANDS = ["bold", "italic", "heading", "list", "checkbox", "link", "insert", "undo", "redo", "find", "save"] as const;
 export type EditorCommand = (typeof EDITOR_COMMANDS)[number];
@@ -67,6 +89,8 @@ export type ToKit =
       readonly hash: string;
       readonly readOnly: boolean;
     }
+  /** Scrolls the document shown to the element with this id (an `outline` heading's, or a followed link's anchor). */
+  | { readonly type: "reveal"; readonly id: string }
   /** The host's toolbar drives the editor; `insert` inserts `text`. */
   | { readonly type: "editorCommand"; readonly command: EditorCommand; readonly text?: string }
   | { readonly type: "reply"; readonly id: number; readonly value?: string; readonly error?: string };
@@ -84,6 +108,11 @@ export type FromKit =
   | { readonly type: "fileAt"; readonly id: number; readonly path: string; readonly revision: string }
   /** As `content.planHistory` answers, as JSON: for `[BURNDOWN]`, and for `[BASELINE]` with the tasks at `baseline`. */
   | { readonly type: "planHistory"; readonly id: number; readonly baseline: string | null }
+  /**
+   * The headings of the page or Markdown just rendered, in document order, for the host's "On this
+   * page"; after every render of a `page` or `markdown` preview, also when a new `context` re-renders it.
+   */
+  | { readonly type: "outline"; readonly path: string; readonly headings: readonly OutlineHeading[] }
   /** The rendered height in CSS pixels, to size the web view. */
   | { readonly type: "height"; readonly height: number }
   /** Unsaved text, to keep outside the repository. */
@@ -151,6 +180,8 @@ function documentOf(value: unknown): KitDocument {
     case "markdown":
       area(document, what);
       for (const key of ["path", "source", "hash"]) text(document, key, what);
+      if (document["checkboxes"] !== undefined && typeof document["checkboxes"] !== "boolean")
+        fail(`${what}.checkboxes is not true or false.`);
       return document as unknown as KitDocument;
     case "task": {
       const task = record(document["task"], `${what}.task`);
@@ -207,6 +238,9 @@ export function parseToKit(json: string): ToKit {
       area(message, "edit");
       for (const key of ["path", "text", "hash"]) text(message, key, "edit");
       if (typeof message["readOnly"] !== "boolean") fail("edit.readOnly is not true or false.");
+      return message as unknown as ToKit;
+    case "reveal":
+      if (text(message, "id", "reveal").length > OUTLINE_TEXT) fail(`reveal.id is longer than ${OUTLINE_TEXT} characters.`);
       return message as unknown as ToKit;
     case "editorCommand":
       if (!EDITOR_COMMANDS.includes(message["command"] as EditorCommand)) fail("editorCommand.command is not a command.");
@@ -272,6 +306,20 @@ export function checkFromKit(value: unknown): FromKit {
       whole(message, "id", what);
       if (message["baseline"] !== null) text(message, "baseline", what);
       break;
+    case "outline": {
+      text(message, "path", what);
+      const headings = list(message["headings"], `${what}.headings`);
+      if (headings.length > OUTLINE_LIMIT) fail(`${what}.headings has more than ${OUTLINE_LIMIT} headings.`);
+      for (const value of headings) {
+        const heading = record(value, `${what}.headings[]`);
+        const level = whole(heading, "level", `${what}.headings[]`);
+        if (level < 1 || level > 6) fail(`${what}.headings[].level is not 1 to 6.`);
+        for (const key of ["text", "id"])
+          if (text(heading, key, `${what}.headings[]`).length > OUTLINE_TEXT)
+            fail(`${what}.headings[].${key} is longer than ${OUTLINE_TEXT} characters.`);
+      }
+      break;
+    }
     case "height":
       whole(message, "height", what);
       break;
