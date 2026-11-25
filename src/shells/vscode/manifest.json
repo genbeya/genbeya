@@ -21,6 +21,7 @@
     "theme": "dark"
   },
   "categories": ["Other"],
+  "keywords": ["wiki", "kanban", "markdown", "git"],
   "engines": {
     "vscode": "^1.140.0"
   },
