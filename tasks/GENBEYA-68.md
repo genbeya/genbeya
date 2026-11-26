@@ -2,7 +2,7 @@
 id: GENBEYA-68
 title: Build the kit, Genbeya's renderer and editor as one bundle for other hosts
 type: feature
-status: review
+status: done
 priority: high
 labels: [kit, mobile, release]
 milestone: 0.2.1

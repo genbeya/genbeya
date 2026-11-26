@@ -2,7 +2,7 @@
 id: GENBEYA-67
 title: Update rockuml to 0.3.0
 type: chore
-status: review
+status: done
 priority: medium
 labels: [dependencies, diagrams]
 milestone: 0.2.1

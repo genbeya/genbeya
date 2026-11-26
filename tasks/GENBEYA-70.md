@@ -2,7 +2,7 @@
 id: GENBEYA-70
 title: "Kit additions for the mobile app: outline, reveal and read-only checkboxes"
 type: feature
-status: review
+status: done
 priority: high
 labels: [kit, mobile]
 milestone: 0.2.1

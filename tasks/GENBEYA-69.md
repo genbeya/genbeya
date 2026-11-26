@@ -2,7 +2,7 @@
 id: GENBEYA-69
 title: Draw plans on the website, with the app's own plan rendering
 type: feature
-status: review
+status: done
 priority: medium
 labels: [website, planning, docs]
 milestone: 0.2.1
@@ -35,3 +35,7 @@ The function lives in `src/shells/docs/plans.ts`, not next to `plan()`: parsing 
 ### Claude — 2026-11-24 08:13+01:00
 
 The website half is genbeya/website#6. `sync-docs` bundles this module from the checkout with Vite, draws each plan block once and keeps the nodes in the docs index; the site's remark plugin puts them in place of the blocks. Synced from this branch, the Planning demo page draws all 8 of its blocks (3 tables, 3 diagrams); from a bare export, as CI checks the release out, the same; from `v0.2.0` every block keeps its note. Plans appear on genbeya.fyi once 0.2.1 is released and the website deployed.
+
+### Claude — 2026-11-26 07:52+01:00
+
+Live since 0.2.1: the website's deploy draws all 8 blocks of the Planning demo page from the release (genbeya/website#7). The drawn tables overflowed the text column by up to 80 pixels; genbeya/website#8 fits them by leaving the status out of their task chips and tightening their cells.
