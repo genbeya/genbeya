@@ -3,32 +3,28 @@
  * Webviews render and report what the user does; every change happens in
  * the extension, through the managers, which check it.
  */
-import type { ContentArea, FieldDefinition, FieldValue, Person, Task, TaskType, WikiNode } from "../../../contracts/model";
-import type { PlanTask } from "../../../utilities/planning";
+import type { ContentArea, FieldDefinition, FieldValue, Task, TaskType } from "../../../contracts/model";
+import type { FollowedLink as RenderedLink, RenderContext } from "../../webview/markdown-renderer";
 
-/** What rendered pages and tasks need: reference targets, people, and the settings tasks are shown with. */
-export interface MarkdownContext {
+/** A link a webview's user followed, resolved against the document it is in; mentions stay in the webview. */
+export type FollowedLink = Exclude<RenderedLink, { kind: "person" }>;
+
+/** What rendered pages and tasks need: reference targets, people, the plan, and the settings tasks are shown with. */
+export interface MarkdownContext extends RenderContext {
   /** The snapshot's version: the same version shows the same. */
   readonly version: string;
-  readonly wikiRoot: string;
-  readonly wiki: readonly WikiNode[];
-  readonly tasks: readonly Pick<Task, "id" | "path" | "title" | "status">[];
-  /** The tasks as plan macros show them; none while the project doesn't use planning. */
-  readonly plan: readonly PlanTask[];
   /** Whether the project uses planning: blocked marks, plan macros. */
   readonly planning?: boolean;
-  readonly statuses: readonly string[];
   readonly hiddenColumns: readonly string[];
   readonly types: readonly TaskType[];
   readonly fields: readonly FieldDefinition[];
-  readonly files: readonly string[];
-  readonly people: readonly Person[];
   /** The name the user's comments are signed with: their own comments can be edited. */
   readonly author: string | null;
 }
 
 export type PreviewDocument =
-  | { readonly kind: "page"; readonly path: string; readonly title: string; readonly source: string }
+  /** `hash` is the version of the file shown; none while the editor has unsaved changes. */
+  | { readonly kind: "page"; readonly path: string; readonly title: string; readonly source: string; readonly hash?: string }
   | { readonly kind: "task"; readonly task: Task };
 
 /** Extension → webview. */
@@ -39,12 +35,6 @@ export type ToWebview =
   | { readonly type: "scroll"; readonly ratio: number }
   | { readonly type: "reply"; readonly id: number; readonly value?: string; readonly error?: string };
 
-/** A link a webview's user followed, resolved against the document it is in. */
-export type FollowedLink =
-  | { readonly kind: "external"; readonly url: string }
-  | { readonly kind: "missing"; readonly title: string }
-  | { readonly kind: "file"; readonly path: string; readonly anchor: string | undefined };
-
 /** Task properties the extension asks for with a quick pick or an input box. */
 export type PickedProperty = "title" | "status" | "type" | "priority" | "assignee" | "epic" | "labels";
 
@@ -54,7 +44,8 @@ export type FromWebview =
   | { readonly type: "follow"; readonly link: FollowedLink }
   | { readonly type: "preview"; readonly area: ContentArea; readonly path: string }
   | { readonly type: "edit"; readonly area: ContentArea; readonly path: string }
-  | { readonly type: "toggle"; readonly area: ContentArea; readonly path: string; readonly offset: number }
+  /** `hash` is the version the checkbox was shown in, when known: the toggle is refused once the file changed. */
+  | { readonly type: "toggle"; readonly area: ContentArea; readonly path: string; readonly offset: number; readonly hash?: string }
   /** Moves tasks to a state, and into an epic when dropped into a swimlane. */
   | { readonly type: "move"; readonly paths: readonly string[]; readonly status: string; readonly epic?: string }
   | { readonly type: "pick"; readonly path: string; readonly property: PickedProperty }
@@ -68,9 +59,11 @@ export type FromWebview =
   /**
    * Requests answered by a `reply` with the same ID: an image as a data URL, a
    * repository file's text (as committed in `revision`, for `fileAt`), a
-   * task's activity as JSON.
+   * task's activity as JSON, the plan's history as JSON (with the tasks at
+   * `baseline`, for `[BASELINE]`).
    */
   | { readonly type: "image"; readonly id: number; readonly path: string }
   | { readonly type: "file"; readonly id: number; readonly path: string }
   | { readonly type: "fileAt"; readonly id: number; readonly path: string; readonly revision: string }
-  | { readonly type: "activity"; readonly id: number; readonly path: string };
+  | { readonly type: "activity"; readonly id: number; readonly path: string }
+  | { readonly type: "planHistory"; readonly id: number; readonly baseline: string | null };

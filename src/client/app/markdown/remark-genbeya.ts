@@ -61,7 +61,7 @@ interface Entry {
 const TOC = /^\[(?:TOC|\[_?TOC_?\])\]$/i;
 const SUBPAGES = /^\[(?:SUBPAGES|\[_?TOSP_?\])\]$/i;
 /** `[EFFORT milestone=MVP]` alone in a paragraph: a plan of the matching tasks; see {@link plan}. */
-const PLAN = /^\[(EFFORT|DEPENDENCIES|GANTT|ARROWS|FLOAT)(?:\s+([^\]]*))?\]$/;
+export const PLAN = /^\[(EFFORT|DEPENDENCIES|GANTT|ARROWS|FLOAT)(?:\s+([^\]]*))?\]$/;
 /** `[BURNDOWN milestone=MVP]` and `[BASELINE v1.0 epic=Auth]`: plans over time, read from Git once the page shows. */
 const PLAN_HISTORY = /^\[(BURNDOWN|BASELINE)(?:\s+([^\]]*))?\]$/;
 /** `![[path#L1-L9]]` alone in a paragraph embeds those lines of a file. */
@@ -143,9 +143,10 @@ const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? on
  * logged, remaining, forecast and variance with totals; `[DEPENDENCIES]` a
  * Mermaid flowchart; `[GANTT]` a Mermaid timeline; `[ARROWS]` the critical
  * path as an arrow diagram, `[FLOAT]` as a table with each task's float. What is missing is said,
- * rather than shown as if it were complete.
+ * rather than shown as if it were complete. Exported for pages drawn outside the app
+ * (`src/shells/docs/plans.ts`).
  */
-function plan(
+export function plan(
   kind: string,
   filterText: string,
   { tasks, statuses, today, calendar = DEFAULT_CALENDAR }: NonNullable<GenbeyaOptions["plan"]>,

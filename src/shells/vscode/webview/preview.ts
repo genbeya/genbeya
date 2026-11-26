@@ -2,7 +2,8 @@
 import "./theme";
 import type { ContentArea } from "../../../contracts/model";
 import { Bridge } from "./bridge";
-import { MarkdownRenderer } from "./markdown";
+import { MarkdownRenderer } from "../../webview/markdown-renderer";
+import { rendererHost } from "./renderer-host";
 import { TaskView } from "./task";
 
 const root = document.getElementById("root")!;
@@ -20,8 +21,13 @@ const bridge = new Bridge((message) => {
   if (shown.kind === "task") return tasks.render(root, shown.task, context, context.version, { toolbar: true });
   const page = document.createElement("div");
   root.replaceChildren(page);
-  markdown.render(page, shown.source, { path: shown.path, area: "wiki", checkboxes: true }, context);
+  markdown.render(
+    page,
+    shown.source,
+    { path: shown.path, area: "wiki", checkboxes: true, ...(shown.hash ? { hash: shown.hash } : {}) },
+    context,
+  );
 });
-const markdown = new MarkdownRenderer(bridge);
+const markdown = new MarkdownRenderer(rendererHost(bridge));
 const tasks = new TaskView(bridge, markdown);
 markdown.listen(root);

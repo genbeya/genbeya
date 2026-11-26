@@ -1,0 +1,46 @@
+/* The kit's styles: the app's tokens, Markdown styles and fonts. A host's theme message overrides the tokens. */
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/jetbrains-mono/index.css";
+@import "../../client/styles/tokens.css";
+@import "../../client/styles/markdown.css";
+@import "../../client/styles/mentions.css";
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-app);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+/* The host sizes the web view to the content, so the page itself never scrolls sideways. */
+#root {
+  padding: 12px 16px;
+  overflow-x: hidden;
+}
+
+.kit-comment {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-strong);
+}
+
+.kit-comment-head {
+  margin: 0 0 6px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.kit-comment-head strong {
+  color: var(--text);
+}
+
+.kit-editor .cm-editor {
+  min-height: 60vh;
+  font-family: var(--font-mono);
+}
+
+.kit-editor .cm-editor.cm-focused {
+  outline: none;
+}

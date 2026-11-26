@@ -1,6 +1,6 @@
 {
   "name": "genbeya",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "A desktop workspace for Git repositories: wiki, tasks, code and version control",
   "author": "Emanuel Knecht",
@@ -28,7 +28,10 @@
     "package:tauri": "ng build && cd src/shells/tauri && tauri build",
     "build:vscode": "node scripts/build-vscode.mjs",
     "package:vscode": "node scripts/build-vscode.mjs --package",
-    "test:vscode": "node scripts/build-vscode.mjs && node scripts/test-vscode.mjs"
+    "test:vscode": "node scripts/build-vscode.mjs && node scripts/test-vscode.mjs",
+    "build:kit": "node scripts/build-kit.mjs",
+    "package:kit": "node scripts/build-kit.mjs --zip",
+    "e2e:kit": "node scripts/build-kit.mjs && playwright test --config playwright.kit.config.ts"
   },
   "dependencies": {
     "node-pty": "^1.1.0"
@@ -63,8 +66,8 @@
     "@lucide/angular": "^1.54.0",
     "@noble/hashes": "^2.4.0",
     "@playwright/test": "^1.64.0",
-    "@rockuml/angular": "^0.2.1",
-    "@rockuml/core": "^0.2.1",
+    "@rockuml/angular": "^0.3.0",
+    "@rockuml/core": "^0.3.0",
     "@tauri-apps/api": "^2.12.2",
     "@tauri-apps/cli": "^2.12.1",
     "@tauri-apps/plugin-dialog": "^2.8.1",

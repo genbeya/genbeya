@@ -166,7 +166,7 @@ export class Webviews implements vscode.Disposable {
         case "edit":
           return await this.host.edit({ area: message.area, path: message.path });
         case "toggle":
-          return await this.toggle(repository, message.area, message.path, message.offset);
+          return await this.toggle(repository, message.area, message.path, message.offset, message.hash);
         case "move":
           return await tasks.move(message.paths, message.status, message.epic);
         case "pick":
@@ -207,6 +207,11 @@ export class Webviews implements vscode.Disposable {
           );
         case "activity":
           return await reply(message.id, tasks.activity(message.path));
+        case "planHistory":
+          return await reply(
+            message.id,
+            repository.backend.content.planHistory(repository.id, message.baseline).then((history) => JSON.stringify(history)),
+          );
       }
     } catch (error) {
       void vscode.window.showErrorMessage(errorText(error));
@@ -247,19 +252,26 @@ export class Webviews implements vscode.Disposable {
     }
   }
 
-  /** Ticks or unticks a checklist item of a page or a task's description. */
-  private async toggle(repository: Repository, area: ContentArea, path: string, offset: number) {
+  /**
+   * Ticks or unticks a checklist item of a page or a task's description. With
+   * `hash`, the version the checkbox was shown in, a file that changed since is
+   * left alone: the preview is about to show the new version.
+   */
+  private async toggle(repository: Repository, area: ContentArea, path: string, offset: number, hash?: string) {
     const open = vscode.workspace.textDocuments.find((document) => document.uri.toString() === repository.uri(area, path).toString());
     if (open?.isDirty) {
       void vscode.window.showWarningMessage(`Save ${path} first; it has changes that are not saved.`);
       return;
     }
+    const changed = () => void vscode.window.showWarningMessage(`${path} changed since it was shown; try again.`);
     if (area === "tasks") {
+      if (hash && repository.snapshot.tasks.find((task) => task.path === path)?.hash !== hash) return changed();
       await this.host.tasks.update(path, (task) => ({ body: toggleCheckboxAt(task.body, offset) }));
       return;
     }
     const { content } = repository.backend;
     const file = await content.read(repository.id, "content", path);
+    if (hash && file.hash !== hash) return changed();
     await content.write(repository.id, "content", path, toggleCheckboxAt(file.content, offset), file.hash);
     await repository.refresh();
   }
@@ -308,8 +320,9 @@ export class Webviews implements vscode.Disposable {
     if (!page && !open) return null;
     const title = page?.title ?? target.path;
     try {
-      const source = open ? open.getText() : (await repository.backend.content.read(repository.id, "content", target.path)).content;
-      return { kind: "page", path: target.path, title, source };
+      if (open?.isDirty) return { kind: "page", path: target.path, title, source: open.getText() };
+      const { content: source, hash } = await repository.backend.content.read(repository.id, "content", target.path);
+      return { kind: "page", path: target.path, title, source, hash };
     } catch (error) {
       return { kind: "page", path: target.path, title, source: `> [!WARNING]\n> ${errorText(error)}` };
     }
@@ -333,6 +346,7 @@ export class Webviews implements vscode.Disposable {
       plan: settings.unused.includes("planning") ? [] : planTasks(snapshot.tasks),
       planning: !settings.unused.includes("planning"),
       statuses: settings.statuses,
+      calendar: { workdays: settings.workdays, holidays: settings.holidays, milestones: settings.milestones },
       hiddenColumns: settings.hiddenColumns,
       types: settings.types,
       fields: settings.fields,
