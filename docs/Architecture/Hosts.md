@@ -8,9 +8,11 @@ A host is the machine a repository lives on. Resource access only uses the `Host
 | WSL | `ShellHost` over `wsl.exe -d <distro> -e sh` |
 | SSH | `ShellHost` over `ssh -T -o BatchMode=yes <host> sh` |
 
+`HostFactory` (`host-factory.ts`) connects to all three; `LocalHosts` (`local-hosts.ts`) only to this computer, and refuses the others, for the VS Code extension ([Managers](Managers.md)). Both take locations validated by `locations.ts`.
+
 ## Terminals
 
-Each host also says how to start an interactive shell in a repository (`terminalCommand`, built in `src/access/hosts/terminal-commands.ts`). The shell runs on a pseudo-terminal of this machine:
+Each host also says how to start an interactive shell in a repository (`terminalCommand`, built in `src/access/hosts/terminal-commands.ts`). The shell runs on a pseudo-terminal of this machine, where the machine has them: `nodeMachine(nodeTerminals)` on Electron (`src/platforms/node/node-terminals.ts`, node-pty), none from a plain `nodeMachine()`. A `LocalHost` gets its shell command from `HostFactory`; one from `LocalHosts` has none.
 
 | Host | Command |
 | --- | --- |

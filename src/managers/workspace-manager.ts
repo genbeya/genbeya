@@ -13,15 +13,13 @@ import {
 } from "../contracts/model";
 import { Git } from "../access/git/git";
 import { RepositoryAccess } from "../access/git/repository-access";
-import type { Host } from "../access/hosts/host";
-import { validateFolderLocation, validateLocation, type HostFactory } from "../access/hosts/host-factory";
-import type { RemoteFolders } from "../access/hosts/remote-folders";
+import type { FolderBrowser, Host, Hosts } from "../access/hosts/host";
+import { validateFolderLocation, validateLocation } from "../access/hosts/locations";
 import type { PreferencesStore } from "../access/preferences/preferences-store";
 import type { SampleEngine } from "../engines/sample-engine";
 import type { WikiEngine } from "../engines/wiki-engine";
 import { encodeText, sha256 } from "../utilities/bytes";
 import { buildFileTree } from "../utilities/file-tree";
-import { requestedLink, requestedLocation } from "../utilities/launch-request";
 import { namesRemoteHelper } from "../utilities/remote-url";
 import { changePreferences } from "./preference-change";
 import { skippedAreas, taskIndexOf, Workspace, type Engines, type WorkspaceRegistry } from "./workspace";
@@ -39,13 +37,23 @@ async function freeFolder(host: Host, folder: string, name: string): Promise<str
   throw new Error(`${folder} already has a hundred ${name} folders.`);
 }
 
+/** Reads what a launch asks for (launch-request.ts), in shells that are launched with arguments. */
+export interface LaunchRequests {
+  /** Whether the arguments carry a link; the client opens it. */
+  requestedLink(args: readonly unknown[]): unknown;
+  /** The location the arguments ask to open, unvalidated, or undefined. */
+  requestedLocation(args: readonly unknown[]): unknown;
+}
+
 export class WorkspaceManager implements WorkspaceManagerContract {
   constructor(
     private readonly registry: WorkspaceRegistry,
-    private readonly hosts: HostFactory,
-    private readonly folders: RemoteFolders,
+    private readonly hosts: Hosts,
+    private readonly folders: FolderBrowser,
     private readonly preferencesStore: PreferencesStore,
     private readonly engines: Engines & { readonly wiki: WikiEngine; readonly sample: SampleEngine },
+    /** Null in shells that take no launch arguments. */
+    private readonly launch: LaunchRequests | null = null,
   ) {}
 
   async open(location: unknown): Promise<OpenedWorkspace> {
@@ -77,8 +85,8 @@ export class WorkspaceManager implements WorkspaceManagerContract {
     if (current) return { id: this.registry.activate(current), snapshot: await current.exclusive(() => this.compose(current)) };
     const args = Array.isArray(launchArgs) ? launchArgs : [];
     // The client finds the clone a link names; reopening the last repository first would be wasted.
-    if (requestedLink(args)) return null;
-    const requested = requestedLocation(args);
+    if (this.launch?.requestedLink(args)) return null;
+    const requested = this.launch?.requestedLocation(args);
     if (requested !== undefined) return this.open(requested);
     const last = this.preferencesStore.recent[0];
     if (!this.preferencesStore.preferences.reopenLast || !last) return null;

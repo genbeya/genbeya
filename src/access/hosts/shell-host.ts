@@ -2,7 +2,8 @@
 import { posixPaths } from "../../utilities/native-path";
 import type { RunOptions } from "../ports";
 import { HostError, type EntryKind, type Host, type HostErrorCode } from "./host";
-import { exportVariables, quote, type ShellSession } from "./shell-session";
+import { exportVariables, type ShellSession } from "./shell-session";
+import { quote } from "../../utilities/shell-quote";
 import type { TerminalCommand } from "./terminal-commands";
 
 /** Exit codes of the file scripts below. */

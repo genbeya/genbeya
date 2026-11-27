@@ -24,6 +24,35 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: "0.2",
+    items: [
+      {
+        title: "Pull requests",
+        body: "Ask for a review of a branch in **Pull requests** (`Ctrl+6`). The review, the discussion and the verdicts are a Markdown file in the repository. Open the first one with **New pull request** in `Ctrl+K`.",
+      },
+      {
+        title: "Plan with your tasks",
+        body: "Give tasks an estimate, the remaining effort, dates and what they wait for, and log time. `[GANTT]`, `[FLOAT]` and `[BURNDOWN]` on a page draw the timeline, the critical path and a burn chart.",
+      },
+      {
+        title: "Only the parts you use",
+        body: "Turn the wiki, the board, planning and other parts off for the project or just for you, in **Settings**. Planning, the time log and pull requests show by themselves once the project uses them.",
+      },
+      {
+        title: "References pinned to a revision",
+        body: "`#L10-L20@v0.1.0` after a file reference shows the lines as they were in that tag or commit, and opens them read-only in **Code**.",
+      },
+      {
+        title: "Images",
+        body: "Images open in **Code**, and **Changes** and **History** compare two versions side by side or swiped. Click an image or a diagram on a page to zoom in.",
+      },
+      {
+        title: "Boards and checklists",
+        body: "Swimlanes without a card to show are left out, and epics named with a number first, such as `2 Build`, sort by it. Checklists on wiki pages tick as the page reads.",
+      },
+    ],
+  },
+  {
     version: "0.1",
     items: [
       {

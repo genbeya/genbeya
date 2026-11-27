@@ -121,6 +121,31 @@ jobs:
           path: release-vscode/*.vsix
           if-no-files-found: error
 
+      # The kit (the renderer and the editor for other hosts' web views) is browser JavaScript, the
+      # same on every system: built, tested in Chromium (installed for the web demo) and packed
+      # once, on Linux. Releases attach its zip.
+      - name: Test the kit
+        if: runner.os == 'Linux'
+        run: npm run e2e:kit
+
+      - name: Pack the kit
+        if: runner.os == 'Linux'
+        run: |
+          npm run package:kit
+          zip=$(ls release-kit/genbeya-kit-*.zip)
+          {
+            echo "### The kit"
+            echo ""
+            echo "\`$(basename "$zip")\`: $(du -h "$zip" | cut -f1); \`kit.js\`, what a host loads first, $(gzip -c dist/kit/kit.js | wc -c | numfmt --to=iec) compressed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: Genbeya-kit
+          path: release-kit/*.zip
+          if-no-files-found: error
+
       # The Tauri shell embeds the client, which the end-to-end tests have built.
       - name: Test the Tauri shell
         run: cargo test --manifest-path src/shells/tauri/src-tauri/Cargo.toml
@@ -172,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      # For Open VSX's trusted publishing.
+      # For the trusted publishing of Open VSX and the Visual Studio Marketplace.
       id-token: write
     steps:
       - uses: actions/checkout@v5
@@ -221,14 +246,12 @@ jobs:
         if: steps.release.outputs.published == 'true'
         run: npx --yes ovsx@1.2.0 publish "out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix" --trusted-publishing
 
-      # Paused: the Visual Studio Marketplace refused the extension for an unnamed policy reason,
-      # with a week's cooldown before support reviews it again (GENBEYA-25). Remove `false &&` to
-      # publish there again; it needs the VSCE_PAT secret.
+      # The Visual Studio Marketplace trusts this workflow too (a Trusted Publishing policy of the
+      # genbeya publisher, for genbeya/genbeya and build.yml, without an environment), so vsce
+      # trades the job's OIDC token for a credential that lasts 15 minutes; --oidc needs vsce 4.1.
       - name: Publish the VS Code extension to the Visual Studio Marketplace
-        if: false && steps.release.outputs.published == 'true'
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx --yes @vscode/vsce@4.0.0 publish --packagePath "out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix"
+        if: steps.release.outputs.published == 'true'
+        run: npx --yes @vscode/vsce@4.1.0 publish --oidc --packagePath "out/installers/Genbeya-${{ steps.release.outputs.version }}-vscode.vsix"
 
       # Every push to main is a release or a hotfix, so the website rebuilds from it: genbeya/website's
       # deploy workflow listens for this event. GITHUB_TOKEN can't reach another repository, so this

@@ -6,6 +6,7 @@
  */
 import { decodeLenient, encodeText } from "../../utilities/bytes";
 import { SerialQueue } from "../../utilities/serial-queue";
+import { quote } from "../../utilities/shell-quote";
 import type { ChildProcess, ProcessRunner, RunResult } from "../ports";
 import { GIT_ENVIRONMENT } from "./host";
 
@@ -14,9 +15,6 @@ const CONNECT_TIMEOUT = 30_000;
 /** How long a closing sh may take to finish and clean up before it is killed. */
 const EXIT_GRACE = 3_000;
 const READY = "GDK-READY";
-
-/** Quotes a value for POSIX sh. */
-export const quote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
 
 /** `export 'NAME=value' …`, for a script that runs before commands. */
 export const exportVariables = (variables: Readonly<Record<string, string>>): string =>

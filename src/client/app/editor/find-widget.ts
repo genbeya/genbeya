@@ -20,8 +20,8 @@ import {
 } from "@codemirror/search";
 import { EditorSelection, type EditorState, type Extension, StateEffect, StateField, type Text } from "@codemirror/state";
 import { type Command, Decoration, EditorView, type KeyBinding, type Panel, runScopeHandlers, type ViewUpdate } from "@codemirror/view";
-import { isMac, MOD_KEY } from "../core/hotkeys";
-import { iconElement } from "../ui/icon";
+import { isMac, MOD_KEY } from "../core/platform-keys";
+import { iconElement } from "../ui/icon-element";
 import type { IconName } from "../ui/icon-data";
 
 /** Counting stops here, so a pattern that matches everywhere in a huge file stays fast. */

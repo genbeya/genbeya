@@ -6,7 +6,7 @@
 import { codeFolding, foldGutter } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { iconElement } from "../ui/icon";
+import { iconElement } from "../ui/icon-element";
 
 function marker(open: boolean): HTMLElement {
   const element = document.createElement("span");

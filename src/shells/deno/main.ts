@@ -6,7 +6,7 @@
 import { spawn } from "node:child_process";
 import { DENO_UNSAVED_CHECK, SHELL_OPERATIONS, type ShellOperation } from "../../contracts/bridges";
 import { dispatch } from "../../contracts/rpc";
-import { locationOfFolder } from "../../access/hosts/host-factory";
+import { locationOfFolder } from "../../access/hosts/locations";
 import { createBackend } from "../../managers/backend";
 import { nodeMachine } from "../../platforms/node/node-machine";
 import { CONTENT_SECURITY_POLICY } from "../content-security-policy";
@@ -96,8 +96,8 @@ addEventListener("unhandledrejection", (event) => {
 });
 
 // node-pty loads under Deno, but opens its Windows pipes with fs calls Deno does not support, and
-// `deno desktop` cannot bundle native modules; the client says the terminal is not available.
-const backend = await createBackend({ ...nodeMachine(), terminals: null }, dataFolder);
+// `deno desktop` cannot bundle native modules. So the machine has no terminals, and the client says the terminal is not available.
+const backend = await createBackend(nodeMachine(), dataFolder);
 const window = new Deno.BrowserWindow({ title: "Genbeya", width: 1440, height: 920 });
 
 const operations: Record<ShellOperation, (...args: unknown[]) => Promise<unknown>> = {

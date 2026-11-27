@@ -3,7 +3,7 @@
  * runs on this machine's pseudo-terminal; for WSL and SSH it reaches the
  * other machine itself.
  */
-import { quote } from "./shell-session";
+import { quote } from "../../utilities/shell-quote";
 
 export interface TerminalCommand {
   readonly command: string;

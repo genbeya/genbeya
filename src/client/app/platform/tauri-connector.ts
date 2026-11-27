@@ -10,7 +10,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { connectManagers, dispatch } from "../../../contracts/rpc";
-import { locationOfFolder } from "../../../access/hosts/host-factory";
+import { locationOfFolder } from "../../../access/hosts/locations";
 import { createBackend } from "../../../managers/backend";
 import { tauriMachine } from "../../../platforms/tauri/tauri-machine";
 import type { Platform } from "./platform";

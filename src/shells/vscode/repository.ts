@@ -4,10 +4,10 @@
  */
 import * as vscode from "vscode";
 import type { ContentArea, Person, Snapshot } from "../../contracts/model";
-import { locationOfFolder } from "../../access/hosts/host-factory";
+import { locationOfFolder } from "../../access/hosts/locations";
 import { flattenPages } from "../../client/app/features/wiki/wiki-pages";
 import type { ReferenceSources } from "../../client/app/markdown/references";
-import type { Backend } from "../../managers/backend";
+import type { Backend } from "../../managers/compose-backend";
 import { filePaths } from "../../utilities/file-tree";
 import { referenceIndex, type ReferenceIndex } from "../../utilities/references";
 import { CONTENT_SCHEME } from "./content-files";
